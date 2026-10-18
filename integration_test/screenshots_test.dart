@@ -332,6 +332,38 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
+
+    // A8 from a movie match (Back lands on A13 again): the billed cast as
+    // actor suggestions, D10 starting on Actors, and the picker's "New on
+    // this entry" group.
+    // The field lost focus on the way back, so typing needs a tap first.
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Soul');
+    await tester.pump(NewEntryScreen.debounce);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('MOVIE · 2020'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Suggested · tap to add'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await capture(tester, 'a8-new-entry-actors');
+    await tester.tap(find.bySemanticsLabel('Add #tina-fey'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'd10-new-actor-tag');
+    await tester.ensureVisible(find.text('Create tag'));
+    await tester.tap(find.text('Create tag'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TagChip, '#tina-fey'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'd14-tag-picker-new-tag');
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 

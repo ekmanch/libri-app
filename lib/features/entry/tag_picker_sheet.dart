@@ -28,9 +28,11 @@ class TagPick {
 }
 
 /// The entry form's tag picker (D14), the only place a tag can be created.
-/// Every category is open, except game genres outside games and music
-/// genres outside music; a search narrows them and finds every tag, and a
-/// name that matches
+/// The library's categories are folding rows, all folded when the picker
+/// opens except the ones that hold a tag already on the entry; "New on
+/// this entry" is always open. Game genres show only for games, music
+/// genres for music and actors for movies and shows. A search shows the
+/// matches from every group, folded or not, and a name that matches
 /// nothing exactly can be created, through the similar-tag check (D9) and
 /// the category dialog (D10). Resolves with null when dismissed.
 Future<TagPick?> showTagPickerSheet(
@@ -78,6 +80,20 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
   late final List<String> _selected = [...widget.selected];
   late final Map<String, TagCategory> _created = {...widget.created};
   final _query = TextEditingController();
+
+  /// The groups unfolded right now. Every group starts folded except the
+  /// ones that already hold a tag on this entry (D14).
+  late final Set<TagCategory> _open = {
+    for (final MapEntry(key: category, value: names)
+        in widget.library.tags.entries)
+      if (names.any(widget.selected.contains)) category,
+  };
+
+  void _toggleOpen(TagCategory category) {
+    setState(() {
+      if (!_open.remove(category)) _open.add(category);
+    });
+  }
 
   @override
   void dispose() {
@@ -146,7 +162,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
 
     // "New on this entry" first, then the library's categories, each A to
     // Z. A long group is a row that opens A28 (D14 note), unless a search
-    // narrows it.
+    // narrows it; while a search is typed every group with a match is open.
     final groups = <(TagCategory?, String, List<String>)>[
       if (_created.isNotEmpty)
         (null, 'New on this entry', _created.keys.where(matches).toList()),
@@ -228,11 +244,9 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
                 ),
               ),
             ),
-          for (final (category, name, tags) in groups) ...[
-            if (category != null &&
-                query.isEmpty &&
-                tags.length > longTagGroup) ...[
-              const SizedBox(height: 8),
+          if (canCreate) const SizedBox(height: 8),
+          for (final (category, name, tags) in groups)
+            if (category != null && query.isEmpty && tags.length > longTagGroup)
               TagGroupRow(
                 label: name,
                 detail: tagGroupCountLabel(
@@ -248,32 +262,25 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
                   library: widget.library,
                   onToggle: _toggle,
                 ),
+              )
+            else
+              TagGroup(
+                label: name,
+                tags: tags,
+                selected: _selected,
+                open:
+                    category == null ||
+                    query.isNotEmpty ||
+                    _open.contains(category),
+                onToggleOpen: category == null
+                    ? null
+                    : () => _toggleOpen(category),
+                onToggleTag: _toggle,
+                chipStyle: PillChipStyle.neutral,
+                checked: true,
+                chipHeight: 40,
+                chipPadding: 12,
               ),
-            ] else ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
-                child: Text(
-                  name.toUpperCase(),
-                  style: theme.textTheme.labelSmall!.copyWith(fontSize: 12.5),
-                ),
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final tag in tags)
-                    PillChip(
-                      label: '#$tag',
-                      selected: _selected.contains(tag),
-                      checked: true,
-                      height: 40,
-                      horizontalPadding: 12,
-                      onTap: () => _toggle(tag),
-                    ),
-                ],
-              ),
-            ],
-          ],
           if (query.isNotEmpty && groups.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 16),

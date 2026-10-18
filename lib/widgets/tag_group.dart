@@ -5,8 +5,10 @@ import 'app_icons.dart';
 import 'chips.dart';
 
 /// One collapsible tag category: a 44 px header with the number picked and
-/// a chevron, and the tags as accent chips when open. Used by the filter
-/// sheet (A2) and the entry form's tag picker (A8).
+/// a chevron, and the tags as chips when open. Used by the filter sheet
+/// (A2) and the entry form's tag picker (D14). Without [onToggleOpen] the
+/// header is a plain label and the group is always open ("New on this
+/// entry" in D14).
 class TagGroup extends StatelessWidget {
   const TagGroup({
     super.key,
@@ -16,14 +18,25 @@ class TagGroup extends StatelessWidget {
     required this.open,
     required this.onToggleOpen,
     required this.onToggleTag,
+    this.chipStyle = PillChipStyle.accent,
+    this.checked = false,
+    this.chipHeight = 44,
+    this.chipPadding = 14,
   });
 
   final String label;
   final List<String> tags;
   final Iterable<String> selected;
   final bool open;
-  final VoidCallback onToggleOpen;
+  final VoidCallback? onToggleOpen;
   final ValueChanged<String> onToggleTag;
+
+  /// How the chips look: accent fills in the filter sheet, neutral fills
+  /// with a check mark in the tag picker.
+  final PillChipStyle chipStyle;
+  final bool checked;
+  final double chipHeight;
+  final double chipPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +44,31 @@ class TagGroup extends StatelessWidget {
     final colors = LibraryColors.of(context);
     final picked = tags.where(selected.contains).length;
     if (tags.isEmpty) return const SizedBox.shrink();
+    final folds = onToggleOpen != null;
+    final header = SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: theme.textTheme.labelLarge)),
+          if (picked > 0)
+            Text(
+              '$picked selected',
+              style: theme.textTheme.bodySmall!.copyWith(fontSize: 13),
+            ),
+          if (folds) ...[
+            const SizedBox(width: 8),
+            RotatedBox(
+              quarterTurns: open ? 2 : 0,
+              child: StrokeIcon(
+                AppIcons.chevronDown,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
     return Container(
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.divider)),
@@ -38,39 +76,14 @@ class TagGroup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Semantics(
-            button: true,
-            expanded: open,
-            child: InkWell(
-              onTap: onToggleOpen,
-              child: SizedBox(
-                height: 44,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(label, style: theme.textTheme.labelLarge),
-                    ),
-                    if (picked > 0)
-                      Text(
-                        '$picked selected',
-                        style: theme.textTheme.bodySmall!.copyWith(
-                          fontSize: 13,
-                        ),
-                      ),
-                    const SizedBox(width: 8),
-                    RotatedBox(
-                      quarterTurns: open ? 2 : 0,
-                      child: StrokeIcon(
-                        AppIcons.chevronDown,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          if (folds)
+            Semantics(
+              button: true,
+              expanded: open,
+              child: InkWell(onTap: onToggleOpen, child: header),
+            )
+          else
+            Semantics(header: true, child: header),
           if (open)
             Padding(
               // Room for the chips' 48 dp touch area above the first row.
@@ -83,7 +96,10 @@ class TagGroup extends StatelessWidget {
                     PillChip(
                       label: '#$tag',
                       selected: selected.contains(tag),
-                      style: PillChipStyle.accent,
+                      style: chipStyle,
+                      checked: checked,
+                      height: chipHeight,
+                      horizontalPadding: chipPadding,
                       onTap: () => onToggleTag(tag),
                     ),
                 ],
