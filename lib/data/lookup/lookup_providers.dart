@@ -15,6 +15,7 @@ import 'lookup_keys.dart';
 import 'lookup_service.dart';
 import 'lookup_source.dart';
 import 'open_library_source.dart';
+import 'season_check.dart';
 import 'tmdb_source.dart';
 import 'track_list_service.dart';
 import 'track_list_store.dart';
@@ -52,6 +53,17 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
 
 final lookupServiceProvider = Provider<LookupService>(
   (ref) => LookupService(ref.watch(lookupSourcesProvider)),
+);
+
+/// The daily check for new seasons, or null for none. Off by default, so a
+/// scope without a cache folder never runs it; `main` turns on
+/// [fileSeasonCheck], and the fake overrides one that keeps its day in
+/// memory.
+final seasonCheckProvider = Provider<SeasonCheck?>((ref) => null);
+
+SeasonCheck fileSeasonCheck(Ref ref) => SeasonCheck(
+  lookups: ref.watch(lookupServiceProvider),
+  store: FileSeasonCheckStore(ref.watch(appCacheDirectoryProvider)),
 );
 
 /// Album track lists (A22), stored under the app cache folder. The fake

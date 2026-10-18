@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/media_type.dart';
+import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
+import 'package:library_app/dev/fake_lookup.dart';
+import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/library/home_return_provider.dart';
 import 'package:library_app/features/library/home_type_provider.dart';
 import 'package:library_app/features/library/library_home_screen.dart';
@@ -279,5 +284,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Applied'), findsOneWidget);
     expect(find.text('Sheet'), findsNothing);
+  });
+
+  testWidgets('the daily check adds a new season to a show being watched', (
+    tester,
+  ) async {
+    final fixture = loadFixture();
+    final severance = fixture
+        .entryById('shows/severance-2022')!
+        .copyWith(source: 'tmdb:tv:95396');
+    final today = DateTime.now();
+    final soon = DateTime(today.year, today.month, today.day + 3);
+    final fake = FakeLookupSource(
+      seasonsBySource: {
+        'tmdb:tv:95396': [
+          ...severance.seasons!,
+          Season(
+            season: 3,
+            released: Released(soon.year, soon.month, soon.day),
+          ),
+        ],
+      },
+    );
+    final container = await pumpApp(
+      tester,
+      const AppShell(libraryHome: _Home('Library'), plansHome: _Home('Plans')),
+      library: fixture.copyWith(
+        entries: [
+          for (final e in fixture.entries) e.id == severance.id ? severance : e,
+        ],
+      ),
+      // Wider than a phone: the test font is wide.
+      size: const Size(480, 844),
+      lookupOverrides: fakeLookupOverrides(source: fake),
+    );
+    await tester.pumpAndSettle();
+    final saved = (await container.read(libraryRepositoryProvider).load())
+        .entryById(severance.id)!;
+    expect([for (final s in saved.seasons!) s.season], [1, 2, 3]);
+    expect(saved.seasons!.last.isNew, isTrue);
+    expect(saved.hasNewSeason, isTrue);
+    expect(fake.calls, ['seasons:tmdb:tv:95396']);
   });
 }

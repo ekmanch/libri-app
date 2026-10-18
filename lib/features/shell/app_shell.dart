@@ -23,6 +23,7 @@ import '../sync/token_expiry.dart';
 import '../sync/token_expiry_dialog.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
+import '../../data/lookup/lookup_providers.dart';
 import 'fab_action.dart';
 import 'floating_nav_bar.dart';
 
@@ -99,9 +100,30 @@ class _AppShellState extends ConsumerState<AppShell> {
       (_, _) => unawaited(_warnAboutToken()),
       fireImmediately: true,
     );
+    // New seasons of the shows being watched, once a day: when the
+    // library first loads and when the app comes back to the foreground.
+    ref.listenManual(libraryProvider.select((l) => l.hasValue), (_, loaded) {
+      if (loaded) unawaited(_checkSeasons());
+    }, fireImmediately: true);
     _lifecycle = AppLifecycleListener(
-      onResume: () => unawaited(_warnAboutToken()),
+      onResume: () {
+        unawaited(_warnAboutToken());
+        unawaited(_checkSeasons());
+      },
     );
+  }
+
+  /// Adds the new seasons the daily check found, once a day.
+  Future<void> _checkSeasons() async {
+    final library = ref.read(libraryProvider).value;
+    final check = ref.read(seasonCheckProvider);
+    if (library == null || check == null) return;
+    final operations = await check.run(library, DateTime.now());
+    if (!mounted) return;
+    final repository = ref.read(libraryRepositoryProvider);
+    for (final operation in operations) {
+      await repository.apply(operation);
+    }
   }
 
   @override

@@ -10,6 +10,7 @@ import 'data/images/artwork_providers.dart';
 import 'data/github/token_store.dart';
 import 'data/library_codec.dart';
 import 'data/library_providers.dart';
+import 'data/lookup/lookup_providers.dart';
 import 'data/preferences/preferences_store.dart';
 import 'data/repository/fixture_library_repository.dart';
 import 'data/storage/app_files.dart';
@@ -84,6 +85,7 @@ Future<Widget> bootstrap(
       initialDisplayPreferencesProvider.overrideWithValue(prefs),
       if (api != null) gitHubApiFactoryProvider.overrideWithValue(api),
       artworkPrunerProvider.overrideWith(startArtworkPruner),
+      seasonCheckProvider.overrideWith(fileSeasonCheck),
       if (longListsEnabled)
         libraryRepositoryProvider.overrideWithValue(
           FixtureLibraryRepository(loadJson: _loadPaddedFixture),
