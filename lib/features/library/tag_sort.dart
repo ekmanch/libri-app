@@ -58,6 +58,7 @@ String tagGroupNoun(TagCategory category, int count) {
   final one = switch (category) {
     TagCategory.authors => 'author',
     TagCategory.directors => 'director',
+    TagCategory.actors => 'actor',
     TagCategory.studios => 'studio',
     _ => 'tag',
   };

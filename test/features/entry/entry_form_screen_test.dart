@@ -572,6 +572,68 @@ void main() {
       expect(find.bySemanticsLabel('Add #pete-docter'), findsNothing);
     });
 
+    testWidgets('a movie suggests its top three billed as new actor tags', (
+      tester,
+    ) async {
+      final match = FakeLookupSource.catalogSearch(
+        'soul',
+        type: MediaType.movies,
+      ).single;
+      await pumpApp(tester, EntryFormScreen.create(match: match));
+      await scrollTo(tester, find.text('Suggested · tap to add'));
+      for (final actor in ['jamie-foxx', 'tina-fey', 'graham-norton']) {
+        expect(find.bySemanticsLabel('Add #$actor'), findsOneWidget);
+      }
+      // The new tag starts in the Actors group (D10).
+      await tester.tap(find.bySemanticsLabel('Add #tina-fey'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('It will be added to your tag list under Actors.'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('Create tag'));
+      await tester.tap(find.text('Create tag'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TagChip, '#tina-fey'), findsOneWidget);
+      expect(find.bySemanticsLabel('Add #tina-fey'), findsNothing);
+    });
+
+    testWidgets('an actor the library already has goes on at once', (
+      tester,
+    ) async {
+      final fixture = loadFixture();
+      final soul = FakeLookupSource.catalogSearch(
+        'soul',
+        type: MediaType.movies,
+      ).single;
+      await pumpApp(
+        tester,
+        EntryFormScreen.create(match: soul),
+        library: fixture.copyWith(
+          tags: {
+            ...fixture.tags,
+            TagCategory.actors: ['tina-fey'],
+          },
+        ),
+      );
+      await scrollTo(tester, find.text('Suggested · tap to add'));
+      expect(find.widgetWithText(TagChip, '#tina-fey'), findsOneWidget);
+      expect(find.bySemanticsLabel('Add #tina-fey'), findsNothing);
+      expect(find.bySemanticsLabel('Add #jamie-foxx'), findsOneWidget);
+    });
+
+    testWidgets('a show gets its cast too', (tester) async {
+      final show = FakeLookupSource.catalogSearch(
+        'the last of us',
+        type: MediaType.shows,
+      ).single;
+      await pumpApp(tester, EntryFormScreen.create(match: show));
+      await scrollTo(tester, find.text('Suggested · tap to add'));
+      expect(find.bySemanticsLabel('Add #pedro-pascal'), findsOneWidget);
+      expect(find.bySemanticsLabel('Add #bella-ramsey'), findsOneWidget);
+      expect(find.bySemanticsLabel('Add #gabriel-luna'), findsOneWidget);
+    });
+
     testWidgets('an existing studio tag goes on at once, like a genre', (
       tester,
     ) async {
@@ -647,10 +709,18 @@ void main() {
 
     testWidgets('picks existing tags from their groups', (tester) async {
       final container = await openPicker(tester);
-      // Every category is open (D14).
-      expect(find.text('GENRES'), findsOneWidget);
-      expect(find.text('MOOD'), findsOneWidget);
+      // Every category starts folded (D14): its row is there, its chips
+      // are not until it is opened.
+      expect(find.text('Genres'), findsOneWidget);
+      expect(find.text('Mood'), findsOneWidget);
+      expect(find.widgetWithText(PillChip, '#horror'), findsNothing);
+      await tester.tap(find.text('Genres'));
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(PillChip, '#horror'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Mood'));
+      await tester.tap(find.text('Mood'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.widgetWithText(PillChip, '#dark'));
       await tester.tap(find.widgetWithText(PillChip, '#dark'));
       await tester.pumpAndSettle();
@@ -659,6 +729,86 @@ void main() {
       expect(find.text('#dark'), findsOneWidget);
       await add(tester);
       expect(repo(container).current!.entries.last.tags, ['horror', 'dark']);
+    });
+
+    testWidgets(
+      'groups holding a tag on the entry start open; folded rows count '
+      'the selected; a search opens every match',
+      (tester) async {
+        await openPicker(tester);
+        await tester.tap(find.text('Genres'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(PillChip, '#horror'));
+        await tester.pumpAndSettle();
+        await done(tester);
+        // Opened again: Genres is open because #horror is on the entry,
+        // the rest stay folded.
+        await tester.tap(find.widgetWithText(TagChip, '#horror'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(PillChip, '#horror'), findsOneWidget);
+        expect(find.widgetWithText(PillChip, '#dark'), findsNothing);
+        // Folded, Genres still says how many of its tags are picked.
+        await tester.tap(find.text('Genres'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(PillChip, '#horror'), findsNothing);
+        expect(find.text('1 selected'), findsOneWidget);
+        // A search shows the matches from every group, folded or not.
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(TagPickerSheet),
+            matching: find.byType(TextField),
+          ),
+          'dar',
+        );
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(PillChip, '#dark'), findsOneWidget);
+      },
+    );
+
+    Future<void> openWithActors(WidgetTester tester, MediaType type) async {
+      final fixture = loadFixture();
+      await pumpApp(
+        tester,
+        EntryFormScreen.create(type: type),
+        library: fixture.copyWith(
+          tags: {
+            ...fixture.tags,
+            TagCategory.actors: ['kate-siegel'],
+          },
+        ),
+      );
+      await tester.enterText(field('Title'), 'Midnight Mass');
+      await scrollTo(tester, find.text('Choose from your tags'));
+      await tester.tap(find.text('Choose from your tags'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Actors shows for a show, folded like the rest', (
+      tester,
+    ) async {
+      await openWithActors(tester, MediaType.shows);
+      expect(find.text('Actors'), findsOneWidget);
+      expect(find.widgetWithText(PillChip, '#kate-siegel'), findsNothing);
+      await tester.tap(find.text('Actors'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(PillChip, '#kate-siegel'), findsOneWidget);
+    });
+
+    testWidgets('Actors is left out for a book, unless searched', (
+      tester,
+    ) async {
+      await openWithActors(tester, MediaType.books);
+      expect(find.text('Actors'), findsNothing);
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(TagPickerSheet),
+          matching: find.byType(TextField),
+        ),
+        'kate',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Actors'), findsOneWidget);
+      expect(find.widgetWithText(PillChip, '#kate-siegel'), findsOneWidget);
     });
 
     testWidgets('groups are A to Z; a long one is a row that opens A28', (
@@ -682,6 +832,8 @@ void main() {
       );
       await scrollTo(tester, find.text('Choose from your tags'));
       await tester.tap(find.text('Choose from your tags'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Genres'));
       await tester.pumpAndSettle();
       final adventure = tester.getTopLeft(
         find.widgetWithText(PillChip, '#adventure'),
@@ -715,8 +867,8 @@ void main() {
       tester,
     ) async {
       await openPicker(tester);
-      expect(find.text('GAME GENRES'), findsNothing);
-      expect(find.text('MUSIC GENRES'), findsNothing);
+      expect(find.text('Game genres'), findsNothing);
+      expect(find.text('Music genres'), findsNothing);
       // A search finds any tag.
       await tester.enterText(
         find.descendant(
@@ -726,7 +878,7 @@ void main() {
         'metro',
       );
       await tester.pumpAndSettle();
-      expect(find.text('GAME GENRES'), findsOneWidget);
+      expect(find.text('Game genres'), findsOneWidget);
       expect(find.widgetWithText(PillChip, '#metroidvania'), findsOneWidget);
     });
 
@@ -768,7 +920,7 @@ void main() {
       await tester.ensureVisible(find.text('Create tag'));
       await tester.tap(find.text('Create tag'));
       await tester.pumpAndSettle();
-      expect(find.text('NEW ON THIS ENTRY'), findsOneWidget);
+      expect(find.text('New on this entry'), findsOneWidget);
       expect(find.widgetWithText(PillChip, '#gothic'), findsOneWidget);
       // Not in the library until the entry is saved.
       expect(repo(container).current!.allTags.contains('gothic'), isFalse);

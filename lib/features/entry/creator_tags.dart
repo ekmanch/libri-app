@@ -1,9 +1,11 @@
-/// The tag the entry form suggests for its creator field (A8): the author
-/// of a book, the director of a movie, the studio of a game or an anime,
-/// each as a slug ("#stephen-king", "#naughty-dog") in its creator group.
-/// Studios whose name is how their films are known get their tag instead
-/// of the director's: a Pixar film suggests #pixar, not the director. Music
-/// suggests nothing, since an artist is not a tag.
+/// The tags the entry form suggests for the people behind an entry (A8):
+/// the creator field's author of a book, director of a movie or studio of
+/// a game or an anime, each as a slug ("#stephen-king", "#naughty-dog") in
+/// its creator group, and for movies and shows the top-billed cast from the
+/// lookup as actor tags ("#kate-siegel"). Studios whose name is how their
+/// films are known get their tag instead of the director's: a Pixar film
+/// suggests #pixar, not the director. Music suggests nothing, since an
+/// artist is not a tag.
 library;
 
 import '../../data/models/entry_id.dart';
@@ -65,6 +67,27 @@ List<CreatorTag> creatorTags({
     final tag = house ?? slugify(name);
     if (tag.isEmpty || tags.any((t) => t.tag == tag)) continue;
     tags.add((tag: tag, category: house != null ? TagCategory.studios : group));
+  }
+  return tags;
+}
+
+/// How many of the billed cast A8 suggests, at most.
+const maxActorTags = 3;
+
+/// Actor tags for an entry of [type] from a lookup's billed [cast], in
+/// billing order: at most [maxActorTags], movies and shows only, each in
+/// the Actors group.
+List<CreatorTag> actorTags({
+  required MediaType type,
+  Iterable<String> cast = const [],
+}) {
+  if (type != MediaType.movies && type != MediaType.shows) return const [];
+  final tags = <CreatorTag>[];
+  for (final name in cast) {
+    final tag = slugify(name);
+    if (tag.isEmpty || tags.any((t) => t.tag == tag)) continue;
+    tags.add((tag: tag, category: TagCategory.actors));
+    if (tags.length == maxActorTags) break;
   }
   return tags;
 }

@@ -115,6 +115,12 @@ void main() {
           {'id': 14, 'name': 'Fantasy'},
         ],
         'credits': {
+          'cast': [
+            {'order': 0, 'name': 'Brendan Fraser'},
+            {'order': 1, 'name': 'Rachel Weisz'},
+            {'order': 2, 'name': 'John Hannah'},
+            {'order': 3, 'name': 'Arnold Vosloo'},
+          ],
           'crew': [
             {'job': 'Producer', 'name': 'Someone'},
             {'job': 'Director', 'name': 'Stephen Sommers'},
@@ -131,6 +137,8 @@ void main() {
     expect(sent.single.url.path, '/3/movie/564');
     expect(sent.single.url.queryParameters, {'append_to_response': 'credits'});
     expect(full.creator, 'Stephen Sommers');
+    // The top three billed, in order (A8 suggests them as actor tags).
+    expect(full.cast, ['Brendan Fraser', 'Rachel Weisz', 'John Hannah']);
     expect(full.tags, ['Adventure', 'Fantasy']);
     expect(full.description, 'Full overview.');
     expect(full.source, plain.source);
@@ -149,6 +157,12 @@ void main() {
         'genres': [
           {'name': 'Drama'},
         ],
+        'credits': {
+          'cast': [
+            {'name': 'Pedro Pascal'},
+            {'name': 'Bella Ramsey'},
+          ],
+        },
       }),
     );
     final full = await tmdb.details(
@@ -159,8 +173,10 @@ void main() {
       ),
     );
     expect(sent.single.url.path, '/3/tv/100088');
-    expect(sent.single.url.hasQuery, isFalse);
+    // Shows ask for the credits too, for the cast.
+    expect(sent.single.url.queryParameters, {'append_to_response': 'credits'});
     expect(full.creator, 'Craig Mazin, Neil Druckmann');
+    expect(full.cast, ['Pedro Pascal', 'Bella Ramsey']);
     expect(full.released, const Released(2023, 1, 15));
   });
 

@@ -124,6 +124,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   /// Existing tags the lookup matched; they start selected and come back
   /// as suggestions when removed.
   List<String> _suggestedExisting = const [];
+
+  /// The group a new suggestion is created in when it is not the type's
+  /// default: the Actors group for the cast.
+  final Map<String, TagCategory> _suggestedCategories = {};
   bool _suggestionsPrepared = false;
 
   /// The platform chips: from the lookup, the entry and the library, plus
@@ -290,6 +294,17 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         matched.add(t.tag);
       }
     }
+    // The top-billed cast of a movie or show, at most three, outside the
+    // six: an actor the library has goes on at once, the rest are offered
+    // as new tags in the Actors group. People match by exact slug only.
+    for (final t in _actorTags) {
+      if (existing.contains(t.tag)) {
+        if (!matched.contains(t.tag)) matched.add(t.tag);
+      } else if (!fresh.contains(t.tag)) {
+        fresh.add(t.tag);
+        _suggestedCategories[t.tag] = t.category;
+      }
+    }
     _suggestedExisting = matched;
     _suggestedNew = fresh;
     for (final tag in matched) {
@@ -305,6 +320,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     creator: _creator.text,
     companies: _match?.companies ?? const [],
   );
+
+  /// The actor tags for the lookup's billed cast (A8): #kate-siegel, at
+  /// most three, for movies and shows.
+  List<CreatorTag> get _actorTags =>
+      actorTags(type: _type, cast: _match?.cast ?? const []);
 
   /// The creator tags not on the entry, offered under the field once the
   /// field is left. Ones the lookup already matched come back through
@@ -350,7 +370,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final category = await showNewTagDialog(
       context,
       name: tag,
-      initial: TagCategory.defaultFor(_type),
+      initial: _suggestedCategories[tag] ?? TagCategory.defaultFor(_type),
     );
     if (category == null || !mounted) return;
     setState(() {
@@ -394,6 +414,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     // build, as for a new entry.
     _suggestedExisting = const [];
     _suggestedNew = const [];
+    _suggestedCategories.clear();
     _suggestionsPrepared = false;
   }
 

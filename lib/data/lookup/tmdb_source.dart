@@ -18,6 +18,9 @@ class TmdbSource extends HttpLookupSource {
   final String token;
   final Uri _baseUrl;
 
+  /// How many of the billed cast a match carries (A8 suggests that many).
+  static const topBilled = 3;
+
   static const _images = 'https://image.tmdb.org/t/p/';
 
   /// Poster widths: rows show a 44 dp thumbnail, the cache keeps the list
@@ -125,20 +128,23 @@ class TmdbSource extends HttpLookupSource {
   @override
   Future<LookupMatch> details(LookupMatch match) async {
     final (kind, id) = _parse(match.source);
-    final json = await _get(
-      '$kind/$id',
-      kind == 'movie' ? const {'append_to_response': 'credits'} : null,
-    );
+    // The credits carry the director (movies) and the billed cast (both).
+    final json = await _get('$kind/$id', const {
+      'append_to_response': 'credits',
+    });
+    final credits = json['credits'] as Map<String, Object?>? ?? const {};
     final tv = kind == 'tv';
     final creators = tv
         ? [for (final c in objectsAt(json, 'created_by')) ?stringAt(c, 'name')]
         : [
-            for (final c in objectsAt(
-              json['credits'] as Map<String, Object?>? ?? const {},
-              'crew',
-            ))
+            for (final c in objectsAt(credits, 'crew'))
               if (c['job'] == 'Director') ?stringAt(c, 'name'),
           ];
+    // TMDB lists the cast in billing order; the form takes the top three.
+    final cast = [
+      for (final c in objectsAt(credits, 'cast').take(topBilled))
+        ?stringAt(c, 'name'),
+    ];
     final date = stringAt(json, tv ? 'first_air_date' : 'release_date');
     final poster = stringAt(json, 'poster_path');
     return match.copyWith(
@@ -150,6 +156,7 @@ class TmdbSource extends HttpLookupSource {
         for (final c in objectsAt(json, 'production_companies'))
           ?stringAt(c, 'name'),
       ],
+      cast: cast,
       tags: [for (final g in objectsAt(json, 'genres')) ?stringAt(g, 'name')],
       coverUrl: poster == null ? null : '$_images$rowPosterWidth$poster',
     );

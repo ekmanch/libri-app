@@ -24,6 +24,10 @@ enum TagCategory {
   authors,
   @JsonValue('Directors')
   directors,
+
+  /// The cast of movies and shows; A8 suggests the top three billed.
+  @JsonValue('Actors')
+  actors,
   @JsonValue('Studios')
   studios,
   @JsonValue('Animation style')
@@ -33,10 +37,12 @@ enum TagCategory {
 
   /// Whether the tag picker (D14) lists this category for an entry of
   /// [type] before anything is typed: game genres only for games, music
-  /// genres only for music. A search finds every tag.
+  /// genres only for music, actors only for movies and shows. A search
+  /// finds every tag.
   bool offeredFor(MediaType type) => switch (this) {
     gameGenre => type == MediaType.games,
     musicGenre => type == MediaType.music,
+    actors => type == MediaType.movies || type == MediaType.shows,
     _ => true,
   };
 
@@ -57,7 +63,12 @@ enum TagCategory {
     MediaType.music => null,
   };
 
-  /// Whether this is one of the creator groups.
+  /// Whether this is one of the creator groups (the groups a creator
+  /// field's tag can land in; Actors is filled from the cast instead).
   bool get isCreatorGroup =>
       this == authors || this == directors || this == studios;
+
+  /// Whether the tags are people, named first name first (#kate-siegel).
+  bool get isPeopleGroup =>
+      this == authors || this == directors || this == actors;
 }

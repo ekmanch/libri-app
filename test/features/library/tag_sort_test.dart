@@ -66,6 +66,8 @@ void main() {
       tagGroupCountLabel(TagCategory.studios, 3, 2),
       '3 studios · 2 selected',
     );
+    expect(tagGroupCountLabel(TagCategory.actors, 2, 0), '2 actors');
+    expect(tagGroupNoun(TagCategory.actors, 1), 'actor');
     expect(tagGroupCountLabel(TagCategory.genre, 30, 0), '30 tags');
     expect(tagGroupNoun(TagCategory.directors, 1), 'director');
   });

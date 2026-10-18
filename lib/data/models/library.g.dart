@@ -43,6 +43,7 @@ const _$TagCategoryEnumMap = {
   TagCategory.season: 'Season',
   TagCategory.authors: 'Authors',
   TagCategory.directors: 'Directors',
+  TagCategory.actors: 'Actors',
   TagCategory.studios: 'Studios',
   TagCategory.animationStyle: 'Animation style',
   TagCategory.other: 'Other',

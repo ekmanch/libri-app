@@ -113,4 +113,40 @@ void main() {
       'studio-ghibli',
     );
   });
+
+  group('actor tags from the billed cast', () {
+    test('a movie or show gets the top three, in Actors, in billing order', () {
+      const cast = ['Kate Siegel', 'Zach Gilford', 'Hamish Linklater', 'Extra'];
+      expect(actorTags(type: MediaType.movies, cast: cast), [
+        (tag: 'kate-siegel', category: TagCategory.actors),
+        (tag: 'zach-gilford', category: TagCategory.actors),
+        (tag: 'hamish-linklater', category: TagCategory.actors),
+      ]);
+      expect(actorTags(type: MediaType.shows, cast: cast).length, 3);
+    });
+
+    test('accents fold and duplicates drop; fewer than three stay fewer', () {
+      expect(
+        actorTags(
+          type: MediaType.movies,
+          cast: ['Timothée Chalamet', 'Timothee Chalamet', 'Zendaya'],
+        ),
+        [
+          (tag: 'timothee-chalamet', category: TagCategory.actors),
+          (tag: 'zendaya', category: TagCategory.actors),
+        ],
+      );
+    });
+
+    test('other types get none, whatever the lookup sent', () {
+      for (final type in [
+        MediaType.books,
+        MediaType.games,
+        MediaType.music,
+        MediaType.anime,
+      ]) {
+        expect(actorTags(type: type, cast: ['Kate Siegel']), isEmpty);
+      }
+    });
+  });
 }

@@ -205,6 +205,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'The Last of Us',
     released: Released(2023),
     creator: 'Craig Mazin, Neil Druckmann',
+    cast: ['Pedro Pascal', 'Bella Ramsey', 'Gabriel Luna'],
     description: 'The HBO adaptation of the game.',
     tags: ['drama', 'horror', 'post-apocalyptic'],
   ),
@@ -226,6 +227,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Carrie',
     released: Released(2026),
     creator: 'Mike Flanagan',
+    cast: ['Summer H. Howell', 'Samantha Sloyan', 'Siena Agudong'],
     description: 'A limited series take on the Stephen King novel.',
     tags: ['horror', 'drama'],
   ),
@@ -236,6 +238,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Carrie',
     released: Released(2013),
     creator: 'Kimberly Peirce',
+    cast: ['Chloë Grace Moretz', 'Julianne Moore', 'Gabriella Wilde'],
     description:
         'A shy teenager with telekinetic powers is pushed too far at prom.',
     tags: ['horror', 'drama'],
@@ -247,6 +250,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Carrie',
     released: Released(1976),
     creator: 'Brian De Palma',
+    cast: ['Sissy Spacek', 'Piper Laurie', 'Amy Irving'],
     description:
         'A sheltered girl discovers her powers after a cruel prank at prom.',
     tags: ['horror', 'classic'],
@@ -280,6 +284,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Dune',
     released: Released(1984),
     creator: 'David Lynch',
+    cast: ['Kyle MacLachlan', 'Francesca Annis', 'Brad Dourif'],
     description: "David Lynch's adaptation of the Frank Herbert novel.",
     tags: ['sci-fi', 'epic', 'cult'],
   ),
@@ -290,6 +295,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Dune',
     released: Released(2021),
     creator: 'Denis Villeneuve',
+    cast: ['Timothée Chalamet', 'Rebecca Ferguson', 'Oscar Isaac'],
     description:
         'The first half of the novel, from Caladan to the deep '
         'desert.',
@@ -313,6 +319,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Soul',
     released: Released(2020, 12, 25),
     creator: 'Pete Docter',
+    cast: ['Jamie Foxx', 'Tina Fey', 'Graham Norton'],
     description: 'A music teacher gets a second look at what makes a life.',
     companies: ['Pixar', 'Walt Disney Pictures'],
     tags: ['animation', 'comedy', 'fantasy'],
@@ -356,6 +363,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Blade Runner',
     released: Released(1982),
     creator: 'Ridley Scott',
+    cast: ['Harrison Ford', 'Rutger Hauer', 'Sean Young'],
     description: 'A blade runner hunts four replicants in 2019 Los Angeles.',
     tags: ['sci-fi', 'neo-noir', 'classic', 'dark'],
   ),
@@ -366,6 +374,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Blade Runner 2049',
     released: Released(2017),
     creator: 'Denis Villeneuve',
+    cast: ['Ryan Gosling', 'Harrison Ford', 'Ana de Armas'],
     description:
         'A new blade runner unearths a secret that could end '
         'everything.',
