@@ -299,6 +299,7 @@ No scraping. Goodreads has no public API any more. Spotify was ruled out (Premiu
 - The active plan card's name shrinks a step (20, 18, 16 px) before cutting off, like the plan header. A button label never wraps either: at a large text size "Create tag" beside Cancel shrinks to fit (D10, checked 2026-10-17).
 - At a large text size on a small phone, a timeline card puts its type label above the title so the title gets the full width, and the entry form stacks the creator and Released fields so neither is cut.
 - D6: "Check for changes" is a two-line row: the label, then "When you open Libri, then every 5 minutes" in the secondary color, left-aligned.
+- Label-and-value rows (`SettingRow`) never center their values. A block of several related details gets a left-aligned value column: the labels sit in a fixed 120 dp column and every value starts 12 dp after it, with a long value wrapping within its column, like the GitHub rows of D6 (Repository, Branch, Data file, Access token; canvas revision of 2026-10-18). A single row gets its value on the right, like Library source and the version row in Settings (S6).
 - D2: the range band is drawn per week row from the center of the start day to the center of the end day (to the row edge where the range carries on), 40 px tall, square ends hidden under the dots; no band for a single day.
 - The "+" button changes with the screen: on a plan it opens the pool or adds a tagged entry, and wears the plan's seasonal accent.
 - Desktop builds use the same visual density as the phone, so Linux captures match the device.

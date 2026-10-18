@@ -27,6 +27,22 @@ void main() {
     );
   });
 
+  testWidgets(
+    'the GitHub values share a left edge after a 120 dp label column',
+    (tester) async {
+      await pumpApp(tester, const ConnectionScreen());
+      final repository = tester.getTopLeft(find.text('ekmanch/library'));
+      final branch = tester.getTopLeft(find.text('main'));
+      final file = tester.getTopLeft(find.text('library.json'));
+      final token = tester.getTopLeft(find.text('Saved on this phone'));
+      expect(branch.dx, repository.dx);
+      expect(file.dx, repository.dx);
+      expect(token.dx, repository.dx);
+      final label = tester.getTopLeft(find.text('Repository'));
+      expect(repository.dx - label.dx, 120 + 12);
+    },
+  );
+
   test('the last synced line reads from the sync state', () {
     final now = DateTime(2026, 10, 13, 20, 30);
     expect(ConnectionScreen.lastSyncedLabel(null, now: now), 'Not synced yet');

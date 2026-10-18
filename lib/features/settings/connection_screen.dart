@@ -33,6 +33,9 @@ class ConnectionScreen extends ConsumerWidget {
 
   static const _sectionPadding = EdgeInsets.fromLTRB(0, 20, 0, 2);
 
+  /// The label column of the GitHub rows, so their values share a left edge.
+  static const _gitHubLabelWidth = 120.0;
+
   /// Disconnect is two steps: D15 confirms, D16 asks what to do with the
   /// library on this phone. Cancel on either leaves everything as it was.
   Future<void> _disconnect(BuildContext context, WidgetRef ref) async {
@@ -205,25 +208,31 @@ class ConnectionScreen extends ConsumerWidget {
                   ),
                   if (!local) ...[
                     const SectionHeading('GitHub', padding: _sectionPadding),
+                    // The values share a left edge: the labels sit in a
+                    // fixed column and a long value wraps within its own.
                     SettingRow(
                       label: 'Repository',
                       value: connection.repository,
                       minHeight: 56,
+                      labelWidth: _gitHubLabelWidth,
                     ),
                     SettingRow(
                       label: 'Branch',
                       value: connection.branch,
                       minHeight: 56,
+                      labelWidth: _gitHubLabelWidth,
                     ),
                     SettingRow(
                       label: 'Data file',
                       value: connection.file,
                       minHeight: 56,
+                      labelWidth: _gitHubLabelWidth,
                     ),
                     const SettingRow(
                       label: 'Access token',
                       value: 'Saved on this phone',
                       minHeight: 56,
+                      labelWidth: _gitHubLabelWidth,
                     ),
                     const SectionHeading('Syncing', padding: _sectionPadding),
                     const SettingRow(
