@@ -220,6 +220,24 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.closeSheet();
     await a.pickChip('All');
   });
+  await a.step('seasons', () async {
+    await a.pickChip('Shows');
+    await a.tapText('What We Do in the Shadows');
+    await a.reveal(find.text('All 6 seasons'));
+    await tester.ensureVisible(find.text('All 6 seasons'));
+    await tester.pumpAndSettle();
+    await a.check('A31 show with many seasons');
+    await a.tapText('All 6 seasons');
+    await a.check('A32 all seasons');
+    await a.back();
+    await a.closeSheet();
+    await a.tapText('Stranger Things');
+    await a.tap(find.bySemanticsLabel(RegExp('^Season 5 status: ')));
+    await a.check('A33 season status with catch-up');
+    await a.closeSheet();
+    await a.closeSheet();
+    await a.pickChip('All');
+  });
   await a.step('new entry', () async {
     await a.tap(find.byType(AddButton));
     await tester.enterText(find.byType(TextField), 'The Last of Us');
