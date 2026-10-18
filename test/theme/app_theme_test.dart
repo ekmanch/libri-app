@@ -31,11 +31,20 @@ void main() {
     expect(theme.colorScheme.primaryContainer, SeasonalAccents.halloween);
   });
 
-  test('titles use Bricolage Grotesque, body uses Figtree', () {
+  test('titles are Figtree ExtraBold, tightened; body is Figtree', () {
     final theme = buildTheme(brightness: Brightness.dark);
-    expect(theme.textTheme.headlineLarge?.fontFamily, 'Bricolage Grotesque');
-    expect(theme.textTheme.titleLarge?.fontFamily, 'Bricolage Grotesque');
+    for (final style in [
+      theme.textTheme.headlineLarge,
+      theme.textTheme.headlineMedium,
+      theme.textTheme.headlineSmall,
+      theme.textTheme.titleLarge,
+    ]) {
+      expect(style?.fontFamily, 'Figtree');
+      expect(style?.fontWeight, FontWeight.w800);
+      expect(style?.letterSpacing, -0.03 * style!.fontSize!);
+    }
     expect(theme.textTheme.bodyMedium?.fontFamily, 'Figtree');
+    expect(theme.textTheme.bodyMedium?.fontWeight, isNot(FontWeight.w800));
     expect(theme.textTheme.headlineLarge?.fontSize, 34);
   });
 }

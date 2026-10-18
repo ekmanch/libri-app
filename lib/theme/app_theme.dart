@@ -12,8 +12,9 @@
 //   colorScheme.primary          = accent ink on light, accent fill on dark
 //   colorScheme.primaryContainer = accent fill, always
 //
-// Fonts are bundled: Bricolage Grotesque (Bold) and Figtree (Regular, Italic,
-// Medium, SemiBold, Bold) in assets/fonts/, declared in pubspec.yaml.
+// One font is bundled: Figtree (Regular, Italic, Medium, SemiBold, Bold,
+// ExtraBold) in assets/fonts/, declared in pubspec.yaml. Titles are the
+// ExtraBold cut, tightened a little.
 
 import 'package:flutter/material.dart';
 
@@ -154,11 +155,10 @@ class SeasonalAccents {
   static const christmas = Color(0xFF35A56A);
 }
 
-/// Font families. Bricolage Grotesque and Figtree are bundled; the code
-/// font falls back to the platform's monospace face (the F6 preview).
+/// Font families. Figtree is bundled; the code font falls back to the
+/// platform's monospace face (the F6 preview).
 class AppFonts {
   AppFonts._();
-  static const display = 'Bricolage Grotesque';
   static const body = 'Figtree';
   static const code = 'monospace';
 }
@@ -442,11 +442,13 @@ ThemeData buildTheme({
         displayColor: text,
       );
 
+  // Headings (screen titles, plan names, dialog titles): Figtree ExtraBold
+  // with -0.03em letter spacing (canvas revision of 2026-10-18).
   TextStyle title(double size, {double? height}) => TextStyle(
-    fontFamily: AppFonts.display,
+    fontFamily: AppFonts.body,
     fontSize: size,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.02 * size,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -0.03 * size,
     height: height,
     color: text,
   );

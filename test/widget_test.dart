@@ -30,7 +30,8 @@ void main() {
     expect(find.textContaining('Could not load'), findsNothing);
 
     final title = tester.widget<Text>(find.text('Library').first);
-    expect(title.style?.fontFamily, 'Bricolage Grotesque');
+    expect(title.style?.fontFamily, 'Figtree');
+    expect(title.style?.fontWeight, FontWeight.w800);
     expect(
       Theme.of(tester.element(find.text('Library').first)).brightness,
       Brightness.dark,

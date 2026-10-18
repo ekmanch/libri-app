@@ -14,14 +14,12 @@ Future<void> loadAppFonts() async {
     await loader.load();
   }
 
-  await load('Bricolage Grotesque', [
-    'assets/fonts/bricolage-grotesque/BricolageGrotesque-Bold.ttf',
-  ]);
   await load('Figtree', [
     'assets/fonts/figtree/Figtree-Regular.ttf',
     'assets/fonts/figtree/Figtree-Italic.ttf',
     'assets/fonts/figtree/Figtree-Medium.ttf',
     'assets/fonts/figtree/Figtree-SemiBold.ttf',
     'assets/fonts/figtree/Figtree-Bold.ttf',
+    'assets/fonts/figtree/Figtree-ExtraBold.ttf',
   ]);
 }
