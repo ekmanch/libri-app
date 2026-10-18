@@ -131,15 +131,41 @@ class EntryRow extends StatelessWidget {
   /// An outlined label after the subtitle: "New season".
   final String? badge;
 
-  /// The subtitle, then the badge right after it; the subtitle gives way.
-  Widget _withBadge(Widget subtitle) {
+  /// The badge when the row is too tight for [badge] beside the whole
+  /// subtitle: "New" for "New season".
+  static const shortBadge = 'New';
+
+  /// The subtitle, then the badge right after it. The badge reads "New
+  /// season" as drawn (A1); when the whole subtitle and it do not fit side
+  /// by side, it shortens to "New", and only then does the subtitle give way.
+  Widget _withBadge(TextSpan span) {
+    final subtitle = Text.rich(
+      span,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    final badge = this.badge;
     if (badge == null) return subtitle;
-    return Row(
-      children: [
-        Flexible(child: subtitle),
-        const SizedBox(width: 8),
-        OutlineBadge(badge!),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaler = MediaQuery.textScalerOf(context);
+        final painter = TextPainter(
+          text: span,
+          maxLines: 1,
+          textDirection: TextDirection.ltr,
+          textScaler: scaler,
+        )..layout();
+        final needed = painter.width + 8 + OutlineBadge.widthOf(context, badge);
+        painter.dispose();
+        final label = needed <= constraints.maxWidth ? badge : shortBadge;
+        return Row(
+          children: [
+            Flexible(child: subtitle),
+            const SizedBox(width: 8),
+            OutlineBadge(label),
+          ],
+        );
+      },
     );
   }
 
@@ -176,24 +202,20 @@ class EntryRow extends StatelessWidget {
                       badge != null) ...[
                     const SizedBox(height: 2),
                     _withBadge(
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            if (typeLabel != null)
-                              TextSpan(
-                                text: typeLabel,
-                                style: theme.textTheme.bodySmall!.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: typeColor,
-                                ),
+                      TextSpan(
+                        children: [
+                          if (typeLabel != null)
+                            TextSpan(
+                              text: typeLabel,
+                              style: theme.textTheme.bodySmall!.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: typeColor,
                               ),
-                            if (typeLabel != null && subtitle.isNotEmpty)
-                              TextSpan(text: ' · ', style: subtitleStyle),
-                            TextSpan(text: subtitle, style: subtitleStyle),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                            ),
+                          if (typeLabel != null && subtitle.isNotEmpty)
+                            TextSpan(text: ' · ', style: subtitleStyle),
+                          TextSpan(text: subtitle, style: subtitleStyle),
+                        ],
                       ),
                     ),
                   ],
@@ -217,30 +239,49 @@ class OutlineBadge extends StatelessWidget {
   final String label;
   final bool large;
 
+  static TextStyle _style(BuildContext context, bool large) {
+    final theme = Theme.of(context);
+    return theme.textTheme.labelSmall!.copyWith(
+      fontSize: large ? 12 : 11.5,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+      height: 1.4,
+      color: theme.colorScheme.primary,
+    );
+  }
+
+  static double _padding(bool large) => large ? 8 : 7;
+
+  /// How wide the badge with [label] is drawn, border included.
+  static double widthOf(
+    BuildContext context,
+    String label, {
+    bool large = false,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: _style(context, large)),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = painter.width + 2 * _padding(large) + 2;
+    painter.dispose();
+    return width;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ink = theme.colorScheme.primary;
+    final ink = Theme.of(context).colorScheme.primary;
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: large ? 8 : 7,
+        horizontal: _padding(large),
         vertical: large ? 2 : 1,
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(large ? 10 : 9),
         border: Border.all(color: ink),
       ),
-      child: Text(
-        label,
-        maxLines: 1,
-        style: theme.textTheme.labelSmall!.copyWith(
-          fontSize: large ? 12 : 11.5,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-          height: 1.4,
-          color: ink,
-        ),
-      ),
+      child: Text(label, maxLines: 1, style: _style(context, large)),
     );
   }
 }

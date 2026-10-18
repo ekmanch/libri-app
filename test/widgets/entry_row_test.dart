@@ -176,6 +176,48 @@ void main() {
     expect(find.text('New season'), findsNothing);
   });
 
+  testWidgets('a tight row shortens the badge to New, not the subtitle', (
+    tester,
+  ) async {
+    final show = mummy.copyWith(
+      type: MediaType.shows,
+      status: EntryStatus.inProgress,
+      seasons: const [
+        Season(season: 1, released: Released(2022), status: EntryStatus.done),
+        Season(season: 2, released: Released(2025), fresh: true),
+      ],
+    );
+    Future<void> pumpAt(double width) => pumpThemed(
+      tester,
+      Center(
+        child: SizedBox(
+          width: width,
+          child: EntryRow.forEntry(show, today: today),
+        ),
+      ),
+    );
+
+    await pumpAt(700);
+    expect(find.text('New season'), findsOneWidget);
+    expect(find.text('2022–2025 · 2 seasons'), findsOneWidget);
+
+    // Room for the whole subtitle beside "New", not beside "New season".
+    final subtitleWidth = tester
+        .getSize(find.text('2022–2025 · 2 seasons'))
+        .width;
+    final rowText = tester.getSize(find.byType(Expanded).first).width;
+    final status = 700 - rowText;
+    await pumpAt(status + subtitleWidth + 8 + 60);
+    expect(find.text('New season'), findsNothing);
+    expect(find.text('New'), findsOneWidget);
+    final subtitle = tester.widget<Text>(find.text('2022–2025 · 2 seasons'));
+    expect(subtitle.overflow, TextOverflow.ellipsis);
+    expect(
+      tester.getSize(find.text('2022–2025 · 2 seasons')).width,
+      closeTo(subtitleWidth, 0.5),
+    );
+  });
+
   test('a repeat is a rewatch, a reread, a replay or a relisten', () {
     expect(repeatLabel(MediaType.movies), 'Rewatch');
     expect(repeatLabel(MediaType.books), 'Reread');
