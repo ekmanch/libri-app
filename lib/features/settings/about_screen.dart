@@ -82,7 +82,7 @@ const dataSources = [
     url: 'https://www.deezer.com',
     logo: 'assets/logos/deezer/deezer.png',
     logoOnDark: 'assets/logos/deezer/deezer_on_dark.png',
-    logoHeight: 28,
+    logoHeight: 22,
   ),
   DataSource(
     name: 'AniList',
