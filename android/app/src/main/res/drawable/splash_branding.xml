@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- "Libri" in Bricolage Grotesque Bold at 22 dp, as outlines, for the
      splash (F1): the system splash's branding image at the bottom on
-     Android 12 and later, and the launch background before that. Made by
-     tool/splash_branding.py from the bundled font; do not edit by hand. -->
+     Android 12 and later, and the launch background before that. The
+     outlines were traced once from the bundled font with fontTools, with
+     the glyphs laid out with the font's kerning and -0.01em tracking and
+     the word centered in the box; trace again rather than edit by hand. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="200dp"
     android:height="80dp"
