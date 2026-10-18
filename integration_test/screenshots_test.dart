@@ -21,6 +21,7 @@ import 'package:library_app/dev/fake_github_api.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
+import 'package:library_app/data/storage/connection_store.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/first_run/first_run_flow.dart';
 import 'package:library_app/data/models/media_type.dart';
@@ -792,6 +793,7 @@ void main() {
       (SyncBanner.offline, 'a12-offline'),
       (SyncBanner.couldNotSave, 'a12-could-not-save'),
       (SyncBanner.tokenProblem, 'a12-token-problem'),
+      (SyncBanner.tokenExpired, 'a12-token-expired'),
       (SyncBanner.notFound, 'a12-not-found'),
       (SyncBanner.conflict, 'a27-conflict'),
     ]) {
@@ -1028,6 +1030,93 @@ void main() {
     await capture(tester, 'd7-first-load');
   });
 
+  /// The app with a connection whose token expires at [tokenExpires], for
+  /// D20 and the "Token expired" state.
+  Future<ProviderContainer> pumpWithToken(
+    WidgetTester tester, {
+    required DateTime tokenExpires,
+    double textScale = 1,
+    Override? syncStatus,
+  }) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...fakeLookupOverrides(),
+          libraryRepositoryProvider.overrideWithValue(
+            FixtureLibraryRepository(),
+          ),
+          syncStatus ?? _syncedRecently,
+          _demoGitHub(),
+          initialConnectionProvider.overrideWithValue(
+            LibraryConnection(connected: true, tokenExpires: tokenExpires),
+          ),
+          connectionStoreProvider.overrideWithValue(MemoryConnectionStore()),
+        ],
+        child: RepaintBoundary(
+          key: _root,
+          child: MediaQuery(
+            data: MediaQueryData.fromView(tester.view)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: const LibraryApp(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return ProviderScope.containerOf(
+      tester.element(find.text('Library').first),
+    );
+  }
+
+  testWidgets('D20 token expiry warning in dark and light', (tester) async {
+    // Six days left, as the artboard's default variant.
+    final container = await pumpWithToken(
+      tester,
+      tokenExpires: DateTime.now().add(const Duration(days: 6)),
+    );
+    await capture(tester, 'd20-token-expiry');
+    container
+        .read(displayPreferencesProvider.notifier)
+        .setThemeMode(ThemeMode.light);
+    await tester.pumpAndSettle();
+    await capture(tester, 'light-d20-token-expiry');
+    await tester.tap(find.text('Later'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('D20 at a larger text size', (tester) async {
+    await pumpWithToken(
+      tester,
+      tokenExpires: DateTime.now().add(const Duration(days: 1)),
+      textScale: 1.3,
+    );
+    await capture(tester, 'large-text-d20-token-expiry');
+    await tester.tap(find.text('Later'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('an expired token on the home and in D6', (tester) async {
+    await pumpWithToken(
+      tester,
+      tokenExpires: DateTime.now().subtract(const Duration(days: 1)),
+      syncStatus: syncStatusProvider.overrideWithValue(
+        AsyncValue.data(
+          SyncStatus(
+            phase: SyncPhase.tokenProblem,
+            pendingCount: 2,
+            lastSynced: DateTime.now().subtract(const Duration(days: 1)),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Library source'), 300);
+    await tester.tap(find.text('Library source'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'd6-connection-expired');
+  });
+
   testWidgets('light theme pass over every screen', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -1251,6 +1340,9 @@ void main() {
     banners.show(SyncBanner.notFound);
     await tester.pumpAndSettle();
     await shot('a12-not-found');
+    banners.show(SyncBanner.tokenExpired);
+    await tester.pumpAndSettle();
+    await shot('a12-token-expired');
     banners.clear();
     await tester.pumpAndSettle();
     container

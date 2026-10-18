@@ -86,6 +86,16 @@ class AppIcons {
     ],
   );
 
+  /// A key: the GitHub token is about to expire (D20).
+  static const key = StrokeIconData(
+    circles: [StrokeCircle(Offset(8, 15), 4)],
+    polylines: [
+      [Offset(10.8, 12.2), Offset(20, 3)],
+      [Offset(16, 7), Offset(19, 10)],
+      [Offset(14, 9), Offset(16, 11)],
+    ],
+  );
+
   /// An arrow out of a box: the row opens a website (D19).
   static const externalLink = StrokeIconData(
     polylines: [

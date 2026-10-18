@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/library_providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
+import '../first_run/first_run_flow.dart';
 import '../settings/connection_screen.dart';
 import 'conflict_dialog.dart';
 import 'sync_state.dart';
@@ -40,6 +41,8 @@ class SyncBannerCard extends ConsumerWidget {
           ref.read(librarySyncProvider)?.syncNow();
         case SyncBanner.tokenProblem || SyncBanner.notFound:
           openConnectionScreen(context);
+        case SyncBanner.tokenExpired:
+          openReplaceTokenScreen(context);
         case SyncBanner.conflict:
           showConflictDialog(context, ref);
         case SyncBanner.saving || SyncBanner.offline:

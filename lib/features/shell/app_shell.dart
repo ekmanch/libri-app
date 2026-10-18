@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +16,11 @@ import '../../data/models/plan.dart';
 import '../plans/plan_screen.dart';
 import '../plans/plan_progress.dart';
 import '../plans/plans_screen.dart';
+import '../first_run/first_run_flow.dart';
 import '../sync/sync_scheduler.dart';
+import '../sync/sync_state.dart';
+import '../sync/token_expiry.dart';
+import '../sync/token_expiry_dialog.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
 import 'fab_action.dart';
@@ -59,6 +65,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   };
 
   late final SyncScheduler _scheduler;
+  AppLifecycleListener? _lifecycle;
+
+  /// Whether D20 is being shown, so a resume meanwhile adds no second.
+  bool _warning = false;
 
   NavigatorState? get _current => _keys[_tab]!.currentState;
 
@@ -81,12 +91,62 @@ class _AppShellState extends ConsumerState<AppShell> {
         repository.apply(start);
       }
     }, fireImmediately: true);
+    // The token expiry warning (D20) on the first open of the day, in
+    // the last week of the token: when the app starts or comes back to
+    // the foreground, and when GitHub first says when the token expires.
+    ref.listenManual(
+      libraryConnectionProvider.select((c) => c.tokenExpires),
+      (_, _) => unawaited(_warnAboutToken()),
+      fireImmediately: true,
+    );
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(_warnAboutToken()),
+    );
   }
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     _scheduler.dispose();
     super.dispose();
+  }
+
+  /// Shows D20 when it is due ([tokenWarningDue]) and records the day, so
+  /// it comes once a day. Replace token opens the token step with the
+  /// repo kept; Later leaves it until the next day.
+  Future<void> _warnAboutToken() async {
+    if (_warning) return;
+    _warning = true;
+    try {
+      // Not during a build (the first check runs from initState) and not
+      // before the first frame: the dialog needs the navigator.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      final connection = ref.read(libraryConnectionProvider);
+      final now = DateTime.now();
+      if (!connection.connected ||
+          !tokenWarningDue(
+            expires: connection.tokenExpires,
+            warnedOn: connection.tokenWarnedOn,
+            now: now,
+          )) {
+        return;
+      }
+      unawaited(
+        ref.read(libraryConnectionProvider.notifier).markTokenWarned(now),
+      );
+      final choice = await showTokenExpiryDialog(
+        context,
+        repository: connection.repository,
+        expires: connection.tokenExpires!,
+        now: now,
+      );
+      if (choice == TokenExpiryChoice.replace && mounted) {
+        await openReplaceTokenScreen(context);
+      }
+    } finally {
+      _warning = false;
+    }
   }
 
   /// The current tab's item returns to its overview one step at a time:

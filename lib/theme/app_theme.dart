@@ -220,6 +220,7 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     required this.success,
     required this.skeleton,
     required this.buttonOutline,
+    required this.caution,
   });
 
   /// Raised fill: tag chips, the floating navigation pill, sheet buttons.
@@ -289,6 +290,10 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   /// lighter than the field outline.
   final Color buttonOutline;
 
+  /// A heads-up that is not an error yet: the key in D20's amber circle.
+  /// Its field is this at 14% alpha.
+  final Color caution;
+
   Color forType(MediaType t) => switch (t) {
     MediaType.movies => movies,
     MediaType.shows => shows,
@@ -333,6 +338,7 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     success: Color(0xFF8FD694),
     skeleton: Color(0xFF1D1F22),
     buttonOutline: Color(0xFF4A4F57),
+    caution: Color(0xFFF2B544),
   );
 
   // Values from the light mockups D8 and S6. The type colors follow the D8
@@ -378,6 +384,8 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     success: Color(0xFF1E7B34),
     skeleton: Color(0xFFE9EBEE),
     buttonOutline: Color(0xFFC9CED4),
+    // The amber of the dark theme darkened for white: 4.5:1.
+    caution: Color(0xFF8A5A00),
   );
 
   static const _coverPlaceholders = [

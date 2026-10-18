@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // Phase 1g accessibility audit. Walks the app at the phone size in dark,
 // light and at text scale 1.3 and runs Flutter's accessibility guidelines
 // (48 dp tap targets, labels on tappables, text contrast) at every stop.
@@ -20,6 +22,7 @@ import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/shell/app_shell.dart';
 import 'package:library_app/features/shell/floating_nav_bar.dart';
 import 'package:library_app/features/sync/sync_state.dart';
+import 'package:library_app/features/sync/token_expiry_dialog.dart';
 import 'package:library_app/main.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/tag_group.dart';
@@ -317,8 +320,22 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     banners.show(SyncBanner.notFound);
     await tester.pumpAndSettle();
     await a.check('A12 not found');
+    banners.show(SyncBanner.tokenExpired);
+    await tester.pumpAndSettle();
+    await a.check('A12 token expired');
     banners.clear();
     await tester.pumpAndSettle();
+    // D20, as the shell shows it in the token's last week.
+    unawaited(
+      showTokenExpiryDialog(
+        tester.element(find.text('Library').first),
+        repository: 'ekmanch/library',
+        expires: DateTime.now().add(const Duration(days: 6)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await a.check('D20 token expiry');
+    await a.tapText('Later');
   });
   await a.step('first run', () async {
     // Deleting the library from the phone (D16) starts the first run at

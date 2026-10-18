@@ -16,12 +16,16 @@ class AppDialog extends StatelessWidget {
   const AppDialog({
     super.key,
     required this.title,
+    this.leading,
     this.body,
     this.content,
     this.note,
     required this.actions,
     this.actionsLayout = DialogActionsLayout.row,
   });
+
+  /// Above the title: the key in its amber circle (D20).
+  final Widget? leading;
 
   final String title;
   final String? body;
@@ -48,6 +52,10 @@ class AppDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (leading != null) ...[
+              Align(alignment: Alignment.centerLeft, child: leading),
+              const SizedBox(height: 12),
+            ],
             Text(title, style: theme.textTheme.titleLarge),
             if (body != null) ...[
               const SizedBox(height: 12),

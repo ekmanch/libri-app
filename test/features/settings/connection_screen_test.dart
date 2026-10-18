@@ -232,6 +232,39 @@ void main() {
     expect(sync.discards + sync.keeps, 0);
   });
 
+  testWidgets('an expired token shows in the status card, with Replace token', (
+    tester,
+  ) async {
+    final sync = FakeLibrarySync(
+      const SyncStatus(phase: SyncPhase.tokenProblem, pendingCount: 2),
+    );
+    await pumpApp(
+      tester,
+      const ConnectionScreen(),
+      overrides: [
+        librarySyncProvider.overrideWithValue(sync),
+        initialConnectionProvider.overrideWithValue(
+          LibraryConnection(
+            connected: true,
+            tokenExpires: DateTime.now().subtract(const Duration(days: 1)),
+          ),
+        ),
+      ],
+    );
+    expect(find.text('Token expired'), findsOneWidget);
+    expect(
+      find.text("Libri can't sync until you add a new one"),
+      findsOneWidget,
+    );
+    expect(find.text('Sync now'), findsNothing);
+    // The card's button and the one at the bottom.
+    expect(find.text('Replace token'), findsNWidgets(2));
+    await tester.tap(find.text('Replace token').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(FirstRunFlow), findsOneWidget);
+    expect(find.text('Save token'), findsOneWidget);
+  });
+
   testWidgets('a conflict shows in the status card, and Choose opens D17', (
     tester,
   ) async {

@@ -16,6 +16,7 @@ import '../first_run/first_run_flow.dart';
 import '../sync/conflict_dialog.dart';
 import '../sync/relative_time.dart';
 import '../sync/sync_state.dart';
+import '../sync/token_expiry.dart';
 
 /// Opens D6 above everything, like Settings.
 Future<void> openConnectionScreen(BuildContext context) {
@@ -70,17 +71,20 @@ class ConnectionScreen extends ConsumerWidget {
     );
   }
 
-  /// The status card's first line.
-  static String statusTitle(SyncStatus status) => switch (status.phase) {
-    SyncPhase.idle => 'Connected',
-    SyncPhase.checking => 'Checking for changes…',
-    SyncPhase.saving => 'Saving…',
-    SyncPhase.offline => 'Offline',
-    SyncPhase.failed => 'Could not save to GitHub',
-    SyncPhase.tokenProblem => 'GitHub refused the token',
-    SyncPhase.conflict => 'Changed here and on GitHub',
-    SyncPhase.notFound => 'Library not found on GitHub',
-  };
+  /// The status card's first line. A refused token reads "Token expired"
+  /// once the date GitHub gave for it has passed ([tokenExpired]).
+  static String statusTitle(SyncStatus status, {bool tokenExpired = false}) =>
+      switch (status.phase) {
+        SyncPhase.idle => 'Connected',
+        SyncPhase.checking => 'Checking for changes…',
+        SyncPhase.saving => 'Saving…',
+        SyncPhase.offline => 'Offline',
+        SyncPhase.failed => 'Could not save to GitHub',
+        SyncPhase.tokenProblem =>
+          tokenExpired ? 'Token expired' : 'GitHub refused the token',
+        SyncPhase.conflict => 'Changed here and on GitHub',
+        SyncPhase.notFound => 'Library not found on GitHub',
+      };
 
   /// The status card's second line: what is gone (with the [connection]
   /// to name it), what is waiting, else when the phone last matched
@@ -89,11 +93,14 @@ class ConnectionScreen extends ConsumerWidget {
     SyncStatus status, {
     DateTime? now,
     LibraryConnection? connection,
+    bool tokenExpired = false,
   }) =>
       status.phase == SyncPhase.notFound &&
           status.missing != null &&
           connection != null
       ? missingDetail(status.missing!, connection)
+      : status.phase == SyncPhase.tokenProblem && tokenExpired
+      ? "Libri can't sync until you add a new one"
       : status.phase == SyncPhase.conflict
       ? 'Pick which copy to keep'
       : status.pendingCount > 0
@@ -115,6 +122,9 @@ class ConnectionScreen extends ConsumerWidget {
     final connection = ref.watch(libraryConnectionProvider);
     final local = connection.keptLocally;
     final status = ref.watch(syncStatusProvider).value ?? SyncStatus.idle;
+    final expired =
+        status.phase == SyncPhase.tokenProblem &&
+        tokenHasExpired(connection, DateTime.now());
     final dot = local
         ? colors.muted
         : switch (status.phase) {
@@ -162,7 +172,12 @@ class ConnectionScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                local ? 'Not connected' : statusTitle(status),
+                                local
+                                    ? 'Not connected'
+                                    : statusTitle(
+                                        status,
+                                        tokenExpired: expired,
+                                      ),
                                 style: theme.textTheme.titleMedium!.copyWith(
                                   fontSize: 15,
                                 ),
@@ -174,6 +189,7 @@ class ConnectionScreen extends ConsumerWidget {
                                     : statusDetail(
                                         status,
                                         connection: connection,
+                                        tokenExpired: expired,
                                       ),
                                 style: theme.textTheme.bodySmall!.copyWith(
                                   fontSize: 13,
@@ -192,6 +208,14 @@ class ConnectionScreen extends ConsumerWidget {
                               compact: true,
                               horizontalPadding: 14,
                               onPressed: () => showConflictDialog(context, ref),
+                            )
+                          else if (expired)
+                            AppButton(
+                              label: 'Replace token',
+                              kind: AppButtonKind.outline,
+                              compact: true,
+                              horizontalPadding: 14,
+                              onPressed: () => openReplaceTokenScreen(context),
                             )
                           else
                             AppButton(

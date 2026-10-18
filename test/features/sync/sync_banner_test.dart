@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/sync/sync_status.dart';
+import 'package:library_app/features/first_run/first_run_flow.dart';
 import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/features/sync/conflict_dialog.dart';
 import 'package:library_app/features/sync/sync_banner.dart';
@@ -45,6 +46,15 @@ void main() {
     expect(find.text('GitHub refused the token'), findsOneWidget);
     expect(find.text('It may have expired.'), findsOneWidget);
     expect(find.text('Fix'), findsOneWidget);
+
+    notifier.show(SyncBanner.tokenExpired);
+    await tester.pumpAndSettle();
+    expect(find.text('Token expired'), findsOneWidget);
+    expect(
+      find.text("Libri can't sync until you add a new one."),
+      findsOneWidget,
+    );
+    expect(find.text('Replace token'), findsOneWidget);
 
     notifier.show(SyncBanner.conflict);
     await tester.pumpAndSettle();
@@ -91,6 +101,57 @@ void main() {
       find.text('The branch main is gone from ekmanch/library.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets(
+    'a refused token past its date is "Token expired", with Replace token',
+    (tester) async {
+      final sync = FakeLibrarySync(
+        const SyncStatus(phase: SyncPhase.tokenProblem),
+      );
+      await pumpApp(
+        tester,
+        const Scaffold(body: SyncBannerCard()),
+        overrides: [
+          librarySyncProvider.overrideWithValue(sync),
+          initialConnectionProvider.overrideWithValue(
+            LibraryConnection(
+              connected: true,
+              tokenExpires: DateTime.now().subtract(const Duration(hours: 1)),
+            ),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Token expired'), findsOneWidget);
+      expect(find.text('GitHub refused the token'), findsNothing);
+      await tester.tap(find.text('Replace token'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FirstRunFlow), findsOneWidget);
+      expect(find.text('Save token'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a refused token with time left is just refused', (tester) async {
+    final sync = FakeLibrarySync(
+      const SyncStatus(phase: SyncPhase.tokenProblem),
+    );
+    await pumpApp(
+      tester,
+      const Scaffold(body: SyncBannerCard()),
+      overrides: [
+        librarySyncProvider.overrideWithValue(sync),
+        initialConnectionProvider.overrideWithValue(
+          LibraryConnection(
+            connected: true,
+            tokenExpires: DateTime.now().add(const Duration(days: 20)),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('GitHub refused the token'), findsOneWidget);
+    expect(find.text('Fix'), findsOneWidget);
   });
 
   test('the detail names the part that is gone', () {
