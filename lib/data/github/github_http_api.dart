@@ -14,6 +14,7 @@ class GitHubHttpApi implements GitHubApi {
     Uri? baseUrl,
     this.timeout = defaultHttpTimeout,
     this.userAgent = 'Libri',
+    this.onTokenExpiration,
   }) : _baseUrl = baseUrl ?? Uri.https('api.github.com');
 
   final http.Client _client;
@@ -24,6 +25,22 @@ class GitHubHttpApi implements GitHubApi {
   final Uri _baseUrl;
   final Duration timeout;
   final String userAgent;
+
+  /// Called with when the token expires, each time a successful answer
+  /// says so (the [tokenExpirationHeader]). A refused request says nothing
+  /// about it, and a missing header calls nothing.
+  final void Function(DateTime expires)? onTokenExpiration;
+
+  /// The header GitHub adds to every answer made with a token that
+  /// expires, like "2025-11-10 16:20:42 +0500".
+  static const tokenExpirationHeader = 'github-authentication-token-expiration';
+
+  /// The token's expiry from the response, or null without the header
+  /// (a token that never expires) or with one that does not parse.
+  static DateTime? tokenExpiration(http.Response response) {
+    final value = response.headers[tokenExpirationHeader];
+    return value == null ? null : DateTime.tryParse(value.trim());
+  }
 
   static const _apiVersion = '2022-11-28';
   static const _rawMediaType = 'application/vnd.github.raw+json';
@@ -50,11 +67,17 @@ class GitHubHttpApi implements GitHubApi {
 
   /// Runs [request] and turns transport errors into [GitHubFailure.offline].
   Future<http.Response> _send(Future<http.Response> Function() request) async {
+    final http.Response response;
     try {
-      return await sendOrOffline(request, timeout: timeout);
+      response = await sendOrOffline(request, timeout: timeout);
     } on NetworkUnreachable catch (e) {
       throw GitHubException(GitHubFailure.offline, message: e.message);
     }
+    if (response.statusCode < 400) {
+      final expires = tokenExpiration(response);
+      if (expires != null) onTokenExpiration?.call(expires);
+    }
+    return response;
   }
 
   /// Throws for any status outside [ok].

@@ -65,6 +65,11 @@ final gitHubApiFactoryProvider = Provider<GitHubApiFactory>((ref) {
     ref.watch(httpClientProvider),
     token: token,
     repository: repository,
+    // When the token expires, for D20. The connection keeps it only for
+    // the token in use.
+    onTokenExpiration: (expires) => ref
+        .read(libraryConnectionProvider.notifier)
+        .recordTokenExpiry(token: token, expires: expires),
   );
 });
 

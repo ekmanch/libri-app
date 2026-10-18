@@ -336,4 +336,55 @@ void main() {
       'https://api.github.com/repos/ekmanch/library/commits?path=library.json&sha=main&per_page=3',
     );
   });
+
+  group('the token expiration header', () {
+    final seen = <DateTime>[];
+    GitHubHttpApi client(
+      int status, {
+      Map<String, String> headers = const {},
+      Object body = const {'default_branch': 'main'},
+    }) {
+      seen.clear();
+      return GitHubHttpApi(
+        MockClient((_) async => json(status, body, headers)),
+        token: 'github_pat_x',
+        repository: 'ekmanch/library',
+        onTokenExpiration: seen.add,
+      );
+    }
+
+    test('is reported on a successful answer, as a UTC moment', () async {
+      await client(
+        200,
+        headers: {
+          'github-authentication-token-expiration': '2025-11-10 16:20:42 +0500',
+        },
+      ).getRepo();
+      expect(seen, [DateTime.utc(2025, 11, 10, 11, 20, 42)]);
+    });
+
+    test('is not reported on a refused request', () async {
+      await expectLater(
+        client(
+          401,
+          headers: {
+            'github-authentication-token-expiration':
+                '2025-11-10 16:20:42 +0500',
+          },
+          body: {'message': 'Bad credentials'},
+        ).getRepo(),
+        throwsA(isA<GitHubException>()),
+      );
+      expect(seen, isEmpty);
+    });
+
+    test('a missing or unreadable header reports nothing', () async {
+      await client(200).getRepo();
+      await client(
+        200,
+        headers: {'github-authentication-token-expiration': 'never'},
+      ).getRepo();
+      expect(seen, isEmpty);
+    });
+  });
 }

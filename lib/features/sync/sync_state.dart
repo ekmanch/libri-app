@@ -7,6 +7,7 @@ import '../../data/repository/library_sync.dart';
 import '../../data/storage/connection_store.dart';
 import '../../data/sync/sync_status.dart';
 import '../../dev/demo_states.dart';
+import 'token_expiry.dart';
 
 /// The banner at the top of the Library and Plans screens (A12).
 enum SyncBanner {
@@ -14,6 +15,10 @@ enum SyncBanner {
   offline,
   couldNotSave,
   tokenProblem,
+
+  /// GitHub refused the token after the date it gave for its expiry
+  /// (D20): the same phase as [tokenProblem], with the cause known.
+  tokenExpired,
   conflict,
   notFound;
 
@@ -22,6 +27,7 @@ enum SyncBanner {
     offline => 'You are offline',
     couldNotSave => 'Could not save to GitHub',
     tokenProblem => 'GitHub refused the token',
+    tokenExpired => 'Token expired',
     conflict => 'Changed here and on GitHub',
     notFound => 'Library not found on GitHub',
   };
@@ -35,6 +41,7 @@ enum SyncBanner {
           'Changes are saved when you are back online.',
     couldNotSave => 'Your change is kept on this phone.',
     tokenProblem => 'It may have expired.',
+    tokenExpired => "Libri can't sync until you add a new one.",
     conflict => 'Pick which copy to keep.',
     notFound => 'Nothing syncs until you reconnect.',
   };
@@ -43,6 +50,7 @@ enum SyncBanner {
   String? get actionLabel => switch (this) {
     couldNotSave => 'Retry',
     tokenProblem || notFound => 'Fix',
+    tokenExpired => 'Replace token',
     conflict => 'Choose',
     _ => null,
   };
@@ -50,6 +58,7 @@ enum SyncBanner {
   bool get isError =>
       this == couldNotSave ||
       this == tokenProblem ||
+      this == tokenExpired ||
       this == conflict ||
       this == notFound;
 
@@ -59,17 +68,24 @@ enum SyncBanner {
     'offline' => offline,
     'failed' => couldNotSave,
     'token' => tokenProblem,
+    'expired' => tokenExpired,
     'conflict' => conflict,
     'missing' => notFound,
     _ => null,
   };
 
-  /// The banner for a sync state: none while idle or checking.
-  static SyncBanner? forStatus(SyncStatus status) => switch (status.phase) {
+  /// The banner for a sync state: none while idle or checking. A refused
+  /// token is [tokenExpired] when the connection knows it has
+  /// ([tokenHasExpired]).
+  static SyncBanner? forStatus(
+    SyncStatus status, {
+    bool tokenExpired = false,
+  }) => switch (status.phase) {
     SyncPhase.saving => saving,
     SyncPhase.offline => offline,
     SyncPhase.failed => couldNotSave,
-    SyncPhase.tokenProblem => tokenProblem,
+    SyncPhase.tokenProblem =>
+      tokenExpired ? SyncBanner.tokenExpired : tokenProblem,
     SyncPhase.conflict => conflict,
     SyncPhase.notFound => notFound,
     SyncPhase.idle || SyncPhase.checking => null,
@@ -115,7 +131,12 @@ class SyncBannerNotifier extends Notifier<SyncBanner?> {
     final demo = SyncBanner.fromDemo(syncBannerDemo);
     if (demo != null) return demo;
     final status = ref.watch(syncStatusProvider).value;
-    return status == null ? null : SyncBanner.forStatus(status);
+    if (status == null) return null;
+    final connection = ref.watch(libraryConnectionProvider);
+    return SyncBanner.forStatus(
+      status,
+      tokenExpired: tokenHasExpired(connection, DateTime.now()),
+    );
   }
 
   /// Forces a banner, until [follow].
@@ -161,7 +182,8 @@ class ConnectionTarget {
 }
 
 /// What the app knows about its library file on GitHub (D6), kept in
-/// `connection.json`. The token is in the secure storage, not here.
+/// `connection.json`. The token is in the secure storage, not here; when
+/// it expires is ([tokenExpires]), as GitHub last said.
 @immutable
 class LibraryConnection {
   const LibraryConnection({
@@ -170,6 +192,8 @@ class LibraryConnection {
     this.repository = 'ekmanch/library',
     this.file = 'library.json',
     this.branch = 'main',
+    this.tokenExpires,
+    this.tokenWarnedOn,
   }) : assert(!(connected && keptLocally));
 
   /// The first run, with the last repo and file as hints for F3.
@@ -192,30 +216,54 @@ class LibraryConnection {
   final String file;
   final String branch;
 
+  /// When the token stops working, from GitHub's expiration header on
+  /// the last successful answer; null until one said, or for a token
+  /// that never expires. D20 warns from seven days before.
+  final DateTime? tokenExpires;
+
+  /// The day D20 was last shown, so it shows once a day. A date, in
+  /// local time.
+  final DateTime? tokenWarnedOn;
+
   /// Where to sync, or null until connected.
   ConnectionTarget? get target => connected
       ? ConnectionTarget(repository: repository, file: file, branch: branch)
       : null;
 
+  /// [tokenExpires] and [tokenWarnedOn] are cleared with `null`, kept when
+  /// left out.
   LibraryConnection copyWith({
     bool? connected,
     bool? keptLocally,
     String? repository,
     String? file,
     String? branch,
+    Object? tokenExpires = _unset,
+    Object? tokenWarnedOn = _unset,
   }) => LibraryConnection(
     connected: connected ?? this.connected,
     keptLocally: keptLocally ?? this.keptLocally,
     repository: repository ?? this.repository,
     file: file ?? this.file,
     branch: branch ?? this.branch,
+    tokenExpires: tokenExpires == _unset
+        ? this.tokenExpires
+        : tokenExpires as DateTime?,
+    tokenWarnedOn: tokenWarnedOn == _unset
+        ? this.tokenWarnedOn
+        : tokenWarnedOn as DateTime?,
   );
+
+  static const _unset = Object();
 
   Map<String, Object?> toJson() => {
     'repository': repository,
     'file': file,
     'branch': branch,
     if (keptLocally) 'local': true,
+    if (tokenExpires case final expires?)
+      'tokenExpires': expires.toUtc().toIso8601String(),
+    if (tokenWarnedOn case final day?) 'tokenWarnedOn': _dayString(day),
   };
 
   /// A stored connection counts as connected, unless it was kept locally
@@ -228,8 +276,20 @@ class LibraryConnection {
       repository: json['repository'] as String? ?? 'ekmanch/library',
       file: json['file'] as String? ?? 'library.json',
       branch: json['branch'] as String? ?? 'main',
+      tokenExpires: _date(json['tokenExpires']),
+      tokenWarnedOn: _date(json['tokenWarnedOn']),
     );
   }
+
+  static DateTime? _date(Object? value) =>
+      value is String ? DateTime.tryParse(value) : null;
+
+  /// "2026-10-18": the local date alone, which [DateTime.parse] reads
+  /// back as a local midnight.
+  static String _dayString(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-'
+      '${day.month.toString().padLeft(2, '0')}-'
+      '${day.day.toString().padLeft(2, '0')}';
 
   @override
   bool operator ==(Object other) =>
@@ -238,11 +298,20 @@ class LibraryConnection {
       other.keptLocally == keptLocally &&
       other.repository == repository &&
       other.file == file &&
-      other.branch == branch;
+      other.branch == branch &&
+      other.tokenExpires == tokenExpires &&
+      other.tokenWarnedOn == tokenWarnedOn;
 
   @override
-  int get hashCode =>
-      Object.hash(connected, keptLocally, repository, file, branch);
+  int get hashCode => Object.hash(
+    connected,
+    keptLocally,
+    repository,
+    file,
+    branch,
+    tokenExpires,
+    tokenWarnedOn,
+  );
 }
 
 /// True once the library was deleted from the phone in this run of the
@@ -301,9 +370,46 @@ final tokenProvider = NotifierProvider<TokenNotifier, String?>(
 
 class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
   @override
-  LibraryConnection build() => firstRunDemo
-      ? LibraryConnection.disconnected
-      : ref.watch(initialConnectionProvider);
+  LibraryConnection build() {
+    if (firstRunDemo) return LibraryConnection.disconnected;
+    final connection = ref.watch(initialConnectionProvider);
+    // The TOKEN_EXPIRES_IN dev switch: a token that expires in that many
+    // days, so D20 can be looked at.
+    if (tokenExpiresInDemo >= 0 && connection.connected) {
+      return connection.copyWith(
+        tokenExpires: DateTime.now().add(Duration(days: tokenExpiresInDemo)),
+        tokenWarnedOn: null,
+      );
+    }
+    return connection;
+  }
+
+  /// GitHub said when [token] expires (the expiration header on a
+  /// successful answer). Kept only for the token in use (F3 checks a new
+  /// token before it is saved) and only when the date is ahead: in
+  /// September 2025 GitHub briefly sent the current time by mistake, and
+  /// a date that has passed while requests still succeed means nothing.
+  Future<void> recordTokenExpiry({
+    required String token,
+    required DateTime expires,
+  }) async {
+    if (token != ref.read(tokenProvider)) return;
+    if (!expires.isAfter(DateTime.now())) return;
+    if (expires == state.tokenExpires) return;
+    state = state.copyWith(tokenExpires: expires);
+    await _save();
+  }
+
+  /// D20 was shown on [day]: not again that day.
+  Future<void> markTokenWarned(DateTime day) async {
+    state = state.copyWith(
+      tokenWarnedOn: DateTime(day.year, day.month, day.day),
+    );
+    await _save();
+  }
+
+  Future<void> _save() =>
+      ref.read(connectionStoreProvider).save(state.toJson());
 
   /// The end of the first run (F8) or a replaced token (D6): keeps the
   /// token and the connection on the device, then the app opens the
@@ -325,9 +431,14 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
     state = connection;
   }
 
-  /// A new token for the same connection (D6).
-  Future<void> replaceToken(String token) =>
-      ref.read(tokenProvider.notifier).set(token);
+  /// A new token for the same connection (D6, D20). Its expiry comes with
+  /// the next answer from GitHub, so the old one goes.
+  Future<void> replaceToken(String token) async {
+    await ref.read(tokenProvider.notifier).set(token);
+    if (state.tokenExpires == null && state.tokenWarnedOn == null) return;
+    state = state.copyWith(tokenExpires: null, tokenWarnedOn: null);
+    await _save();
+  }
 
   /// Disconnect (D15, D16). The [sync] stops, the queue, the sync meta and
   /// the token leave the device, and GitHub is never touched. With
@@ -345,11 +456,21 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
       // The sync finishes its writes before the local repository takes
       // the file over.
       await sync?.discard(keepLibrary: true);
-      state = state.copyWith(connected: false, keptLocally: true);
+      state = state.copyWith(
+        connected: false,
+        keptLocally: true,
+        tokenExpires: null,
+        tokenWarnedOn: null,
+      );
     } else {
       final discarding = sync?.discard();
       ref.read(startOverProvider.notifier).set();
-      state = state.copyWith(connected: false, keptLocally: false);
+      state = state.copyWith(
+        connected: false,
+        keptLocally: false,
+        tokenExpires: null,
+        tokenWarnedOn: null,
+      );
       await discarding;
     }
     await ref.read(tokenProvider.notifier).clear();
