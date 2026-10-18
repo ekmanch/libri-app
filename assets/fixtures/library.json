@@ -286,7 +286,19 @@
       "description": "",
       "seasonal_only": false,
       "added": "2026-09-20",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2022-02-18",
+          "status": "done"
+        },
+        {
+          "season": 2,
+          "released": "2025-01-17",
+          "status": "in_progress"
+        }
+      ]
     },
     {
       "id": "shows/the-haunting-of-hill-house-2018",
@@ -305,7 +317,14 @@
       "description": "",
       "seasonal_only": false,
       "added": "2025-10-12",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2018-10-12",
+          "status": "done"
+        }
+      ]
     },
     {
       "id": "shows/twin-peaks-1990",
@@ -326,7 +345,24 @@
       "description": "",
       "seasonal_only": false,
       "added": "2025-06-07",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "1990-04-08",
+          "status": "done"
+        },
+        {
+          "season": 2,
+          "released": "1990-09-30",
+          "status": "done"
+        },
+        {
+          "season": 3,
+          "released": "2017-05-21",
+          "status": "done"
+        }
+      ]
     },
     {
       "id": "shows/over-the-garden-wall-2014",
@@ -382,7 +418,34 @@
       "description": "",
       "seasonal_only": false,
       "added": "2025-11-02",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2016-07-15",
+          "status": "done"
+        },
+        {
+          "season": 2,
+          "released": "2017-10-27",
+          "status": "done"
+        },
+        {
+          "season": 3,
+          "released": "2019-07-04",
+          "status": "dnf"
+        },
+        {
+          "season": 4,
+          "released": "2022-05-27",
+          "status": null
+        },
+        {
+          "season": 5,
+          "released": "2025-11-26",
+          "status": null
+        }
+      ]
     },
     {
       "id": "shows/what-we-do-in-the-shadows-2019",
@@ -402,7 +465,39 @@
       "description": "",
       "seasonal_only": false,
       "added": "2025-10-15",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2019-03-27",
+          "status": "done"
+        },
+        {
+          "season": 2,
+          "released": "2020-04-15",
+          "status": "done"
+        },
+        {
+          "season": 3,
+          "released": "2021-09-02",
+          "status": "done"
+        },
+        {
+          "season": 4,
+          "released": "2022-07-12",
+          "status": "done"
+        },
+        {
+          "season": 5,
+          "released": "2023-07-13",
+          "status": "done"
+        },
+        {
+          "season": 6,
+          "released": "2024-10-21",
+          "status": "done"
+        }
+      ]
     },
     {
       "id": "shows/the-expanse-2015",

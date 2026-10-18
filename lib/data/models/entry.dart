@@ -6,6 +6,7 @@ import 'entry_status.dart';
 import 'media_type.dart';
 import 'music_kind.dart';
 import 'released.dart';
+import 'season.dart';
 import 'track.dart';
 
 part 'entry.freezed.dart';
@@ -48,11 +49,21 @@ abstract class Entry with _$Entry {
     @JsonKey(includeIfNull: false) MusicKind? kind,
     @JsonKey(includeIfNull: false) String? album,
     @JsonKey(includeIfNull: false) List<Track>? tracks,
+    // Shows: in season number order, omitted when the show has none.
+    @JsonKey(includeIfNull: false) List<Season>? seasons,
   }) = _Entry;
 
   factory Entry.fromJson(Map<String, Object?> json) => _$EntryFromJson(json);
 
-  int? get year => released?.year;
+  /// The release year. A show with seasons counts from its first season,
+  /// so sorting and the decade filter place it where it began.
+  int? get year => firstSeason?.released?.year ?? released?.year;
+
+  Season? get firstSeason =>
+      seasons == null || seasons!.isEmpty ? null : seasons!.first;
+
+  /// A season added by the daily check that has no status yet.
+  bool get hasNewSeason => seasons?.any((s) => s.isNew) ?? false;
 
   /// False only when a release date is known and still in the future.
   bool isReleasedOn(DateTime today) => released?.isReleasedOn(today) ?? true;

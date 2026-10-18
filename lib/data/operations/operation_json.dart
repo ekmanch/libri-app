@@ -1,6 +1,7 @@
 import 'entry_operations.dart';
 import 'library_operation.dart';
 import 'plan_operations.dart';
+import 'season_operations.dart';
 import 'tag_operations.dart';
 
 /// Operations as JSON, for the offline queue (`pending.json`). The `op`
@@ -21,6 +22,9 @@ Map<String, Object?> encodeOperation(LibraryOperation operation) {
     RemovePlanItem() => ('removePlanItem', operation.toJson()),
     SetPlanStarted() => ('setPlanStarted', operation.toJson()),
     AddTag() => ('addTag', operation.toJson()),
+    SetSeasonStatus() => ('setSeasonStatus', operation.toJson()),
+    MarkSeasonsDone() => ('markSeasonsDone', operation.toJson()),
+    AddSeasons() => ('addSeasons', operation.toJson()),
     _ => throw ArgumentError.value(
       operation,
       'operation',
@@ -48,6 +52,9 @@ LibraryOperation decodeOperation(Map<String, Object?> json) {
     'removePlanItem' => RemovePlanItem.fromJson(json),
     'setPlanStarted' => SetPlanStarted.fromJson(json),
     'addTag' => AddTag.fromJson(json),
+    'setSeasonStatus' => SetSeasonStatus.fromJson(json),
+    'markSeasonsDone' => MarkSeasonsDone.fromJson(json),
+    'addSeasons' => AddSeasons.fromJson(json),
     final other => throw FormatException('Unknown operation: $other'),
   };
 }

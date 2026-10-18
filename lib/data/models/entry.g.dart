@@ -34,6 +34,9 @@ _Entry _$EntryFromJson(Map<String, dynamic> json) => _Entry(
   tracks: (json['tracks'] as List<dynamic>?)
       ?.map((e) => Track.fromJson(e as Map<String, dynamic>))
       .toList(),
+  seasons: (json['seasons'] as List<dynamic>?)
+      ?.map((e) => Season.fromJson(e as Map<String, dynamic>))
+      .toList(),
 );
 
 Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
@@ -58,6 +61,7 @@ Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
   'kind': ?_$MusicKindEnumMap[instance.kind],
   'album': ?instance.album,
   'tracks': ?instance.tracks?.map((e) => e.toJson()).toList(),
+  'seasons': ?instance.seasons?.map((e) => e.toJson()).toList(),
 };
 
 const _$MediaTypeEnumMap = {
