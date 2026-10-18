@@ -79,6 +79,54 @@ class ShowStatusRow extends StatelessWidget {
   }
 }
 
+/// The form's status for a show with several seasons (A37): a quiet
+/// field with the status they give and "Set by the seasons".
+class DerivedStatusField extends StatelessWidget {
+  const DerivedStatusField({super.key, required this.status});
+
+  final EntryStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    return Semantics(
+      label: 'Status, ${status.label}, set by the seasons',
+      excludeSemantics: true,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.divider),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                status.label,
+                style: theme.textTheme.titleMedium!.copyWith(fontSize: 15.5),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                'Set by the seasons',
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodySmall!.copyWith(
+                  fontStyle: FontStyle.normal,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// "1 season", "29 seasons".
 String seasonsCount(int count) => count == 1 ? '1 season' : '$count seasons';
 
@@ -151,14 +199,14 @@ class SeasonsSection extends StatelessWidget {
 
 /// One season: its name, "New" while it is, its release date, and the
 /// status pill that opens the status sheet (A33).
-class SeasonRow extends StatelessWidget {
+class SeasonRow extends ConsumerWidget {
   const SeasonRow({super.key, required this.show, required this.season});
 
   final Entry show;
   final Season season;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     return Container(
@@ -201,9 +249,10 @@ class SeasonRow extends StatelessWidget {
           const SizedBox(width: 12),
           SeasonStatusPill(
             season: season,
-            onTap: () => showSeasonStatusSheet(
+            onTap: () => showSavedSeasonStatusSheet(
               context,
-              showId: show.id,
+              ref,
+              show: show,
               season: season.season,
             ),
           ),
@@ -292,53 +341,100 @@ class SeasonStatusPill extends StatelessWidget {
 }
 
 /// The season status sheet (A33): Not set, Want, In progress, Done, DNF.
-/// A pick applies at once and closes the sheet. While an earlier season
-/// is not Done, "Mark seasons 1–N Done" marks them all Done and keeps the
-/// sheet open. Neither touches later seasons or the show's own status.
+/// A pick goes to [onPick] and closes the sheet. While an earlier season
+/// is not Done, "Mark seasons 1–N Done" calls [onCatchUp] and keeps the
+/// sheet open. Details save both at once; the form keeps them until Save.
 Future<void> showSeasonStatusSheet(
   BuildContext context, {
-  required String showId,
+  required List<Season> seasons,
   required int season,
+  required ValueChanged<EntryStatus?> onPick,
+  required VoidCallback onCatchUp,
 }) {
   return showAppSheet<void>(
     context,
-    builder: (context) => SeasonStatusSheet(showId: showId, season: season),
+    builder: (context) => SeasonStatusSheet(
+      seasons: seasons,
+      season: season,
+      onPick: onPick,
+      onCatchUp: onCatchUp,
+    ),
   );
 }
 
-class SeasonStatusSheet extends ConsumerWidget {
+/// [showSeasonStatusSheet] for a show in the library: picks and catch-up
+/// are saved at once.
+Future<void> showSavedSeasonStatusSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required Entry show,
+  required int season,
+}) {
+  final repository = ref.read(libraryRepositoryProvider);
+  return showSeasonStatusSheet(
+    context,
+    seasons: show.seasons ?? const [],
+    season: season,
+    onPick: (status) =>
+        repository.apply(SetSeasonStatus(show.id, season, status)),
+    onCatchUp: () => repository.apply(MarkSeasonsDone(show.id, season)),
+  );
+}
+
+class SeasonStatusSheet extends StatefulWidget {
   const SeasonStatusSheet({
     super.key,
-    required this.showId,
+    required this.seasons,
     required this.season,
+    required this.onPick,
+    required this.onCatchUp,
   });
 
-  final String showId;
+  final List<Season> seasons;
   final int season;
+  final ValueChanged<EntryStatus?> onPick;
+  final VoidCallback onCatchUp;
 
   /// "Mark season 1 Done", "Mark seasons 1–28 Done".
   static String catchUpLabel(int season) =>
       season == 2 ? 'Mark season 1 Done' : 'Mark seasons 1–${season - 1} Done';
 
-  /// "Released Oct 9, 2026. …", "Comes out Oct 30, 2026. …".
+  /// "Released Oct 9, 2026.", "Comes out Oct 30, 2026.", or "Release date
+  /// not set.".
   static String subtitle(Season season, DateTime today) {
-    const tail = "The show's own status stays as it is.";
     final released = season.released;
-    if (released == null) return 'Release date not set. $tail';
+    if (released == null) return 'Release date not set.';
     final verb = released.isReleasedOn(today) ? 'Released' : 'Comes out';
-    return '$verb ${releasedLabel(released)}. $tail';
+    return '$verb ${releasedLabel(released)}.';
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  State<SeasonStatusSheet> createState() => _SeasonStatusSheetState();
+}
+
+class _SeasonStatusSheetState extends State<SeasonStatusSheet> {
+  late List<Season> _seasons = widget.seasons;
+
+  void _catchUp() {
+    widget.onCatchUp();
+    setState(() {
+      _seasons = [
+        for (final s in _seasons)
+          s.season < widget.season
+              ? s.copyWith(status: EntryStatus.done, fresh: null)
+              : s,
+      ];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final show = ref.watch(libraryProvider).value?.entryById(showId);
-    final seasons = show?.seasons ?? const <Season>[];
-    final current = seasons.where((s) => s.season == season).firstOrNull;
-    if (show == null || current == null) return const SizedBox(height: 120);
-    final repository = ref.read(libraryRepositoryProvider);
-    final behind = seasons.any(
+    final season = widget.season;
+    final current = _seasons.where((s) => s.season == season).firstOrNull;
+    if (current == null) return const SizedBox(height: 120);
+    final behind = _seasons.any(
       (s) => s.season < season && s.status != EntryStatus.done,
     );
     return SheetFrame(
@@ -348,7 +444,7 @@ class SeasonStatusSheet extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            subtitle(current, DateTime.now()),
+            SeasonStatusSheet.subtitle(current, DateTime.now()),
             style: theme.textTheme.bodyMedium!.copyWith(
               fontSize: 14,
               color: colors.muted,
@@ -362,9 +458,7 @@ class SeasonStatusSheet extends ConsumerWidget {
               child: InkWell(
                 onTap: () {
                   Navigator.pop(context);
-                  if (status != current.status) {
-                    repository.apply(SetSeasonStatus(showId, season, status));
-                  }
+                  if (status != current.status) widget.onPick(status);
                 },
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 52),
@@ -391,11 +485,10 @@ class SeasonStatusSheet extends ConsumerWidget {
           if (behind) ...[
             const SizedBox(height: 16),
             AppButton(
-              label: catchUpLabel(season),
+              label: SeasonStatusSheet.catchUpLabel(season),
               kind: AppButtonKind.outline,
               icon: const StrokeIcon(AppIcons.checkBold, size: 16),
-              onPressed: () =>
-                  repository.apply(MarkSeasonsDone(showId, season)),
+              onPressed: _catchUp,
             ),
             const SizedBox(height: 8),
             Text(

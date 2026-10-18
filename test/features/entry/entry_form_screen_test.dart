@@ -14,6 +14,7 @@ import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
 import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
+import 'package:library_app/features/entry/seasons.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/widgets/chips.dart';
@@ -380,8 +381,8 @@ void main() {
     await tester.tap(find.text('Add season'));
     await tester.pumpAndSettle();
     expect(find.text('Season 4'), findsOneWidget);
-    // The new season's date field, the only one not set.
-    await tester.tap(find.text('Not set'));
+    // The new season's date field; its status pill says Not set too.
+    await tester.tap(find.text('Not set').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('${DateTime.now().year}'));
     await tester.pumpAndSettle();
@@ -395,7 +396,144 @@ void main() {
     final seasons = repo(container).current!.entryById(twinPeaks.id)!.seasons!;
     expect([for (final s in seasons) s.season], [1, 3, 4]);
     expect(seasons[1], twinPeaks.seasons![2]);
-    expect(seasons[2], const Season(season: 4, released: Released(2027)));
+    // Added and dated here: the user's, never removed by the daily check.
+    expect(
+      seasons[2],
+      const Season(season: 4, released: Released(2027), manual: true),
+    );
+  });
+
+  group('a show in the form (A37)', () {
+    Finder inStatus(String label) => find.descendant(
+      of: find.byType(StatusSegmentedControl),
+      matching: find.text(label),
+    );
+
+    testWidgets('has no Released field; a new one starts with Season 1', (
+      tester,
+    ) async {
+      final container = await pumpApp(
+        tester,
+        const EntryFormScreen.create(type: MediaType.shows),
+      );
+      expect(find.text('Released'), findsNothing);
+      await tester.enterText(field('Title'), 'Severance');
+      await scrollTo(tester, inStatus('Done'));
+      await tester.tap(inStatus('Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      final show = repo(container).current!.entries.last;
+      expect(show.released, isNull);
+      expect(show.seasons, const [
+        Season(season: 1, status: EntryStatus.done, manual: true),
+      ]);
+      expect(show.status, EntryStatus.done);
+    });
+
+    testWidgets('several seasons: the status is set by them', (tester) async {
+      final severance = loadFixture().entryById('shows/severance-2022')!;
+      final container = await pumpApp(tester, EntryFormScreen.edit(severance));
+      await scrollTo(tester, find.byType(DerivedStatusField));
+      expect(find.byType(StatusSegmentedControl), findsNothing);
+      expect(
+        find.bySemanticsLabel('Status, In progress, set by the seasons'),
+        findsOneWidget,
+      );
+      // Season 2 to Done in its sheet: the show becomes Done.
+      await scrollTo(
+        tester,
+        find.bySemanticsLabel(RegExp('^Season 2 status: ')),
+      );
+      await tester.tap(find.bySemanticsLabel(RegExp('^Season 2 status: ')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SeasonStatusSheet),
+          matching: find.text('Done'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.bySemanticsLabel('Status, Done, set by the seasons'),
+        findsOneWidget,
+      );
+      // Nothing is saved before Save.
+      expect(
+        repo(container).current!.entryById(severance.id)!.status,
+        EntryStatus.inProgress,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById(severance.id)!;
+      expect(saved.status, EntryStatus.done);
+      expect(saved.seasons![1].status, EntryStatus.done);
+    });
+
+    testWidgets('catch-up in the form marks the earlier seasons', (
+      tester,
+    ) async {
+      final things = loadFixture().entryById('shows/stranger-things-2016')!;
+      final container = await pumpApp(tester, EntryFormScreen.edit(things));
+      final pill = find.bySemanticsLabel(RegExp('^Season 5 status: '));
+      await scrollTo(tester, pill);
+      await tester.tap(pill);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mark seasons 1–4 Done'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mark seasons 1–4 Done'), findsNothing);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final seasons = repo(container).current!.entryById(things.id)!.seasons!;
+      expect(
+        [for (final s in seasons) s.status],
+        [
+          EntryStatus.done,
+          EntryStatus.done,
+          EntryStatus.done,
+          EntryStatus.done,
+          null,
+        ],
+      );
+    });
+
+    testWidgets('a pick from the lookup replaces seasons made by hand', (
+      tester,
+    ) async {
+      final bear = loadFixture()
+          .entryById('shows/the-bear-2022')!
+          .copyWith(
+            title: 'The Last of Us',
+            status: EntryStatus.done,
+            seasons: const [
+              Season(season: 1, status: EntryStatus.done, manual: true),
+            ],
+          );
+      final container = await pumpApp(tester, EntryFormScreen.edit(bear));
+      await tester.tap(find.text('Look up again'));
+      await tester.pumpAndSettle();
+      await tester.pump(NewEntryScreen.debounce);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SHOW · 2023'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById(bear.id)!;
+      expect(saved.seasons, const [
+        Season(
+          season: 1,
+          released: Released(2023, 1, 15),
+          status: EntryStatus.done,
+        ),
+        Season(
+          season: 2,
+          released: Released(2025, 4, 13),
+          status: EntryStatus.done,
+        ),
+      ]);
+    });
   });
 
   testWidgets('only a show has the Seasons field', (tester) async {

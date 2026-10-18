@@ -105,12 +105,7 @@ void main() {
       );
       await tapIn(tester, pill(4));
       expect(find.byType(SeasonStatusSheet), findsOneWidget);
-      expect(
-        find.text(
-          "Released May 27, 2022. The show's own status stays as it is.",
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Released May 27, 2022.'), findsOneWidget);
       await tapIn(
         tester,
         find.descendant(

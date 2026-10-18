@@ -30,6 +30,7 @@ import '../../widgets/segmented_control.dart';
 import '../settings/display_preferences.dart';
 import 'new_entry_screen.dart';
 import 'released_sheet.dart';
+import 'seasons.dart';
 import 'rating_sheet.dart';
 import 'replace_dialogs.dart';
 import 'similar_tags.dart';
@@ -199,6 +200,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
     _seasons = entry?.seasons ?? Season.listable(match?.seasons ?? const []);
+    _seedSeason();
     _creatorFocus.addListener(() => setState(() {}));
   }
 
@@ -241,10 +243,26 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   bool get _canSave => !_saving && _title.text.trim().isNotEmpty;
 
-  /// A new season after the last, with no date or status yet.
+  /// A show always has a season: one without (a new show filled in by
+  /// hand) starts with Season 1, holding the date and status it had.
+  void _seedSeason() {
+    if (_type != MediaType.shows || _seasons.isNotEmpty) return;
+    _seasons = [
+      Season(season: 1, released: _released, status: _status, manual: true),
+    ];
+  }
+
+  /// The status a show's seasons give; [_status] for anything else.
+  EntryStatus get _effectiveStatus =>
+      _type == MediaType.shows && _seasons.isNotEmpty
+      ? Season.showStatus(_seasons, DateTime.now())
+      : _status;
+
+  /// A new season after the last, with no date or status yet. Added in the
+  /// form, so the daily check never removes it.
   void _addSeason() => setState(() {
     final next = _seasons.isEmpty ? 1 : _seasons.last.season + 1;
-    _seasons = [..._seasons, Season(season: next)];
+    _seasons = [..._seasons, Season(season: next, manual: true)];
   });
 
   void _replaceSeason(Season season, Season? replacement) => setState(() {
@@ -254,49 +272,99 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     ];
   });
 
-  /// One season in the form: its name, its release date (A25) and a
-  /// button that removes it. Its status stays as it was.
+  void _setSeasonStatus(int number, EntryStatus? status) => setState(() {
+    _seasons = [
+      for (final s in _seasons)
+        s.season == number
+            ? s.copyWith(status: status, fresh: status == null ? s.fresh : null)
+            : s,
+    ];
+  });
+
+  /// One season in the form (A37): its name and a button that removes it,
+  /// then its release date (A25) and its status pill, which opens the same
+  /// sheet as details. A date fixed here is the user's, so the daily check
+  /// leaves it alone.
   Widget _seasonField(BuildContext context, Season season) {
     final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
     final released = season.released;
     final releasedText = released == null ? 'Not set' : releasedLabel(released);
     final name = 'Season ${season.season}';
-    return Row(
-      children: [
-        // At a large text size the name shrinks rather than cutting off.
-        Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(name, style: theme.textTheme.titleMedium, maxLines: 1),
+    return Container(
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.divider)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: theme.textTheme.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Transform.translate(
+                // The cross lines up with the fields' right edge.
+                offset: const Offset(12, 0),
+                child: IconButton(
+                  onPressed: () => _replaceSeason(season, null),
+                  tooltip: 'Remove $name',
+                  color: colors.muted,
+                  icon: const StrokeIcon(AppIcons.close, size: 18),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: _releasedWidth(context),
-          child: FieldButton(
-            onTap: () => showReleasedSheet(
-              context,
-              initial: released,
-              onChanged: (value) =>
-                  _replaceSeason(season, season.copyWith(released: value)),
-            ),
-            placeholder: released == null,
-            semanticsLabel: '$name released, $releasedText',
-            padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
-            child: Text(
-              releasedText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: FieldButton(
+                  onTap: () => showReleasedSheet(
+                    context,
+                    initial: released,
+                    onChanged: (value) => _replaceSeason(
+                      season,
+                      season.copyWith(released: value, manual: true),
+                    ),
+                  ),
+                  placeholder: released == null,
+                  semanticsLabel: '$name released, $releasedText',
+                  padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
+                  child: Text(
+                    releasedText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SeasonStatusPill(
+                season: season,
+                onTap: () => showSeasonStatusSheet(
+                  context,
+                  seasons: _seasons,
+                  season: season.season,
+                  onPick: (status) => _setSeasonStatus(season.season, status),
+                  onCatchUp: () => setState(() {
+                    _seasons = [
+                      for (final s in _seasons)
+                        s.season < season.season
+                            ? s.copyWith(status: EntryStatus.done, fresh: null)
+                            : s,
+                    ];
+                  }),
+                ),
+              ),
+            ],
           ),
-        ),
-        IconButton(
-          onPressed: () => _replaceSeason(season, null),
-          tooltip: 'Remove $name',
-          icon: const StrokeIcon(AppIcons.close, size: 18),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -465,8 +533,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     _released ??= match.released;
     if (_description.isEmpty) _description = match.description;
-    if (_seasons.isEmpty) {
-      _seasons = Season.listable(match.seasons);
+    // Seasons that are all the user's own (a show filled in by hand, or
+    // one from before seasons) give way to the lookup's, with the status
+    // carried over.
+    final fetched = Season.listable(match.seasons);
+    if (_type == MediaType.shows &&
+        fetched.isNotEmpty &&
+        _seasons.every((s) => s.isManual)) {
+      _seasons = carryOverStatus(fetched, _effectiveStatus, DateTime.now());
     }
     if (_type == MediaType.music) {
       _kind = match.album == null ? MusicKind.album : MusicKind.song;
@@ -491,6 +565,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       _type = type;
       _kind = type == MediaType.music ? (_kind ?? MusicKind.album) : null;
       if (!_statusOptions.contains(_status)) _status = EntryStatus.want;
+      _seedSeason();
     });
   }
 
@@ -525,7 +600,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   Entry _buildEntry(Iterable<String> existingIds) {
     final title = _title.text.trim();
     final creator = _creator.text.trim();
-    final released = _released;
+    final isShow = _type == MediaType.shows;
+    // A show has no date of its own: its seasons do (A37).
+    final released = isShow ? null : _released;
     final isMusic = _type == MediaType.music;
     final platform = _platformOptions.where(_platformsOn.contains).join(', ');
     final album = _album.text.trim();
@@ -537,7 +614,8 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           EntryId.generate(
             type: _type,
             title: title,
-            year: released?.year.toString(),
+            year: (isShow ? _seasons.firstOrNull?.released : released)?.year
+                .toString(),
             artist: creator.isEmpty ? null : creator,
             existingIds: existingIds,
           ),
@@ -545,7 +623,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       title: title,
       released: released,
       creator: creator.isEmpty ? null : creator,
-      status: _status,
+      status: _effectiveStatus,
       rating: _rating,
       tags: _tags,
       note: _note.text.trim(),
@@ -567,9 +645,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           ? album
           : null,
       tracks: isMusic && _kind == MusicKind.album ? base?.tracks : null,
-      seasons: _type == MediaType.shows && _seasons.isNotEmpty
-          ? _seasons
-          : null,
+      seasons: isShow && _seasons.isNotEmpty ? _seasons : null,
     );
   }
 
@@ -789,6 +865,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                           ),
                         ],
                       );
+                      if (_type == MediaType.shows) return creatorField;
                       // The creator keeps at least 140 dp beside the date
                       // field: side by side on a 360 dp phone, stacked at a
                       // larger text size.
@@ -816,11 +893,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   if (_type == MediaType.shows) ...[
                     const SizedBox(height: 14),
                     const FieldLabel('Seasons'),
-                    for (final (i, season) in _seasons.indexed) ...[
-                      if (i > 0) const SizedBox(height: 8),
+                    for (final season in _seasons)
                       _seasonField(context, season),
-                    ],
-                    if (_seasons.isNotEmpty) const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: DashedChip(
@@ -916,14 +991,30 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   ],
                   const SizedBox(height: 14),
                   const FieldLabel('Status'),
-                  StatusSegmentedControl(
-                    selected: _status,
-                    type: _type,
-                    style: SegmentedStyle.accent,
-                    onChanged: (status) {
-                      if (status != null) setState(() => _status = status);
-                    },
-                  ),
+                  if (_type == MediaType.shows && _seasons.length > 1)
+                    // The seasons set it (A37).
+                    DerivedStatusField(status: _effectiveStatus)
+                  else
+                    StatusSegmentedControl(
+                      selected: _effectiveStatus,
+                      type: _type,
+                      style: SegmentedStyle.accent,
+                      onChanged: (status) {
+                        if (status == null) return;
+                        setState(() {
+                          _status = status;
+                          // A show with one season: that season's status.
+                          if (_type == MediaType.shows && _seasons.isNotEmpty) {
+                            _seasons = [
+                              _seasons.single.copyWith(
+                                status: status,
+                                fresh: null,
+                              ),
+                            ];
+                          }
+                        });
+                      },
+                    ),
                   const SizedBox(height: 14),
                   const FieldLabel('Rating'),
                   FieldButton(
