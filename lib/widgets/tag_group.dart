@@ -80,7 +80,13 @@ class TagGroup extends StatelessWidget {
             Semantics(
               button: true,
               expanded: open,
-              child: InkWell(onTap: onToggleOpen, child: header),
+              // No press highlight: the group folding open or shut is the
+              // feedback.
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onToggleOpen,
+                child: header,
+              ),
             )
           else
             Semantics(header: true, child: header),
@@ -136,7 +142,9 @@ class TagGroupRow extends StatelessWidget {
       button: true,
       label: '$label, $detail',
       excludeSemantics: true,
-      child: InkWell(
+      // No press highlight: the full list opening is the feedback.
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 52),

@@ -62,20 +62,30 @@ class SheetFrame extends StatelessWidget {
     // picker's search, the typed year in A26) pushes the sheet up and
     // shrinks a scrollable body, so the field stays in view.
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    const sides = EdgeInsets.symmetric(horizontal: 20);
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 10, 20, 20 + keyboard),
+      padding: EdgeInsets.fromLTRB(0, 10, 0, 20 + keyboard),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           grabber,
-          ?header,
+          if (header != null) Padding(padding: sides, child: header),
           const SizedBox(height: 12),
+          // The scroll view spans the sheet's full width with the side
+          // margin inside it, so it clips at the sheet's edges, not at the
+          // margin: a chip's outline or a row that bleeds (the decade row
+          // in A2) is not cut off.
           if (scrollable)
-            Flexible(child: SingleChildScrollView(child: child))
+            Flexible(
+              child: SingleChildScrollView(padding: sides, child: child),
+            )
           else
-            child,
-          if (footer != null) ...[const SizedBox(height: 12), footer!],
+            Padding(padding: sides, child: child),
+          if (footer != null) ...[
+            const SizedBox(height: 12),
+            Padding(padding: sides, child: footer),
+          ],
         ],
       ),
     );

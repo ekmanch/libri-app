@@ -183,7 +183,7 @@ class _FilterSheetState extends State<FilterSheet> {
                   ],
                 ],
               ),
-            ).bleed(20),
+            ).bleed(20, height: 44),
           ],
           const SizedBox(height: 8),
           SwitchListTile(
@@ -251,9 +251,16 @@ class _FilterSheetState extends State<FilterSheet> {
 }
 
 extension on Widget {
-  /// Lets a horizontal list run under the sheet's side padding.
-  Widget bleed(double inset) => Transform.translate(
-    offset: Offset(-inset, 0),
-    child: SizedBox(width: double.infinity, child: this),
+  /// Lets a horizontal list run under the sheet's side padding, to both
+  /// edges of the sheet.
+  Widget bleed(double inset, {required double height}) => SizedBox(
+    height: height,
+    child: LayoutBuilder(
+      builder: (context, constraints) => OverflowBox(
+        minWidth: constraints.maxWidth + 2 * inset,
+        maxWidth: constraints.maxWidth + 2 * inset,
+        child: this,
+      ),
+    ),
   );
 }
