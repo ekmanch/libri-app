@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Libri mark for the splash (F1): the same geometry as LibriLogo in
+     lib/widgets/libri_logo.dart, drawn on the 1400 by 1000 grid and scaled
+     to 156 by 111 dp, which fits the 192 dp circle Android 12 may mask the
+     splash icon with, so it always shows as the rounded rectangle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <group
+        android:translateX="66"
+        android:translateY="88.3"
+        android:scaleX="0.111429"
+        android:scaleY="0.111429">
+        <path
+            android:fillColor="#F8B289"
+            android:pathData="M150,0 H700 V1000 H150 A150,150 0 0 1 0,850 V150 A150,150 0 0 1 150,0 Z"/>
+        <path
+            android:fillColor="#EDEEF0"
+            android:pathData="M700,0 H1250 A150,150 0 0 1 1400,150 V850 A150,150 0 0 1 1250,1000 H700 Z"/>
+        <path
+            android:fillColor="#232428"
+            android:pathData="M200,350 a37,37 0 0 1 57,-32 l238,150 a37,37 0 0 1 0,64 L257,682 a37,37 0 0 1 -57,-32 z"/>
+        <path
+            android:fillColor="#232428"
+            android:pathData="M900,262 H1200 A38,38 0 0 1 1200,338 H900 A38,38 0 0 1 900,262 Z"/>
+        <path
+            android:fillColor="#232428"
+            android:pathData="M900,462 H1200 A38,38 0 0 1 1200,538 H900 A38,38 0 0 1 900,462 Z"/>
+        <path
+            android:fillColor="#232428"
+            android:pathData="M900,662 H1100 A38,38 0 0 1 1100,738 H900 A38,38 0 0 1 900,662 Z"/>
+    </group>
+</vector>
