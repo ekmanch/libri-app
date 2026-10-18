@@ -674,7 +674,9 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-s6-settings');
-    await tester.scrollUntilVisible(find.text('Library source'), 200);
+    await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-s6-settings-bottom');
     await tester.tap(find.text('Library source'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-d6-connection');

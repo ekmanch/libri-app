@@ -4,6 +4,8 @@ import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/settings_screen.dart';
 import 'package:library_app/theme/app_theme.dart';
+import 'package:library_app/widgets/app_icons.dart';
+import 'package:library_app/widgets/setting_row.dart';
 
 import '../../helpers/pump.dart';
 import '../../helpers/pump_app.dart';
@@ -74,6 +76,18 @@ void main() {
       expect(prefs().defaultPlatform, 'Steam Deck');
     },
   );
+
+  testWidgets('a single row puts its value at the right edge', (tester) async {
+    await pumpApp(tester, const SettingsScreen());
+    await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
+    final row = tester.getRect(find.widgetWithText(SettingRow, 'Libri'));
+    final value = tester.getRect(find.text('Version 0.1.0'));
+    expect(value.right, row.right);
+    // With a chevron the value ends right before it.
+    final chevron = tester.getRect(find.byType(StrokeIcon).last);
+    final source = tester.getRect(find.text('GitHub, private repo'));
+    expect(source.right, chevron.left - 6);
+  });
 
   testWidgets('the library source row opens the connection screen', (
     tester,

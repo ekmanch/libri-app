@@ -42,6 +42,29 @@ class SettingRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final fixedLabel = labelWidth != null;
+    final Widget labelText = detail == null
+        ? Text(label, style: theme.textTheme.bodyLarge!.copyWith(fontSize: 16))
+        : Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodyLarge!.copyWith(fontSize: 16),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail!,
+                  style: theme.textTheme.bodyMedium!.copyWith(
+                    fontSize: 14,
+                    height: 1.35,
+                    color: colors.muted,
+                  ),
+                ),
+              ],
+            ),
+          );
     final row = Container(
       constraints: BoxConstraints(minHeight: minHeight),
       decoration: BoxDecoration(
@@ -49,43 +72,17 @@ class SettingRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // The label keeps its natural width and the value gets the rest,
-          // so a short value stays on one line where it can; with a fixed
-          // [labelWidth] the label column is that wide whatever its text.
-          Flexible(
-            flex: fixedLabel ? 0 : 1,
-            child: SizedBox(
-              width: labelWidth,
-              child: detail == null
-                  ? Text(
-                      label,
-                      style: theme.textTheme.bodyLarge!.copyWith(fontSize: 16),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            label,
-                            style: theme.textTheme.bodyLarge!.copyWith(
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            detail!,
-                            style: theme.textTheme.bodyMedium!.copyWith(
-                              fontSize: 14,
-                              height: 1.35,
-                              color: colors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-            ),
-          ),
+          // In a block of details the label column is [labelWidth] wide
+          // whatever its text. A single row with a value gives the label
+          // its natural width and the value all the rest, so the value
+          // reaches the right edge. A row without a value (the two-line
+          // detail rows) lets the text wrap across the width.
+          if (fixedLabel)
+            SizedBox(width: labelWidth, child: labelText)
+          else if (value != null)
+            labelText
+          else
+            Expanded(child: labelText),
           if (value != null) ...[
             const SizedBox(width: 12),
             Expanded(
