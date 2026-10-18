@@ -4,17 +4,40 @@ import '../data/models/entry.dart';
 import '../data/models/entry_status.dart';
 import '../data/models/media_type.dart';
 import '../data/models/music_kind.dart';
+import '../data/models/season.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'labels.dart';
 
+/// The years a show with seasons ran, from its first season to its last:
+/// "2025–2026", or "2025" when they are the same. Null without dated
+/// seasons.
+String? showYears(Entry entry) {
+  final years = [
+    for (final s in entry.seasons ?? const <Season>[]) ?s.released?.year,
+  ];
+  if (years.isEmpty) return null;
+  final first = years.first, last = years.last;
+  return first == last ? '$first' : '$first–$last';
+}
+
+/// "2 seasons", or null for a show with one season or none.
+String? seasonCountLabel(Entry entry) {
+  final count = entry.seasons?.length ?? 0;
+  return count > 1 ? '$count seasons' : null;
+}
+
 /// The italic line under a title. The year; for books and music the creator
-/// and the year; for a song its album and the year. "Not released yet" when
-/// the release date is still ahead.
+/// and the year; for a song its album and the year; for a show with more
+/// than one season the years it ran and the count ("2025–2026 · 2
+/// seasons"). "Not released yet" when the release date is still ahead.
 String entrySubtitle(Entry entry, {DateTime? today}) {
-  final released = entry.released;
+  final released = entry.firstSeason?.released ?? entry.released;
   if (released != null && !released.isReleasedOn(today ?? DateTime.now())) {
     return 'Not released yet';
+  }
+  if (seasonCountLabel(entry) case final count?) {
+    return [showYears(entry), count].whereType<String>().join(' · ');
   }
   final year = released?.year.toString();
   final lead = switch (entry.type) {
@@ -65,6 +88,7 @@ class EntryRow extends StatelessWidget {
     this.leading,
     this.typeLabel,
     this.typeColor,
+    this.badge,
   });
 
   /// [showType] adds the type word in its color before the subtitle, as in
@@ -82,7 +106,10 @@ class EntryRow extends StatelessWidget {
        subtitle = subtitle ?? entrySubtitle(entry, today: today),
        status = entry.status,
        typeLabel = showType ? entryKindLabel(entry) : null,
-       typeColor = showType ? colors?.forType(entry.type) : null;
+       typeColor = showType ? colors?.forType(entry.type) : null,
+       badge = entry.hasNewSeason ? newSeasonLabel : null;
+
+  static const newSeasonLabel = 'New season';
 
   final String title;
   final String subtitle;
@@ -93,6 +120,21 @@ class EntryRow extends StatelessWidget {
   final Widget? leading;
   final String? typeLabel;
   final Color? typeColor;
+
+  /// An outlined label after the subtitle: "New season".
+  final String? badge;
+
+  /// The subtitle, then the badge right after it; the subtitle gives way.
+  Widget _withBadge(Widget subtitle) {
+    if (badge == null) return subtitle;
+    return Row(
+      children: [
+        Flexible(child: subtitle),
+        const SizedBox(width: 8),
+        OutlineBadge(badge!),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,26 +164,30 @@ class EntryRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (subtitle.isNotEmpty || typeLabel != null) ...[
+                  if (subtitle.isNotEmpty ||
+                      typeLabel != null ||
+                      badge != null) ...[
                     const SizedBox(height: 2),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          if (typeLabel != null)
-                            TextSpan(
-                              text: typeLabel,
-                              style: theme.textTheme.bodySmall!.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: typeColor,
+                    _withBadge(
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            if (typeLabel != null)
+                              TextSpan(
+                                text: typeLabel,
+                                style: theme.textTheme.bodySmall!.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: typeColor,
+                                ),
                               ),
-                            ),
-                          if (typeLabel != null && subtitle.isNotEmpty)
-                            TextSpan(text: ' · ', style: subtitleStyle),
-                          TextSpan(text: subtitle, style: subtitleStyle),
-                        ],
+                            if (typeLabel != null && subtitle.isNotEmpty)
+                              TextSpan(text: ' · ', style: subtitleStyle),
+                            TextSpan(text: subtitle, style: subtitleStyle),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ],
@@ -150,6 +196,36 @@ class EntryRow extends StatelessWidget {
             const SizedBox(width: 12),
             StatusMark(status),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A small outlined label in the accent ink: "New season", "New".
+class OutlineBadge extends StatelessWidget {
+  const OutlineBadge(this.label, {super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ink = theme.colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: ink),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        style: theme.textTheme.labelSmall!.copyWith(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+          color: ink,
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/music_kind.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
 import 'package:library_app/widgets/app_icons.dart';
 import 'package:library_app/widgets/entry_row.dart';
 
@@ -41,6 +42,46 @@ void main() {
       final coming = mummy.copyWith(released: const Released(2027));
       expect(entrySubtitle(coming, today: today), 'Not released yet');
       expect(entrySubtitle(coming, today: DateTime(2028)), '2027');
+    });
+
+    group('a show with seasons', () {
+      Entry show(List<Season> seasons) => mummy.copyWith(
+        type: MediaType.shows,
+        released: const Released(2024),
+        seasons: seasons,
+      );
+
+      test('shows the years it ran and the count', () {
+        final twoSeasons = show(const [
+          Season(season: 1, released: Released(2025, 9, 19)),
+          Season(season: 2, released: Released(2026, 10, 9)),
+        ]);
+        expect(
+          entrySubtitle(twoSeasons, today: today),
+          '2025–2026 · 2 seasons',
+        );
+        expect(showYears(twoSeasons), '2025–2026');
+      });
+
+      test('one year when every season came out in it', () {
+        final sameYear = show(const [
+          Season(season: 1, released: Released(1990, 4, 8)),
+          Season(season: 2, released: Released(1990, 9, 30)),
+        ]);
+        expect(entrySubtitle(sameYear, today: today), '1990 · 2 seasons');
+      });
+
+      test('one season is the first season\'s year', () {
+        final one = show(const [Season(season: 1, released: Released(2018))]);
+        expect(entrySubtitle(one, today: today), '2018');
+      });
+
+      test('not released yet goes by the first season', () {
+        final coming = show(const [
+          Season(season: 1, released: Released(2026, 10, 30)),
+        ]);
+        expect(entrySubtitle(coming, today: today), 'Not released yet');
+      });
     });
 
     test('leaves out missing parts', () {
@@ -96,6 +137,35 @@ void main() {
     );
     await tester.tap(find.text('The Mummy'));
     expect(taps, 1);
+  });
+
+  testWidgets('a show with a new season gets the New season badge', (
+    tester,
+  ) async {
+    final show = mummy.copyWith(
+      type: MediaType.shows,
+      seasons: const [
+        Season(season: 1, released: Released(2022), status: EntryStatus.done),
+        Season(season: 2, released: Released(2025), fresh: true),
+      ],
+    );
+    await pumpThemed(tester, EntryRow.forEntry(show, today: today));
+    expect(find.text('2022–2025 · 2 seasons'), findsOneWidget);
+    expect(find.text('New season'), findsOneWidget);
+    final badge = tester.widget<Text>(find.text('New season'));
+    expect(
+      badge.style?.color,
+      Theme.of(tester.element(find.text('New season'))).colorScheme.primary,
+    );
+
+    final seen = show.copyWith(
+      seasons: [
+        show.seasons![0],
+        show.seasons![1].copyWith(status: EntryStatus.want),
+      ],
+    );
+    await pumpThemed(tester, EntryRow.forEntry(seen, today: today));
+    expect(find.text('New season'), findsNothing);
   });
 
   test('a repeat is a rewatch, a reread, a replay or a relisten', () {
