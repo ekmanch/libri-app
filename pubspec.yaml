@@ -73,8 +73,9 @@ flutter:
 
   assets:
     - assets/fixtures/library.json
-    # The TMDB logo, as their attribution terms require (About, D19).
-    - assets/logos/
+    # The TMDB and Deezer logos, as their terms require (About, D19).
+    - assets/logos/tmdb/
+    - assets/logos/deezer/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -1198,6 +1198,9 @@ void main() {
     await tester.pumpAndSettle();
     await tapText('Libri');
     await shot('d19-about');
+    await tester.scrollUntilVisible(find.text('AniList'), 300);
+    await tester.pumpAndSettle();
+    await shot('d19-about-bottom');
     await back();
     await tapText('Library source');
     await shot('d6-connection');

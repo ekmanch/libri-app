@@ -25,6 +25,8 @@ class DataSource {
     required this.description,
     required this.url,
     this.logo,
+    this.logoOnDark,
+    this.logoHeight = 16,
   });
 
   final String name;
@@ -33,8 +35,19 @@ class DataSource {
   /// The website the row opens.
   final String url;
 
-  /// The service's own logo, where its terms ask for one (TMDB).
+  /// The service's own logo, where its terms ask for one (TMDB, Deezer):
+  /// the official file, never redrawn, shown small so the page stays calm.
   final String? logo;
+
+  /// The variant for the dark theme, when the service has one (Deezer's
+  /// white wordmark); null shows [logo] on both themes.
+  final String? logoOnDark;
+
+  /// Height in dp; set per logo so their wordmarks look the same size.
+  final double logoHeight;
+
+  String? logoFor(Brightness brightness) =>
+      brightness == Brightness.dark ? logoOnDark ?? logo : logo;
 }
 
 /// The services Libri looks things up in, in the order of D19.
@@ -45,7 +58,8 @@ const dataSources = [
         'Movies and shows. This product uses the TMDB API but is not '
         'endorsed or certified by TMDB.',
     url: 'https://www.themoviedb.org',
-    logo: 'assets/logos/tmdb.png',
+    logo: 'assets/logos/tmdb/tmdb.png',
+    logoHeight: 13,
   ),
   DataSource(
     name: 'IGDB',
@@ -66,6 +80,9 @@ const dataSources = [
     name: 'Deezer',
     description: 'Music: artists, albums, songs and covers.',
     url: 'https://www.deezer.com',
+    logo: 'assets/logos/deezer/deezer.png',
+    logoOnDark: 'assets/logos/deezer/deezer_on_dark.png',
+    logoHeight: 28,
   ),
   DataSource(
     name: 'AniList',
@@ -195,6 +212,7 @@ class _SourceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
+    final logo = source.logoFor(theme.brightness);
     return Semantics(
       button: true,
       label: '${source.name}, opens website',
@@ -227,12 +245,12 @@ class _SourceRow extends StatelessWidget {
                         color: colors.muted,
                       ),
                     ),
-                    if (source.logo != null)
+                    if (logo != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 10),
                         child: Image.asset(
-                          source.logo!,
-                          height: 26,
+                          logo,
+                          height: source.logoHeight,
                           excludeFromSemantics: true,
                         ),
                       ),
