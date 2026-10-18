@@ -172,18 +172,22 @@ class PlanEntrySheet extends ConsumerWidget {
             label: 'Plan note',
             child: InkWell(
               onTap: editNote,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SectionHeading('Plan note', padding: EdgeInsets.zero),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.note.isEmpty ? 'Add a note' : item.note,
-                    style: theme.textTheme.bodyMedium!.copyWith(
-                      color: item.note.isEmpty ? colors.placeholder : null,
+              // At least 48 dp tall to tap, however short the note.
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SectionHeading('Plan note', padding: EdgeInsets.zero),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.note.isEmpty ? 'Add a note' : item.note,
+                      style: theme.textTheme.bodyMedium!.copyWith(
+                        color: item.note.isEmpty ? colors.placeholder : null,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
