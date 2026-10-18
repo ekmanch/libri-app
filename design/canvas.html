@@ -7184,6 +7184,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <div style="margin-top: 8px; border-radius: 16px; background: #1D1F22; padding: 14px 16px; display: flex; align-items: center; gap: 12px"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{cDot}}; flex-shrink: 0"></span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 600">{{cTitle}}</span><span style="font-size: 13px; color: #A3A8AE">{{cSub}}</span></span><a href="{{cHref}}" style="margin-left: auto; height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #4A4F57; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif; display: flex; align-items: center; text-decoration: none; flex-shrink: 0">{{cBtn}}</a></div>
 <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A3A8AE; padding: 20px 0 2px">GitHub</h2>
 <div style="min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #26292D"><span style="font-size: 16px">Repository</span><span style="font-size: 14px; color: #A3A8AE; text-align: right">[owner]/library</span></div>
+<div style="min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #26292D"><span style="font-size: 16px">Branch</span><span style="font-size: 14px; color: #A3A8AE; text-align: right">main</span></div>
 <div style="min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #26292D"><span style="font-size: 16px">Data file</span><span style="font-size: 14px; color: #A3A8AE; text-align: right">library.json</span></div>
 <div style="min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #26292D"><span style="font-size: 16px">Access token</span><span style="font-size: 14px; color: #A3A8AE; text-align: right">Saved on this phone</span></div>
 <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A3A8AE; padding: 20px 0 2px">Syncing</h2>
@@ -8349,15 +8350,35 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="ok" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Access token</label><input id="ok" type="password" value="github_pat_example" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">A fine-grained token that can read and write this one repo. It stays in the phone's secure storage and never leaves the device.</p></div>
 </div>
 <div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
-<button onClick="{{goFile}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
+<button onClick="{{goBranch}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
 <button style="height: 44px; border: 0; background: none; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif">How do I create a token?</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sBranch}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick a branch</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Branches in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Libri reads and saves your library on the one you pick.</p>
+</div>
+<div role="radiogroup" aria-label="Branch" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"></circle><circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><path d="M6 7.2v9.6M18 9.2c0 5-6 4-11.2 8.2"></path></svg></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><sc-if value="{{b.isDefault}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); color: #A3A8AE; font-size: 12px; font-weight: 600">Default</span></sc-if></span><span style="font-size: 13.5px; color: #A3A8AE">{{b.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{b.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{b.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Libri commits straight to this branch, with no pull requests.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goFile}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
 </div>
 </sc-if>
 
 <sc-if value="{{sFile}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Your library file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Start fresh, or use a file you already have.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong> on <strong style="color: #EEF0F2; font-weight: 600">{{branchName}}</strong>. Start fresh, or use a file you already have.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 12px">
 <sc-for list="{{choices}}" as="c" hint-placeholder-count="2">
@@ -8382,7 +8403,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri adds an empty library file to your repo and commits it for you.</p>
 </div>
 <div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library. Libri never overwrites a file that already exists.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library on {{branchName}}. Libri never overwrites a file that already exists.</p></div>
 <div style="display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 13px; font-weight: 600; color: #A3A8AE">What gets added</span>
 <pre style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #1D1F22; border: 1px solid #26292D; color: #EEF0F2; font: 400 13px/1.55 'JetBrains Mono', monospace; white-space: pre; overflow: hidden">{
@@ -8403,7 +8424,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <sc-if value="{{sExisting}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick your file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library. Only files in Libri's format can be used.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library on {{branchName}}. Only files in Libri's format can be used.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
 <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
@@ -8432,7 +8453,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"welcome","options":["welcome","connect","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"welcome","options":["welcome","connect","branch","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
 componentWillUnmount() { clearTimeout(this._t); }
 renderVals() {
@@ -8444,14 +8465,25 @@ var choice = st.choice || (this.props.startChoice ?? 'new');
 var file = typeof st.file === 'number' ? st.file : 0;
 var creating = !!st.creating;
 function go(s) { return function () { self.setState({ step: s, creating: false }); }; }
-var labels = { connect: 'Step 1 of 3', file: 'Step 2 of 3', create: 'Step 3 of 3', existing: 'Step 3 of 3' };
-var back = { connect: 'welcome', file: 'connect', create: 'file', existing: 'file' };
+var labels = { connect: 'Step 1 of 4', branch: 'Step 2 of 4', file: 'Step 3 of 4', create: 'Step 4 of 4', existing: 'Step 4 of 4' };
+var back = { connect: 'welcome', branch: 'connect', file: 'branch', create: 'file', existing: 'file' };
 var choices = [
 ['new', 'Create a new library', 'Libri makes an empty library file in your repo. Pick this if you are starting out.'],
 ['existing', 'Use a file I already have', 'Pick a Libri library file that is already in the repo.']
 ].map(function (c) {
 var on = c[0] === choice;
 return { isNew: c[0] === 'new', isOld: c[0] === 'existing', title: c[1], body: c[2], on: on, ring: on ? accent : '#2B2E33', dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ choice: c[0] }); } };
+});
+var BRANCHES = [
+['main', 'Updated 2 days ago', true],
+['app-sync-test', 'Updated last week', false],
+['dev', 'Updated in August', false]
+];
+var br = typeof st.branch === 'number' ? st.branch : 0;
+var branchName = BRANCHES[br][0];
+var branches = BRANCHES.map(function (b, i) {
+var on = i === br;
+return { name: b[0], info: b[1], isDefault: b[2], on: on, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ branch: i }); } };
 });
 var FILES = [
 ['library.json', 'Libri library · 214 entries · updated 2 days ago', true],
@@ -8465,12 +8497,15 @@ return { path: f[0], info: f[1], on: on, off: !f[2], opacity: f[2] ? 1 : 0.5, do
 var isNew = choice === 'new';
 return {
 accent: accent,
-sWelcome: step === 'welcome', sConnect: step === 'connect', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
+sWelcome: step === 'welcome', sConnect: step === 'connect', sBranch: step === 'branch', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
 showTop: step !== 'welcome' && step !== 'done',
 stepLabel: labels[step] || '',
 goBack: go(back[step] || 'welcome'),
 goConnect: go('connect'),
+goBranch: go('branch'),
 goFile: go('file'),
+branches: branches,
+branchName: branchName,
 goNext: go(isNew ? 'create' : 'existing'),
 choices: choices,
 files: files,
@@ -8479,7 +8514,7 @@ createLabel: creating ? 'Creating…' : 'Create library',
 createOpacity: creating ? 0.6 : 1,
 doCreate: function () { if (creating) { return; } self.setState({ creating: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ creating: false, step: 'done', choice: 'new' }); }, 1400); },
 doUse: function () { self.setState({ step: 'done', choice: 'existing' }); },
-doneText: isNew ? 'library.json is now in ekmanch/library. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
+doneText: isNew ? 'library.json is now in ekmanch/library on ' + branchName + '. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
 doneHref: isNew ? 'Lib-Empty.dc.html' : 'Main.dc.html'
 };
 }
@@ -8535,15 +8570,35 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="ok" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Access token</label><input id="ok" type="password" value="github_pat_example" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">A fine-grained token that can read and write this one repo. It stays in the phone's secure storage and never leaves the device.</p></div>
 </div>
 <div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
-<button onClick="{{goFile}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
+<button onClick="{{goBranch}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
 <button style="height: 44px; border: 0; background: none; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif">How do I create a token?</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sBranch}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick a branch</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Branches in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Libri reads and saves your library on the one you pick.</p>
+</div>
+<div role="radiogroup" aria-label="Branch" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"></circle><circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><path d="M6 7.2v9.6M18 9.2c0 5-6 4-11.2 8.2"></path></svg></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><sc-if value="{{b.isDefault}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); color: #A3A8AE; font-size: 12px; font-weight: 600">Default</span></sc-if></span><span style="font-size: 13.5px; color: #A3A8AE">{{b.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{b.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{b.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Libri commits straight to this branch, with no pull requests.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goFile}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
 </div>
 </sc-if>
 
 <sc-if value="{{sFile}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Your library file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Start fresh, or use a file you already have.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong> on <strong style="color: #EEF0F2; font-weight: 600">{{branchName}}</strong>. Start fresh, or use a file you already have.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 12px">
 <sc-for list="{{choices}}" as="c" hint-placeholder-count="2">
@@ -8568,7 +8623,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri adds an empty library file to your repo and commits it for you.</p>
 </div>
 <div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library. Libri never overwrites a file that already exists.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library on {{branchName}}. Libri never overwrites a file that already exists.</p></div>
 <div style="display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 13px; font-weight: 600; color: #A3A8AE">What gets added</span>
 <pre style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #1D1F22; border: 1px solid #26292D; color: #EEF0F2; font: 400 13px/1.55 'JetBrains Mono', monospace; white-space: pre; overflow: hidden">{
@@ -8589,7 +8644,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <sc-if value="{{sExisting}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick your file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library. Only files in Libri's format can be used.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library on {{branchName}}. Only files in Libri's format can be used.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
 <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
@@ -8618,7 +8673,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"connect","options":["welcome","connect","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"connect","options":["welcome","connect","branch","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
 componentWillUnmount() { clearTimeout(this._t); }
 renderVals() {
@@ -8630,14 +8685,25 @@ var choice = st.choice || (this.props.startChoice ?? 'new');
 var file = typeof st.file === 'number' ? st.file : 0;
 var creating = !!st.creating;
 function go(s) { return function () { self.setState({ step: s, creating: false }); }; }
-var labels = { connect: 'Step 1 of 3', file: 'Step 2 of 3', create: 'Step 3 of 3', existing: 'Step 3 of 3' };
-var back = { connect: 'welcome', file: 'connect', create: 'file', existing: 'file' };
+var labels = { connect: 'Step 1 of 4', branch: 'Step 2 of 4', file: 'Step 3 of 4', create: 'Step 4 of 4', existing: 'Step 4 of 4' };
+var back = { connect: 'welcome', branch: 'connect', file: 'branch', create: 'file', existing: 'file' };
 var choices = [
 ['new', 'Create a new library', 'Libri makes an empty library file in your repo. Pick this if you are starting out.'],
 ['existing', 'Use a file I already have', 'Pick a Libri library file that is already in the repo.']
 ].map(function (c) {
 var on = c[0] === choice;
 return { isNew: c[0] === 'new', isOld: c[0] === 'existing', title: c[1], body: c[2], on: on, ring: on ? accent : '#2B2E33', dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ choice: c[0] }); } };
+});
+var BRANCHES = [
+['main', 'Updated 2 days ago', true],
+['app-sync-test', 'Updated last week', false],
+['dev', 'Updated in August', false]
+];
+var br = typeof st.branch === 'number' ? st.branch : 0;
+var branchName = BRANCHES[br][0];
+var branches = BRANCHES.map(function (b, i) {
+var on = i === br;
+return { name: b[0], info: b[1], isDefault: b[2], on: on, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ branch: i }); } };
 });
 var FILES = [
 ['library.json', 'Libri library · 214 entries · updated 2 days ago', true],
@@ -8651,12 +8717,15 @@ return { path: f[0], info: f[1], on: on, off: !f[2], opacity: f[2] ? 1 : 0.5, do
 var isNew = choice === 'new';
 return {
 accent: accent,
-sWelcome: step === 'welcome', sConnect: step === 'connect', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
+sWelcome: step === 'welcome', sConnect: step === 'connect', sBranch: step === 'branch', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
 showTop: step !== 'welcome' && step !== 'done',
 stepLabel: labels[step] || '',
 goBack: go(back[step] || 'welcome'),
 goConnect: go('connect'),
+goBranch: go('branch'),
 goFile: go('file'),
+branches: branches,
+branchName: branchName,
 goNext: go(isNew ? 'create' : 'existing'),
 choices: choices,
 files: files,
@@ -8665,7 +8734,227 @@ createLabel: creating ? 'Creating…' : 'Create library',
 createOpacity: creating ? 0.6 : 1,
 doCreate: function () { if (creating) { return; } self.setState({ creating: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ creating: false, step: 'done', choice: 'new' }); }, 1400); },
 doUse: function () { self.setState({ step: 'done', choice: 'existing' }); },
-doneText: isNew ? 'library.json is now in ekmanch/library. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
+doneText: isNew ? 'library.json is now in ekmanch/library on ' + branchName + '. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
+doneHref: isNew ? 'Lib-Empty.dc.html' : 'Main.dc.html'
+};
+}
+}
+</script>
+</template>
+<template data-file="Onb-Branch.dc.html">
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&amp;family=Figtree:ital,wght@0,400;0,500;0,600;1,400&amp;family=JetBrains+Mono:wght@400&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#FF7AB6}a:hover{color:#FFB3D4}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background: #131416; color: #EEF0F2; font-family: 'Figtree', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+<sc-if value="{{sWelcome}}" hint-placeholder-val="{{true}}">
+<div style="flex-grow: 1; padding: 0 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px">
+<svg aria-hidden="true" width="134" height="96" viewBox="0 0 1400 1000" style="display: block; flex-shrink: 0"><clipPath id="libriWelcome"><rect width="1400" height="1000" rx="150"></rect></clipPath>
+  <g clip-path="url(#libriWelcome)">
+    <rect x="0" y="0" width="700" height="1000" fill="#F8B289"></rect>
+    <rect x="700" y="0" width="700" height="1000" fill="#EDEEF0"></rect>
+  </g>
+  <path d="M200 350a37 37 0 0 1 57-32l238 150a37 37 0 0 1 0 64L257 682a37 37 0 0 1-57-32z" fill="#232428"></path>
+  <rect x="862" y="262" width="376" height="76" rx="38" fill="#232428"></rect>
+  <rect x="862" y="462" width="376" height="76" rx="38" fill="#232428"></rect>
+  <rect x="862" y="662" width="276" height="76" rx="38" fill="#232428"></rect>
+</svg>
+<h1 style="margin: 18px 0 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 34px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Welcome to Libri</h1>
+<p style="margin: 0; max-width: 300px; font-size: 16px; line-height: 1.45; color: #A3A8AE">Keep track of your movies, shows, books, games, music and anime, and plan what to enjoy next.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
+<button onClick="{{goConnect}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Get started</button>
+<p style="margin: 0; text-align: center; font-size: 13px; color: #A3A8AE">Your library is saved in a GitHub repo you own.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{showTop}}" hint-placeholder-val="{{false}}">
+<header style="flex-shrink: 0; padding: 24px 20px 0; display: flex; align-items: center; gap: 4px">
+<button onClick="{{goBack}}" aria-label="Back" style="width: 44px; height: 44px; margin-left: -12px; border: 0; background: none; color: #EEF0F2; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<span style="font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #A3A8AE">{{stepLabel}}</span>
+</header>
+</sc-if>
+
+<sc-if value="{{sConnect}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Connect GitHub</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri reads and saves your library in a GitHub repo you own. A private repo is fine.</p>
+</div>
+<div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="or" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Repository</label><input id="or" type="text" value="ekmanch/library" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="ok" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Access token</label><input id="ok" type="password" value="github_pat_example" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">A fine-grained token that can read and write this one repo. It stays in the phone's secure storage and never leaves the device.</p></div>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
+<button onClick="{{goBranch}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
+<button style="height: 44px; border: 0; background: none; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif">How do I create a token?</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sBranch}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick a branch</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Branches in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Libri reads and saves your library on the one you pick.</p>
+</div>
+<div role="radiogroup" aria-label="Branch" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"></circle><circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><path d="M6 7.2v9.6M18 9.2c0 5-6 4-11.2 8.2"></path></svg></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><sc-if value="{{b.isDefault}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); color: #A3A8AE; font-size: 12px; font-weight: 600">Default</span></sc-if></span><span style="font-size: 13.5px; color: #A3A8AE">{{b.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{b.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{b.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Libri commits straight to this branch, with no pull requests.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goFile}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sFile}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Your library file</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong> on <strong style="color: #EEF0F2; font-weight: 600">{{branchName}}</strong>. Start fresh, or use a file you already have.</p>
+</div>
+<div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{choices}}" as="c" hint-placeholder-count="2">
+<button role="radio" aria-checked="{{c.on}}" onClick="{{c.pick}}" style="box-sizing: border-box; width: 100%; padding: 16px; border-radius: 18px; border: 2px solid {{c.ring}}; background: #1D1F22; color: #EEF0F2; display: flex; align-items: flex-start; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span style="width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+<sc-if value="{{c.isNew}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M12 11v6M9 14h6"></path></svg></sc-if>
+<sc-if value="{{c.isOld}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></sc-if>
+</span>
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16.5px; font-weight: 600">{{c.title}}</span><span style="font-size: 14px; line-height: 1.4; color: #A3A8AE">{{c.body}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{c.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{c.dot}}"></span></span>
+</button>
+</sc-for>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goNext}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sCreate}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Create a new library</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri adds an empty library file to your repo and commits it for you.</p>
+</div>
+<div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library on {{branchName}}. Libri never overwrites a file that already exists.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 600; color: #A3A8AE">What gets added</span>
+<pre style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #1D1F22; border: 1px solid #26292D; color: #EEF0F2; font: 400 13px/1.55 'JetBrains Mono', monospace; white-space: pre; overflow: hidden">{
+  "version": 2,
+  "tags": {},
+  "entries": [],
+  "plans": []
+}</pre>
+<span style="font-size: 13.5px; color: #A3A8AE">Commit message: “Create Libri library”</span>
+</div>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
+<sc-if value="{{creating}}" hint-placeholder-val="{{false}}"><p role="status" style="margin: 0; text-align: center; font-size: 14px; color: #A3A8AE">Creating library.json and pushing to GitHub…</p></sc-if>
+<button onClick="{{doCreate}}" aria-disabled="{{creating}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; opacity: {{createOpacity}}; cursor: pointer">{{createLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sExisting}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick your file</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library on {{branchName}}. Only files in Libri's format can be used.</p>
+</div>
+<div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{files}}" as="f" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{f.on}}" aria-disabled="{{f.off}}" onClick="{{f.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; opacity: {{f.opacity}}; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{f.path}}</span><span style="font-size: 13.5px; color: #A3A8AE">{{f.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{f.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{f.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Don't see your file? Make sure it's in this repo and ends in .json.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{doUse}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Use this file</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sDone}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1; padding: 0 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px">
+<span aria-hidden="true" style="width: 80px; height: 80px; border-radius: 40px; background: {{accent}}; color: #131416; display: flex; align-items: center; justify-content: center"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+<h1 style="margin: 10px 0 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">You're all set</h1>
+<p style="margin: 0; max-width: 300px; font-size: 16px; line-height: 1.45; color: #A3A8AE">{{doneText}}</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<a href="{{doneHref}}" style="height: 52px; border-radius: 26px; background: {{accent}}; color: #131416; font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none">Open Libri</a>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"branch","options":["welcome","connect","branch","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+componentWillUnmount() { clearTimeout(this._t); }
+renderVals() {
+var self = this;
+var accent = this.props.accent ?? '#FF7AB6';
+var st = this.state || {};
+var step = st.step || (this.props.startStep ?? 'welcome');
+var choice = st.choice || (this.props.startChoice ?? 'new');
+var file = typeof st.file === 'number' ? st.file : 0;
+var creating = !!st.creating;
+function go(s) { return function () { self.setState({ step: s, creating: false }); }; }
+var labels = { connect: 'Step 1 of 4', branch: 'Step 2 of 4', file: 'Step 3 of 4', create: 'Step 4 of 4', existing: 'Step 4 of 4' };
+var back = { connect: 'welcome', branch: 'connect', file: 'branch', create: 'file', existing: 'file' };
+var choices = [
+['new', 'Create a new library', 'Libri makes an empty library file in your repo. Pick this if you are starting out.'],
+['existing', 'Use a file I already have', 'Pick a Libri library file that is already in the repo.']
+].map(function (c) {
+var on = c[0] === choice;
+return { isNew: c[0] === 'new', isOld: c[0] === 'existing', title: c[1], body: c[2], on: on, ring: on ? accent : '#2B2E33', dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ choice: c[0] }); } };
+});
+var BRANCHES = [
+['main', 'Updated 2 days ago', true],
+['app-sync-test', 'Updated last week', false],
+['dev', 'Updated in August', false]
+];
+var br = typeof st.branch === 'number' ? st.branch : 0;
+var branchName = BRANCHES[br][0];
+var branches = BRANCHES.map(function (b, i) {
+var on = i === br;
+return { name: b[0], info: b[1], isDefault: b[2], on: on, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ branch: i }); } };
+});
+var FILES = [
+['library.json', 'Libri library · 214 entries · updated 2 days ago', true],
+['backup/library-2025.json', 'Libri library · 168 entries · updated in March', true],
+['data/old-lists.json', 'Not a Libri library file', false]
+];
+var files = FILES.map(function (f, i) {
+var on = i === file && f[2];
+return { path: f[0], info: f[1], on: on, off: !f[2], opacity: f[2] ? 1 : 0.5, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { if (f[2]) { self.setState({ file: i }); } } };
+});
+var isNew = choice === 'new';
+return {
+accent: accent,
+sWelcome: step === 'welcome', sConnect: step === 'connect', sBranch: step === 'branch', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
+showTop: step !== 'welcome' && step !== 'done',
+stepLabel: labels[step] || '',
+goBack: go(back[step] || 'welcome'),
+goConnect: go('connect'),
+goBranch: go('branch'),
+goFile: go('file'),
+branches: branches,
+branchName: branchName,
+goNext: go(isNew ? 'create' : 'existing'),
+choices: choices,
+files: files,
+creating: creating,
+createLabel: creating ? 'Creating…' : 'Create library',
+createOpacity: creating ? 0.6 : 1,
+doCreate: function () { if (creating) { return; } self.setState({ creating: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ creating: false, step: 'done', choice: 'new' }); }, 1400); },
+doUse: function () { self.setState({ step: 'done', choice: 'existing' }); },
+doneText: isNew ? 'library.json is now in ekmanch/library on ' + branchName + '. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
 doneHref: isNew ? 'Lib-Empty.dc.html' : 'Main.dc.html'
 };
 }
@@ -8721,15 +9010,35 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="ok" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Access token</label><input id="ok" type="password" value="github_pat_example" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">A fine-grained token that can read and write this one repo. It stays in the phone's secure storage and never leaves the device.</p></div>
 </div>
 <div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
-<button onClick="{{goFile}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
+<button onClick="{{goBranch}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
 <button style="height: 44px; border: 0; background: none; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif">How do I create a token?</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sBranch}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick a branch</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Branches in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Libri reads and saves your library on the one you pick.</p>
+</div>
+<div role="radiogroup" aria-label="Branch" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"></circle><circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><path d="M6 7.2v9.6M18 9.2c0 5-6 4-11.2 8.2"></path></svg></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><sc-if value="{{b.isDefault}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); color: #A3A8AE; font-size: 12px; font-weight: 600">Default</span></sc-if></span><span style="font-size: 13.5px; color: #A3A8AE">{{b.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{b.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{b.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Libri commits straight to this branch, with no pull requests.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goFile}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
 </div>
 </sc-if>
 
 <sc-if value="{{sFile}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Your library file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Start fresh, or use a file you already have.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong> on <strong style="color: #EEF0F2; font-weight: 600">{{branchName}}</strong>. Start fresh, or use a file you already have.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 12px">
 <sc-for list="{{choices}}" as="c" hint-placeholder-count="2">
@@ -8754,7 +9063,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri adds an empty library file to your repo and commits it for you.</p>
 </div>
 <div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library. Libri never overwrites a file that already exists.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library on {{branchName}}. Libri never overwrites a file that already exists.</p></div>
 <div style="display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 13px; font-weight: 600; color: #A3A8AE">What gets added</span>
 <pre style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #1D1F22; border: 1px solid #26292D; color: #EEF0F2; font: 400 13px/1.55 'JetBrains Mono', monospace; white-space: pre; overflow: hidden">{
@@ -8775,7 +9084,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <sc-if value="{{sExisting}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick your file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library. Only files in Libri's format can be used.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library on {{branchName}}. Only files in Libri's format can be used.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
 <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
@@ -8804,7 +9113,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"file","options":["welcome","connect","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"file","options":["welcome","connect","branch","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
 componentWillUnmount() { clearTimeout(this._t); }
 renderVals() {
@@ -8816,14 +9125,25 @@ var choice = st.choice || (this.props.startChoice ?? 'new');
 var file = typeof st.file === 'number' ? st.file : 0;
 var creating = !!st.creating;
 function go(s) { return function () { self.setState({ step: s, creating: false }); }; }
-var labels = { connect: 'Step 1 of 3', file: 'Step 2 of 3', create: 'Step 3 of 3', existing: 'Step 3 of 3' };
-var back = { connect: 'welcome', file: 'connect', create: 'file', existing: 'file' };
+var labels = { connect: 'Step 1 of 4', branch: 'Step 2 of 4', file: 'Step 3 of 4', create: 'Step 4 of 4', existing: 'Step 4 of 4' };
+var back = { connect: 'welcome', branch: 'connect', file: 'branch', create: 'file', existing: 'file' };
 var choices = [
 ['new', 'Create a new library', 'Libri makes an empty library file in your repo. Pick this if you are starting out.'],
 ['existing', 'Use a file I already have', 'Pick a Libri library file that is already in the repo.']
 ].map(function (c) {
 var on = c[0] === choice;
 return { isNew: c[0] === 'new', isOld: c[0] === 'existing', title: c[1], body: c[2], on: on, ring: on ? accent : '#2B2E33', dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ choice: c[0] }); } };
+});
+var BRANCHES = [
+['main', 'Updated 2 days ago', true],
+['app-sync-test', 'Updated last week', false],
+['dev', 'Updated in August', false]
+];
+var br = typeof st.branch === 'number' ? st.branch : 0;
+var branchName = BRANCHES[br][0];
+var branches = BRANCHES.map(function (b, i) {
+var on = i === br;
+return { name: b[0], info: b[1], isDefault: b[2], on: on, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ branch: i }); } };
 });
 var FILES = [
 ['library.json', 'Libri library · 214 entries · updated 2 days ago', true],
@@ -8837,12 +9157,15 @@ return { path: f[0], info: f[1], on: on, off: !f[2], opacity: f[2] ? 1 : 0.5, do
 var isNew = choice === 'new';
 return {
 accent: accent,
-sWelcome: step === 'welcome', sConnect: step === 'connect', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
+sWelcome: step === 'welcome', sConnect: step === 'connect', sBranch: step === 'branch', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
 showTop: step !== 'welcome' && step !== 'done',
 stepLabel: labels[step] || '',
 goBack: go(back[step] || 'welcome'),
 goConnect: go('connect'),
+goBranch: go('branch'),
 goFile: go('file'),
+branches: branches,
+branchName: branchName,
 goNext: go(isNew ? 'create' : 'existing'),
 choices: choices,
 files: files,
@@ -8851,7 +9174,7 @@ createLabel: creating ? 'Creating…' : 'Create library',
 createOpacity: creating ? 0.6 : 1,
 doCreate: function () { if (creating) { return; } self.setState({ creating: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ creating: false, step: 'done', choice: 'new' }); }, 1400); },
 doUse: function () { self.setState({ step: 'done', choice: 'existing' }); },
-doneText: isNew ? 'library.json is now in ekmanch/library. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
+doneText: isNew ? 'library.json is now in ekmanch/library on ' + branchName + '. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
 doneHref: isNew ? 'Lib-Empty.dc.html' : 'Main.dc.html'
 };
 }
@@ -8907,15 +9230,35 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="ok" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Access token</label><input id="ok" type="password" value="github_pat_example" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">A fine-grained token that can read and write this one repo. It stays in the phone's secure storage and never leaves the device.</p></div>
 </div>
 <div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
-<button onClick="{{goFile}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
+<button onClick="{{goBranch}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
 <button style="height: 44px; border: 0; background: none; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif">How do I create a token?</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sBranch}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick a branch</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Branches in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Libri reads and saves your library on the one you pick.</p>
+</div>
+<div role="radiogroup" aria-label="Branch" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"></circle><circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><path d="M6 7.2v9.6M18 9.2c0 5-6 4-11.2 8.2"></path></svg></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><sc-if value="{{b.isDefault}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); color: #A3A8AE; font-size: 12px; font-weight: 600">Default</span></sc-if></span><span style="font-size: 13.5px; color: #A3A8AE">{{b.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{b.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{b.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Libri commits straight to this branch, with no pull requests.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goFile}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
 </div>
 </sc-if>
 
 <sc-if value="{{sFile}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Your library file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Start fresh, or use a file you already have.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong> on <strong style="color: #EEF0F2; font-weight: 600">{{branchName}}</strong>. Start fresh, or use a file you already have.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 12px">
 <sc-for list="{{choices}}" as="c" hint-placeholder-count="2">
@@ -8940,7 +9283,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri adds an empty library file to your repo and commits it for you.</p>
 </div>
 <div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library. Libri never overwrites a file that already exists.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library on {{branchName}}. Libri never overwrites a file that already exists.</p></div>
 <div style="display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 13px; font-weight: 600; color: #A3A8AE">What gets added</span>
 <pre style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #1D1F22; border: 1px solid #26292D; color: #EEF0F2; font: 400 13px/1.55 'JetBrains Mono', monospace; white-space: pre; overflow: hidden">{
@@ -8961,7 +9304,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <sc-if value="{{sExisting}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick your file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library. Only files in Libri's format can be used.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library on {{branchName}}. Only files in Libri's format can be used.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
 <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
@@ -8990,7 +9333,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"create","options":["welcome","connect","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"create","options":["welcome","connect","branch","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
 componentWillUnmount() { clearTimeout(this._t); }
 renderVals() {
@@ -9002,14 +9345,25 @@ var choice = st.choice || (this.props.startChoice ?? 'new');
 var file = typeof st.file === 'number' ? st.file : 0;
 var creating = !!st.creating;
 function go(s) { return function () { self.setState({ step: s, creating: false }); }; }
-var labels = { connect: 'Step 1 of 3', file: 'Step 2 of 3', create: 'Step 3 of 3', existing: 'Step 3 of 3' };
-var back = { connect: 'welcome', file: 'connect', create: 'file', existing: 'file' };
+var labels = { connect: 'Step 1 of 4', branch: 'Step 2 of 4', file: 'Step 3 of 4', create: 'Step 4 of 4', existing: 'Step 4 of 4' };
+var back = { connect: 'welcome', branch: 'connect', file: 'branch', create: 'file', existing: 'file' };
 var choices = [
 ['new', 'Create a new library', 'Libri makes an empty library file in your repo. Pick this if you are starting out.'],
 ['existing', 'Use a file I already have', 'Pick a Libri library file that is already in the repo.']
 ].map(function (c) {
 var on = c[0] === choice;
 return { isNew: c[0] === 'new', isOld: c[0] === 'existing', title: c[1], body: c[2], on: on, ring: on ? accent : '#2B2E33', dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ choice: c[0] }); } };
+});
+var BRANCHES = [
+['main', 'Updated 2 days ago', true],
+['app-sync-test', 'Updated last week', false],
+['dev', 'Updated in August', false]
+];
+var br = typeof st.branch === 'number' ? st.branch : 0;
+var branchName = BRANCHES[br][0];
+var branches = BRANCHES.map(function (b, i) {
+var on = i === br;
+return { name: b[0], info: b[1], isDefault: b[2], on: on, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ branch: i }); } };
 });
 var FILES = [
 ['library.json', 'Libri library · 214 entries · updated 2 days ago', true],
@@ -9023,12 +9377,15 @@ return { path: f[0], info: f[1], on: on, off: !f[2], opacity: f[2] ? 1 : 0.5, do
 var isNew = choice === 'new';
 return {
 accent: accent,
-sWelcome: step === 'welcome', sConnect: step === 'connect', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
+sWelcome: step === 'welcome', sConnect: step === 'connect', sBranch: step === 'branch', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
 showTop: step !== 'welcome' && step !== 'done',
 stepLabel: labels[step] || '',
 goBack: go(back[step] || 'welcome'),
 goConnect: go('connect'),
+goBranch: go('branch'),
 goFile: go('file'),
+branches: branches,
+branchName: branchName,
 goNext: go(isNew ? 'create' : 'existing'),
 choices: choices,
 files: files,
@@ -9037,7 +9394,7 @@ createLabel: creating ? 'Creating…' : 'Create library',
 createOpacity: creating ? 0.6 : 1,
 doCreate: function () { if (creating) { return; } self.setState({ creating: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ creating: false, step: 'done', choice: 'new' }); }, 1400); },
 doUse: function () { self.setState({ step: 'done', choice: 'existing' }); },
-doneText: isNew ? 'library.json is now in ekmanch/library. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
+doneText: isNew ? 'library.json is now in ekmanch/library on ' + branchName + '. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
 doneHref: isNew ? 'Lib-Empty.dc.html' : 'Main.dc.html'
 };
 }
@@ -9093,15 +9450,35 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="ok" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Access token</label><input id="ok" type="password" value="github_pat_example" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">A fine-grained token that can read and write this one repo. It stays in the phone's secure storage and never leaves the device.</p></div>
 </div>
 <div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
-<button onClick="{{goFile}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
+<button onClick="{{goBranch}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
 <button style="height: 44px; border: 0; background: none; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif">How do I create a token?</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sBranch}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick a branch</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Branches in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Libri reads and saves your library on the one you pick.</p>
+</div>
+<div role="radiogroup" aria-label="Branch" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"></circle><circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><path d="M6 7.2v9.6M18 9.2c0 5-6 4-11.2 8.2"></path></svg></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><sc-if value="{{b.isDefault}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); color: #A3A8AE; font-size: 12px; font-weight: 600">Default</span></sc-if></span><span style="font-size: 13.5px; color: #A3A8AE">{{b.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{b.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{b.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Libri commits straight to this branch, with no pull requests.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goFile}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
 </div>
 </sc-if>
 
 <sc-if value="{{sFile}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Your library file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Start fresh, or use a file you already have.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong> on <strong style="color: #EEF0F2; font-weight: 600">{{branchName}}</strong>. Start fresh, or use a file you already have.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 12px">
 <sc-for list="{{choices}}" as="c" hint-placeholder-count="2">
@@ -9126,7 +9503,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri adds an empty library file to your repo and commits it for you.</p>
 </div>
 <div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library. Libri never overwrites a file that already exists.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library on {{branchName}}. Libri never overwrites a file that already exists.</p></div>
 <div style="display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 13px; font-weight: 600; color: #A3A8AE">What gets added</span>
 <pre style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #1D1F22; border: 1px solid #26292D; color: #EEF0F2; font: 400 13px/1.55 'JetBrains Mono', monospace; white-space: pre; overflow: hidden">{
@@ -9147,7 +9524,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <sc-if value="{{sExisting}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick your file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library. Only files in Libri's format can be used.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library on {{branchName}}. Only files in Libri's format can be used.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
 <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
@@ -9176,7 +9553,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"existing","options":["welcome","connect","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"existing","options":["welcome","connect","branch","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
 componentWillUnmount() { clearTimeout(this._t); }
 renderVals() {
@@ -9188,14 +9565,25 @@ var choice = st.choice || (this.props.startChoice ?? 'new');
 var file = typeof st.file === 'number' ? st.file : 0;
 var creating = !!st.creating;
 function go(s) { return function () { self.setState({ step: s, creating: false }); }; }
-var labels = { connect: 'Step 1 of 3', file: 'Step 2 of 3', create: 'Step 3 of 3', existing: 'Step 3 of 3' };
-var back = { connect: 'welcome', file: 'connect', create: 'file', existing: 'file' };
+var labels = { connect: 'Step 1 of 4', branch: 'Step 2 of 4', file: 'Step 3 of 4', create: 'Step 4 of 4', existing: 'Step 4 of 4' };
+var back = { connect: 'welcome', branch: 'connect', file: 'branch', create: 'file', existing: 'file' };
 var choices = [
 ['new', 'Create a new library', 'Libri makes an empty library file in your repo. Pick this if you are starting out.'],
 ['existing', 'Use a file I already have', 'Pick a Libri library file that is already in the repo.']
 ].map(function (c) {
 var on = c[0] === choice;
 return { isNew: c[0] === 'new', isOld: c[0] === 'existing', title: c[1], body: c[2], on: on, ring: on ? accent : '#2B2E33', dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ choice: c[0] }); } };
+});
+var BRANCHES = [
+['main', 'Updated 2 days ago', true],
+['app-sync-test', 'Updated last week', false],
+['dev', 'Updated in August', false]
+];
+var br = typeof st.branch === 'number' ? st.branch : 0;
+var branchName = BRANCHES[br][0];
+var branches = BRANCHES.map(function (b, i) {
+var on = i === br;
+return { name: b[0], info: b[1], isDefault: b[2], on: on, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ branch: i }); } };
 });
 var FILES = [
 ['library.json', 'Libri library · 214 entries · updated 2 days ago', true],
@@ -9209,12 +9597,15 @@ return { path: f[0], info: f[1], on: on, off: !f[2], opacity: f[2] ? 1 : 0.5, do
 var isNew = choice === 'new';
 return {
 accent: accent,
-sWelcome: step === 'welcome', sConnect: step === 'connect', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
+sWelcome: step === 'welcome', sConnect: step === 'connect', sBranch: step === 'branch', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
 showTop: step !== 'welcome' && step !== 'done',
 stepLabel: labels[step] || '',
 goBack: go(back[step] || 'welcome'),
 goConnect: go('connect'),
+goBranch: go('branch'),
 goFile: go('file'),
+branches: branches,
+branchName: branchName,
 goNext: go(isNew ? 'create' : 'existing'),
 choices: choices,
 files: files,
@@ -9223,7 +9614,7 @@ createLabel: creating ? 'Creating…' : 'Create library',
 createOpacity: creating ? 0.6 : 1,
 doCreate: function () { if (creating) { return; } self.setState({ creating: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ creating: false, step: 'done', choice: 'new' }); }, 1400); },
 doUse: function () { self.setState({ step: 'done', choice: 'existing' }); },
-doneText: isNew ? 'library.json is now in ekmanch/library. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
+doneText: isNew ? 'library.json is now in ekmanch/library on ' + branchName + '. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
 doneHref: isNew ? 'Lib-Empty.dc.html' : 'Main.dc.html'
 };
 }
@@ -9279,15 +9670,35 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="ok" style="font-size: 13px; font-weight: 600; color: #A3A8AE">Access token</label><input id="ok" type="password" value="github_pat_example" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">A fine-grained token that can read and write this one repo. It stays in the phone's secure storage and never leaves the device.</p></div>
 </div>
 <div style="flex-shrink: 0; padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px">
-<button onClick="{{goFile}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
+<button onClick="{{goBranch}}" style="height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Connect</button>
 <button style="height: 44px; border: 0; background: none; color: #EEF0F2; font: 600 14px 'Figtree', sans-serif">How do I create a token?</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sBranch}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick a branch</h1>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Branches in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Libri reads and saves your library on the one you pick.</p>
+</div>
+<div role="radiogroup" aria-label="Branch" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
+<sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="min-height: 68px; box-sizing: border-box; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid #26292D; background: none; color: #EEF0F2; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font-family: 'Figtree', sans-serif">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #EEF0F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"></circle><circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><path d="M6 7.2v9.6M18 9.2c0 5-6 4-11.2 8.2"></path></svg></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><sc-if value="{{b.isDefault}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); color: #A3A8AE; font-size: 12px; font-weight: 600">Default</span></sc-if></span><span style="font-size: 13.5px; color: #A3A8AE">{{b.info}}</span></span>
+<span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px solid {{b.dotRing}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{b.dot}}"></span></span>
+</button>
+</sc-for>
+<p style="margin: 14px 0 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Libri commits straight to this branch, with no pull requests.</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 20px 28px">
+<button onClick="{{goFile}}" style="width: 100%; height: 52px; border: 0; border-radius: 26px; background: {{accent}}; color: #131416; font: 600 16px 'Figtree', sans-serif; cursor: pointer">Continue</button>
 </div>
 </sc-if>
 
 <sc-if value="{{sFile}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Your library file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong>. Start fresh, or use a file you already have.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri keeps everything in one JSON file in <strong style="color: #EEF0F2; font-weight: 600">ekmanch/library</strong> on <strong style="color: #EEF0F2; font-weight: 600">{{branchName}}</strong>. Start fresh, or use a file you already have.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 12px">
 <sc-for list="{{choices}}" as="c" hint-placeholder-count="2">
@@ -9312,7 +9723,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">Libri adds an empty library file to your repo and commits it for you.</p>
 </div>
 <div style="flex-grow: 1; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library. Libri never overwrites a file that already exists.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="of" style="font-size: 13px; font-weight: 600; color: #A3A8AE">File name</label><input id="of" type="text" value="library.json" style="height: 52px; box-sizing: border-box; width: 100%; border-radius: 14px; border: 1px solid #3A3E44; background: #1D1F22; color: #EEF0F2; padding: 0 14px; font: 500 16px 'Figtree', sans-serif"><p style="margin: 0; font-size: 13.5px; line-height: 1.4; color: #A3A8AE">Saved at the top of ekmanch/library on {{branchName}}. Libri never overwrites a file that already exists.</p></div>
 <div style="display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 13px; font-weight: 600; color: #A3A8AE">What gets added</span>
 <pre style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #1D1F22; border: 1px solid #26292D; color: #EEF0F2; font: 400 13px/1.55 'JetBrains Mono', monospace; white-space: pre; overflow: hidden">{
@@ -9333,7 +9744,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 <sc-if value="{{sExisting}}" hint-placeholder-val="{{false}}">
 <div style="flex-shrink: 0; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px">
 <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em">Pick your file</h1>
-<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library. Only files in Libri's format can be used.</p>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.45; color: #A3A8AE">JSON files found in ekmanch/library on {{branchName}}. Only files in Libri's format can be used.</p>
 </div>
 <div role="radiogroup" aria-label="Library file" style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column">
 <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
@@ -9362,7 +9773,7 @@ a{color:#FF7AB6}a:hover{color:#FFB3D4}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"done","options":["welcome","connect","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF7AB6","options":["#A78BFA","#5CE1E6","#FF7AB6"]},"startStep":{"editor":"enum","default":"done","options":["welcome","connect","branch","file","create","existing","done"]},"startChoice":{"editor":"enum","default":"new","options":["new","existing"]},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
 componentWillUnmount() { clearTimeout(this._t); }
 renderVals() {
@@ -9374,14 +9785,25 @@ var choice = st.choice || (this.props.startChoice ?? 'new');
 var file = typeof st.file === 'number' ? st.file : 0;
 var creating = !!st.creating;
 function go(s) { return function () { self.setState({ step: s, creating: false }); }; }
-var labels = { connect: 'Step 1 of 3', file: 'Step 2 of 3', create: 'Step 3 of 3', existing: 'Step 3 of 3' };
-var back = { connect: 'welcome', file: 'connect', create: 'file', existing: 'file' };
+var labels = { connect: 'Step 1 of 4', branch: 'Step 2 of 4', file: 'Step 3 of 4', create: 'Step 4 of 4', existing: 'Step 4 of 4' };
+var back = { connect: 'welcome', branch: 'connect', file: 'branch', create: 'file', existing: 'file' };
 var choices = [
 ['new', 'Create a new library', 'Libri makes an empty library file in your repo. Pick this if you are starting out.'],
 ['existing', 'Use a file I already have', 'Pick a Libri library file that is already in the repo.']
 ].map(function (c) {
 var on = c[0] === choice;
 return { isNew: c[0] === 'new', isOld: c[0] === 'existing', title: c[1], body: c[2], on: on, ring: on ? accent : '#2B2E33', dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ choice: c[0] }); } };
+});
+var BRANCHES = [
+['main', 'Updated 2 days ago', true],
+['app-sync-test', 'Updated last week', false],
+['dev', 'Updated in August', false]
+];
+var br = typeof st.branch === 'number' ? st.branch : 0;
+var branchName = BRANCHES[br][0];
+var branches = BRANCHES.map(function (b, i) {
+var on = i === br;
+return { name: b[0], info: b[1], isDefault: b[2], on: on, dotRing: on ? accent : '#4A4F57', dot: on ? accent : 'transparent', pick: function () { self.setState({ branch: i }); } };
 });
 var FILES = [
 ['library.json', 'Libri library · 214 entries · updated 2 days ago', true],
@@ -9395,12 +9817,15 @@ return { path: f[0], info: f[1], on: on, off: !f[2], opacity: f[2] ? 1 : 0.5, do
 var isNew = choice === 'new';
 return {
 accent: accent,
-sWelcome: step === 'welcome', sConnect: step === 'connect', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
+sWelcome: step === 'welcome', sConnect: step === 'connect', sBranch: step === 'branch', sFile: step === 'file', sCreate: step === 'create', sExisting: step === 'existing', sDone: step === 'done',
 showTop: step !== 'welcome' && step !== 'done',
 stepLabel: labels[step] || '',
 goBack: go(back[step] || 'welcome'),
 goConnect: go('connect'),
+goBranch: go('branch'),
 goFile: go('file'),
+branches: branches,
+branchName: branchName,
 goNext: go(isNew ? 'create' : 'existing'),
 choices: choices,
 files: files,
@@ -9409,7 +9834,7 @@ createLabel: creating ? 'Creating…' : 'Create library',
 createOpacity: creating ? 0.6 : 1,
 doCreate: function () { if (creating) { return; } self.setState({ creating: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ creating: false, step: 'done', choice: 'new' }); }, 1400); },
 doUse: function () { self.setState({ step: 'done', choice: 'existing' }); },
-doneText: isNew ? 'library.json is now in ekmanch/library. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
+doneText: isNew ? 'library.json is now in ekmanch/library on ' + branchName + '. Add your first entry with the + button.' : 'Loaded 214 entries from ' + FILES[file][0] + '.',
 doneHref: isNew ? 'Lib-Empty.dc.html' : 'Main.dc.html'
 };
 }
@@ -10696,7 +11121,7 @@ railEnd: function () { self._down = false; }
 <script src="https://cdn.jsdelivr.net/npm/preact@10.19.3/dist/preact.umd.js"></script>
 <script>
 (function () {
-  var META = {"sections": [{"name": "A · Shelf", "files": ["Main.dc.html", "Lib-Filter.dc.html", "Lib-FilterType.dc.html", "Lib-SeeAll.dc.html", "Lib-Search.dc.html", "Lib-Details.dc.html", "Lib-AddToPlan.dc.html", "Lib-Edit.dc.html", "Lib-Delete.dc.html", "Lib-Empty.dc.html", "Lib-MoviesDone.dc.html", "Lib-Sync.dc.html", "Lib-Match.dc.html", "Lib-Music.dc.html", "Lib-Artist.dc.html", "Lib-MusicView.dc.html", "Lib-MusicList.dc.html", "Lib-MusicGrid.dc.html", "Lib-ArtistPhoto.dc.html", "Lib-MoviesList.dc.html", "Lib-MoviesGrid.dc.html", "Lib-Album.dc.html", "Lib-MusicSongs.dc.html", "Lib-MusicAlbums.dc.html", "Lib-Released.dc.html", "Lib-ReleasedType.dc.html", "Lib-SyncConflict.dc.html", "Lib-TagList.dc.html"]}, {"name": "Plans", "files": ["S1-Checklist.dc.html", "S2-Countdown.dc.html", "S4-Pool.dc.html", "S5-Plans.dc.html", "S6-Settings.dc.html", "S7-Details.dc.html", "S8-Details-NoWhen.dc.html", "S8-EditPlan.dc.html", "S10-NewPlan.dc.html", "S11-Halloween.dc.html", "S12-Christmas.dc.html", "S13-HalloweenLong.dc.html", "S14-ChristmasLong.dc.html", "S5-PlansConflict.dc.html"]}, {"name": "D · Dialogs and small screens", "files": ["X-Sort.dc.html", "X-When.dc.html", "X-PlanMenu.dc.html", "X-RemoveFromPlan.dc.html", "X-DeletePlan.dc.html", "X-Connection.dc.html", "X-Loading.dc.html", "X-Light.dc.html", "X-TagSimilar.dc.html", "X-TagCreate.dc.html", "X-Rating.dc.html", "X-ReplaceSongs.dc.html", "X-ReplaceAlbum.dc.html", "Lib-TagPick.dc.html", "X-Disconnect.dc.html", "X-DisconnectKeep.dc.html", "X-Conflict.dc.html", "X-Reconnect.dc.html"]}, {"name": "First run", "files": ["Onb-Splash.dc.html", "Onb-Welcome.dc.html", "Lib-Setup.dc.html", "Onb-File.dc.html", "Onb-Create.dc.html", "Onb-Existing.dc.html", "Onb-Done.dc.html"]}, {"name": "Long lists and jumping", "files": ["Lib-RailYear.dc.html", "Lib-RailAdded.dc.html", "Lib-RailMusic.dc.html", "Lib-GridYear.dc.html", "Lib-ResultsSingle.dc.html", "Lib-ResultsMulti.dc.html"]}], "screens": {"Lib-AddToPlan.dc.html": {"title": "A7 · Add to plan", "notes": []}, "Lib-Album.dc.html": {"title": "A22 · Album details with track ratings", "notes": []}, "Lib-Artist.dc.html": {"title": "A15 · One artist (text view)", "notes": []}, "Lib-ArtistPhoto.dc.html": {"title": "A19 · One artist, with photos", "notes": []}, "Lib-Delete.dc.html": {"title": "A9 · Delete confirmation", "notes": []}, "Lib-Details.dc.html": {"title": "A6 · Entry details", "notes": ["Cover or photo spot in details (A6, A22, S7, S8): shown only when that type's view is \"List/Grid with covers\" or \"List/Grid with photos\". Hidden in Text view."]}, "Lib-Edit.dc.html": {"title": "A8 · Add / edit entry (new game from a match)", "notes": ["Top banner when a match was used: \"Details fetched online\"; no source names (IGDB etc.) in the UI. Platforms (games): the chips are the platforms the game came out on (fetched); the selected ones are where you play or want to play it. Multi-select, saved as a list. \"Other…\" lets you type one that isn't listed. Your default platform from Settings (S6, PC here) is pre-selected when the game came out on it; otherwise nothing is pre-selected. Tags: the selection box shows the chosen tags; tapping it opens the tag picker (D14). Under the box, up to 6 suggestions fetched online. Ones that match tags you already use start in the box; new ones are dashed, marked \"new\" and stay below until tapped (tapping counts as the confirm and moves them into the box). Fetched names are cleaned up first: spelling fixed against your tags (\"horor\" → #horror), turned into tag form (\"Postapocalypse\" → #post-apocalyptic), duplicates merged. The picker lists your existing tags grouped by category, plus any new tags added on this entry so they can be removed; typing filters them, and \"Create …\" only appears when nothing matches exactly (then D9/D10 as before). Edit mode: switch \"mode\" in Tweaks."]}, "Lib-Empty.dc.html": {"title": "A10 · Empty states", "notes": []}, "Lib-Filter.dc.html": {"title": "A2 · Filter sheet", "notes": ["Touch targets: chips keep their drawn size (40 dp for tag, platform and suggestion chips) but each gets a 48 dp touch area. Bottom nav items and segmented controls are 48 dp tall, and every segment is at least 48 dp wide."]}, "Lib-GridYear.dc.html": {"title": "L4 · Long grid: fast-scroll thumb and label", "notes": []}, "Lib-Match.dc.html": {"title": "A13 · New entry: pick a match", "notes": []}, "Lib-MoviesGrid.dc.html": {"title": "A21 · Type picked: grid with covers", "notes": ["Grid captions show the year only, never the status (\"Not released yet\" when there is no year). Done shows as the check on the cover's corner. Music grids show the artist instead."]}, "Lib-MoviesList.dc.html": {"title": "A20 · Type picked: list with covers", "notes": []}, "Lib-Music.dc.html": {"title": "A14 · Type picked: Music, artists (text view)", "notes": ["\"Various Artists\" is pinned at the very end of this list, after Z. Artists starting with \"The\" are sorted by the next word. The counts are example numbers."]}, "Lib-MusicGrid.dc.html": {"title": "A18 · Type picked: Music, grid with photos (fast scroll)", "notes": []}, "Lib-MusicList.dc.html": {"title": "A17 · Type picked: Music, list with photos", "notes": ["The colored circles and squares are placeholders for real artist photos and album covers."]}, "Lib-MusicView.dc.html": {"title": "A16 · View menu (same for every type)", "notes": ["View menu labels: \"List/Grid with covers\" for Movies, Shows, Books, Games, Anime and music Albums; \"List/Grid with photos\" for music Artists and Songs. Songs tab: every row reads \"Artist · Year\" (the song's year, or its album's), rated album tracks included. Tapping a song opens its album card."]}, "Lib-RailAdded.dc.html": {"title": "L2 · Long list, text view: rail by newest added (months)", "notes": []}, "Lib-RailMusic.dc.html": {"title": "L3 · Long list, music artists: rail A–Z", "notes": []}, "Lib-RailYear.dc.html": {"title": "L1 · Long list, text view: rail by release year (decades)", "notes": ["When to show it: the list is at least 3 screens tall AND has at least 2 sections (keep the screen count as one named constant). Short lists get nothing. Text and list views get an index rail; grid view gets a slim fast-scroll thumb with a small neutral label instead (L4). The rail follows what is on screen: in a type view or results with one type, the sections of the current sort (decades, months added, letters; L1 to L3, L5). In results with several types, one colored dot per type group, using the type colors (L6). Only sections that exist, spread over the full height; tap or drag to jump; current one highlighted; list dividers stop before the rail. Not used in search, plans or one artist's page."]}, "Lib-ResultsMulti.dc.html": {"title": "L6 · Filtered results, several types (#horror): rail of type dots", "notes": ["If the filter is only one type, with at most one status, don't show a results screen: show that type's view with the status segment picked (A11). A results screen like L5 appears only when there is something more, such as a tag, a decade, or a second status."]}, "Lib-ResultsSingle.dc.html": {"title": "L5 · Filtered results, one type (Movies + #horror): rail by sort", "notes": []}, "Lib-Search.dc.html": {"title": "A5 · Search, text typed", "notes": []}, "Lib-SeeAll.dc.html": {"title": "A4 · Type picked: Movies, text view", "notes": ["Sorting is strict: \"Newest added\" orders by date added only, with no grouping by status. The two-row preview per type on the home screen is separate. Sort labels everywhere use the sort menu's wording (D1), for example \"Year, oldest first\".", "Filter sheet and home stay in sync. Opening the sheet from a type view preselects that type and its status segment (A3: Movies + Done). If the filter is no more than one type plus at most one status, the home shows that type view with the status segment picked (A11), not a results screen. Anything more (several types or statuses, a decade, a tag) opens results (L5, L6). With nothing picked, the home goes to All. \"Clear all\", \"Clear filters\" and Reset clear the type too, so you land on All. Status chips follow the chosen types: Movies have Want, Done, DNF; Music (albums and songs) has Want and Done; Shows, Books, Games and Anime have all four. A status that no longer applies is dropped. Kind: when Music is among the chosen types, a Kind group (Albums, Songs) appears under Status; it matches the \"kind\" field and only narrows music entries. For Music, Kind plays the role the status segment plays for other types: Music alone opens the Music view on Artists, Music + Songs on Songs (A23), Music + Albums on Albums (A24). Music + a status goes to results, since the Music view has no status segment. Artists is a way of browsing, not a filter, so it never appears on the sheet. Try the presets via \"preset\" in Tweaks on A2."]}, "Lib-Setup.dc.html": {"title": "F3 · Connect GitHub", "notes": []}, "Lib-Sync.dc.html": {"title": "A12 · Sync and errors", "notes": []}, "Lib-TagPick.dc.html": {"title": "D14 · Tag picker (Add tag in A8)", "notes": ["All search boxes share one style: gray outline, magnifier icon, accent outline while typing (A5). Inside sheets the fill is one step darker so the box stands out from the sheet. Placeholder and hint text: #8A8F96 on dark, #6B7079 on light (about 5:1)."]}, "Main.dc.html": {"title": "A1 · Library home (tap a chip or heading)", "notes": ["Picking a type chip IS the type view: segments, count, sort and view appear right under the chips, and the plan card hides. On All, tap a heading (MOVIES ›) to jump to that type. Back returns to All, and so does tapping Library in the bottom pill, from any type view (like Plans returns to the plan overview). No separate See all screen. The view button opens a small menu (A16); pick Text, List or Grid. Music keeps its Artists / Albums / Songs segments; the artist list gets the index rail in text and list view and the fast-scroll thumb in grid view."]}, "Onb-Create.dc.html": {"title": "F5 · Create a new library", "notes": []}, "Onb-Done.dc.html": {"title": "F7 · All set", "notes": []}, "Onb-Existing.dc.html": {"title": "F6 · Pick an existing file", "notes": []}, "Onb-File.dc.html": {"title": "F4 · Your library file: new or existing", "notes": []}, "Onb-Splash.dc.html": {"title": "F1 · Splash", "notes": ["Only on first launch (or after Disconnect in D6). Play F2 to click through the whole flow. Create new: Libri commits an empty version 2 library.json to the repo and opens the empty library (A10); it never overwrites an existing file. Use existing: lists the repo's .json files; files not in Libri's format are shown but can't be picked. The app name appears on the splash (F1), the welcome (F2) and in Settings, About (S6)."]}, "Onb-Welcome.dc.html": {"title": "F2 · Welcome to Libri", "notes": []}, "S1-Checklist.dc.html": {"title": "S1 · Plan checklist (revised)", "notes": ["Mockup only: the row spacing in S1 is trimmed so seven entries fit above the floating pill. In the real app, keep the normal spacing (as in S4) and let the list scroll."]}, "S10-NewPlan.dc.html": {"title": "S10 · New plan", "notes": []}, "S11-Halloween.dc.html": {"title": "S11 · Halloween touches (short name)", "notes": []}, "S12-Christmas.dc.html": {"title": "S12 · Christmas touches (short name)", "notes": []}, "S13-HalloweenLong.dc.html": {"title": "S13 · Halloween, long plan name", "notes": ["Plan header (S1, S2, S4 and S11 to S14): the plan name sits on one line next to the icon and the ⋮ menu. It shrinks a step for longer names (32 → 28 → 24 px), then cuts off with …. The year chip always sits left of the progress bar, also for short names and on the \"All Halloween\" view (S4), so the header looks the same on every plan. Cap plan names at 60 characters in New plan / Edit plan. Try any name via \"name\" in Tweaks. The Active plan card on home (A1, D8) uses the same rule one size smaller: 20 → 18 → 16 px, then …. Try any name via \"planName\" in Tweaks on A1."]}, "S14-ChristmasLong.dc.html": {"title": "S14 · Christmas, long plan name", "notes": ["Plan header (S1, S2, S4 and S11 to S14): the plan name sits on one line next to the icon and the ⋮ menu. It shrinks a step for longer names (32 → 28 → 24 px), then cuts off with …. The year chip always sits left of the progress bar, also for short names and on the \"All Halloween\" view (S4), so the header looks the same on every plan. Cap plan names at 60 characters in New plan / Edit plan. Try any name via \"name\" in Tweaks. The Active plan card on home (A1, D8) uses the same rule one size smaller: 20 → 18 → 16 px, then …. Try any name via \"planName\" in Tweaks on A1."]}, "S2-Countdown.dc.html": {"title": "S2 · Plan with timing on (optional)", "notes": ["Timeline groups by time, not by type: each bucket (Last week, This week, a single day, Later, Whenever) mixes all types, in the global type order inside the bucket. Plan checklists (S1, S4, S11 to S14) group by type in the global order: Movies, Shows, Books, Games, Music, Anime."]}, "S4-Pool.dc.html": {"title": "S4 · All Halloween: add, edit, remove", "notes": []}, "S5-Plans.dc.html": {"title": "S5 · Plans overview", "notes": ["S5 and the Add to plan sheet (A7) use the plan states from the S9 note: Not started, Active, Finished. A plan with entries can still be Not started (Christmas 2026 here); an empty plan is always Not started."]}, "S6-Settings.dc.html": {"title": "S6 · Settings: theme and accent", "notes": []}, "S7-Details.dc.html": {"title": "S7 · Entry details (timeline on)", "notes": []}, "S8-Details-NoWhen.dc.html": {"title": "S8 · Entry details (timeline off)", "notes": []}, "S8-EditPlan.dc.html": {"title": "S9 · Edit plan", "notes": ["Plan states: Not started, Active, Finished. Active: Started is on, or today is within the plan's dates. Reaching the first date turns Started on by itself, so the switch always shows the real state. Plans never go inactive on their own after the end date. Finished: the plan has at least one entry and every entry is done or removed from the plan (an empty plan is never Finished). Finishing is automatic: show a short \"Halloween 2026 finished\" message with Undo. Unticking an entry or adding a new one reopens it as Active. Removing an entry only takes it out of the plan, not the library. There is no separate close action."]}, "X-Connection.dc.html": {"title": "D6 · Settings: library connection", "notes": []}, "X-DeletePlan.dc.html": {"title": "D5 · Delete plan", "notes": ["Destructive buttons everywhere: no fill, gray outline, red text #FF6B6B (A6, A9, A22, D4, D5, D6, D12, D13, S4, S9). The safe choice next to it keeps its own style."]}, "X-Light.dc.html": {"title": "D8 · Library home, light theme (works like A1)", "notes": ["Type colors. Dark theme: Movies #F2B544, Shows #7FB7FF, Books #8FD694, Games #FF8F7A, Music #C4A7FF, Anime #FF8CC1. Light theme: Movies #A87C00, Shows #0074DC, Books #01872C, Games #D63A1F, Music #7C3AED, Anime #C8157E. Light colors are as colorful as they can be while readable; all reach 4.5:1 (AA) on white, except Movies (3.8:1, kept on purpose so gold stays gold). Games is a coral red in both themes (same hue). Section headings and type-chip dots use the color for the current theme. In the light theme, accent-colored text, icons and outlines on white (links like \"Clear all\", \"Rate\", done checkmarks) use the accent's darker ink from Settings (S6), for example #D6337F for Hot pink. Every ink reaches 4.5:1 on white; the pastel ones are darkened versions of the Catppuccin Latte colors. D8 is A1 in the light theme: same chips, type views, view menu, rail and scrolling. Switch \"theme\" in Tweaks on A1 or D8 to compare."]}, "X-Loading.dc.html": {"title": "D7 · First load", "notes": []}, "X-PlanMenu.dc.html": {"title": "D3 · Plan menu", "notes": []}, "X-Rating.dc.html": {"title": "D11 · Rating picker", "notes": ["Tag categories: Genres (movies, shows, books, anime), Game genres, Music genres, Mood (all types), Season, Authors, Directors (also showrunners and anime directors), Studios (game and animation studios), Animation style, Other. Every tag belongs to one category, picked when it is created (D10). A creator tag's category is the person's main role, not the entry's type: #stephen-king is in Authors even on a movie. Filtering is always by tags. When an entry's creator field is filled, A8 suggests the matching tag (#naughty-dog), marked new, like any other suggestion. Tags are sorted A–Z by the tag itself in every group, so people sort by first name (#ray-bradbury under R, #stephen-king under S), and a leading \"The\" is ignored. Filter sheet (A2): a group shows only when at least one of its tags is used by an entry of the chosen types (all groups when no type is chosen); a selected tag whose group disappears is dropped. Long groups (more than about 24 tags, typically the creator groups) are a row, \"Authors · 64 authors · 1 selected ›\", that opens a full-screen list (A28) with search, letter sections and the index rail (same rule as other lists: at least 3 screens and 2 sections). Short groups stay inline chips. Tag picker (D14) uses the same categories and the same full-screen list for long groups; Game genres only for games and Music genres only for music, unless you search. Plan linked hashtags (S9, S10) list every category. Example: Studios (#studio-ghibli, #rare, #madhouse) shows when Games or Anime are chosen, or nothing; with Movies chosen it shows too, because Soul carries #pixar."]}, "X-RemoveFromPlan.dc.html": {"title": "D4 · Remove from plan, or everywhere", "notes": []}, "X-ReplaceAlbum.dc.html": {"title": "D13 · Saving a song: album already saved", "notes": []}, "X-ReplaceSongs.dc.html": {"title": "D12 · Saving an album: songs already saved", "notes": []}, "X-Sort.dc.html": {"title": "D1 · Sort menu", "notes": ["Rating, highest first: 10 at the top, then down to 1; unrated entries go last; ties sort by title. With this sort, the index rail's sections are the ratings (10, 9, 8 … Unrated), only the ones that exist. Music albums and songs sort by their own rating; the artist list has no sort menu."]}, "X-TagCreate.dc.html": {"title": "D10 · New tag: confirm and pick a category", "notes": ["Tag categories: Genres (movies, shows, books, anime), Game genres, Music genres, Mood (all types), Season, Authors, Directors (also showrunners and anime directors), Studios (game and animation studios), Animation style, Other. Every tag belongs to one category, picked when it is created (D10). A creator tag's category is the person's main role, not the entry's type: #stephen-king is in Authors even on a movie. Filtering is always by tags. When an entry's creator field is filled, A8 suggests the matching tag (#naughty-dog), marked new, like any other suggestion. Tags are sorted A–Z by the tag itself in every group, so people sort by first name (#ray-bradbury under R, #stephen-king under S), and a leading \"The\" is ignored. Filter sheet (A2): a group shows only when at least one of its tags is used by an entry of the chosen types (all groups when no type is chosen); a selected tag whose group disappears is dropped. Long groups (more than about 24 tags, typically the creator groups) are a row, \"Authors · 64 authors · 1 selected ›\", that opens a full-screen list (A28) with search, letter sections and the index rail (same rule as other lists: at least 3 screens and 2 sections). Short groups stay inline chips. Tag picker (D14) uses the same categories and the same full-screen list for long groups; Game genres only for games and Music genres only for music, unless you search. Plan linked hashtags (S9, S10) list every category. Example: Studios (#studio-ghibli, #rare, #madhouse) shows when Games or Anime are chosen, or nothing; with Movies chosen it shows too, because Soul carries #pixar."]}, "X-TagSimilar.dc.html": {"title": "D9 · New tag: a similar one exists", "notes": []}, "X-When.dc.html": {"title": "D2 · When: a day or a period", "notes": []}, "Lib-FilterType.dc.html": {"title": "A3 · Filter opened from Movies with Done picked", "notes": ["Filter sheet and home stay in sync. Opening the sheet from a type view preselects that type and its status segment (A3: Movies + Done). If the filter is no more than one type plus at most one status, the home shows that type view with the status segment picked (A11), not a results screen. Anything more (several types or statuses, a decade, a tag) opens results (L5, L6). With nothing picked, the home goes to All. \"Clear all\", \"Clear filters\" and Reset clear the type too, so you land on All. Status chips follow the chosen types: Movies have Want, Done, DNF; Music (albums and songs) has Want and Done; Shows, Books, Games and Anime have all four. A status that no longer applies is dropped. Kind: when Music is among the chosen types, a Kind group (Albums, Songs) appears under Status; it matches the \"kind\" field and only narrows music entries. For Music, Kind plays the role the status segment plays for other types: Music alone opens the Music view on Artists, Music + Songs on Songs (A23), Music + Albums on Albums (A24). Music + a status goes to results, since the Music view has no status segment. Artists is a way of browsing, not a filter, so it never appears on the sheet. Try the presets via \"preset\" in Tweaks on A2."]}, "Lib-MoviesDone.dc.html": {"title": "A11 · Filter result: Movies + Done is the type view", "notes": []}, "Lib-MusicSongs.dc.html": {"title": "A23 · Filter result: Music + Songs is the Music view", "notes": []}, "Lib-MusicAlbums.dc.html": {"title": "A24 · Filter result: Music + Albums is the Music view", "notes": []}, "Lib-Released.dc.html": {"title": "A25 · Released: wheel picker (year, month, day)", "notes": ["Released field (A8): tapping it opens a sheet with three wheels: Year, Month, Day. Month and Day start with \"—\" (not set), so the value can be a year, a year and month, or a full date, matching the three formats of `released`. The Day wheel only lists days that exist in the chosen month, and stays on \"—\" until a month is picked. The wheels open on the current value (usually filled in by the online lookup), otherwise on the current year. The year wheel covers 1800 to five years ahead. Tap the centered year to type it on the number keypad (A26), for anything older such as a Dickens novel; any year can be typed. Clear (next to Done) removes the date completely: the sheet closes and the field reads \"Not set\" in gray. Reopening starts the wheels on the current year; turning any wheel or typing a year sets a date again. The field shows \"2013\", \"Jun 2013\" or \"Jun 14, 2013\"; it's now wider, so the date never clips."]}, "Lib-ReleasedType.dc.html": {"title": "A26 · Released: tap the year to type it", "notes": ["Released field (A8): tapping it opens a sheet with three wheels: Year, Month, Day. Month and Day start with \"—\" (not set), so the value can be a year, a year and month, or a full date, matching the three formats of `released`. The Day wheel only lists days that exist in the chosen month, and stays on \"—\" until a month is picked. The wheels open on the current value (usually filled in by the online lookup), otherwise on the current year. The year wheel covers 1800 to five years ahead. Tap the centered year to type it on the number keypad (A26), for anything older such as a Dickens novel; any year can be typed. Clear (next to Done) removes the date completely: the sheet closes and the field reads \"Not set\" in gray. Reopening starts the wheels on the current year; turning any wheel or typing a year sets a date again. The field shows \"2013\", \"Jun 2013\" or \"Jun 14, 2013\"; it's now wider, so the date never clips."]}, "X-Disconnect.dc.html": {"title": "D15 · Disconnect: confirm", "notes": ["Disconnect (from D6) is two steps. D15 confirms: Cancel, or Disconnect. D16 asks what to do with the library on this phone. \"Keep it on this phone\" (the safe choice, gray fill) disconnects, keeps library.json locally and returns to the Library; you can browse and edit, and changes stay on the phone until you connect a repo again. \"Delete it from this phone\" (destructive) disconnects, deletes the local library.json and opens the first-run flow (F2), so Libri is empty until you connect again. Cancel on either step leaves everything as it was: nothing is disconnected until a choice in D16 is made. The repo on GitHub is never touched."]}, "X-DisconnectKeep.dc.html": {"title": "D16 · Disconnect: keep or delete the library on this phone", "notes": ["Disconnect (from D6) is two steps. D15 confirms: Cancel, or Disconnect. D16 asks what to do with the library on this phone. \"Keep it on this phone\" (the safe choice, gray fill) disconnects, keeps library.json locally and returns to the Library; you can browse and edit, and changes stay on the phone until you connect a repo again. \"Delete it from this phone\" (destructive) disconnects, deletes the local library.json and opens the first-run flow (F2), so Libri is empty until you connect again. Cancel on either step leaves everything as it was: nothing is disconnected until a choice in D16 is made. The repo on GitHub is never touched."]}, "Lib-SyncConflict.dc.html": {"title": "A27 · Sync conflict banner (A12, Conflict)", "notes": []}, "X-Conflict.dc.html": {"title": "D17 · Conflict: keep which copy?", "notes": ["Conflict: the library changed on GitHub and on this phone since they last matched (also after a disconnect where the phone kept its copy and either side, or both, was edited). Syncing stops and nothing moves until a choice. Banner on Library (A27) and Plans (S15): \"Changed here and on GitHub · Pick which copy to keep.\" with Choose. D6 while unresolved: red dot, \"Changed here and on GitHub\", second line \"Pick which copy to keep\", Sync now replaced by Choose (syncState in Tweaks). D17 opens from the banner and from D6: two muted lines (This phone: N changes, GitHub: last commit date) and one warning: \"Whichever you keep, the other copy's changes are gone. Earlier versions stay in the repo's history.\" Keep mine (neutral fill): the phone's copy replaces GitHub's. Keep GitHub's (destructive): GitHub's copy replaces the phone's and the queued changes are dropped. Decide later (text): closes, the banner stays, nothing syncs until a choice. D18: reached from F6 \"Use this file\" while a library is kept on the phone; \"This phone's\" uploads it over the chosen file, \"The one on GitHub\" replaces the phone's library, Cancel goes back to F6. From F5 \"Create a new library\" in the same situation, the new file is created from the phone's library, no question asked."]}, "X-Reconnect.dc.html": {"title": "D18 · Reconnecting to a different file: which library?", "notes": ["Conflict: the library changed on GitHub and on this phone since they last matched (also after a disconnect where the phone kept its copy and either side, or both, was edited). Syncing stops and nothing moves until a choice. Banner on Library (A27) and Plans (S15): \"Changed here and on GitHub · Pick which copy to keep.\" with Choose. D6 while unresolved: red dot, \"Changed here and on GitHub\", second line \"Pick which copy to keep\", Sync now replaced by Choose (syncState in Tweaks). D17 opens from the banner and from D6: two muted lines (This phone: N changes, GitHub: last commit date) and one warning: \"Whichever you keep, the other copy's changes are gone. Earlier versions stay in the repo's history.\" Keep mine (neutral fill): the phone's copy replaces GitHub's. Keep GitHub's (destructive): GitHub's copy replaces the phone's and the queued changes are dropped. Decide later (text): closes, the banner stays, nothing syncs until a choice. D18: reached from F6 \"Use this file\" while a library is kept on the phone; \"This phone's\" uploads it over the chosen file, \"The one on GitHub\" replaces the phone's library, Cancel goes back to F6. From F5 \"Create a new library\" in the same situation, the new file is created from the phone's library, no question asked."]}, "S5-PlansConflict.dc.html": {"title": "S15 · Plans with the sync conflict banner", "notes": []}, "Lib-TagList.dc.html": {"title": "A28 · Filter: all Authors (A–Z, search, rail)", "notes": []}}};
+  var META = {"sections": [{"name": "A · Shelf", "files": ["Main.dc.html", "Lib-Filter.dc.html", "Lib-FilterType.dc.html", "Lib-SeeAll.dc.html", "Lib-Search.dc.html", "Lib-Details.dc.html", "Lib-AddToPlan.dc.html", "Lib-Edit.dc.html", "Lib-Delete.dc.html", "Lib-Empty.dc.html", "Lib-MoviesDone.dc.html", "Lib-Sync.dc.html", "Lib-Match.dc.html", "Lib-Music.dc.html", "Lib-Artist.dc.html", "Lib-MusicView.dc.html", "Lib-MusicList.dc.html", "Lib-MusicGrid.dc.html", "Lib-ArtistPhoto.dc.html", "Lib-MoviesList.dc.html", "Lib-MoviesGrid.dc.html", "Lib-Album.dc.html", "Lib-MusicSongs.dc.html", "Lib-MusicAlbums.dc.html", "Lib-Released.dc.html", "Lib-ReleasedType.dc.html", "Lib-SyncConflict.dc.html", "Lib-TagList.dc.html"]}, {"name": "Plans", "files": ["S1-Checklist.dc.html", "S2-Countdown.dc.html", "S4-Pool.dc.html", "S5-Plans.dc.html", "S6-Settings.dc.html", "S7-Details.dc.html", "S8-Details-NoWhen.dc.html", "S8-EditPlan.dc.html", "S10-NewPlan.dc.html", "S11-Halloween.dc.html", "S12-Christmas.dc.html", "S13-HalloweenLong.dc.html", "S14-ChristmasLong.dc.html", "S5-PlansConflict.dc.html"]}, {"name": "D · Dialogs and small screens", "files": ["X-Sort.dc.html", "X-When.dc.html", "X-PlanMenu.dc.html", "X-RemoveFromPlan.dc.html", "X-DeletePlan.dc.html", "X-Connection.dc.html", "X-Loading.dc.html", "X-Light.dc.html", "X-TagSimilar.dc.html", "X-TagCreate.dc.html", "X-Rating.dc.html", "X-ReplaceSongs.dc.html", "X-ReplaceAlbum.dc.html", "Lib-TagPick.dc.html", "X-Disconnect.dc.html", "X-DisconnectKeep.dc.html", "X-Conflict.dc.html", "X-Reconnect.dc.html"]}, {"name": "First run", "files": ["Onb-Splash.dc.html", "Onb-Welcome.dc.html", "Lib-Setup.dc.html", "Onb-Branch.dc.html", "Onb-File.dc.html", "Onb-Create.dc.html", "Onb-Existing.dc.html", "Onb-Done.dc.html"]}, {"name": "Long lists and jumping", "files": ["Lib-RailYear.dc.html", "Lib-RailAdded.dc.html", "Lib-RailMusic.dc.html", "Lib-GridYear.dc.html", "Lib-ResultsSingle.dc.html", "Lib-ResultsMulti.dc.html"]}], "screens": {"Lib-AddToPlan.dc.html": {"title": "A7 · Add to plan", "notes": []}, "Lib-Album.dc.html": {"title": "A22 · Album details with track ratings", "notes": []}, "Lib-Artist.dc.html": {"title": "A15 · One artist (text view)", "notes": []}, "Lib-ArtistPhoto.dc.html": {"title": "A19 · One artist, with photos", "notes": []}, "Lib-Delete.dc.html": {"title": "A9 · Delete confirmation", "notes": []}, "Lib-Details.dc.html": {"title": "A6 · Entry details", "notes": ["Cover or photo spot in details (A6, A22, S7, S8): shown only when that type's view is \"List/Grid with covers\" or \"List/Grid with photos\". Hidden in Text view."]}, "Lib-Edit.dc.html": {"title": "A8 · Add / edit entry (new game from a match)", "notes": ["Top banner when a match was used: \"Details fetched online\"; no source names (IGDB etc.) in the UI. Platforms (games): the chips are the platforms the game came out on (fetched); the selected ones are where you play or want to play it. Multi-select, saved as a list. \"Other…\" lets you type one that isn't listed. Your default platform from Settings (S6, PC here) is pre-selected when the game came out on it; otherwise nothing is pre-selected. Tags: the selection box shows the chosen tags; tapping it opens the tag picker (D14). Under the box, up to 6 suggestions fetched online. Ones that match tags you already use start in the box; new ones are dashed, marked \"new\" and stay below until tapped (tapping counts as the confirm and moves them into the box). Fetched names are cleaned up first: spelling fixed against your tags (\"horor\" → #horror), turned into tag form (\"Postapocalypse\" → #post-apocalyptic), duplicates merged. The picker lists your existing tags grouped by category, plus any new tags added on this entry so they can be removed; typing filters them, and \"Create …\" only appears when nothing matches exactly (then D9/D10 as before). Edit mode: switch \"mode\" in Tweaks."]}, "Lib-Empty.dc.html": {"title": "A10 · Empty states", "notes": []}, "Lib-Filter.dc.html": {"title": "A2 · Filter sheet", "notes": ["Touch targets: chips keep their drawn size (40 dp for tag, platform and suggestion chips) but each gets a 48 dp touch area. Bottom nav items and segmented controls are 48 dp tall, and every segment is at least 48 dp wide."]}, "Lib-GridYear.dc.html": {"title": "L4 · Long grid: fast-scroll thumb and label", "notes": []}, "Lib-Match.dc.html": {"title": "A13 · New entry: pick a match", "notes": []}, "Lib-MoviesGrid.dc.html": {"title": "A21 · Type picked: grid with covers", "notes": ["Grid captions show the year only, never the status (\"Not released yet\" when there is no year). Done shows as the check on the cover's corner. Music grids show the artist instead."]}, "Lib-MoviesList.dc.html": {"title": "A20 · Type picked: list with covers", "notes": []}, "Lib-Music.dc.html": {"title": "A14 · Type picked: Music, artists (text view)", "notes": ["\"Various Artists\" is pinned at the very end of this list, after Z. Artists starting with \"The\" are sorted by the next word. The counts are example numbers."]}, "Lib-MusicGrid.dc.html": {"title": "A18 · Type picked: Music, grid with photos (fast scroll)", "notes": []}, "Lib-MusicList.dc.html": {"title": "A17 · Type picked: Music, list with photos", "notes": ["The colored circles and squares are placeholders for real artist photos and album covers."]}, "Lib-MusicView.dc.html": {"title": "A16 · View menu (same for every type)", "notes": ["View menu labels: \"List/Grid with covers\" for Movies, Shows, Books, Games, Anime and music Albums; \"List/Grid with photos\" for music Artists and Songs. Songs tab: every row reads \"Artist · Year\" (the song's year, or its album's), rated album tracks included. Tapping a song opens its album card."]}, "Lib-RailAdded.dc.html": {"title": "L2 · Long list, text view: rail by newest added (months)", "notes": []}, "Lib-RailMusic.dc.html": {"title": "L3 · Long list, music artists: rail A–Z", "notes": []}, "Lib-RailYear.dc.html": {"title": "L1 · Long list, text view: rail by release year (decades)", "notes": ["When to show it: the list is at least 3 screens tall AND has at least 2 sections (keep the screen count as one named constant). Short lists get nothing. Text and list views get an index rail; grid view gets a slim fast-scroll thumb with a small neutral label instead (L4). The rail follows what is on screen: in a type view or results with one type, the sections of the current sort (decades, months added, letters; L1 to L3, L5). In results with several types, one colored dot per type group, using the type colors (L6). Only sections that exist, spread over the full height; tap or drag to jump; current one highlighted; list dividers stop before the rail. Not used in search, plans or one artist's page."]}, "Lib-ResultsMulti.dc.html": {"title": "L6 · Filtered results, several types (#horror): rail of type dots", "notes": ["If the filter is only one type, with at most one status, don't show a results screen: show that type's view with the status segment picked (A11). A results screen like L5 appears only when there is something more, such as a tag, a decade, or a second status."]}, "Lib-ResultsSingle.dc.html": {"title": "L5 · Filtered results, one type (Movies + #horror): rail by sort", "notes": []}, "Lib-Search.dc.html": {"title": "A5 · Search, text typed", "notes": []}, "Lib-SeeAll.dc.html": {"title": "A4 · Type picked: Movies, text view", "notes": ["Sorting is strict: \"Newest added\" orders by date added only, with no grouping by status. The two-row preview per type on the home screen is separate. Sort labels everywhere use the sort menu's wording (D1), for example \"Year, oldest first\".", "Filter sheet and home stay in sync. Opening the sheet from a type view preselects that type and its status segment (A3: Movies + Done). If the filter is no more than one type plus at most one status, the home shows that type view with the status segment picked (A11), not a results screen. Anything more (several types or statuses, a decade, a tag) opens results (L5, L6). With nothing picked, the home goes to All. \"Clear all\", \"Clear filters\" and Reset clear the type too, so you land on All. Status chips follow the chosen types: Movies have Want, Done, DNF; Music (albums and songs) has Want and Done; Shows, Books, Games and Anime have all four. A status that no longer applies is dropped. Kind: when Music is among the chosen types, a Kind group (Albums, Songs) appears under Status; it matches the \"kind\" field and only narrows music entries. For Music, Kind plays the role the status segment plays for other types: Music alone opens the Music view on Artists, Music + Songs on Songs (A23), Music + Albums on Albums (A24). Music + a status goes to results, since the Music view has no status segment. Artists is a way of browsing, not a filter, so it never appears on the sheet. Try the presets via \"preset\" in Tweaks on A2."]}, "Lib-Setup.dc.html": {"title": "F3 · Connect GitHub", "notes": []}, "Lib-Sync.dc.html": {"title": "A12 · Sync and errors", "notes": []}, "Lib-TagPick.dc.html": {"title": "D14 · Tag picker (Add tag in A8)", "notes": ["All search boxes share one style: gray outline, magnifier icon, accent outline while typing (A5). Inside sheets the fill is one step darker so the box stands out from the sheet. Placeholder and hint text: #8A8F96 on dark, #6B7079 on light (about 5:1)."]}, "Main.dc.html": {"title": "A1 · Library home (tap a chip or heading)", "notes": ["Picking a type chip IS the type view: segments, count, sort and view appear right under the chips, and the plan card hides. On All, tap a heading (MOVIES ›) to jump to that type. Back returns to All, and so does tapping Library in the bottom pill, from any type view (like Plans returns to the plan overview). No separate See all screen. The view button opens a small menu (A16); pick Text, List or Grid. Music keeps its Artists / Albums / Songs segments; the artist list gets the index rail in text and list view and the fast-scroll thumb in grid view."]}, "Onb-Create.dc.html": {"title": "F6 · Create a new library", "notes": []}, "Onb-Done.dc.html": {"title": "F8 · All set", "notes": []}, "Onb-Existing.dc.html": {"title": "F7 · Pick an existing file", "notes": []}, "Onb-File.dc.html": {"title": "F5 · Your library file: new or existing", "notes": []}, "Onb-Splash.dc.html": {"title": "F1 · Splash", "notes": ["Only on first launch (or after Disconnect in D6). Play F2 to click through the whole flow. Create new: Libri commits an empty version 2 library.json to the repo and opens the empty library (A10); it never overwrites an existing file. Use existing: lists the repo's .json files; files not in Libri's format are shown but can't be picked. The app name appears on the splash (F1), the welcome (F2) and in Settings, About (S6)."]}, "Onb-Welcome.dc.html": {"title": "F2 · Welcome to Libri", "notes": []}, "S1-Checklist.dc.html": {"title": "S1 · Plan checklist (revised)", "notes": ["Mockup only: the row spacing in S1 is trimmed so seven entries fit above the floating pill. In the real app, keep the normal spacing (as in S4) and let the list scroll."]}, "S10-NewPlan.dc.html": {"title": "S10 · New plan", "notes": []}, "S11-Halloween.dc.html": {"title": "S11 · Halloween touches (short name)", "notes": []}, "S12-Christmas.dc.html": {"title": "S12 · Christmas touches (short name)", "notes": []}, "S13-HalloweenLong.dc.html": {"title": "S13 · Halloween, long plan name", "notes": ["Plan header (S1, S2, S4 and S11 to S14): the plan name sits on one line next to the icon and the ⋮ menu. It shrinks a step for longer names (32 → 28 → 24 px), then cuts off with …. The year chip always sits left of the progress bar, also for short names and on the \"All Halloween\" view (S4), so the header looks the same on every plan. Cap plan names at 60 characters in New plan / Edit plan. Try any name via \"name\" in Tweaks. The Active plan card on home (A1, D8) uses the same rule one size smaller: 20 → 18 → 16 px, then …. Try any name via \"planName\" in Tweaks on A1."]}, "S14-ChristmasLong.dc.html": {"title": "S14 · Christmas, long plan name", "notes": ["Plan header (S1, S2, S4 and S11 to S14): the plan name sits on one line next to the icon and the ⋮ menu. It shrinks a step for longer names (32 → 28 → 24 px), then cuts off with …. The year chip always sits left of the progress bar, also for short names and on the \"All Halloween\" view (S4), so the header looks the same on every plan. Cap plan names at 60 characters in New plan / Edit plan. Try any name via \"name\" in Tweaks. The Active plan card on home (A1, D8) uses the same rule one size smaller: 20 → 18 → 16 px, then …. Try any name via \"planName\" in Tweaks on A1."]}, "S2-Countdown.dc.html": {"title": "S2 · Plan with timing on (optional)", "notes": ["Timeline groups by time, not by type: each bucket (Last week, This week, a single day, Later, Whenever) mixes all types, in the global type order inside the bucket. Plan checklists (S1, S4, S11 to S14) group by type in the global order: Movies, Shows, Books, Games, Music, Anime."]}, "S4-Pool.dc.html": {"title": "S4 · All Halloween: add, edit, remove", "notes": []}, "S5-Plans.dc.html": {"title": "S5 · Plans overview", "notes": ["S5 and the Add to plan sheet (A7) use the plan states from the S9 note: Not started, Active, Finished. A plan with entries can still be Not started (Christmas 2026 here); an empty plan is always Not started."]}, "S6-Settings.dc.html": {"title": "S6 · Settings: theme and accent", "notes": []}, "S7-Details.dc.html": {"title": "S7 · Entry details (timeline on)", "notes": []}, "S8-Details-NoWhen.dc.html": {"title": "S8 · Entry details (timeline off)", "notes": []}, "S8-EditPlan.dc.html": {"title": "S9 · Edit plan", "notes": ["Plan states: Not started, Active, Finished. Active: Started is on, or today is within the plan's dates. Reaching the first date turns Started on by itself, so the switch always shows the real state. Plans never go inactive on their own after the end date. Finished: the plan has at least one entry and every entry is done or removed from the plan (an empty plan is never Finished). Finishing is automatic: show a short \"Halloween 2026 finished\" message with Undo. Unticking an entry or adding a new one reopens it as Active. Removing an entry only takes it out of the plan, not the library. There is no separate close action."]}, "X-Connection.dc.html": {"title": "D6 · Settings: library connection", "notes": []}, "X-DeletePlan.dc.html": {"title": "D5 · Delete plan", "notes": ["Destructive buttons everywhere: no fill, gray outline, red text #FF6B6B (A6, A9, A22, D4, D5, D6, D12, D13, S4, S9). The safe choice next to it keeps its own style."]}, "X-Light.dc.html": {"title": "D8 · Library home, light theme (works like A1)", "notes": ["Type colors. Dark theme: Movies #F2B544, Shows #7FB7FF, Books #8FD694, Games #FF8F7A, Music #C4A7FF, Anime #FF8CC1. Light theme: Movies #A87C00, Shows #0074DC, Books #01872C, Games #D63A1F, Music #7C3AED, Anime #C8157E. Light colors are as colorful as they can be while readable; all reach 4.5:1 (AA) on white, except Movies (3.8:1, kept on purpose so gold stays gold). Games is a coral red in both themes (same hue). Section headings and type-chip dots use the color for the current theme. In the light theme, accent-colored text, icons and outlines on white (links like \"Clear all\", \"Rate\", done checkmarks) use the accent's darker ink from Settings (S6), for example #D6337F for Hot pink. Every ink reaches 4.5:1 on white; the pastel ones are darkened versions of the Catppuccin Latte colors. D8 is A1 in the light theme: same chips, type views, view menu, rail and scrolling. Switch \"theme\" in Tweaks on A1 or D8 to compare."]}, "X-Loading.dc.html": {"title": "D7 · First load", "notes": []}, "X-PlanMenu.dc.html": {"title": "D3 · Plan menu", "notes": []}, "X-Rating.dc.html": {"title": "D11 · Rating picker", "notes": ["Tag categories: Genres (movies, shows, books, anime), Game genres, Music genres, Mood (all types), Season, Authors, Directors (also showrunners and anime directors), Studios (game and animation studios), Animation style, Other. Every tag belongs to one category, picked when it is created (D10). A creator tag's category is the person's main role, not the entry's type: #stephen-king is in Authors even on a movie. Filtering is always by tags. When an entry's creator field is filled, A8 suggests the matching tag (#naughty-dog), marked new, like any other suggestion. Tags are sorted A–Z by the tag itself in every group, so people sort by first name (#ray-bradbury under R, #stephen-king under S), and a leading \"The\" is ignored. Filter sheet (A2): a group shows only when at least one of its tags is used by an entry of the chosen types (all groups when no type is chosen); a selected tag whose group disappears is dropped. Long groups (more than about 24 tags, typically the creator groups) are a row, \"Authors · 64 authors · 1 selected ›\", that opens a full-screen list (A28) with search, letter sections and the index rail (same rule as other lists: at least 3 screens and 2 sections). Short groups stay inline chips. Tag picker (D14) uses the same categories and the same full-screen list for long groups; Game genres only for games and Music genres only for music, unless you search. Plan linked hashtags (S9, S10) list every category. Example: Studios (#studio-ghibli, #rare, #madhouse) shows when Games or Anime are chosen, or nothing; with Movies chosen it shows too, because Soul carries #pixar."]}, "X-RemoveFromPlan.dc.html": {"title": "D4 · Remove from plan, or everywhere", "notes": []}, "X-ReplaceAlbum.dc.html": {"title": "D13 · Saving a song: album already saved", "notes": []}, "X-ReplaceSongs.dc.html": {"title": "D12 · Saving an album: songs already saved", "notes": []}, "X-Sort.dc.html": {"title": "D1 · Sort menu", "notes": ["Rating, highest first: 10 at the top, then down to 1; unrated entries go last; ties sort by title. With this sort, the index rail's sections are the ratings (10, 9, 8 … Unrated), only the ones that exist. Music albums and songs sort by their own rating; the artist list has no sort menu."]}, "X-TagCreate.dc.html": {"title": "D10 · New tag: confirm and pick a category", "notes": ["Tag categories: Genres (movies, shows, books, anime), Game genres, Music genres, Mood (all types), Season, Authors, Directors (also showrunners and anime directors), Studios (game and animation studios), Animation style, Other. Every tag belongs to one category, picked when it is created (D10). A creator tag's category is the person's main role, not the entry's type: #stephen-king is in Authors even on a movie. Filtering is always by tags. When an entry's creator field is filled, A8 suggests the matching tag (#naughty-dog), marked new, like any other suggestion. Tags are sorted A–Z by the tag itself in every group, so people sort by first name (#ray-bradbury under R, #stephen-king under S), and a leading \"The\" is ignored. Filter sheet (A2): a group shows only when at least one of its tags is used by an entry of the chosen types (all groups when no type is chosen); a selected tag whose group disappears is dropped. Long groups (more than about 24 tags, typically the creator groups) are a row, \"Authors · 64 authors · 1 selected ›\", that opens a full-screen list (A28) with search, letter sections and the index rail (same rule as other lists: at least 3 screens and 2 sections). Short groups stay inline chips. Tag picker (D14) uses the same categories and the same full-screen list for long groups; Game genres only for games and Music genres only for music, unless you search. Plan linked hashtags (S9, S10) list every category. Example: Studios (#studio-ghibli, #rare, #madhouse) shows when Games or Anime are chosen, or nothing; with Movies chosen it shows too, because Soul carries #pixar."]}, "X-TagSimilar.dc.html": {"title": "D9 · New tag: a similar one exists", "notes": []}, "X-When.dc.html": {"title": "D2 · When: a day or a period", "notes": []}, "Lib-FilterType.dc.html": {"title": "A3 · Filter opened from Movies with Done picked", "notes": ["Filter sheet and home stay in sync. Opening the sheet from a type view preselects that type and its status segment (A3: Movies + Done). If the filter is no more than one type plus at most one status, the home shows that type view with the status segment picked (A11), not a results screen. Anything more (several types or statuses, a decade, a tag) opens results (L5, L6). With nothing picked, the home goes to All. \"Clear all\", \"Clear filters\" and Reset clear the type too, so you land on All. Status chips follow the chosen types: Movies have Want, Done, DNF; Music (albums and songs) has Want and Done; Shows, Books, Games and Anime have all four. A status that no longer applies is dropped. Kind: when Music is among the chosen types, a Kind group (Albums, Songs) appears under Status; it matches the \"kind\" field and only narrows music entries. For Music, Kind plays the role the status segment plays for other types: Music alone opens the Music view on Artists, Music + Songs on Songs (A23), Music + Albums on Albums (A24). Music + a status goes to results, since the Music view has no status segment. Artists is a way of browsing, not a filter, so it never appears on the sheet. Try the presets via \"preset\" in Tweaks on A2."]}, "Lib-MoviesDone.dc.html": {"title": "A11 · Filter result: Movies + Done is the type view", "notes": []}, "Lib-MusicSongs.dc.html": {"title": "A23 · Filter result: Music + Songs is the Music view", "notes": []}, "Lib-MusicAlbums.dc.html": {"title": "A24 · Filter result: Music + Albums is the Music view", "notes": []}, "Lib-Released.dc.html": {"title": "A25 · Released: wheel picker (year, month, day)", "notes": ["Released field (A8): tapping it opens a sheet with three wheels: Year, Month, Day. Month and Day start with \"—\" (not set), so the value can be a year, a year and month, or a full date, matching the three formats of `released`. The Day wheel only lists days that exist in the chosen month, and stays on \"—\" until a month is picked. The wheels open on the current value (usually filled in by the online lookup), otherwise on the current year. The year wheel covers 1800 to five years ahead. Tap the centered year to type it on the number keypad (A26), for anything older such as a Dickens novel; any year can be typed. Clear (next to Done) removes the date completely: the sheet closes and the field reads \"Not set\" in gray. Reopening starts the wheels on the current year; turning any wheel or typing a year sets a date again. The field shows \"2013\", \"Jun 2013\" or \"Jun 14, 2013\"; it's now wider, so the date never clips."]}, "Lib-ReleasedType.dc.html": {"title": "A26 · Released: tap the year to type it", "notes": ["Released field (A8): tapping it opens a sheet with three wheels: Year, Month, Day. Month and Day start with \"—\" (not set), so the value can be a year, a year and month, or a full date, matching the three formats of `released`. The Day wheel only lists days that exist in the chosen month, and stays on \"—\" until a month is picked. The wheels open on the current value (usually filled in by the online lookup), otherwise on the current year. The year wheel covers 1800 to five years ahead. Tap the centered year to type it on the number keypad (A26), for anything older such as a Dickens novel; any year can be typed. Clear (next to Done) removes the date completely: the sheet closes and the field reads \"Not set\" in gray. Reopening starts the wheels on the current year; turning any wheel or typing a year sets a date again. The field shows \"2013\", \"Jun 2013\" or \"Jun 14, 2013\"; it's now wider, so the date never clips."]}, "X-Disconnect.dc.html": {"title": "D15 · Disconnect: confirm", "notes": ["Disconnect (from D6) is two steps. D15 confirms: Cancel, or Disconnect. D16 asks what to do with the library on this phone. \"Keep it on this phone\" (the safe choice, gray fill) disconnects, keeps library.json locally and returns to the Library; you can browse and edit, and changes stay on the phone until you connect a repo again. \"Delete it from this phone\" (destructive) disconnects, deletes the local library.json and opens the first-run flow (F2), so Libri is empty until you connect again. Cancel on either step leaves everything as it was: nothing is disconnected until a choice in D16 is made. The repo on GitHub is never touched."]}, "X-DisconnectKeep.dc.html": {"title": "D16 · Disconnect: keep or delete the library on this phone", "notes": ["Disconnect (from D6) is two steps. D15 confirms: Cancel, or Disconnect. D16 asks what to do with the library on this phone. \"Keep it on this phone\" (the safe choice, gray fill) disconnects, keeps library.json locally and returns to the Library; you can browse and edit, and changes stay on the phone until you connect a repo again. \"Delete it from this phone\" (destructive) disconnects, deletes the local library.json and opens the first-run flow (F2), so Libri is empty until you connect again. Cancel on either step leaves everything as it was: nothing is disconnected until a choice in D16 is made. The repo on GitHub is never touched."]}, "Lib-SyncConflict.dc.html": {"title": "A27 · Sync conflict banner (A12, Conflict)", "notes": []}, "X-Conflict.dc.html": {"title": "D17 · Conflict: keep which copy?", "notes": ["Conflict: the library changed on GitHub and on this phone since they last matched (also after a disconnect where the phone kept its copy and either side, or both, was edited). Syncing stops and nothing moves until a choice. Banner on Library (A27) and Plans (S15): \"Changed here and on GitHub · Pick which copy to keep.\" with Choose. D6 while unresolved: red dot, \"Changed here and on GitHub\", second line \"Pick which copy to keep\", Sync now replaced by Choose (syncState in Tweaks). D17 opens from the banner and from D6: two muted lines (This phone: N changes, GitHub: last commit date) and one warning: \"Whichever you keep, the other copy's changes are gone. Earlier versions stay in the repo's history.\" Keep mine (neutral fill): the phone's copy replaces GitHub's. Keep GitHub's (destructive): GitHub's copy replaces the phone's and the queued changes are dropped. Decide later (text): closes, the banner stays, nothing syncs until a choice. D18: reached from F6 \"Use this file\" while a library is kept on the phone; \"This phone's\" uploads it over the chosen file, \"The one on GitHub\" replaces the phone's library, Cancel goes back to F6. From F5 \"Create a new library\" in the same situation, the new file is created from the phone's library, no question asked."]}, "X-Reconnect.dc.html": {"title": "D18 · Reconnecting to a different file: which library?", "notes": ["Conflict: the library changed on GitHub and on this phone since they last matched (also after a disconnect where the phone kept its copy and either side, or both, was edited). Syncing stops and nothing moves until a choice. Banner on Library (A27) and Plans (S15): \"Changed here and on GitHub · Pick which copy to keep.\" with Choose. D6 while unresolved: red dot, \"Changed here and on GitHub\", second line \"Pick which copy to keep\", Sync now replaced by Choose (syncState in Tweaks). D17 opens from the banner and from D6: two muted lines (This phone: N changes, GitHub: last commit date) and one warning: \"Whichever you keep, the other copy's changes are gone. Earlier versions stay in the repo's history.\" Keep mine (neutral fill): the phone's copy replaces GitHub's. Keep GitHub's (destructive): GitHub's copy replaces the phone's and the queued changes are dropped. Decide later (text): closes, the banner stays, nothing syncs until a choice. D18: reached from F6 \"Use this file\" while a library is kept on the phone; \"This phone's\" uploads it over the chosen file, \"The one on GitHub\" replaces the phone's library, Cancel goes back to F6. From F5 \"Create a new library\" in the same situation, the new file is created from the phone's library, no question asked."]}, "S5-PlansConflict.dc.html": {"title": "S15 · Plans with the sync conflict banner", "notes": []}, "Lib-TagList.dc.html": {"title": "A28 · Filter: all Authors (A–Z, search, rail)", "notes": []}, "Onb-Branch.dc.html": {"title": "F4 · Pick a branch", "notes": ["Branch (F4): after Connect, Libri reads every branch in the repo and shows a loading state while it does. The repo's default branch is listed first, tagged Default and preselected; the rest follow A–Z. It's shown even when the repo has only one branch. The pick applies to everything after it: F5 to F7 look for or create the file on that branch, and every save commits to it directly. D6 shows it in a Branch row under Repository."]}}};
   if (!window.preact) {
     document.getElementById('screen').innerHTML = '<p class="boot-error">The viewer library did not load. Check the connection and reload.</p>';
     return;
