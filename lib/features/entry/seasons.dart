@@ -417,8 +417,9 @@ class _AllSeasonsScreenState extends ConsumerState<AllSeasonsScreen> {
               title: show?.title ?? 'Seasons',
               onBack: () => Navigator.pop(context),
             ),
+            // Under the title, past the back arrow (A32).
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: const EdgeInsets.fromLTRB(68, 0, 20, 8),
               child: Text(
                 [seasonsCount(seasons.length), ?years].join(' · '),
                 style: theme.textTheme.bodySmall!.copyWith(
