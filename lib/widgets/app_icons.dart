@@ -86,6 +86,21 @@ class AppIcons {
     ],
   );
 
+  /// An arrow out of a box: the row opens a website (D19).
+  static const externalLink = StrokeIconData(
+    polylines: [
+      [Offset(14, 4), Offset(20, 4), Offset(20, 10)],
+      [Offset(20, 4), Offset(11, 13)],
+      [
+        Offset(18, 14),
+        Offset(18, 20),
+        Offset(4, 20),
+        Offset(4, 6),
+        Offset(10, 6),
+      ],
+    ],
+  );
+
   /// The heavier chevron after a tappable section heading (A1).
   static const chevronRightBold = StrokeIconData(
     strokeWidth: 2.5,

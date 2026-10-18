@@ -11,6 +11,7 @@ import '../../widgets/segmented_control.dart';
 import '../../widgets/setting_row.dart';
 import '../../widgets/switch_row.dart';
 import '../sync/sync_state.dart';
+import 'about_screen.dart';
 import 'connection_screen.dart';
 import 'display_preferences.dart';
 
@@ -24,7 +25,7 @@ Future<void> openSettingsScreen(BuildContext context) {
 
 /// Settings (S6): a preview of the accent, theme, accent color in the
 /// Vivid and Pastel groups, the defaults for new plans, the default game
-/// platform, the library connection and About.
+/// platform, the library connection and the About row that opens D19.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -182,6 +183,7 @@ class SettingsScreen extends ConsumerWidget {
                       AsyncError() => 'Version unknown',
                       _ => 'Version …',
                     },
+                    onTap: () => openAboutScreen(context),
                   ),
                 ],
               ),

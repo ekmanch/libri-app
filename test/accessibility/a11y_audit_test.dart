@@ -293,6 +293,11 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
     await tester.pumpAndSettle();
     await a.check('S6 settings bottom');
+    await tester.ensureVisible(find.text('Libri'));
+    await tester.pumpAndSettle();
+    await a.tapText('Libri');
+    await a.check('D19 about');
+    await a.back();
     await a.tapText('Library source');
     await a.check('D6 connection');
     await a.tapText('Disconnect');

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/features/settings/about_screen.dart';
 import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/settings_screen.dart';
@@ -80,13 +81,19 @@ void main() {
   testWidgets('a single row puts its value at the right edge', (tester) async {
     await pumpApp(tester, const SettingsScreen());
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
-    final row = tester.getRect(find.widgetWithText(SettingRow, 'Libri'));
-    final value = tester.getRect(find.text('Version 0.1.0'));
-    expect(value.right, row.right);
-    // With a chevron the value ends right before it.
-    final chevron = tester.getRect(find.byType(StrokeIcon).last);
-    final source = tester.getRect(find.text('GitHub, private repo'));
-    expect(source.right, chevron.left - 6);
+    // Both rows open a screen, so the value ends right before the chevron,
+    // which sits at the row's right edge.
+    for (final (label, value) in [
+      ('Library source', 'GitHub, private repo'),
+      ('Libri', 'Version 0.1.0'),
+    ]) {
+      final row = find.widgetWithText(SettingRow, label);
+      final chevron = tester.getRect(
+        find.descendant(of: row, matching: find.byType(StrokeIcon)),
+      );
+      expect(chevron.right, tester.getRect(row).right, reason: label);
+      expect(tester.getRect(find.text(value)).right, chevron.left - 6);
+    }
   });
 
   testWidgets('the library source row opens the connection screen', (
@@ -99,6 +106,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ConnectionScreen), findsOneWidget);
     expect(find.text('Library connection'), findsOneWidget);
+  });
+
+  testWidgets('the Libri row opens About', (tester) async {
+    await pumpApp(tester, const SettingsScreen());
+    await tester.scrollUntilVisible(find.text('Version 0.1.0'), 200);
+    await tester.ensureVisible(find.text('Libri'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Libri'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AboutScreen), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
   });
 
   testWidgets('the light theme renders without overflow', (tester) async {
