@@ -19,7 +19,8 @@ import 'fake_lookup.dart';
 /// in [cacheDirectory] (a fresh temporary folder when not given).
 /// [latency] shows the loading states, [failure] an error state, and
 /// `configured: false` the "not set up" state; [source] replaces the fake
-/// those three would build.
+/// those three would build, and [seasonStore] the daily season check's
+/// memory.
 List<Override> fakeLookupOverrides({
   Duration latency = Duration.zero,
   LookupFailure? failure,
@@ -27,6 +28,7 @@ List<Override> fakeLookupOverrides({
   Directory? cacheDirectory,
   Set<String>? failingImages,
   FakeLookupSource? source,
+  SeasonCheckStore? seasonStore,
 }) => [
   lookupSourcesProvider.overrideWithValue([
     source ??
@@ -50,7 +52,7 @@ List<Override> fakeLookupOverrides({
   seasonCheckProvider.overrideWith(
     (ref) => SeasonCheck(
       lookups: ref.watch(lookupServiceProvider),
-      store: MemorySeasonCheckStore(),
+      store: seasonStore ?? MemorySeasonCheckStore(),
     ),
   ),
   trackListServiceProvider.overrideWith(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/lookup/season_check.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
@@ -356,5 +357,50 @@ void main() {
         manual: true,
       ),
     ]);
+  });
+
+  testWidgets('a dropped season with a status is asked about after the check', (
+    tester,
+  ) async {
+    final fixture = loadFixture();
+    const id = 'shows/severance-2022';
+    final severance = fixture
+        .entryById(id)!
+        .copyWith(
+          source: 'tmdb:tv:95396',
+          seasons: [
+            ...fixture.entryById(id)!.seasons!,
+            const Season(
+              season: 3,
+              released: Released(2099),
+              status: EntryStatus.want,
+            ),
+          ],
+        );
+    // TMDB lists seasons 1 and 2 only, and the last check missed 3 too.
+    final fake = FakeLookupSource(
+      seasonsBySource: {'tmdb:tv:95396': fixture.entryById(id)!.seasons!},
+    );
+    final store = MemorySeasonCheckStore();
+    await store.recordRun(DateTime(2000), {'$id#3'});
+    final container = await pumpApp(
+      tester,
+      const AppShell(libraryHome: _Home('Library'), plansHome: _Home('Plans')),
+      size: const Size(480, 844),
+      library: fixture.copyWith(
+        entries: [for (final e in fixture.entries) e.id == id ? severance : e],
+      ),
+      lookupOverrides: fakeLookupOverrides(source: fake, seasonStore: store),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Season 3 of Severance is no longer listed'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Keep it'));
+    await tester.pumpAndSettle();
+    final kept = (await container.read(libraryRepositoryProvider).load())
+        .entryById(id)!;
+    expect(kept.seasons!.last.isManual, isTrue);
   });
 }

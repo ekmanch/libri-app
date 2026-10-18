@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../entry/dropped_season_dialog.dart';
 import '../entry/entry_details_sheet.dart';
 import '../entry/new_entry_screen.dart';
 import '../plans/plan_form_screen.dart';
@@ -125,7 +126,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  /// Adds the new seasons the daily check found, once a day.
+  /// Applies what the daily season check found, once a day, and asks
+  /// about dropped seasons the user gave a status.
   Future<void> _checkSeasons() async {
     final library = ref.read(libraryProvider).value;
     final check = ref.read(seasonCheckProvider);
@@ -135,6 +137,31 @@ class _AppShellState extends ConsumerState<AppShell> {
     final repository = ref.read(libraryRepositoryProvider);
     for (final operation in result.operations) {
       await repository.apply(operation);
+    }
+    // Seasons TMDB dropped that the user gave a status: ask, one at a time
+    // (A36). One left unanswered is asked again after the next check.
+    for (final dropped in result.dropped) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      final show = ref.read(libraryProvider).value?.entryById(dropped.entryId);
+      if (show == null ||
+          !(show.seasons?.any((s) => s.season == dropped.season) ?? false)) {
+        continue;
+      }
+      final choice = await showDroppedSeasonDialog(
+        context,
+        show: show,
+        season: dropped.season,
+        status: dropped.status,
+      );
+      switch (choice) {
+        case DroppedSeasonChoice.keep:
+          await repository.apply(KeepSeason(show.id, dropped.season));
+        case DroppedSeasonChoice.remove:
+          await repository.apply(RemoveSeason(show.id, dropped.season));
+        case null:
+          break;
+      }
     }
   }
 
