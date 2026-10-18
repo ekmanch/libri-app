@@ -235,6 +235,12 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tap(find.bySemanticsLabel(RegExp('^Season 5 status: ')));
     await a.check('A33 season status with catch-up');
     await a.closeSheet();
+    await a.tapText('Edit');
+    await a.check('A37 edit a show');
+    await a.back();
+    await a.closeSheet();
+    await a.tapText('The Haunting of Hill House');
+    await a.check('A34 show with one season');
     await a.closeSheet();
     await a.pickChip('All');
   });
