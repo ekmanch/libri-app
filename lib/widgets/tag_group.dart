@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
@@ -9,7 +12,10 @@ import 'chips.dart';
 /// (A2) and the entry form's tag picker (D14). Without [onToggleOpen] the
 /// header is a plain label and the group is always open ("New on this
 /// entry" in D14).
-class TagGroup extends StatelessWidget {
+///
+/// A group the user opens scrolls its list just enough to show all of it,
+/// never so far that its header leaves the top.
+class TagGroup extends StatefulWidget {
   const TagGroup({
     super.key,
     required this.label,
@@ -38,10 +44,72 @@ class TagGroup extends StatelessWidget {
   final double chipHeight;
   final double chipPadding;
 
+  static const revealDuration = Duration(milliseconds: 250);
+
+  @override
+  State<TagGroup> createState() => _TagGroupState();
+}
+
+class _TagGroupState extends State<TagGroup> {
+  /// Set when the header is tapped while the group is shut. Only a group
+  /// the user opens scrolls into view; one the sheet opens by itself (the
+  /// first group after the types change) leaves the list where it is.
+  bool _opening = false;
+
+  void _toggle() {
+    _opening = !widget.open;
+    widget.onToggleOpen?.call();
+  }
+
+  @override
+  void didUpdateWidget(TagGroup old) {
+    super.didUpdateWidget(old);
+    if (widget.open && !old.open && _opening) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+    }
+    _opening = false;
+  }
+
+  /// Scrolls the enclosing list so the opened group's chips are in view:
+  /// its bottom to the bottom of the list, unless that would push its top
+  /// out, then its top to the top.
+  void _reveal() {
+    if (!mounted) return;
+    final box = context.findRenderObject();
+    final scrollable = Scrollable.maybeOf(context);
+    if (box == null || scrollable == null) return;
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    if (viewport == null) return;
+    final position = scrollable.position;
+    final topAtTop = viewport.getOffsetToReveal(box, 0).offset;
+    final bottomAtBottom = viewport.getOffsetToReveal(box, 1).offset;
+    final target = math
+        .min(topAtTop, math.max(position.pixels, bottomAtBottom))
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+    if ((target - position.pixels).abs() < 1) return;
+    position.animateTo(
+      target,
+      duration: TagGroup.revealDuration,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
+    final TagGroup(
+      :label,
+      :tags,
+      :selected,
+      :open,
+      :onToggleOpen,
+      :onToggleTag,
+      :chipStyle,
+      :checked,
+      :chipHeight,
+      :chipPadding,
+    ) = widget;
     final picked = tags.where(selected.contains).length;
     if (tags.isEmpty) return const SizedBox.shrink();
     final folds = onToggleOpen != null;
@@ -84,7 +152,7 @@ class TagGroup extends StatelessWidget {
               // feedback.
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: onToggleOpen,
+                onTap: _toggle,
                 child: header,
               ),
             )
