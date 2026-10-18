@@ -37,7 +37,7 @@ void main() {
   );
 
   /// The flow while a library (the fixture) is kept on this phone after
-  /// a disconnect (D16): what D18 and F5 are about.
+  /// a disconnect (D16): what D18 and F6 are about.
   Future<ProviderContainer> pumpKept(WidgetTester tester) => pumpApp(
     tester,
     const FirstRunFlow(initialStep: FirstRunStep.connect),
@@ -51,7 +51,7 @@ void main() {
     ],
   );
 
-  /// F4 to F6 with [path] picked and "Use this file" pressed.
+  /// F5 to F7 with [path] picked and "Use this file" pressed.
   Future<void> useFile(WidgetTester tester, String path) async {
     await tester.tap(find.text('Use a file I already have'));
     await tester.pumpAndSettle();
@@ -63,12 +63,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// F3 with the fields filled in and Connect pressed.
-  Future<void> connect(WidgetTester tester) async {
+  /// F3 with the fields filled in and Connect pressed; the fake's latency,
+  /// if any, is waited out.
+  Future<void> fillConnect(WidgetTester tester) async {
     await tester.enterText(find.byType(TextField).first, 'ekmanch/library');
     await tester.enterText(find.byType(TextField).last, 'github_pat_x');
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  }
+
+  /// [fillConnect], then F4 passed with the default branch when the
+  /// connection was accepted.
+  Future<void> connect(WidgetTester tester) async {
+    await fillConnect(tester);
+    if (find.text('Pick a branch').evaluate().isEmpty) return;
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
   }
 
@@ -83,32 +96,40 @@ void main() {
     expect(find.text('Get started'), findsOneWidget);
   });
 
-  testWidgets('creating a new library walks F2 to F7 and connects', (
+  testWidgets('creating a new library walks F2 to F8 and connects', (
     tester,
   ) async {
-    github = FakeGitHubApi(); // An empty repo.
+    github = FakeGitHubApi(); // An empty repo, with only `main`.
     final container = await pumpFlow(tester);
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
 
     // F3: Connect needs a repo and a token, then asks GitHub.
-    expect(find.text('STEP 1 OF 3'), findsOneWidget);
+    expect(find.text('STEP 1 OF 4'), findsOneWidget);
     expect(find.text('Connect GitHub'), findsOneWidget);
     final button = find.widgetWithText(FilledButton, 'Connect');
     expect(tester.widget<FilledButton>(button).enabled, isFalse);
-    await connect(tester);
-    expect(github.requests, ['GET repo']);
+    await fillConnect(tester);
+    expect(github.requests, ['GET repo', 'GET branches']);
 
-    // F4: new is the default choice.
-    expect(find.text('STEP 2 OF 3'), findsOneWidget);
+    // F4: the one branch, the default, is preselected.
+    expect(find.text('STEP 2 OF 4'), findsOneWidget);
+    expect(find.text('Pick a branch'), findsOneWidget);
+    expect(find.text('Default'), findsOneWidget);
+    expect(isSelected(tester, find.text('main')), isTrue);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    // F5: new is the default choice.
+    expect(find.text('STEP 3 OF 4'), findsOneWidget);
     expect(find.text('Your library file'), findsOneWidget);
-    expect(find.textContaining('ekmanch/library'), findsOneWidget);
+    expect(find.textContaining('ekmanch/library on main.'), findsOneWidget);
     expect(isSelected(tester, find.text('Create a new library')), isTrue);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    // F5: the create step with its preview, then the commit.
-    expect(find.text('STEP 3 OF 3'), findsOneWidget);
+    // F6: the create step with its preview, then the commit.
+    expect(find.text('STEP 4 OF 4'), findsOneWidget);
     expect(find.textContaining('"version": 2'), findsOneWidget);
     expect(find.text('Commit message: “Create Libri library”'), findsOneWidget);
     await tester.tap(find.text('Create library'));
@@ -117,11 +138,11 @@ void main() {
     final commits = await github.commits('library.json', branch: 'main');
     expect(commits.single.message, 'Create Libri library');
 
-    // F7.
+    // F8.
     expect(find.text('You\'re all set'), findsOneWidget);
     expect(
       find.text(
-        'library.json is now in ekmanch/library. '
+        'library.json is now in ekmanch/library on main. '
         'Add your first entry with the + button.',
       ),
       findsOneWidget,
@@ -147,6 +168,17 @@ void main() {
     await tester.pump();
     expect(find.text('Connecting…'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    // F4 while the branches load.
+    expect(find.text('Looking for branches in the repo…'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).enabled,
+      isFalse,
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('Looking for branches in the repo…'), findsNothing);
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -236,7 +268,105 @@ void main() {
     );
   });
 
-  testWidgets('F6 reports a failed listing and can try again', (tester) async {
+  testWidgets('F4 lists the default branch first with a badge, the rest A '
+      'to Z, and preselects the default', (tester) async {
+    await pumpFlow(tester, step: FirstRunStep.connect);
+    await fillConnect(tester);
+    expect(find.text('Pick a branch'), findsOneWidget);
+    expect(find.textContaining('Branches in ekmanch/library.'), findsOneWidget);
+    // The fake lists dev, main, app-sync-test; the step sorts them.
+    final tops = [
+      for (final name in ['main', 'app-sync-test', 'dev'])
+        tester.getTopLeft(find.text(name)).dy,
+    ];
+    expect(tops[0] < tops[1] && tops[1] < tops[2], isTrue, reason: '$tops');
+    expect(find.text('Default'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Default')).dy, closeTo(tops[0], 12));
+    expect(find.text('Updated 2 days ago'), findsOneWidget);
+    expect(find.text('Updated 7 days ago'), findsOneWidget);
+    expect(find.textContaining('Updated Aug 9'), findsOneWidget);
+    expect(isSelected(tester, find.text('main')), isTrue);
+    expect(isSelected(tester, find.text('dev')), isFalse);
+    expect(find.textContaining('no pull requests'), findsOneWidget);
+  });
+
+  testWidgets('the chosen branch is used for the file, the listing and the '
+      'commit, and saved with the connection', (tester) async {
+    final container = await pumpFlow(tester, step: FirstRunStep.connect);
+    await fillConnect(tester);
+    await tester.tap(find.text('dev'));
+    await tester.pumpAndSettle();
+    expect(isSelected(tester, find.text('dev')), isTrue);
+    expect(isSelected(tester, find.text('main')), isFalse);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    // F5 and F7 name the branch; the listing reads it.
+    expect(find.textContaining('ekmanch/library on dev.'), findsOneWidget);
+    await tester.tap(find.text('Use a file I already have'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('JSON files found in ekmanch/library on dev.'),
+      findsOneWidget,
+    );
+    expect(github.lastBranch, 'dev');
+
+    // F6 commits to it, and F8 says where the file is.
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create a new library'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Saved at the top of ekmanch/library on dev.'),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byType(TextField).first, 'libri.json');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create library'));
+    await tester.pumpAndSettle();
+    expect(github.lastBranch, 'dev');
+    expect(
+      find.text(
+        'libri.json is now in ekmanch/library on dev. Add your first entry '
+        'with the + button.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Open Libri'));
+    await tester.pumpAndSettle();
+    expect(container.read(libraryConnectionProvider).branch, 'dev');
+  });
+
+  testWidgets('F4 reports a failed listing and can try again', (tester) async {
+    github.latency = const Duration(milliseconds: 50);
+    await pumpFlow(tester, step: FirstRunStep.connect);
+    await tester.enterText(find.byType(TextField).first, 'ekmanch/library');
+    await tester.enterText(find.byType(TextField).last, 'github_pat_x');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
+    // The repo call passes; the branches call then finds no connection.
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pump();
+    expect(find.text('Looking for branches in the repo…'), findsOneWidget);
+    github.failure = GitHubFailure.offline;
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No connection'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Continue'), findsNothing);
+    github.failure = null;
+    await tester.tap(find.text('Try again'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(find.text('main'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
+  });
+
+  testWidgets('F7 reports a failed listing and can try again', (tester) async {
     await pumpFlow(tester, step: FirstRunStep.connect);
     await connect(tester);
     github.failure = GitHubFailure.offline;
@@ -255,7 +385,12 @@ void main() {
   testWidgets('back goes one step at a time, also with the system back', (
     tester,
   ) async {
-    await pumpApp(tester, const FirstRunFlow(initialStep: FirstRunStep.file));
+    await pumpFlow(tester, step: FirstRunStep.connect);
+    await connect(tester);
+    expect(find.text('Your library file'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pick a branch'), findsOneWidget);
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.text('Connect GitHub'), findsOneWidget);
@@ -387,7 +522,7 @@ void main() {
       );
     });
 
-    testWidgets('Cancel stays on F6, and the same file asks nothing', (
+    testWidgets('Cancel stays on F7, and the same file asks nothing', (
       tester,
     ) async {
       await pumpKept(tester);
@@ -426,8 +561,8 @@ void main() {
       expect(github.text('libri.json'), fixtureText);
       expect(
         find.text(
-          'libri.json is now in ekmanch/library, with the $n entries from '
-          'this phone.',
+          'libri.json is now in ekmanch/library on main, with the $n '
+          'entries from this phone.',
         ),
         findsOneWidget,
       );

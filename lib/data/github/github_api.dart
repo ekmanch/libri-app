@@ -100,10 +100,27 @@ class CommitInfo {
   final DateTime date;
 }
 
+/// How many branches [GitHubApi.listBranches] returns at most: one page.
+const maxBranches = 100;
+
+/// A branch, from the branches list.
+class BranchInfo {
+  const BranchInfo({required this.name, this.updated});
+
+  final String name;
+
+  /// When the commit at its head was made; null when not known.
+  final DateTime? updated;
+}
+
 /// The GitHub calls the app makes, against one repository. Every method
 /// throws a [GitHubException] on failure.
 abstract interface class GitHubApi {
   Future<RepoInfo> getRepo();
+
+  /// The repo's branches (up to [maxBranches]), in the order GitHub lists
+  /// them, each with when its head was committed.
+  Future<List<BranchInfo>> listBranches();
 
   /// The file in the raw format (works to 100 MB). With [etag] the request
   /// is conditional, and null means "unchanged" (304).

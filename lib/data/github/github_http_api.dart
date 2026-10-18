@@ -104,6 +104,45 @@ class GitHubHttpApi implements GitHubApi {
   }
 
   @override
+  Future<List<BranchInfo>> listBranches() async {
+    final response = await _send(
+      () => _client.get(
+        _uri(const ['branches'], {'per_page': '$maxBranches'}),
+        headers: _headers(_jsonMediaType),
+      ),
+    );
+    _check(response, const {200});
+    final list = jsonDecode(utf8.decode(response.bodyBytes)) as List<Object?>;
+    // The branches list carries only the head's sha; its date is one more
+    // request per branch, made in parallel.
+    return Future.wait([
+      for (final item in list.cast<Map<String, Object?>>())
+        _branch(
+          item['name'] as String,
+          (item['commit'] as Map<String, Object?>)['sha'] as String,
+        ),
+    ]);
+  }
+
+  Future<BranchInfo> _branch(String name, String headSha) async {
+    final response = await _send(
+      () => _client.get(
+        _uri(['commits', headSha]),
+        headers: _headers(_jsonMediaType),
+      ),
+    );
+    _check(response, const {200});
+    return BranchInfo(name: name, updated: _commitDate(_json(response)));
+  }
+
+  /// The committer date of a commit object from the commits API.
+  static DateTime _commitDate(Map<String, Object?> item) => DateTime.parse(
+    (((item['commit'] as Map<String, Object?>)['committer']
+            as Map<String, Object?>)['date']
+        as String),
+  );
+
+  @override
   Future<RawFile?> getFileRaw(
     String path, {
     required String branch,
@@ -217,11 +256,7 @@ class GitHubHttpApi implements GitHubApi {
               ((item['commit'] as Map<String, Object?>)['message']
                   as String?) ??
               '',
-          date: DateTime.parse(
-            (((item['commit'] as Map<String, Object?>)['committer']
-                    as Map<String, Object?>)['date']
-                as String),
-          ),
+          date: _commitDate(item),
         ),
     ];
   }

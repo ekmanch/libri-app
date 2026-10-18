@@ -17,6 +17,8 @@ void main() {
     expect(find.text('Connected'), findsOneWidget);
     expect(find.text('Not synced yet'), findsOneWidget);
     expect(find.text('ekmanch/library'), findsOneWidget);
+    expect(find.text('Branch'), findsOneWidget);
+    expect(find.text('main'), findsOneWidget);
     expect(find.text('library.json'), findsOneWidget);
     expect(find.text('Saved on this phone'), findsOneWidget);
     expect(
@@ -54,7 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FirstRunFlow), findsOneWidget);
     expect(find.text('Connect GitHub'), findsOneWidget);
-    expect(find.text('STEP 1 OF 3'), findsNothing);
+    expect(find.text('STEP 1 OF 4'), findsNothing);
     await tester.enterText(find.byType(TextField).last, 'github_pat_x');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save token'));
@@ -180,7 +182,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FirstRunFlow), findsOneWidget);
     expect(find.text('Connect GitHub'), findsOneWidget);
-    expect(find.text('STEP 1 OF 3'), findsOneWidget);
+    expect(find.text('STEP 1 OF 4'), findsOneWidget);
     // Back from F3 returns to D6.
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();

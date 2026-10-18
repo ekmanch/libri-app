@@ -326,15 +326,17 @@ Future<void> _walk(_Walk w) async {
     await tester.pumpAndSettle();
     await w.shot('f3-connect');
     await w.tapText('Connect');
-    await w.shot('f4-file');
+    await w.shot('f4-branch');
     await w.tapText('Continue');
-    await w.shot('f5-create');
+    await w.shot('f5-file');
+    await w.tapText('Continue');
+    await w.shot('f6-create');
     await w.back();
     await w.tapText('Use a file I already have');
     await w.tapText('Continue');
-    await w.shot('f6-existing');
+    await w.shot('f7-existing');
     await w.tapText('Use this file');
-    await w.shot('f7-done');
+    await w.shot('f8-done');
     await w.tapText('Open Libri');
   });
 }

@@ -25,9 +25,9 @@ Future<void> openConnectionScreen(BuildContext context) {
   ).push<void>(MaterialPageRoute(builder: (_) => const ConnectionScreen()));
 }
 
-/// Settings: library connection (D6). Status, the GitHub details, how
-/// often the app checks for changes, and the buttons to replace the token
-/// or disconnect. UI only until phase 4.
+/// Settings: library connection (D6). Status, the GitHub details (repo,
+/// branch, file, token), how often the app checks for changes, and the
+/// buttons to replace the token or disconnect.
 class ConnectionScreen extends ConsumerWidget {
   const ConnectionScreen({super.key});
 
@@ -60,7 +60,7 @@ class ConnectionScreen extends ConsumerWidget {
   }
 
   /// Connect a repo again while the library is kept on the phone: F3 to
-  /// F7 above everything, like Replace token.
+  /// F8 above everything, like Replace token.
   Future<void> _reconnect(BuildContext context) {
     return Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(builder: (_) => const FirstRunFlow.reconnect()),
@@ -194,6 +194,11 @@ class ConnectionScreen extends ConsumerWidget {
                     SettingRow(
                       label: 'Repository',
                       value: connection.repository,
+                      minHeight: 56,
+                    ),
+                    SettingRow(
+                      label: 'Branch',
+                      value: connection.branch,
                       minHeight: 56,
                     ),
                     SettingRow(

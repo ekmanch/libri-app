@@ -325,15 +325,17 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await tester.enterText(find.byType(TextField).last, 'github_pat_example');
     await tester.pumpAndSettle();
     await a.tapText('Connect');
-    await a.check('F4 file');
+    await a.check('F4 branch');
     await a.tapText('Continue');
-    await a.check('F5 create');
+    await a.check('F5 file');
+    await a.tapText('Continue');
+    await a.check('F6 create');
     await a.back();
     await a.tapText('Use a file I already have');
     await a.tapText('Continue');
-    await a.check('F6 existing');
+    await a.check('F7 existing');
     await a.tapText('Use this file');
-    await a.check('F7 done');
+    await a.check('F8 done');
     await a.tapText('Open Libri');
   });
   await a.step('cold start', () async {

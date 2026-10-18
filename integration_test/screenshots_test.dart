@@ -577,6 +577,7 @@ void main() {
           libraryRepositoryProvider.overrideWithValue(
             FixtureLibraryRepository(),
           ),
+          _demoGitHub(),
         ],
         child: RepaintBoundary(
           key: _root,
@@ -698,6 +699,20 @@ void main() {
     await capture(tester, 'large-text-a12-could-not-save');
     largeTextContainer.read(syncBannerProvider.notifier).clear();
     await tester.pumpAndSettle();
+
+    // F4 at the larger text size: the first run after the library is
+    // deleted from the phone (D16), up to the branch list.
+    largeTextContainer
+        .read(libraryConnectionProvider.notifier)
+        .disconnect(keepLibrary: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Get started'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'github_pat_example');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-f4-branch');
   });
 
   testWidgets('settings, connection, first run, banners and first load', (
@@ -778,23 +793,30 @@ void main() {
     await tester.tap(find.text('Connect'));
     await tester.pump();
     await capture(tester, 'f3-connecting');
+    // The repo call has answered, the branches are still loading.
+    await tester.pump(_demoLatency + const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
+    await capture(tester, 'f4-branch-looking');
     await tester.pump(_demoLatency * 2);
     await tester.pumpAndSettle();
-    await capture(tester, 'f4-file');
+    await capture(tester, 'f4-branch');
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    await capture(tester, 'f5-create');
+    await capture(tester, 'f5-file');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'f6-create');
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Use a file I already have'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pump();
-    await capture(tester, 'f6-looking');
+    await capture(tester, 'f7-looking');
     // The listing, three files and two commit lookups, each with latency.
     await tester.pump(_demoLatency * 8);
     await tester.pumpAndSettle();
-    await capture(tester, 'f6-existing');
+    await capture(tester, 'f7-existing');
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create a new library'));
@@ -805,10 +827,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create library'));
     await tester.pump();
-    await capture(tester, 'f5-creating');
+    await capture(tester, 'f6-creating');
     await tester.pump(_demoLatency * 2);
     await tester.pumpAndSettle();
-    await capture(tester, 'f7-done');
+    await capture(tester, 'f8-done');
     await tester.tap(find.text('Open Libri'));
     await tester.pumpAndSettle();
     expect(find.text('Library'), findsWidgets);
@@ -846,6 +868,10 @@ void main() {
     await tester.tap(find.text('Connect'));
     await tester.pump(_demoLatency * 2);
     await tester.pumpAndSettle();
+    await tester.pump(_demoLatency * 2);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Use a file I already have'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
@@ -858,8 +884,8 @@ void main() {
     await capture(tester, 'd18-which-library');
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    // F6 to F4 to F3, then F3 pops back to D6.
-    for (var i = 0; i < 3; i++) {
+    // F7 to F5 to F4 to F3, then F3 pops back to D6.
+    for (var i = 0; i < 4; i++) {
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
     }
@@ -1166,15 +1192,17 @@ void main() {
     await tester.pumpAndSettle();
     await shot('f3-connect');
     await tapText('Connect');
-    await shot('f4-file');
+    await shot('f4-branch');
     await tapText('Continue');
-    await shot('f5-create');
+    await shot('f5-file');
+    await tapText('Continue');
+    await shot('f6-create');
     await back();
     await tapText('Use a file I already have');
     await tapText('Continue');
-    await shot('f6-existing');
+    await shot('f7-existing');
     await tapText('Use this file');
-    await shot('f7-done');
+    await shot('f8-done');
     await tapText('Open Libri');
 
     // F1: the splash, on a cold start without a connection.

@@ -74,7 +74,7 @@ Phase 1 builds the whole UI on fixture data, with nothing saved and no network. 
 ### 1f. Settings and states
 - [x] S6 Settings: theme, accent color (Vivid and Pastel groups), timeline default, seasonal theme default, About row (name and version); also the default game platform from the canvas, used by A8
 - [x] D6 Library connection (UI only)
-- [x] F1 to F7 First run (UI only): splash, welcome, connect GitHub, new or existing library file, create, pick, all set (replaces the old first-time setup artboard)
+- [x] F1 to F7 First run (UI only): splash, welcome, connect GitHub, new or existing library file, create, pick, all set (replaces the old first-time setup artboard; F4 to F7 became F5 to F8 when the branch step was added in phase 6)
 - [x] A12 Sync and error banners, D7 First load (driven by fake states)
 - [x] D8 Light theme pass over every screen (every screen is captured in light by `screenshots_test.dart`; a reviewer compared them and the banners, the inset status segments and the type-chip dots were fixed)
 
@@ -141,7 +141,7 @@ Built on 2026-10-13; the decisions are in DESIGN.md section 10b.
 - [x] Sync as a three-way comparison against the base in `sync.json` (blob shas): push, pull, or stop at a conflict; a stale-sha refusal is checked, not retried; the base knows which file it is about, so a kept library reconnected to the same file is compared
 - [x] Verified that the data repo's `library.json` and the app's codec produce the same bytes, and that the repo's hook never writes it
 - [x] A27, S15, D17 Conflict: the banner with Choose on Library and Plans, Choose in D6, and the dialog (Keep mine / Keep GitHub's / Decide later)
-- [x] D18 Reconnecting a kept library to another file asks which library to keep; "Create a new library" (F5) creates it from the phone's library
+- [x] D18 Reconnecting a kept library to another file asks which library to keep; "Create a new library" (F6) creates it from the phone's library
 
 ## Phase 5: Lookups and images
 
@@ -170,6 +170,7 @@ Owner feedback of 2026-10-16 and the canvas revision of the same day (A2, A28, D
 - [x] `LONG_LISTS` pads the Authors group too, so A28 can be tried on a device; captures of the scrolled home, the long group row and A28 at 360 and at 1.3; A28 in the accessibility audit
 - [x] D10 with ten category chips is tall; checked at text scale 1.3: the dialog still fits the 780 dp screen without scrolling, so the chips stay; its "Create tag" button wrapped onto two lines, so button labels now shrink a step instead of wrapping
 - [x] `library.json` written by the app had Studios after Other: a new tag category was appended to the map instead of placed in `TagCategory` order, which the data repo's `library.py` rejects. The codec and `AddTag` now keep the categories in declaration order, and a file saved with the old order comes back in order on its next save (owner's report, 2026-10-17)
+- [x] F4 Pick a branch between Connect GitHub and the file choice (canvas revision of 2026-10-18; F4 to F7 became F5 to F8): the default branch first with a Default badge and preselected, the rest A to Z, each with when it was updated, a loading line while they load; the branch is saved with the connection and used for the file list, the new file and every read and commit; the step labels read "Step N of 4"; D6 gets a Branch row under Repository
 - [ ] The accessibility audit's text scale 1.3 walk stops at its "details" step ("Bad state: No element", `test/accessibility/a11y_audit_test.dart`) and skips the five steps after it; it did so before phase 6 too. Make the walk reach every screen at 1.3 again.
 
 ## Later

@@ -267,6 +267,50 @@ void main() {
     );
   });
 
+  test(
+    'listBranches asks for one page, then each head commit for its date',
+    () async {
+      final client = api((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/branches')) {
+          return json(200, [
+            {
+              'name': 'dev',
+              'commit': {'sha': 'd1'},
+            },
+            {
+              'name': 'main',
+              'commit': {'sha': 'm1'},
+            },
+          ]);
+        }
+        final sha = path.split('/').last;
+        return json(200, {
+          'sha': sha,
+          'commit': {
+            'committer': {
+              'date': sha == 'm1'
+                  ? '2026-10-16T08:00:00Z'
+                  : '2026-08-09T10:00:00Z',
+            },
+          },
+        });
+      });
+      final branches = await client.listBranches();
+      expect(branches.map((b) => b.name), ['dev', 'main']);
+      expect(branches[0].updated, DateTime.utc(2026, 8, 9, 10));
+      expect(branches[1].updated, DateTime.utc(2026, 10, 16, 8));
+      expect(
+        sent.first.url.toString(),
+        'https://api.github.com/repos/ekmanch/library/branches?per_page=100',
+      );
+      expect(sent.skip(1).map((r) => r.url.path).toSet(), {
+        '/repos/ekmanch/library/commits/d1',
+        '/repos/ekmanch/library/commits/m1',
+      });
+    },
+  );
+
   test('commits lists the newest commits that touched the path', () async {
     final client = api(
       (_) async => json(200, [

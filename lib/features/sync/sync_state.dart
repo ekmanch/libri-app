@@ -281,7 +281,7 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
       ? LibraryConnection.disconnected
       : ref.watch(initialConnectionProvider);
 
-  /// The end of the first run (F7) or a replaced token (D6): keeps the
+  /// The end of the first run (F8) or a replaced token (D6): keeps the
   /// token and the connection on the device, then the app opens the
   /// library.
   Future<void> connect({

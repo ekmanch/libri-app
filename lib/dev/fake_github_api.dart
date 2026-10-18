@@ -7,29 +7,43 @@ import '../data/library_codec.dart';
 
 /// A GitHub repo in memory, for the widget tests, the repository tests
 /// and the FIRST_RUN dev switch: files with blob shas and ETags, saves
-/// that check the sha like the Contents API, and a commit list. Failures
-/// can be injected with [failure] and [failNextPut].
+/// that check the sha like the Contents API, a commit list and a branch
+/// list. The files are the same on every branch; the branch of each file
+/// call is recorded in [lastBranch]. Failures can be injected with
+/// [failure] and [failNextPut].
 class FakeGitHubApi implements GitHubApi {
   FakeGitHubApi({
     Map<String, String> files = const {},
     this.defaultBranch = 'main',
+    Map<String, DateTime>? branches,
     this.canPush = true,
     this.latency = Duration.zero,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
+    _branches.addAll(branches ?? {defaultBranch: _now()});
     files.forEach(setFile);
   }
 
-  /// The repo the canvas draws in F6: the fixture as `library.json`,
-  /// updated two days ago; a smaller copy in `backup/library-2025.json`
-  /// from March; and `data/old-lists.json`, which is not a library.
+  /// The repo the canvas draws in F4 and F7: the branches `main` (the
+  /// default, updated two days ago), `app-sync-test` (last week) and `dev`
+  /// (August), listed out of order; the fixture as `library.json`, updated
+  /// two days ago; a smaller copy in `backup/library-2025.json` from March;
+  /// and `data/old-lists.json`, which is not a library.
   factory FakeGitHubApi.demo(
     String fixtureText, {
     Duration latency = Duration.zero,
     DateTime Function()? now,
   }) {
-    final api = FakeGitHubApi(latency: latency, now: now);
-    final today = api._now();
+    final today = (now ?? DateTime.now)();
+    final api = FakeGitHubApi(
+      latency: latency,
+      now: now,
+      branches: {
+        'dev': DateTime(today.year, 8, 9),
+        'main': today.subtract(const Duration(days: 2)),
+        'app-sync-test': today.subtract(const Duration(days: 7)),
+      },
+    );
     final fixture = decodeLibrary(fixtureText);
     api.setFile(
       'library.json',
@@ -67,6 +81,9 @@ class FakeGitHubApi implements GitHubApi {
       final demo = FakeGitHubApi.demo(text, latency: latency);
       api._files.addAll(demo._files);
       api._commits.addAll(demo._commits);
+      api._branches
+        ..clear()
+        ..addAll(demo._branches);
       api._commitCount = demo._commitCount;
     });
     return api;
@@ -86,10 +103,19 @@ class FakeGitHubApi implements GitHubApi {
   final DateTime Function() _now;
   final Map<String, Uint8List> _files = {};
   final Map<String, List<CommitInfo>> _commits = {};
+  final Map<String, DateTime> _branches = {};
   int _commitCount = 0;
+
+  /// The branch named by the last file call (read, save, tree or commits),
+  /// for assertions that the chosen branch is used.
+  String? lastBranch;
 
   /// When set, every call fails with it.
   GitHubFailure? failure;
+
+  /// How many calls still pass before [failure] applies: a connection
+  /// that drops midway.
+  int failAfter = 0;
 
   /// The next save fails with this, without saving.
   GitHubFailure? failNextPut;
@@ -114,6 +140,27 @@ class FakeGitHubApi implements GitHubApi {
     _record(path, message ?? 'Edit $path', date: date);
   }
 
+  /// Removes a file as if someone else deleted it, with a commit: reads
+  /// of it answer 404, its commit list still knows it.
+  void deleteFile(String path) {
+    _files.remove(path);
+    _record(path, 'Delete $path');
+  }
+
+  /// Removes a branch: every file call on it answers 404, like GitHub.
+  void deleteBranch(String name) => _branches.remove(name);
+
+  /// A call on a branch the repo does not have: 404.
+  void _checkBranch(String branch) {
+    if (!_branches.containsKey(branch)) {
+      throw const GitHubException(
+        GitHubFailure.notFound,
+        status: 404,
+        message: 'Branch not found',
+      );
+    }
+  }
+
   void _record(String path, String message, {DateTime? date}) {
     _commitCount++;
     _commits
@@ -132,7 +179,13 @@ class FakeGitHubApi implements GitHubApi {
     requests.add(request);
     await _loading;
     if (latency > Duration.zero) await Future<void>.delayed(latency);
-    if (failure case final failure?) throw GitHubException(failure);
+    if (failure case final failure?) {
+      if (failAfter > 0) {
+        failAfter--;
+      } else {
+        throw GitHubException(failure);
+      }
+    }
   }
 
   static String _etag(List<int> bytes) => '"${gitBlobSha(bytes)}"';
@@ -144,12 +197,23 @@ class FakeGitHubApi implements GitHubApi {
   }
 
   @override
+  Future<List<BranchInfo>> listBranches() async {
+    await _call('GET branches');
+    return [
+      for (final MapEntry(key: name, value: updated) in _branches.entries)
+        BranchInfo(name: name, updated: updated),
+    ];
+  }
+
+  @override
   Future<RawFile?> getFileRaw(
     String path, {
     required String branch,
     String? etag,
   }) async {
+    lastBranch = branch;
     await _call('GET $path${etag == null ? '' : ' $etag'}');
+    _checkBranch(branch);
     final bytes = _files[path];
     if (bytes == null) {
       throw const GitHubException(GitHubFailure.notFound, status: 404);
@@ -166,7 +230,9 @@ class FakeGitHubApi implements GitHubApi {
     required String message,
     String? sha,
   }) async {
+    lastBranch = branch;
     await _call('PUT $path');
+    _checkBranch(branch);
     if (failNextPut case final failure?) {
       failNextPut = null;
       throw GitHubException(failure);
@@ -192,7 +258,9 @@ class FakeGitHubApi implements GitHubApi {
     required String branch,
     String suffix = '.json',
   }) async {
+    lastBranch = branch;
     await _call('GET tree');
+    _checkBranch(branch);
     return [
       for (final MapEntry(key: path, value: bytes) in _files.entries)
         if (path.endsWith(suffix))
@@ -206,7 +274,9 @@ class FakeGitHubApi implements GitHubApi {
     required String branch,
     int limit = 5,
   }) async {
+    lastBranch = branch;
     await _call('GET commits $path');
+    _checkBranch(branch);
     return (_commits[path] ?? const []).take(limit).toList();
   }
 }

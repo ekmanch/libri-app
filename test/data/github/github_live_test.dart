@@ -163,6 +163,12 @@ void main() {
     expect(decodeLibrary(raw.text).entries, hasLength(library.entries.length));
   });
 
+  test('the branches list has the default branch with a date', () async {
+    final branches = await api.listBranches();
+    final head = branches.singleWhere((b) => b.name == branch);
+    expect(head.updated, isNotNull);
+  });
+
   test('the tree and the commits know the file', () async {
     final files = await api.listFiles(branch: branch);
     expect(files.map((f) => f.path), contains(path));

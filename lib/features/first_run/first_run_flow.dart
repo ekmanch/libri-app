@@ -28,11 +28,35 @@ Future<void> openReplaceTokenScreen(BuildContext context) {
   );
 }
 
-enum FirstRunStep { splash, welcome, connect, file, create, existing, done }
+enum FirstRunStep {
+  splash,
+  welcome,
+  connect,
+  branch,
+  file,
+  create,
+  existing,
+  done,
+}
 
 enum _FileChoice { newFile, existing }
 
-/// A JSON file in the repo, as F6 lists them.
+/// A branch in the repo, as F4 lists them.
+class RepoBranch {
+  const RepoBranch(this.name, {required this.isDefault, this.updated});
+
+  final String name;
+
+  /// The repo's default branch: listed first, with a badge, preselected.
+  final bool isDefault;
+
+  /// When its head was committed ("2 days ago"), when known.
+  final String? updated;
+
+  String? get info => updated == null ? null : 'Updated $updated';
+}
+
+/// A JSON file in the repo, as F7 lists them.
 class RepoFile {
   const RepoFile(this.path, {this.entries, this.updated, this.sha});
 
@@ -70,11 +94,11 @@ String describeGitHubFailure(GitHubException e) => switch (e.failure) {
         '${e.status == null ? '' : ' (${e.status})'}. Try again.',
 };
 
-/// The first run (F1 to F7): splash, welcome, connect GitHub, new or
-/// existing library file, create or pick it, all set. One screen whose
-/// content changes with the step, like the canvas template. Talks to
-/// GitHub through [GitHubApi]; the token and the connection are stored
-/// at the end (F7).
+/// The first run (F1 to F8): splash, welcome, connect GitHub, pick a
+/// branch, new or existing library file, create or pick it, all set. One
+/// screen whose content changes with the step, like the canvas template.
+/// Talks to GitHub through [GitHubApi]; the token and the connection are
+/// stored at the end (F8).
 class FirstRunFlow extends ConsumerStatefulWidget {
   const FirstRunFlow({super.key, this.initialStep = FirstRunStep.splash})
     : replaceToken = false,
@@ -87,7 +111,7 @@ class FirstRunFlow extends ConsumerStatefulWidget {
       reconnect = false;
 
   /// Connecting a repo again while the library is kept on the phone (D6
-  /// after D16): F3 to F7 pushed above the app, popped when done or on
+  /// after D16): F3 to F8 pushed above the app, popped when done or on
   /// back from F3.
   const FirstRunFlow.reconnect({super.key})
     : initialStep = FirstRunStep.connect,
@@ -101,7 +125,7 @@ class FirstRunFlow extends ConsumerStatefulWidget {
   /// How long the splash stays before the welcome screen.
   static const splashDuration = Duration(milliseconds: 900);
 
-  /// How many JSON files F6 looks into, and how large one may be.
+  /// How many JSON files F7 looks into, and how large one may be.
   static const maxFiles = 20;
   static const maxFileBytes = 20 * 1024 * 1024;
 
@@ -110,7 +134,7 @@ class FirstRunFlow extends ConsumerStatefulWidget {
     'https://github.com/settings/personal-access-tokens/new',
   );
 
-  /// The commit that creates the file (F5), empty or from this phone.
+  /// The commit that creates the file (F6), empty or from this phone.
   static const createMessage = 'Create Libri library';
 
   /// The commit that puts this phone's library over a chosen file (D18).
@@ -130,7 +154,16 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
 
   /// The client for the repo and token of F3, once they are accepted.
   GitHubApi? _api;
+
+  /// The repo's default branch, from F3.
+  String _defaultBranch = 'main';
+
+  /// The branch picked in F4 (the default until another is tapped), used
+  /// for everything after it.
   String _branch = 'main';
+
+  /// F4: null while the branches are being read.
+  List<RepoBranch>? _branches;
 
   /// Connect or Create in progress; a second press is ignored.
   bool _busy = false;
@@ -138,22 +171,22 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
   /// Shown under the step's field after a failed call.
   String? _error;
 
-  /// F6: null while the repo is being read.
+  /// F7: null while the repo is being read.
   List<RepoFile>? _files;
   int _file = 0;
 
-  /// F7: how many entries the chosen file holds.
+  /// F8: how many entries the chosen file holds.
   int _loadedEntries = 0;
 
   /// The library kept on this phone after a disconnect (D16), once read;
-  /// F5 creates the new file from it and F6 asks which to keep (D18).
+  /// F6 creates the new file from it and F7 asks which to keep (D18).
   Library? _kept;
 
   /// The connection the kept library belongs to, to tell the same file
   /// from another one.
   LibraryConnection? _keptConnection;
 
-  /// F7 after "This phone's" in D18: the chosen file now holds it.
+  /// F8 after "This phone's" in D18: the chosen file now holds it.
   bool _replacedFile = false;
 
   @override
@@ -198,13 +231,15 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
       _busy = false;
       _error = null;
     });
+    if (step == FirstRunStep.branch) unawaited(_loadBranches());
     if (step == FirstRunStep.existing) unawaited(_loadFiles());
   }
 
   /// The step a back goes to; null where there is no back.
   FirstRunStep? get _previous => switch (_step) {
     FirstRunStep.connect => FirstRunStep.welcome,
-    FirstRunStep.file => FirstRunStep.connect,
+    FirstRunStep.branch => FirstRunStep.connect,
+    FirstRunStep.file => FirstRunStep.branch,
     FirstRunStep.create || FirstRunStep.existing => FirstRunStep.file,
     _ => null,
   };
@@ -248,13 +283,14 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
         return;
       }
       _api = api;
+      _defaultBranch = info.defaultBranch;
       _branch = info.defaultBranch;
       if (widget.replaceToken) {
         await ref.read(libraryConnectionProvider.notifier).replaceToken(token);
         unawaited(ref.read(librarySyncProvider)?.syncNow());
         if (mounted) Navigator.pop(context);
       } else {
-        _go(FirstRunStep.file);
+        _go(FirstRunStep.branch);
       }
     } on GitHubException catch (e) {
       if (!mounted) return;
@@ -265,7 +301,45 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     }
   }
 
-  /// F5: adds the empty library to the repo. An existing file is never
+  /// F4: the repo's branches, the default first and the rest A to Z, each
+  /// with when its head was committed. The default is preselected.
+  Future<void> _loadBranches() async {
+    setState(() {
+      _branches = null;
+      _error = null;
+    });
+    final api = _api!;
+    final now = DateTime.now();
+    try {
+      final list = await api.listBranches();
+      String? updated(BranchInfo b) =>
+          b.updated == null ? null : relativeTime(b.updated!, now: now);
+      final others = list.where((b) => b.name != _defaultBranch).toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      final branches = [
+        for (final b in list)
+          if (b.name == _defaultBranch)
+            RepoBranch(b.name, isDefault: true, updated: updated(b)),
+        for (final b in others)
+          RepoBranch(b.name, isDefault: false, updated: updated(b)),
+      ];
+      if (!mounted || _step != FirstRunStep.branch) return;
+      setState(() {
+        _branches = branches;
+        // A repo without commits has no branches; the default branch is
+        // then where the first commit goes.
+        _branch = branches.isEmpty ? _defaultBranch : branches.first.name;
+      });
+    } on GitHubException catch (e) {
+      if (!mounted || _step != FirstRunStep.branch) return;
+      setState(() {
+        _branches = const [];
+        _error = describeGitHubFailure(e);
+      });
+    }
+  }
+
+  /// F6: adds the empty library to the repo. An existing file is never
   /// overwritten.
   Future<void> _create() async {
     if (_busy) return;
@@ -299,7 +373,7 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     }
   }
 
-  /// F6: the JSON files in the repo, each opened to see whether it is a
+  /// F7: the JSON files in the repo, each opened to see whether it is a
   /// Libri library and how many entries it holds.
   Future<void> _loadFiles() async {
     setState(() {
@@ -468,7 +542,7 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
               onStart: () => _go(FirstRunStep.connect),
             ),
             FirstRunStep.connect => _StepPage(
-              label: widget.replaceToken ? null : 'Step 1 of 3',
+              label: widget.replaceToken ? null : 'Step 1 of 4',
               onBack: _back,
               title: 'Connect GitHub',
               body:
@@ -516,15 +590,64 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
                 ),
               ],
             ),
+            FirstRunStep.branch => _StepPage(
+              label: 'Step 2 of 4',
+              onBack: _back,
+              title: 'Pick a branch',
+              body:
+                  'Branches in $repository. Libri reads and saves your '
+                  'library on the one you pick.',
+              bodyHighlights: [repository],
+              contentTopPadding: 20,
+              content: [
+                if (_branches case final branches?) ...[
+                  for (final branch in branches)
+                    _BranchRow(
+                      branch: branch,
+                      selected: branch.name == _branch,
+                      onTap: () => setState(() => _branch = branch.name),
+                    ),
+                  const SizedBox(height: 14),
+                  if (_error case final error?)
+                    _ErrorText(error)
+                  else if (branches.isEmpty)
+                    _Help(
+                      'This repo has no branches yet. Libri makes its first '
+                      'commit on $_defaultBranch.',
+                    )
+                  else
+                    const _Help(
+                      'Libri commits straight to this branch, with no pull '
+                      'requests.',
+                    ),
+                ] else
+                  const _Help('Looking for branches in the repo…'),
+              ],
+              footer: [
+                if (_error != null)
+                  AppButton(
+                    label: 'Try again',
+                    kind: AppButtonKind.outline,
+                    onPressed: _loadBranches,
+                  )
+                else
+                  AppButton(
+                    label: 'Continue',
+                    onPressed: _branches == null
+                        ? null
+                        : () => _go(FirstRunStep.file),
+                  ),
+              ],
+            ),
             FirstRunStep.file => _StepPage(
-              label: 'Step 2 of 3',
+              label: 'Step 3 of 4',
               onBack: _back,
               title: 'Your library file',
               body:
                   'Libri keeps everything in one JSON file in '
-                  '$repository. Start fresh, or use a file you '
+                  '$repository on $_branch. Start fresh, or use a file you '
                   'already have.',
-              bodyHighlight: repository,
+              bodyHighlights: [repository, _branch],
               content: [
                 _ChoiceCard(
                   icon: AppIcons.filePlus,
@@ -557,7 +680,7 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
               ],
             ),
             FirstRunStep.create => _StepPage(
-              label: 'Step 3 of 3',
+              label: 'Step 4 of 4',
               onBack: _back,
               title: 'Create a new library',
               body:
@@ -572,7 +695,7 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
                 ),
                 const SizedBox(height: 6),
                 _Help(
-                  'Saved at the top of $repository. Libri never '
+                  'Saved at the top of $repository on $_branch. Libri never '
                   'overwrites a file that already exists.',
                 ),
                 if (_error case final error?) _ErrorText(error),
@@ -619,12 +742,12 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
               ],
             ),
             FirstRunStep.existing => _StepPage(
-              label: 'Step 3 of 3',
+              label: 'Step 4 of 4',
               onBack: _back,
               title: 'Pick your file',
               body:
-                  'JSON files found in $repository. Only files in '
-                  'Libri\'s format can be used.',
+                  'JSON files found in $repository on $_branch. Only files '
+                  'in Libri\'s format can be used.',
               contentTopPadding: 20,
               content: [
                 if (_files case final files?) ...[
@@ -670,12 +793,13 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
             FirstRunStep.done => _Done(
               text: _choice == _FileChoice.newFile
                   ? _kept != null
-                        ? '${_fileName.text.trim()} is now in $repository, '
-                              'with the $_loadedEntries '
+                        ? '${_fileName.text.trim()} is now in $repository '
+                              'on $_branch, with the $_loadedEntries '
                               '${_loadedEntries == 1 ? 'entry' : 'entries'} '
                               'from this phone.'
-                        : '${_fileName.text.trim()} is now in $repository. '
-                              'Add your first entry with the + button.'
+                        : '${_fileName.text.trim()} is now in $repository '
+                              'on $_branch. Add your first entry with the + '
+                              'button.'
                   : _replacedFile
                   ? '${_chosenFile?.path} now holds the $_loadedEntries '
                         '${_loadedEntries == 1 ? 'entry' : 'entries'} from '
@@ -834,7 +958,7 @@ class _Welcome extends StatelessWidget {
   }
 }
 
-/// F3 to F6: a back arrow with the step label, a title and a line under
+/// F3 to F7: a back arrow with the step label, a title and a line under
 /// it, the step's content, and the buttons pinned to the bottom.
 class _StepPage extends StatelessWidget {
   const _StepPage({
@@ -844,18 +968,19 @@ class _StepPage extends StatelessWidget {
     required this.body,
     required this.content,
     required this.footer,
-    this.bodyHighlight,
+    this.bodyHighlights = const [],
     this.contentTopPadding = 24,
   });
 
-  /// "Step 1 of 3"; null when the step stands alone (Replace token).
+  /// "Step 1 of 4"; null when the step stands alone (Replace token).
   final String? label;
   final VoidCallback onBack;
   final String title;
   final String body;
 
-  /// A part of [body] set in the main text color, e.g. the repo name.
-  final String? bodyHighlight;
+  /// Parts of [body] set in the main text color, in the order they occur:
+  /// the repo name, the branch.
+  final List<String> bodyHighlights;
   final List<Widget> content;
   final List<Widget> footer;
   final double contentTopPadding;
@@ -865,10 +990,22 @@ class _StepPage extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final bodyStyle = theme.textTheme.bodyMedium!.copyWith(color: colors.muted);
-    final highlight = bodyHighlight;
-    final split = highlight == null || highlight.isEmpty
-        ? -1
-        : body.indexOf(highlight);
+    final highlightStyle = TextStyle(
+      color: theme.colorScheme.onSurface,
+      fontWeight: FontWeight.w600,
+    );
+    // The body split at its highlights, each found after the one before.
+    final spans = <TextSpan>[];
+    var at = 0;
+    for (final highlight in bodyHighlights) {
+      if (highlight.isEmpty) continue;
+      final start = body.indexOf(highlight, at);
+      if (start < 0) continue;
+      spans.add(TextSpan(text: body.substring(at, start)));
+      spans.add(TextSpan(text: highlight, style: highlightStyle));
+      at = start + highlight.length;
+    }
+    spans.add(TextSpan(text: body.substring(at)));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -903,26 +1040,7 @@ class _StepPage extends StatelessWidget {
                 style: theme.textTheme.headlineMedium!.copyWith(height: 1.1),
               ),
               const SizedBox(height: 8),
-              split < 0
-                  ? Text(body, style: bodyStyle)
-                  : Text.rich(
-                      TextSpan(
-                        style: bodyStyle,
-                        children: [
-                          TextSpan(text: body.substring(0, split)),
-                          TextSpan(
-                            text: highlight,
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(
-                            text: body.substring(split + highlight!.length),
-                          ),
-                        ],
-                      ),
-                    ),
+              Text.rich(TextSpan(style: bodyStyle, children: spans)),
               SizedBox(height: contentTopPadding),
               ...content,
             ],
@@ -956,7 +1074,7 @@ class _Help extends StatelessWidget {
   }
 }
 
-/// The JSON that F5 adds to the repo.
+/// The JSON that F6 adds to the repo.
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock(this.code);
 
@@ -986,7 +1104,7 @@ class _CodeBlock extends StatelessWidget {
   }
 }
 
-/// F4: one of the two ways to get a library file.
+/// F5: one of the two ways to get a library file.
 class _ChoiceCard extends StatelessWidget {
   const _ChoiceCard({
     required this.icon,
@@ -1079,7 +1197,111 @@ class _ChoiceCard extends StatelessWidget {
   }
 }
 
-/// F6: a JSON file in the repo. A file that is not a library is dimmed
+/// F4: a branch in the repo, with the branch icon, a Default badge on the
+/// repo's default branch and when it was last updated.
+class _BranchRow extends StatelessWidget {
+  const _BranchRow({
+    required this.branch,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final RepoBranch branch;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: colors.divider)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colors.selectedFill,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: StrokeIcon(
+                    AppIcons.branch,
+                    size: 20,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            branch.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        if (branch.isDefault) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.selectedFill,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Default',
+                              style: theme.textTheme.labelSmall!.copyWith(
+                                fontSize: 12,
+                                color: colors.muted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (branch.info case final info?) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        info,
+                        style: theme.textTheme.bodySmall!.copyWith(
+                          fontStyle: FontStyle.normal,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              RadioMark(selected: selected),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// F7: a JSON file in the repo. A file that is not a library is dimmed
 /// and cannot be picked.
 class _FileRow extends StatelessWidget {
   const _FileRow({
@@ -1143,7 +1365,7 @@ class _FileRow extends StatelessWidget {
   }
 }
 
-/// F7.
+/// F8.
 class _Done extends StatelessWidget {
   const _Done({required this.text, required this.onOpen});
 

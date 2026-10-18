@@ -191,7 +191,7 @@ class AppIcons {
     ],
   );
 
-  /// A heavier check, for the big "all set" disc (F7).
+  /// A heavier check, for the big "all set" disc (F8).
   static const checkBold = StrokeIconData(
     strokeWidth: 2.6,
     polylines: [
@@ -199,7 +199,30 @@ class AppIcons {
     ],
   );
 
-  /// A page with a folded corner and a plus: a new library file (F4).
+  /// A git branch: two commits on a line and one branching off (F4).
+  static const branch = StrokeIconData(
+    circles: [
+      StrokeCircle(Offset(6, 5), 2.2),
+      StrokeCircle(Offset(6, 19), 2.2),
+      StrokeCircle(Offset(18, 7), 2.2),
+    ],
+    polylines: [
+      [Offset(6, 7.2), Offset(6, 16.8)],
+      // The curve from the branch's commit down to the main line.
+      [
+        Offset(18, 9.2),
+        Offset(17.9, 11.3),
+        Offset(17.1, 12.9),
+        Offset(15.6, 14.1),
+        Offset(13.6, 15.0),
+        Offset(11.3, 15.8),
+        Offset(9.1, 16.6),
+        Offset(6.8, 17.4),
+      ],
+    ],
+  );
+
+  /// A page with a folded corner and a plus: a new library file (F5).
   static const filePlus = StrokeIconData(
     polylines: [
       [
@@ -216,7 +239,7 @@ class AppIcons {
     ],
   );
 
-  /// A folder: an existing file (F4).
+  /// A folder: an existing file (F5).
   static const folder = StrokeIconData(
     polylines: [
       [

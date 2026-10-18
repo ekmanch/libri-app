@@ -8,7 +8,7 @@ import 'first_run_flow.dart';
 /// The answer to D18.
 enum WhichLibrary { phone, gitHub }
 
-/// D18: "Use this file" (F6) while a library is kept on the phone and the
+/// D18: "Use this file" (F7) while a library is kept on the phone and the
 /// chosen file is another one. This phone's replaces the file on GitHub;
 /// the one on GitHub replaces the phone's library. Null for Cancel.
 Future<WhichLibrary?> askWhichLibrary(

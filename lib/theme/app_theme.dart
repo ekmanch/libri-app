@@ -155,7 +155,7 @@ class SeasonalAccents {
 }
 
 /// Font families. Bricolage Grotesque and Figtree are bundled; the code
-/// font falls back to the platform's monospace face (the F5 preview).
+/// font falls back to the platform's monospace face (the F6 preview).
 class AppFonts {
   AppFonts._();
   static const display = 'Bricolage Grotesque';
