@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,14 +7,19 @@ import 'package:library_app/data/github/github_api.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/library.dart';
+import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_github_api.dart';
+import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/first_run/first_run_flow.dart';
+import 'package:library_app/features/library/home_type_provider.dart';
+import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/features/shell/app_shell.dart';
 import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/main.dart';
 import 'package:library_app/widgets/libri_logo.dart';
 
+import '../../helpers/package_info.dart';
 import '../../helpers/pump.dart';
 import '../../helpers/pump_app.dart';
 
@@ -567,5 +574,60 @@ void main() {
         findsOneWidget,
       );
     });
+  });
+
+  testWidgets('Open Libri always lands on the library home with All picked, '
+      'also on a reconnect from Plans', (tester) async {
+    github = FakeGitHubApi();
+    mockPackageInfo();
+    final container = ProviderContainer(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(
+          FixtureLibraryRepository(
+            loadJson: () async => encodeLibrary(loadFixture()),
+          ),
+        ),
+        gitHubApiFactoryProvider.overrideWithValue(
+          ({required token, required repository}) => github,
+        ),
+        initialConnectionProvider.overrideWithValue(
+          const LibraryConnection(connected: false, keptLocally: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const LibraryApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('ACTIVE PLAN').hitTestable(), findsOneWidget);
+
+    // Movies picked, the Plans tab open, D6 above everything.
+    container.read(homeTypeProvider.notifier).set(MediaType.movies);
+    await tester.tap(find.text('Plans'));
+    await tester.pumpAndSettle();
+    expect(find.text('ACTIVE PLAN').hitTestable(), findsNothing);
+    // The push completes when D6 pops, so it is not awaited.
+    unawaited(openConnectionScreen(tester.element(find.byType(AppShell))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect to GitHub'));
+    await tester.pumpAndSettle();
+    await connect(tester);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create library'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open Libri'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FirstRunFlow), findsNothing);
+    expect(find.byType(ConnectionScreen), findsNothing);
+    expect(container.read(homeTypeProvider), isNull);
+    expect(container.read(libraryConnectionProvider).connected, isTrue);
+    expect(find.text('ACTIVE PLAN').hitTestable(), findsOneWidget);
   });
 }

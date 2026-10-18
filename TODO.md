@@ -171,6 +171,7 @@ Owner feedback of 2026-10-16 and the canvas revision of the same day (A2, A28, D
 - [x] D10 with ten category chips is tall; checked at text scale 1.3: the dialog still fits the 780 dp screen without scrolling, so the chips stay; its "Create tag" button wrapped onto two lines, so button labels now shrink a step instead of wrapping
 - [x] `library.json` written by the app had Studios after Other: a new tag category was appended to the map instead of placed in `TagCategory` order, which the data repo's `library.py` rejects. The codec and `AddTag` now keep the categories in declaration order, and a file saved with the old order comes back in order on its next save (owner's report, 2026-10-17)
 - [x] F4 Pick a branch between Connect GitHub and the file choice (canvas revision of 2026-10-18; F4 to F7 became F5 to F8): the default branch first with a Default badge and preselected, the rest A to Z, each with when it was updated, a loading line while they load; the branch is saved with the connection and used for the file list, the new file and every read and commit; the step labels read "Step N of 4"; D6 gets a Branch row under Repository
+- [x] After the first run, also a reconnect from D6, the app always opens on the library home with All picked (owner's request, 2026-10-18)
 - [ ] The accessibility audit's text scale 1.3 walk stops at its "details" step ("Bad state: No element", `test/accessibility/a11y_audit_test.dart`) and skips the five steps after it; it did so before phase 6 too. Make the walk reach every screen at 1.3 again.
 
 ## Later

@@ -16,6 +16,8 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/libri_logo.dart';
 import '../../widgets/radio_mark.dart';
+import '../library/library_filter_provider.dart';
+import '../shell/shell_session.dart';
 import '../sync/relative_time.dart';
 import '../sync/sync_state.dart';
 import 'which_library_dialog.dart';
@@ -496,9 +498,13 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     }
   }
 
-  /// F7: the token and the connection are stored; the app then opens the
-  /// library from GitHub. A flow pushed above the app (reconnect) pops.
+  /// F8: the token and the connection are stored; the app then opens the
+  /// library from GitHub, always on the library home with All picked: the
+  /// filter and the type are cleared and the shell starts fresh. A flow
+  /// pushed above the app (reconnect) pops, with D6 and Settings under it.
   void _finish() {
+    ref.read(libraryFilterProvider.notifier).clear();
+    ref.read(shellSessionProvider.notifier).restart();
     unawaited(
       ref
           .read(libraryConnectionProvider.notifier)
@@ -511,7 +517,9 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
             token: _token.text.trim(),
           ),
     );
-    if (widget.reconnect) Navigator.pop(context);
+    if (widget.reconnect) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   Future<void> _openTokenHelp() async {

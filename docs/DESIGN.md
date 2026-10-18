@@ -134,6 +134,7 @@ Plan rules:
 The canvas has F1 Splash, F2 Welcome to Libri, F3 Connect GitHub, F4 Pick a branch, F5 Your library file: new or existing, F6 Create a new library, F7 Pick an existing file, F8 All set. They replace the old first-time setup artboard. The step labels read "Step 1 of 4" (F3) to "Step 4 of 4" (F6 or F7).
 
 - F4 (canvas revision of 2026-10-18): after Connect, Libri lists the repo's branches and shows a loading line while it does. The default branch comes first with a "Default" badge and is preselected; the rest follow A to Z, each with when its head was committed ("Updated 2 days ago", in the words of D6 and F7). The step shows even when the repo has one branch. The pick is saved with the connection (`connection.json`) and used for everything after it: F7 lists the files on that branch, F6 creates the file there, and every read and commit goes to it. D6 shows it in a Branch row under Repository. A failed listing says why, with Try again.
+- Finishing the first run (F8, "Open Libri") always opens the library home with All picked, whatever was on screen before: the filter and the type are cleared and the app shell starts fresh (`shellSessionProvider`), so a reconnect begun from D6 above the Plans tab lands on the Library tab too.
 
 ## 5. Music
 

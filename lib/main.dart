@@ -18,6 +18,7 @@ import 'dev/long_lists.dart';
 import 'features/first_run/first_run_flow.dart';
 import 'features/settings/display_preferences.dart';
 import 'features/shell/app_shell.dart';
+import 'features/shell/shell_session.dart';
 import 'features/sync/sync_state.dart';
 import 'theme/app_theme.dart';
 
@@ -110,6 +111,9 @@ class LibraryApp extends ConsumerWidget {
       libraryConnectionProvider.select((c) => c.showsLibrary),
     );
     final startOver = ref.watch(startOverProvider);
+    // A new library connection (F8) starts the shell fresh, on the library
+    // home; see ShellSessionNotifier.
+    final session = ref.watch(shellSessionProvider);
     return MaterialApp(
       title: appName,
       debugShowCheckedModeBanner: false,
@@ -117,10 +121,10 @@ class LibraryApp extends ConsumerWidget {
       darkTheme: buildTheme(brightness: Brightness.dark, accent: prefs.accent),
       themeMode: prefs.themeMode,
       // Until a library file is connected, or kept on the phone after a
-      // disconnect (D16), the app is the first run (F1 to F7). Deleting
+      // disconnect (D16), the app is the first run (F1 to F8). Deleting
       // the library in D16 brings it back at the welcome screen.
       home: showsLibrary
-          ? const AppShell()
+          ? AppShell(key: ValueKey(session))
           : FirstRunFlow(
               initialStep: startOver
                   ? FirstRunStep.welcome
