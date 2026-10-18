@@ -22,6 +22,7 @@ class FakeLookupSource extends LookupSource implements MusicSource {
     this.failure,
     this.configured = true,
     this.seasonsBySource = const {},
+    this.canceledSources = const {},
   });
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
@@ -33,6 +34,9 @@ class FakeLookupSource extends LookupSource implements MusicSource {
 
   /// Seasons [seasons] answers for a show outside the catalog, by source.
   final Map<String, List<Season>> seasonsBySource;
+
+  /// Shows [seasons] calls canceled, by source.
+  final Set<String> canceledSources;
 
   /// Every call made, for the tests: "search:carrie:movies",
   /// "match:Dirt:music", "details:deezer:album:91627", "cover:igdb:1009".
@@ -103,11 +107,16 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   }
 
   @override
-  Future<List<Season>?> seasons(String source) async {
+  Future<ShowSeasons?> seasons(String source) async {
     await _call('seasons:$source');
-    if (seasonsBySource[source] case final seasons?) return seasons;
+    final canceled = canceledSources.contains(source);
+    if (seasonsBySource[source] case final seasons?) {
+      return (seasons: seasons, canceled: canceled);
+    }
     for (final match in fakeCatalog) {
-      if (match.source == source) return match.seasons;
+      if (match.source == source) {
+        return (seasons: match.seasons, canceled: canceled);
+      }
     }
     return null;
   }

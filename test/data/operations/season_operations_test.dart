@@ -329,6 +329,116 @@ void main() {
     });
   });
 
+  group('the move to seasons', () {
+    const out1 = Season(season: 1, released: Released(2020));
+    const out2 = Season(season: 2, released: Released(2022));
+    const coming = Season(season: 3, released: Released(2027));
+
+    List<EntryStatus?> statuses(List<Season> seasons) => [
+      for (final s in seasons) s.status,
+    ];
+
+    test('Want or Done goes to every season out', () {
+      expect(
+        statuses(
+          carryOverStatus(const [out1, out2, coming], EntryStatus.done, today),
+        ),
+        [EntryStatus.done, EntryStatus.done, null],
+      );
+      expect(
+        statuses(
+          carryOverStatus(const [out1, out2, coming], EntryStatus.want, today),
+        ),
+        [EntryStatus.want, EntryStatus.want, null],
+      );
+    });
+
+    test('In progress or DNF goes to the latest out, earlier ones Done', () {
+      expect(
+        statuses(
+          carryOverStatus(
+            const [out1, out2, coming],
+            EntryStatus.inProgress,
+            today,
+          ),
+        ),
+        [EntryStatus.done, EntryStatus.inProgress, null],
+      );
+      expect(
+        statuses(
+          carryOverStatus(const [out1, out2, coming], EntryStatus.dnf, today),
+        ),
+        [EntryStatus.done, EntryStatus.dnf, null],
+      );
+    });
+
+    test('seasons with any status are left alone; one season takes it', () {
+      final set = [out1.copyWith(status: EntryStatus.want), out2];
+      expect(carryOverStatus(set, EntryStatus.done, today), set);
+      expect(
+        statuses(carryOverStatus(const [coming], EntryStatus.done, today)),
+        [EntryStatus.done],
+      );
+    });
+
+    Entry oldShow(String slug, {String? source, List<Season>? seasons}) =>
+        Entry(
+          id: 'shows/$slug',
+          type: MediaType.shows,
+          title: slug,
+          released: const Released(2019, 5),
+          status: EntryStatus.inProgress,
+          added: DateTime(2026),
+          source: source,
+          seasons: seasons,
+        );
+
+    test('a show without seasons gets a manual Season 1', () {
+      final result = const MoveShowsToSeasons().apply(
+        Library(entries: [oldShow('by-hand')]),
+      );
+      final show = result.entries.single;
+      expect(show.released, isNull);
+      expect(show.seasons, const [
+        Season(
+          season: 1,
+          released: Released(2019, 5),
+          status: EntryStatus.inProgress,
+          manual: true,
+        ),
+      ]);
+      expect(show.status, EntryStatus.inProgress);
+      expect(needsSeasonMove(show), isFalse);
+    });
+
+    test('a show with seasons drops its date and carries its status', () {
+      final result = const MoveShowsToSeasons().apply(
+        Library(
+          entries: [
+            oldShow('fetched', seasons: const [out1, out2]),
+          ],
+        ),
+      );
+      final show = result.entries.single;
+      expect(show.released, isNull);
+      expect(statuses(show.seasons!), [
+        EntryStatus.done,
+        EntryStatus.inProgress,
+      ]);
+    });
+
+    test('a linked show without seasons waits for the daily check', () {
+      final linked = oldShow('linked', source: 'tmdb:tv:1');
+      expect(needsSeasonMove(linked), isFalse);
+      final library = Library(entries: [linked, mummy]);
+      expect(const MoveShowsToSeasons().apply(library), library);
+      expect(
+        const MoveShowsToSeasons().summary(library),
+        'Move show dates and statuses into seasons',
+      );
+    });
+  });
+
   test('season operations survive a JSON round trip', () {
     final library = withShow();
     for (final operation in <LibraryOperation>[
@@ -339,6 +449,10 @@ void main() {
       RemoveSeason(wednesday.id, 2),
       KeepSeason(wednesday.id, 2),
       RefreshShowStatus(wednesday.id),
+      const MoveShowsToSeasons(),
+      SetSeasonDates(wednesday.id, const [
+        Season(season: 2, released: Released(2025, 8)),
+      ]),
       AddSeasons(wednesday.id, const [
         Season(season: 3, released: Released(2026, 10), fresh: true),
       ]),

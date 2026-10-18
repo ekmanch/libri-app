@@ -10,71 +10,81 @@ import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 
 void main() {
   final now = DateTime(2026, 10, 18, 9, 30);
+  final today = DateTime(2026, 10, 18);
+  setUp(() => seasonClock = () => today);
+  tearDown(() => seasonClock = DateTime.now);
 
   const fetched = [
     Season(season: 1, released: Released(2022, 11, 23)),
     Season(season: 2, released: Released(2025, 8, 6)),
-    // Twelve days ahead: added as a heads-up.
-    Season(season: 3, released: Released(2026, 10, 30)),
-    // Next year: not yet.
-    Season(season: 4, released: Released(2027, 6, 1)),
+    // Announced: added, shown "Coming 2027".
+    Season(season: 3, released: Released(2027)),
+    // Listed with no date yet: waits.
+    Season(season: 4),
   ];
 
   Entry show(
     String slug,
     EntryStatus status, {
-    String? source,
     List<Season>? seasons,
+    Released? released,
   }) => Entry(
     id: 'shows/$slug',
     type: MediaType.shows,
     title: slug,
     status: status,
+    released: released,
     added: DateTime(2026, 1, 1),
-    source: source ?? 'tmdb:tv:$slug',
+    source: 'tmdb:tv:$slug',
     seasons: seasons,
   );
+
+  const two = [
+    Season(season: 1, released: Released(2022), status: EntryStatus.done),
+    Season(season: 2, released: Released(2025), status: EntryStatus.done),
+  ];
 
   late FakeLookupSource fake;
   late MemorySeasonCheckStore store;
   late SeasonCheck check;
 
-  void setUpCheck({LookupFailure? failure, bool configured = true}) {
+  void setUpCheck({
+    LookupFailure? failure,
+    bool configured = true,
+    Map<String, List<Season>> seasons = const {},
+    Set<String> canceled = const {},
+    MemorySeasonCheckStore? keep,
+  }) {
     fake = FakeLookupSource(
       failure: failure,
       configured: configured,
       seasonsBySource: {
-        for (final slug in ['watching', 'done', 'want', 'dnf', 'fresh'])
+        for (final slug in ['watching', 'done', 'want', 'dnf', 'empty-dnf'])
           'tmdb:tv:$slug': fetched,
+        ...seasons,
       },
+      canceledSources: canceled,
     );
-    store = MemorySeasonCheckStore();
+    store = keep ?? MemorySeasonCheckStore();
     check = SeasonCheck(lookups: LookupService([fake]), store: store);
   }
 
-  final watching = show(
-    'watching',
-    EntryStatus.inProgress,
-    seasons: const [
-      Season(season: 1, released: Released(2022), status: EntryStatus.done),
-      Season(season: 2, released: Released(2025), status: EntryStatus.done),
-    ],
-  );
-
   Library library(List<Entry> entries) => Library(entries: entries);
 
-  test('only In progress and Done shows with a source are asked', () async {
+  test('asks every linked show but DNF ones with seasons', () async {
     setUpCheck();
     await check.run(
       library([
-        watching,
-        show('done', EntryStatus.done, seasons: const [Season(season: 1)]),
-        show('want', EntryStatus.want),
-        show('dnf', EntryStatus.dnf),
+        show('watching', EntryStatus.inProgress, seasons: two),
+        show('done', EntryStatus.done, seasons: two),
+        show('want', EntryStatus.want, seasons: two),
+        show('dnf', EntryStatus.dnf, seasons: two),
+        show('empty-dnf', EntryStatus.dnf),
         Entry(
           id: 'shows/no-source',
           type: MediaType.shows,
@@ -85,84 +95,234 @@ void main() {
       ]),
       now,
     );
-    expect(fake.calls, ['seasons:tmdb:tv:watching', 'seasons:tmdb:tv:done']);
-  });
-
-  test(
-    'adds the seasons above the highest as New, announced ones too',
-    () async {
-      setUpCheck();
-      final operations = await check.run(library([watching]), now);
-      final added = operations.single;
-      expect(added.entryId, watching.id);
-      expect(added.seasons, const [
-        Season(season: 3, released: Released(2026, 10, 30), fresh: true),
-        Season(season: 4, released: Released(2027, 6, 1), fresh: true),
-      ]);
-      final after = added.apply(library([watching]));
-      expect(
-        after.entries.single.hasNewSeasonOn(DateTime(2026, 10, 30)),
-        isTrue,
-      );
-      expect(added.summary(library([watching])), 'Add seasons 3–4 of watching');
-    },
-  );
-
-  test('a show with no seasons gets them all quietly', () async {
-    setUpCheck();
-    final fresh = show('fresh', EntryStatus.done);
-    final operations = await check.run(library([fresh]), now);
-    expect(operations.single.seasons, const [
-      Season(season: 1, released: Released(2022, 11, 23)),
-      Season(season: 2, released: Released(2025, 8, 6)),
-      Season(season: 3, released: Released(2026, 10, 30)),
-      Season(season: 4, released: Released(2027, 6, 1)),
+    expect(fake.calls, [
+      'seasons:tmdb:tv:watching',
+      'seasons:tmdb:tv:done',
+      'seasons:tmdb:tv:want',
+      'seasons:tmdb:tv:empty-dnf',
     ]);
   });
 
-  test('nothing new means no operation', () async {
+  test('adds dated seasons above the highest as New, announced too', () async {
     setUpCheck();
-    final upToDate = watching.copyWith(
-      seasons: const [Season(season: 4, released: Released(2027, 6, 1))],
+    final watching = show('want', EntryStatus.done, seasons: two);
+    final result = await check.run(library([watching]), now);
+    final added = result.operations.single as AddSeasons;
+    expect(added.seasons, const [
+      Season(season: 3, released: Released(2027), fresh: true),
+    ]);
+    final after = added.apply(library([watching])).entries.single;
+    // Not out yet: no badge, and the show stays Done.
+    expect(after.hasNewSeasonOn(today), isFalse);
+    expect(after.hasNewSeasonOn(DateTime(2028)), isTrue);
+    expect(after.status, EntryStatus.done);
+  });
+
+  test(
+    'a show without seasons gets them quietly, its status carried',
+    () async {
+      setUpCheck();
+      final old = show(
+        'empty-dnf',
+        EntryStatus.dnf,
+        released: const Released(2022),
+      );
+      final result = await check.run(library([old]), now);
+      final added = result.operations.single as AddSeasons;
+      expect([for (final s in added.seasons) s.fresh], [null, null, null]);
+      final after = added.apply(library([old])).entries.single;
+      expect(after.released, isNull);
+      // DNF goes to the latest season out, the earlier ones are Done.
+      expect(
+        [for (final s in after.seasons!) s.status],
+        [EntryStatus.done, EntryStatus.dnf, null],
+      );
+      expect(after.status, EntryStatus.dnf);
+    },
+  );
+
+  test('an announced season gets the lookup\'s new date', () async {
+    setUpCheck(
+      seasons: {
+        'tmdb:tv:want': const [
+          ...two,
+          Season(season: 3, released: Released(2027, 3, 4)),
+        ],
+      },
     );
-    expect(await check.run(library([upToDate]), now), isEmpty);
+    final watching = show(
+      'want',
+      EntryStatus.done,
+      seasons: const [
+        ...two,
+        Season(season: 3, released: Released(2027)),
+      ],
+    );
+    final result = await check.run(library([watching]), now);
+    final redated = result.operations.single as SetSeasonDates;
+    expect(redated.dates, const [
+      Season(season: 3, released: Released(2027, 3, 4)),
+    ]);
+  });
+
+  group('a dropped season', () {
+    const announced = Season(season: 3, released: Released(2027));
+    final listedWithout = {'tmdb:tv:want': two};
+
+    Future<SeasonCheckResult> twoChecks(
+      Entry show, {
+      Map<String, List<Season>>? seasons,
+      Set<String> canceled = const {},
+    }) async {
+      setUpCheck(seasons: seasons ?? listedWithout, canceled: canceled);
+      final first = await check.run(library([show]), now);
+      expect(first.operations, isEmpty, reason: 'one miss is not enough');
+      expect(first.dropped, isEmpty);
+      return check.run(library([show]), now.add(const Duration(days: 1)));
+    }
+
+    test('without a status is removed on the second miss', () async {
+      final result = await twoChecks(
+        show('want', EntryStatus.done, seasons: const [...two, announced]),
+      );
+      final removed = result.operations.single as RemoveSeason;
+      expect(removed.season, 3);
+    });
+
+    test('with a status is asked about', () async {
+      final result = await twoChecks(
+        show(
+          'want',
+          EntryStatus.done,
+          seasons: [
+            ...two,
+            announced.copyWith(status: EntryStatus.want),
+          ],
+        ),
+      );
+      expect(result.operations, isEmpty);
+      expect(result.dropped, [
+        (entryId: 'shows/want', season: 3, status: EntryStatus.want),
+      ]);
+    });
+
+    test('a show marked Canceled drops its announced seasons', () async {
+      final result = await twoChecks(
+        show('want', EntryStatus.done, seasons: const [...two, announced]),
+        seasons: {
+          'tmdb:tv:want': const [...two, announced],
+        },
+        canceled: {'tmdb:tv:want'},
+      );
+      expect((result.operations.single as RemoveSeason).season, 3);
+    });
+
+    test('a miss, then a listing, starts over', () async {
+      final watching = show(
+        'want',
+        EntryStatus.done,
+        seasons: const [...two, announced],
+      );
+      setUpCheck(seasons: listedWithout);
+      await check.run(library([watching]), now);
+      expect(await store.missing(), {'shows/want#3'});
+      setUpCheck(
+        seasons: {
+          'tmdb:tv:want': const [...two, announced],
+        },
+        keep: store,
+      );
+      final again = await check.run(
+        library([watching]),
+        now.add(const Duration(days: 1)),
+      );
+      expect(again.operations, isEmpty);
+      expect(await store.missing(), isEmpty);
+    });
+
+    test('manual seasons and seasons out are never touched', () async {
+      final result = await twoChecks(
+        show(
+          'want',
+          EntryStatus.done,
+          seasons: [
+            two.first,
+            // Out, and gone from the lookup.
+            const Season(season: 2, released: Released(2025)),
+            announced.copyWith(manual: true),
+          ],
+        ),
+        seasons: {
+          'tmdb:tv:want': [two.first],
+        },
+      );
+      expect(result.operations, isEmpty);
+      expect(result.dropped, isEmpty);
+    });
+  });
+
+  test('a status the seasons no longer give is written', () async {
+    setUpCheck(configured: false);
+    final stale = Entry(
+      id: 'shows/stale',
+      type: MediaType.shows,
+      title: 'Stale',
+      // Season 2 came out today and is Want: the show is In progress now.
+      status: EntryStatus.done,
+      added: DateTime(2026),
+      seasons: const [
+        Season(season: 1, released: Released(2025), status: EntryStatus.done),
+        Season(
+          season: 2,
+          released: Released(2026, 10, 18),
+          status: EntryStatus.want,
+        ),
+      ],
+    );
+    final result = await check.run(library([stale]), now);
+    expect(result.operations.single, isA<RefreshShowStatus>());
   });
 
   test('runs once a day', () async {
     setUpCheck();
+    final watching = show('want', EntryStatus.done, seasons: two);
     await check.run(library([watching]), now);
     expect(await store.lastRun(), DateTime(2026, 10, 18));
-    expect(
-      await check.run(library([watching]), now.add(const Duration(hours: 8))),
-      isEmpty,
+    final again = await check.run(
+      library([watching]),
+      now.add(const Duration(hours: 8)),
     );
+    expect(again.operations, isEmpty);
     expect(fake.calls, hasLength(1));
     final tomorrow = await check.run(
       library([watching]),
       DateTime(2026, 10, 19, 7),
     );
-    expect(tomorrow, hasLength(1));
+    expect(tomorrow.operations, hasLength(1));
   });
 
   test('offline is tried again; no key records the day', () async {
     setUpCheck(failure: LookupFailure.offline);
-    expect(await check.run(library([watching]), now), isEmpty);
+    final watching = show('want', EntryStatus.done, seasons: two);
+    expect((await check.run(library([watching]), now)).operations, isEmpty);
     expect(await store.lastRun(), isNull);
 
     setUpCheck(configured: false);
-    expect(await check.run(library([watching]), now), isEmpty);
+    expect((await check.run(library([watching]), now)).operations, isEmpty);
     expect(fake.calls, isEmpty);
     expect(await store.lastRun(), DateTime(2026, 10, 18));
   });
 
-  test('the file store keeps the day', () async {
+  test('the file store keeps the day and the missed seasons', () async {
     final dir = Directory.systemTemp.createTempSync('libri-season-check-');
     addTearDown(() => dir.deleteSync(recursive: true));
-    await FileSeasonCheckStore(dir).recordRun(DateTime(2026, 10, 18));
-    expect(
-      File('${dir.path}/season_check.json').readAsStringSync(),
-      contains('"checked": "2026-10-18"'),
-    );
-    expect(await FileSeasonCheckStore(dir).lastRun(), DateTime(2026, 10, 18));
+    await FileSeasonCheckStore(dir)
+        .recordRun(DateTime(2026, 10, 18), {'shows/b#2', 'shows/a#3'});
+    final text = File('${dir.path}/season_check.json').readAsStringSync();
+    expect(text, contains('"checked": "2026-10-18"'));
+    expect(text.indexOf('shows/a#3'), lessThan(text.indexOf('shows/b#2')));
+    final store = FileSeasonCheckStore(dir);
+    expect(await store.lastRun(), DateTime(2026, 10, 18));
+    expect(await store.missing(), {'shows/a#3', 'shows/b#2'});
   });
 }

@@ -23,6 +23,95 @@ Library _withSeasons(Library library, Entry show, List<Season> seasons) {
   return library.copyWith(entries: entries);
 }
 
+/// Carries a show's old status into seasons that have none (the move to
+/// seasons): Want or Done goes to every season that is out; In progress or
+/// DNF goes to the latest one out, with the earlier ones Done. One season
+/// takes the status whether it is out or not. Seasons with any status set
+/// are left as they are.
+List<Season> carryOverStatus(
+  List<Season> seasons,
+  EntryStatus status,
+  DateTime today,
+) {
+  if (seasons.isEmpty || seasons.any((s) => s.status != null)) return seasons;
+  if (seasons.length == 1) return [seasons.single.copyWith(status: status)];
+  final out = [
+    for (final s in seasons)
+      if (s.isReleasedOn(today)) s.season,
+  ];
+  if (out.isEmpty) return seasons;
+  final latest = out.last;
+  final whole = status == EntryStatus.want || status == EntryStatus.done;
+  return [
+    for (final s in seasons)
+      if (!out.contains(s.season))
+        s
+      else if (whole || s.season == latest)
+        s.copyWith(status: status)
+      else
+        s.copyWith(status: EntryStatus.done),
+  ];
+}
+
+/// Whether [entry] is a show still in the shape from before seasons: a
+/// date of its own, or no seasons and nothing to fetch them from. A show
+/// linked to TMDB with no seasons yet waits for the daily check, which
+/// fills it in and carries its status over ([AddSeasons]).
+bool needsSeasonMove(Entry entry) {
+  if (entry.type != MediaType.shows) return false;
+  final empty = entry.seasons?.isEmpty ?? true;
+  final fetchable = entry.source?.startsWith('tmdb:tv:') ?? false;
+  if (empty) return !fetchable;
+  return entry.released != null;
+}
+
+/// The move to seasons, for every show still in the old shape
+/// ([needsSeasonMove]): the show's own date is dropped; a show without
+/// seasons gets a Season 1 with that date and its status, marked manual;
+/// one with seasons none of which has a status gets the old status carried
+/// over ([carryOverStatus]).
+@JsonSerializable()
+class MoveShowsToSeasons extends LibraryOperation {
+  const MoveShowsToSeasons();
+
+  factory MoveShowsToSeasons.fromJson(Map<String, Object?> json) =>
+      _$MoveShowsToSeasonsFromJson(json);
+
+  Map<String, Object?> toJson() => _$MoveShowsToSeasonsToJson(this);
+
+  @override
+  Library apply(Library library) {
+    if (!library.entries.any(needsSeasonMove)) return library;
+    final today = seasonClock();
+    return library.copyWith(
+      entries: [
+        for (final e in library.entries)
+          if (!needsSeasonMove(e))
+            e
+          else if (e.seasons?.isEmpty ?? true)
+            e.copyWith(released: null).withSeasons([
+              Season(
+                season: 1,
+                released: e.released,
+                status: e.status,
+                manual: true,
+              ),
+            ], today: today)
+          else
+            e
+                .copyWith(released: null)
+                .withSeasons(
+                  carryOverStatus(e.seasons!, e.status, today),
+                  today: today,
+                ),
+      ],
+    );
+  }
+
+  @override
+  String summary(Library before) => 'Move show dates and statuses into seasons';
+}
+
 String _title(Library library, String entryId) =>
     library.entryById(entryId)?.title ?? entryId;
 
@@ -118,10 +207,12 @@ class MarkSeasonsDone extends LibraryOperation {
   }
 }
 
-/// Adds seasons fetched from the lookup. Only seasons numbered above the
-/// show's highest are added, so a season removed in the form never comes
-/// back, and re-applying after a sync conflict adds nothing twice. They go
-/// at the end, which keeps the list in number order.
+/// Adds seasons fetched from the lookup. A show that had none drops its
+/// own date and has its status carried over ([carryOverStatus]). Only
+/// seasons numbered above the show's highest are added, so a season
+/// removed in the form never comes back, and re-applying after a sync
+/// conflict adds nothing twice. They go at the end, which keeps the list
+/// in number order.
 @JsonSerializable()
 class AddSeasons extends LibraryOperation {
   const AddSeasons(this.entryId, this.seasons);
@@ -148,6 +239,16 @@ class AddSeasons extends LibraryOperation {
     if (show == null) return library;
     final added = _added(show);
     if (added.isEmpty) return library;
+    if (show.seasons?.isEmpty ?? true) {
+      // The first seasons of a show from before seasons: its date goes,
+      // its status is carried over.
+      final today = seasonClock();
+      return _withSeasons(
+        library,
+        show.copyWith(released: null),
+        carryOverStatus(added, show.status, today),
+      );
+    }
     return _withSeasons(library, show, [...?show.seasons, ...added]);
   }
 
@@ -272,4 +373,39 @@ class RefreshShowStatus extends LibraryOperation {
   @override
   String summary(Library before) =>
       'Update the status of ${_title(before, entryId)} from its seasons';
+}
+
+/// Updates the dates of seasons not out yet that the lookup now dates
+/// differently ("Coming 2027" becomes "Coming Mar 4, 2027"). [dates] holds
+/// each season's number and new date; seasons added in the form are left
+/// alone.
+@JsonSerializable()
+class SetSeasonDates extends LibraryOperation {
+  const SetSeasonDates(this.entryId, this.dates);
+
+  factory SetSeasonDates.fromJson(Map<String, Object?> json) =>
+      _$SetSeasonDatesFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetSeasonDatesToJson(this);
+
+  final String entryId;
+  final List<Season> dates;
+
+  @override
+  Library apply(Library library) {
+    final show = _show(library, entryId);
+    final seasons = show?.seasons;
+    if (show == null || seasons == null) return library;
+    final byNumber = {for (final d in dates) d.season: d.released};
+    return _withSeasons(library, show, [
+      for (final s in seasons)
+        byNumber.containsKey(s.season) && !s.isManual
+            ? s.copyWith(released: byNumber[s.season])
+            : s,
+    ]);
+  }
+
+  @override
+  String summary(Library before) =>
+      'Update the season dates of ${_title(before, entryId)}';
 }

@@ -6,6 +6,12 @@ part of 'season_operations.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+MoveShowsToSeasons _$MoveShowsToSeasonsFromJson(Map<String, dynamic> json) =>
+    MoveShowsToSeasons();
+
+Map<String, dynamic> _$MoveShowsToSeasonsToJson(MoveShowsToSeasons instance) =>
+    <String, dynamic>{};
+
 SetSeasonStatus _$SetSeasonStatusFromJson(Map<String, dynamic> json) =>
     SetSeasonStatus(
       json['entryId'] as String,
@@ -76,3 +82,17 @@ RefreshShowStatus _$RefreshShowStatusFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$RefreshShowStatusToJson(RefreshShowStatus instance) =>
     <String, dynamic>{'entryId': instance.entryId};
+
+SetSeasonDates _$SetSeasonDatesFromJson(Map<String, dynamic> json) =>
+    SetSeasonDates(
+      json['entryId'] as String,
+      (json['dates'] as List<dynamic>)
+          .map((e) => Season.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$SetSeasonDatesToJson(SetSeasonDates instance) =>
+    <String, dynamic>{
+      'entryId': instance.entryId,
+      'dates': instance.dates.map((e) => e.toJson()).toList(),
+    };

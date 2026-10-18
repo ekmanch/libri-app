@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
@@ -325,5 +326,35 @@ void main() {
     expect(saved.seasons!.last.fresh, isTrue);
     expect(saved.hasNewSeasonOn(soon), isTrue);
     expect(fake.calls, ['seasons:tmdb:tv:95396']);
+  });
+
+  testWidgets('a show from before seasons is moved into seasons on load', (
+    tester,
+  ) async {
+    final fixture = loadFixture();
+    const id = 'shows/the-bear-2022';
+    final old = fixture
+        .entryById(id)!
+        .copyWith(released: const Released(2022), seasons: null);
+    final container = await pumpApp(
+      tester,
+      const AppShell(libraryHome: _Home('Library'), plansHome: _Home('Plans')),
+      size: const Size(480, 844),
+      library: fixture.copyWith(
+        entries: [for (final e in fixture.entries) e.id == id ? old : e],
+      ),
+    );
+    await tester.pumpAndSettle();
+    final moved = (await container.read(libraryRepositoryProvider).load())
+        .entryById(id)!;
+    expect(moved.released, isNull);
+    expect(moved.seasons, const [
+      Season(
+        season: 1,
+        released: Released(2022),
+        status: EntryStatus.want,
+        manual: true,
+      ),
+    ]);
   });
 }

@@ -40,10 +40,14 @@ abstract class LookupSource {
   Future<LookupMatch> details(LookupMatch match) async => match;
 
   /// The seasons of the show with [source], as in [LookupMatch.seasons],
-  /// for the daily check for new ones. Null from a source without shows.
-  Future<List<Season>?> seasons(String source) async => null;
+  /// and whether the show is canceled, for the daily check. Null from a
+  /// source without shows.
+  Future<ShowSeasons?> seasons(String source) async => null;
 
   /// A cover image for an entry with [source], sized for the cache, or
   /// null when the provider has none.
   Future<String?> coverUrl(String source, {required MediaType type});
 }
+
+/// A show's seasons as the lookup lists them, and whether it is canceled.
+typedef ShowSeasons = ({List<Season> seasons, bool canceled});

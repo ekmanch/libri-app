@@ -194,7 +194,7 @@ void main() {
     ],
   };
 
-  test('show details carry the dated seasons, specials left out', () async {
+  test('show details carry the seasons, specials left out', () async {
     final tmdb = source((_) async => json(200, lastOfUsSeasons));
     final full = await tmdb.details(
       const LookupMatch(
@@ -206,6 +206,8 @@ void main() {
     expect(full.seasons, const [
       Season(season: 1, released: Released(2023, 1, 15)),
       Season(season: 2, released: Released(2025, 4, 13)),
+      Season(season: 3),
+      Season(season: 4),
     ]);
   });
 
@@ -214,8 +216,16 @@ void main() {
     final seasons = await tmdb.seasons('tmdb:tv:100088');
     expect(sent.single.url.path, '/3/tv/100088');
     expect(sent.single.url.queryParameters, isEmpty);
-    expect([for (final s in seasons!) s.season], [1, 2]);
+    expect([for (final s in seasons!.seasons) s.season], [1, 2, 3, 4]);
+    expect(seasons.canceled, isFalse);
     expect(await tmdb.seasons('tmdb:movie:564'), isNull);
+  });
+
+  test('a show TMDB marks Canceled says so', () async {
+    final tmdb = source(
+      (_) async => json(200, {...lastOfUsSeasons, 'status': 'Canceled'}),
+    );
+    expect((await tmdb.seasons('tmdb:tv:100088'))!.canceled, isTrue);
   });
 
   test('every season with a date is listable, announced ones too', () {

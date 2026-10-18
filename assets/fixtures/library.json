@@ -273,7 +273,7 @@
       "id": "shows/severance-2022",
       "type": "shows",
       "title": "Severance",
-      "released": "2022",
+      "released": null,
       "creator": "Dan Erickson",
       "status": "in_progress",
       "rating": null,
@@ -304,7 +304,7 @@
       "id": "shows/the-haunting-of-hill-house-2018",
       "type": "shows",
       "title": "The Haunting of Hill House",
-      "released": "2018",
+      "released": null,
       "creator": "Mike Flanagan",
       "status": "done",
       "rating": 8,
@@ -330,7 +330,7 @@
       "id": "shows/twin-peaks-1990",
       "type": "shows",
       "title": "Twin Peaks",
-      "released": "1990",
+      "released": null,
       "creator": "David Lynch",
       "status": "done",
       "rating": 10,
@@ -368,7 +368,7 @@
       "id": "shows/over-the-garden-wall-2014",
       "type": "shows",
       "title": "Over the Garden Wall",
-      "released": "2014",
+      "released": null,
       "creator": "Patrick McHale",
       "status": "done",
       "rating": 9,
@@ -382,13 +382,21 @@
       "description": "",
       "seasonal_only": true,
       "added": "2025-10-24",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2014",
+          "status": "done",
+          "manual": true
+        }
+      ]
     },
     {
       "id": "shows/the-bear-2022",
       "type": "shows",
       "title": "The Bear",
-      "released": "2022",
+      "released": null,
       "creator": "Christopher Storer",
       "status": "want",
       "rating": null,
@@ -400,13 +408,21 @@
       "description": "",
       "seasonal_only": false,
       "added": "2026-07-18",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2022",
+          "status": "want",
+          "manual": true
+        }
+      ]
     },
     {
       "id": "shows/stranger-things-2016",
       "type": "shows",
       "title": "Stranger Things",
-      "released": "2016",
+      "released": null,
       "creator": "The Duffer Brothers",
       "status": "dnf",
       "rating": null,
@@ -451,7 +467,7 @@
       "id": "shows/what-we-do-in-the-shadows-2019",
       "type": "shows",
       "title": "What We Do in the Shadows",
-      "released": "2019",
+      "released": null,
       "creator": "Jemaine Clement",
       "status": "done",
       "rating": 8,
@@ -503,7 +519,7 @@
       "id": "shows/the-expanse-2015",
       "type": "shows",
       "title": "The Expanse",
-      "released": "2015",
+      "released": null,
       "creator": "Mark Fergus",
       "status": "want",
       "rating": null,
@@ -515,7 +531,15 @@
       "description": "",
       "seasonal_only": false,
       "added": "2026-01-09",
-      "source": null
+      "source": null,
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2015",
+          "status": "want",
+          "manual": true
+        }
+      ]
     },
     {
       "id": "books/dracula-1897",

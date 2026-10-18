@@ -23,6 +23,7 @@ import '../sync/token_expiry.dart';
 import '../sync/token_expiry_dialog.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
+import '../../data/operations/operations.dart';
 import '../../data/lookup/lookup_providers.dart';
 import 'fab_action.dart';
 import 'floating_nav_bar.dart';
@@ -71,6 +72,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// Whether D20 is being shown, so a resume meanwhile adds no second.
   bool _warning = false;
 
+  /// Whether the move to seasons is being applied, so it is queued once.
+  bool _movingShows = false;
+
   NavigatorState? get _current => _keys[_tab]!.currentState;
 
   @override
@@ -90,6 +94,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       final repository = ref.read(libraryRepositoryProvider);
       for (final start in dueStarts(library)) {
         repository.apply(start);
+      }
+      // Shows from before seasons move their date and status into seasons,
+      // once, as one change synced like any other.
+      if (!_movingShows && library.entries.any(needsSeasonMove)) {
+        _movingShows = true;
+        repository
+            .apply(const MoveShowsToSeasons())
+            .whenComplete(() => _movingShows = false);
       }
     }, fireImmediately: true);
     // The token expiry warning (D20) on the first open of the day, in
@@ -118,10 +130,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     final library = ref.read(libraryProvider).value;
     final check = ref.read(seasonCheckProvider);
     if (library == null || check == null) return;
-    final operations = await check.run(library, DateTime.now());
+    final result = await check.run(library, DateTime.now());
     if (!mounted) return;
     final repository = ref.read(libraryRepositoryProvider);
-    for (final operation in operations) {
+    for (final operation in result.operations) {
       await repository.apply(operation);
     }
   }
