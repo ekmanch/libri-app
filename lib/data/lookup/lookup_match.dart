@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/media_type.dart';
 import '../models/released.dart';
+import '../models/season.dart';
 
 /// One candidate from a title lookup (A13), or the match a cover was
 /// resolved from. Filled by the sources in `lib/data/lookup/`; the fake in
@@ -21,6 +22,7 @@ class LookupMatch {
     this.companies = const [],
     this.cast = const [],
     this.tags = const [],
+    this.seasons = const [],
     this.coverUrl,
     this.largeCoverUrl,
   });
@@ -56,6 +58,10 @@ class LookupMatch {
   /// to the library's tags and offers the rest as new ones.
   final List<String> tags;
 
+  /// For a show: every season the lookup lists with its release date,
+  /// specials left out. The form keeps those [Season.listable] today.
+  final List<Season> seasons;
+
   /// A cover or artwork image, sized for a list row.
   final String? coverUrl;
 
@@ -79,6 +85,7 @@ class LookupMatch {
     List<String>? companies,
     List<String>? cast,
     List<String>? tags,
+    List<Season>? seasons,
     String? coverUrl,
     String? largeCoverUrl,
   }) => LookupMatch(
@@ -94,6 +101,7 @@ class LookupMatch {
     companies: companies ?? this.companies,
     cast: cast ?? this.cast,
     tags: tags ?? this.tags,
+    seasons: seasons ?? this.seasons,
     coverUrl: coverUrl ?? this.coverUrl,
     largeCoverUrl: largeCoverUrl ?? this.largeCoverUrl,
   );
@@ -113,6 +121,7 @@ class LookupMatch {
       listEquals(other.companies, companies) &&
       listEquals(other.cast, cast) &&
       listEquals(other.tags, tags) &&
+      listEquals(other.seasons, seasons) &&
       other.coverUrl == coverUrl &&
       other.largeCoverUrl == largeCoverUrl;
 

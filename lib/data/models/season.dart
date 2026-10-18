@@ -28,4 +28,26 @@ abstract class Season with _$Season {
 
   /// Shown with a "New" label, and the show with a "New season" badge.
   bool get isNew => fresh == true && status == null;
+
+  /// How far ahead of its release a season is added: a heads-up that it is
+  /// on the way.
+  static const headsUpDays = 14;
+
+  /// Whether a fetched season belongs in the library on [today]: it has a
+  /// release date, and that date is at most [headsUpDays] away. A partial
+  /// date counts from the day its period ends, as for entries.
+  bool isListableOn(DateTime today) {
+    final released = this.released;
+    if (released == null) return false;
+    final limit = DateTime(today.year, today.month, today.day + headsUpDays);
+    return !released.availableFrom.isAfter(limit);
+  }
+
+  /// The seasons of [fetched] that belong in the library on [today], in
+  /// number order, without status or New mark.
+  static List<Season> listable(Iterable<Season> fetched, DateTime today) => [
+    for (final s in [...fetched]..sort((a, b) => a.season.compareTo(b.season)))
+      if (s.season > 0 && s.isListableOn(today))
+        Season(season: s.season, released: s.released),
+  ];
 }

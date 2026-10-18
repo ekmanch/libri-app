@@ -8,6 +8,7 @@ import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/music_kind.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/tag_category.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
@@ -335,6 +336,35 @@ void main() {
       repo(container).current!.entries.indexOf(saved),
       fixture.entries.indexWhere((e) => e.id == dracula.id),
     );
+  });
+
+  testWidgets('a show from a match gets its seasons with no status', (
+    tester,
+  ) async {
+    final container = await pumpApp(
+      tester,
+      EntryFormScreen.create(
+        match: FakeLookupSource.catalogSearch('last of us')
+            .firstWhere((m) => m.type == MediaType.shows),
+      ),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+    await tester.pumpAndSettle();
+    final seasons = repo(container).current!.entries.last.seasons!;
+    expect(seasons, const [
+      Season(season: 1, released: Released(2023, 1, 15)),
+      Season(season: 2, released: Released(2025, 4, 13)),
+    ]);
+  });
+
+  testWidgets('editing a show keeps its seasons', (tester) async {
+    final twinPeaks = loadFixture().entryById('shows/twin-peaks-1990')!;
+    final container = await pumpApp(tester, EntryFormScreen.edit(twinPeaks));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    final saved = repo(container).current!.entryById(twinPeaks.id)!;
+    expect(saved.seasons, twinPeaks.seasons);
+    expect(saved.seasons, hasLength(3));
   });
 
   testWidgets('the rating field opens the picker', (tester) async {

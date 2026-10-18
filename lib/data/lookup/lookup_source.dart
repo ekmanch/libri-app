@@ -1,4 +1,5 @@
 import '../models/media_type.dart';
+import '../models/season.dart';
 import 'lookup_match.dart';
 
 /// One provider of matches: TMDB, AniList, Open Library, IGDB, Deezer, or
@@ -37,6 +38,10 @@ abstract class LookupSource {
   /// The match with what the search left out (a director, a release date,
   /// genres), fetched once when it is picked. Defaults to the match itself.
   Future<LookupMatch> details(LookupMatch match) async => match;
+
+  /// The seasons of the show with [source], as in [LookupMatch.seasons],
+  /// for the daily check for new ones. Null from a source without shows.
+  Future<List<Season>?> seasons(String source) async => null;
 
   /// A cover image for an entry with [source], sized for the cache, or
   /// null when the provider has none.

@@ -15,6 +15,7 @@ import '../../data/models/media_type.dart';
 import '../../data/models/music_kind.dart';
 import '../../data/models/platform_names.dart';
 import '../../data/models/released.dart';
+import '../../data/models/season.dart';
 import '../../data/models/tag_category.dart';
 import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
@@ -139,6 +140,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   late bool _seasonalOnly;
   late String _description;
 
+  /// A show's seasons: the entry's, else the match's listable ones.
+  late List<Season> _seasons;
+
   /// The lookup id, from the match or the entry. Cleared when the type
   /// changes, since the id would point at the wrong thing.
   String? _source;
@@ -194,6 +198,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _seasonalOnly = entry?.seasonalOnly ?? false;
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
+    _seasons =
+        entry?.seasons ??
+        Season.listable(match?.seasons ?? const [], DateTime.now());
     _creatorFocus.addListener(() => setState(() {}));
   }
 
@@ -401,6 +408,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     _released ??= match.released;
     if (_description.isEmpty) _description = match.description;
+    if (_seasons.isEmpty) {
+      _seasons = Season.listable(match.seasons, DateTime.now());
+    }
     if (_type == MediaType.music) {
       _kind = match.album == null ? MusicKind.album : MusicKind.song;
       if (_album.text.trim().isEmpty && match.album != null) {
@@ -500,6 +510,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           ? album
           : null,
       tracks: isMusic && _kind == MusicKind.album ? base?.tracks : null,
+      seasons: _type == MediaType.shows && _seasons.isNotEmpty
+          ? _seasons
+          : null,
     );
   }
 

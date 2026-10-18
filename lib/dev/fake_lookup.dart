@@ -8,6 +8,7 @@ import '../data/lookup/track_info.dart';
 import '../data/models/entry_id.dart';
 import '../data/models/media_type.dart';
 import '../data/models/released.dart';
+import '../data/models/season.dart';
 
 /// A lookup with a fixed catalog, for the widget tests, the screenshot
 /// walks, the accessibility audit and the FIRST_RUN dev switch. [search]
@@ -20,6 +21,7 @@ class FakeLookupSource extends LookupSource implements MusicSource {
     this.latency = Duration.zero,
     this.failure,
     this.configured = true,
+    this.seasonsBySource = const {},
   });
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
@@ -28,6 +30,9 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   final Duration latency;
   final LookupFailure? failure;
   final bool configured;
+
+  /// Seasons [seasons] answers for a show outside the catalog, by source.
+  final Map<String, List<Season>> seasonsBySource;
 
   /// Every call made, for the tests: "search:carrie:movies",
   /// "match:Dirt:music", "details:deezer:album:91627", "cover:igdb:1009".
@@ -95,6 +100,16 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   Future<LookupMatch> details(LookupMatch match) async {
     await _call('details:${match.source}');
     return match;
+  }
+
+  @override
+  Future<List<Season>?> seasons(String source) async {
+    await _call('seasons:$source');
+    if (seasonsBySource[source] case final seasons?) return seasons;
+    for (final match in fakeCatalog) {
+      if (match.source == source) return match.seasons;
+    }
+    return null;
   }
 
   @override
@@ -208,6 +223,10 @@ const fakeCatalog = <LookupMatch>[
     cast: ['Pedro Pascal', 'Bella Ramsey', 'Gabriel Luna'],
     description: 'The HBO adaptation of the game.',
     tags: ['drama', 'horror', 'post-apocalyptic'],
+    seasons: [
+      Season(season: 1, released: Released(2023, 1, 15)),
+      Season(season: 2, released: Released(2025, 4, 13)),
+    ],
   ),
   LookupMatch(
     source: 'igdb:7340',
@@ -230,6 +249,7 @@ const fakeCatalog = <LookupMatch>[
     cast: ['Summer H. Howell', 'Samantha Sloyan', 'Siena Agudong'],
     description: 'A limited series take on the Stephen King novel.',
     tags: ['horror', 'drama'],
+    seasons: [Season(season: 1, released: Released(2026))],
   ),
   LookupMatch(
     source: 'tmdb:movie:133805',

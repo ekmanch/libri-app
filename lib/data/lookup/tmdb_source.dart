@@ -1,5 +1,6 @@
 import '../models/media_type.dart';
 import '../models/released.dart';
+import '../models/season.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
@@ -158,8 +159,26 @@ class TmdbSource extends HttpLookupSource {
       ],
       cast: cast,
       tags: [for (final g in objectsAt(json, 'genres')) ?stringAt(g, 'name')],
+      seasons: tv ? _seasons(json) : const [],
       coverUrl: poster == null ? null : '$_images$rowPosterWidth$poster',
     );
+  }
+
+  /// A show's seasons with their air dates. Season 0 holds the specials,
+  /// and a season without an air date is not announced yet; both are left
+  /// out.
+  static List<Season> _seasons(Map<String, Object?> json) => [
+    for (final s in objectsAt(json, 'seasons'))
+      if (s['season_number'] case final num number when number > 0)
+        if (Released.tryParse(stringAt(s, 'air_date') ?? '') case final date?)
+          Season(season: number.toInt(), released: date),
+  ];
+
+  @override
+  Future<List<Season>?> seasons(String source) async {
+    final (kind, id) = _parse(source);
+    if (kind != 'tv') return null;
+    return _seasons(await _get('tv/$id'));
   }
 
   @override

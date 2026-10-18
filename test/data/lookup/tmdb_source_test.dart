@@ -8,7 +8,9 @@ import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/tmdb_source.dart';
 import 'package:library_app/data/models/media_type.dart';
+import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -178,6 +180,66 @@ void main() {
     expect(full.creator, 'Craig Mazin, Neil Druckmann');
     expect(full.cast, ['Pedro Pascal', 'Bella Ramsey']);
     expect(full.released, const Released(2023, 1, 15));
+  });
+
+  final lastOfUsSeasons = {
+    'id': 100088,
+    'name': 'The Last of Us',
+    'seasons': [
+      {'season_number': 0, 'air_date': '2023-01-09', 'name': 'Specials'},
+      {'season_number': 1, 'air_date': '2023-01-15'},
+      {'season_number': 2, 'air_date': '2025-04-13'},
+      {'season_number': 3, 'air_date': null},
+      {'season_number': 4, 'air_date': ''},
+    ],
+  };
+
+  test('show details carry the dated seasons, specials left out', () async {
+    final tmdb = source((_) async => json(200, lastOfUsSeasons));
+    final full = await tmdb.details(
+      const LookupMatch(
+        type: MediaType.shows,
+        title: 'The Last of Us',
+        source: 'tmdb:tv:100088',
+      ),
+    );
+    expect(full.seasons, const [
+      Season(season: 1, released: Released(2023, 1, 15)),
+      Season(season: 2, released: Released(2025, 4, 13)),
+    ]);
+  });
+
+  test('seasons asks the show alone; a movie has none', () async {
+    final tmdb = source((_) async => json(200, lastOfUsSeasons));
+    final seasons = await tmdb.seasons('tmdb:tv:100088');
+    expect(sent.single.url.path, '/3/tv/100088');
+    expect(sent.single.url.queryParameters, isEmpty);
+    expect([for (final s in seasons!) s.season], [1, 2]);
+    expect(await tmdb.seasons('tmdb:movie:564'), isNull);
+  });
+
+  test('a season is listable once out or at most two weeks away', () {
+    final today = DateTime(2026, 10, 18);
+    bool listable(Released? r) =>
+        Season(season: 1, released: r).isListableOn(today);
+    expect(listable(const Released(2026, 11, 1)), isTrue);
+    expect(listable(const Released(2026, 11, 2)), isFalse);
+    // "2026-10" is out from November 1, within two weeks.
+    expect(listable(const Released(2026, 10)), isTrue);
+    // "2026" only from 2027-01-01.
+    expect(listable(const Released(2026)), isFalse);
+    expect(listable(null), isFalse);
+    expect(
+      Season.listable(const [
+        Season(season: 2, released: Released(2025)),
+        Season(season: 1, released: Released(2024), status: EntryStatus.done),
+        Season(season: 3, released: Released(2027)),
+      ], today),
+      const [
+        Season(season: 1, released: Released(2024)),
+        Season(season: 2, released: Released(2025)),
+      ],
+    );
   });
 
   test('match wants the same title and prefers the year', () async {
