@@ -367,6 +367,52 @@ void main() {
     expect(saved.seasons, hasLength(3));
   });
 
+  testWidgets('seasons can be removed, added and dated', (tester) async {
+    final twinPeaks = loadFixture().entryById('shows/twin-peaks-1990')!;
+    final container = await pumpApp(tester, EntryFormScreen.edit(twinPeaks));
+    await scrollTo(tester, find.byTooltip('Remove Season 2'));
+    expect(find.text('Sep 30, 1990'), findsOneWidget);
+    await tester.tap(find.byTooltip('Remove Season 2'));
+    await tester.pumpAndSettle();
+    expect(find.text('Season 2'), findsNothing);
+
+    await scrollTo(tester, find.text('Add season'));
+    await tester.tap(find.text('Add season'));
+    await tester.pumpAndSettle();
+    expect(find.text('Season 4'), findsOneWidget);
+    // The new season's date field, the only one not set.
+    await tester.tap(find.text('Not set'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('${DateTime.now().year}'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '2027');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    final seasons = repo(container).current!.entryById(twinPeaks.id)!.seasons!;
+    expect([for (final s in seasons) s.season], [1, 3, 4]);
+    expect(seasons[1], twinPeaks.seasons![2]);
+    expect(seasons[2], const Season(season: 4, released: Released(2027)));
+  });
+
+  testWidgets('only a show has the Seasons field', (tester) async {
+    await pumpApp(tester, const EntryFormScreen.create(type: MediaType.shows));
+    await scrollTo(tester, find.text('Add season'));
+    expect(find.text('Seasons'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.widgetWithText(PillChip, 'Movies'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add season'), findsNothing);
+  });
+
   testWidgets('the rating field opens the picker', (tester) async {
     await pumpApp(tester, const EntryFormScreen.create());
     await scrollTo(tester, find.text('Not rated'));

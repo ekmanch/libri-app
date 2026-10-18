@@ -243,6 +243,65 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   bool get _canSave => !_saving && _title.text.trim().isNotEmpty;
 
+  /// A new season after the last, with no date or status yet.
+  void _addSeason() => setState(() {
+    final next = _seasons.isEmpty ? 1 : _seasons.last.season + 1;
+    _seasons = [..._seasons, Season(season: next)];
+  });
+
+  void _replaceSeason(Season season, Season? replacement) => setState(() {
+    _seasons = [
+      for (final s in _seasons)
+        if (s.season != season.season) s else ?replacement,
+    ];
+  });
+
+  /// One season in the form: its name, its release date (A25) and a
+  /// button that removes it. Its status stays as it was.
+  Widget _seasonField(BuildContext context, Season season) {
+    final theme = Theme.of(context);
+    final released = season.released;
+    final releasedText = released == null ? 'Not set' : releasedLabel(released);
+    final name = 'Season ${season.season}';
+    return Row(
+      children: [
+        // At a large text size the name shrinks rather than cutting off.
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(name, style: theme.textTheme.titleMedium, maxLines: 1),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: _releasedWidth(context),
+          child: FieldButton(
+            onTap: () => showReleasedSheet(
+              context,
+              initial: released,
+              onChanged: (value) =>
+                  _replaceSeason(season, season.copyWith(released: value)),
+            ),
+            placeholder: released == null,
+            semanticsLabel: '$name released, $releasedText',
+            padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
+            child: Text(
+              releasedText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: () => _replaceSeason(season, null),
+          tooltip: 'Remove $name',
+          icon: const StrokeIcon(AppIcons.close, size: 18),
+        ),
+      ],
+    );
+  }
+
   /// "PlayStation 5, PC" in the entry's `platform` field, as a list of
   /// spelled-out names ("PS5" reads as "PlayStation 5").
   static List<String> splitPlatforms(String? text) => [
@@ -756,6 +815,23 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                       );
                     },
                   ),
+                  if (_type == MediaType.shows) ...[
+                    const SizedBox(height: 14),
+                    const FieldLabel('Seasons'),
+                    for (final (i, season) in _seasons.indexed) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      _seasonField(context, season),
+                    ],
+                    if (_seasons.isNotEmpty) const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: DashedChip(
+                        label: 'Add season',
+                        height: 44,
+                        onTap: _addSeason,
+                      ),
+                    ),
+                  ],
                   if (_type == MediaType.music && _kind == MusicKind.song) ...[
                     const SizedBox(height: 14),
                     const FieldLabel('Album'),

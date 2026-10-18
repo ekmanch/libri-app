@@ -25,6 +25,7 @@ import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/data/storage/connection_store.dart';
+import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/first_run/first_run_flow.dart';
 import 'package:library_app/data/models/media_type.dart';
@@ -249,6 +250,29 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await openShow('Twin Peaks');
   await toSeasons();
   await capture(tester, '${prefix}a29-show-seasons');
+  // A8: a show's seasons in the form.
+  await tester.ensureVisible(find.text('Edit'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Edit'));
+  await tester.pumpAndSettle();
+  await tester.scrollUntilVisible(
+    find.text('Seasons'),
+    100,
+    scrollable: find
+        .descendant(
+          of: find.byType(EntryFormScreen),
+          matching: find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Seasons'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a8-edit-show-seasons');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
   await closeSheet(tester);
 
   // A31 and A32: many seasons.
