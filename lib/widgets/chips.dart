@@ -219,7 +219,7 @@ class DashedChip extends StatelessWidget {
             onTap: onTap,
             customBorder: const StadiumBorder(),
             child: CustomPaint(
-              painter: _DashedStadiumPainter(theme.colorScheme.outline),
+              painter: DashedStadiumPainter(theme.colorScheme.outline),
               child: Container(
                 height: height,
                 padding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
@@ -259,8 +259,10 @@ class DashedChip extends StatelessWidget {
   }
 }
 
-class _DashedStadiumPainter extends CustomPainter {
-  const _DashedStadiumPainter(this.color);
+/// A 1 px dashed stadium outline, for something not set yet: a suggested
+/// chip, a season without a status.
+class DashedStadiumPainter extends CustomPainter {
+  const DashedStadiumPainter(this.color);
 
   final Color color;
 
@@ -289,7 +291,7 @@ class _DashedStadiumPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DashedStadiumPainter old) => old.color != color;
+  bool shouldRepaint(DashedStadiumPainter old) => old.color != color;
 }
 
 /// A 44 px chip for an active filter, with a cross that removes it.

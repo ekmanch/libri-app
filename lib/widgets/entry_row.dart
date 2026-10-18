@@ -202,28 +202,34 @@ class EntryRow extends StatelessWidget {
   }
 }
 
-/// A small outlined label in the accent ink: "New season", "New".
+/// A small outlined label in the accent ink: "New season", "New". [large]
+/// is the details header's, a step bigger.
 class OutlineBadge extends StatelessWidget {
-  const OutlineBadge(this.label, {super.key});
+  const OutlineBadge(this.label, {super.key, this.large = false});
 
   final String label;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ink = theme.colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+      padding: EdgeInsets.symmetric(
+        horizontal: large ? 8 : 7,
+        vertical: large ? 2 : 1,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(large ? 10 : 9),
         border: Border.all(color: ink),
       ),
       child: Text(
         label,
         maxLines: 1,
         style: theme.textTheme.labelSmall!.copyWith(
-          fontSize: 11.5,
+          fontSize: large ? 12 : 11.5,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           height: 1.4,
           color: ink,
         ),

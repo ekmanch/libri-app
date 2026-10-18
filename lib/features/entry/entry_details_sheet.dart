@@ -27,6 +27,7 @@ import 'entry_header.dart';
 import 'delete_entry_dialog.dart';
 import 'entry_form_screen.dart';
 import 'rating_sheet.dart';
+import 'seasons.dart';
 
 /// Opens the entry details sheet (A6) for the entry with [entryId].
 Future<void> showEntryDetailsSheet(BuildContext context, String entryId) {
@@ -37,7 +38,7 @@ Future<void> showEntryDetailsSheet(BuildContext context, String entryId) {
 }
 
 /// Entry details (A6): cover spot, status, rating, note, about, tags,
-/// plans, Edit and Delete. An album also gets its track list with track
+/// plans, Edit and Delete. A show with seasons lists them (A29). An album also gets its track list with track
 /// ratings (A22). Watches the library, so a change made here or in the
 /// edit form shows at once. Status and rating apply immediately.
 class EntryDetailsSheet extends ConsumerWidget {
@@ -158,6 +159,10 @@ class EntryDetailsSheet extends ConsumerWidget {
               style: theme.textTheme.titleMedium!.copyWith(fontSize: 15),
             ),
           ),
+          if (entry.seasons?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 13),
+            SeasonsSection(show: entry),
+          ],
           if (isAlbum) ...[
             const SizedBox(height: 13),
             _TrackList(

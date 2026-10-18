@@ -17,6 +17,9 @@ import 'package:integration_test/integration_test.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
+import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/dev/fake_github_api.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
@@ -175,8 +178,115 @@ Future<void> pickView(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+/// A29 to A33 at [scale]: the show rows with a new season, the Seasons
+/// section with few and many seasons, all seasons, and the status sheet
+/// with catch-up. Severance gets a new season 3 (the daily check's work,
+/// applied directly). Captures are prefixed "large-text-" above 1.
+Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(FixtureLibraryRepository()),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  final container = ProviderScope.containerOf(
+    tester.element(find.text('Library').first),
+  );
+  final today = DateTime.now();
+  await container
+      .read(libraryRepositoryProvider)
+      .apply(
+        AddSeasons('shows/severance-2022', [
+          Season(
+            season: 3,
+            released: Released(today.year, today.month, today.day),
+            fresh: true,
+          ),
+        ]),
+      );
+  await tester.pumpAndSettle();
+
+  Future<void> openShow(String title) async {
+    await tester.scrollUntilVisible(
+      find.text(title),
+      200,
+      scrollable: homeList(),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(title).last);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> toSeasons() async {
+    await tester.ensureVisible(find.text('SEASONS'));
+    await tester.pumpAndSettle();
+  }
+
+  await pickChip(tester, 'Shows');
+  await capture(tester, '${prefix}a1-shows-new-season');
+
+  // A30: a new season just out.
+  await openShow('Severance');
+  await capture(tester, '${prefix}a30-show-new-season');
+  await toSeasons();
+  await capture(tester, '${prefix}a30-show-new-season-seasons');
+  await closeSheet(tester);
+
+  // A29: a few seasons, all listed.
+  await revealHeader(tester);
+  await openShow('Twin Peaks');
+  await toSeasons();
+  await capture(tester, '${prefix}a29-show-seasons');
+  await closeSheet(tester);
+
+  // A31 and A32: many seasons.
+  await revealHeader(tester);
+  await openShow('What We Do in the Shadows');
+  await tester.ensureVisible(find.text('All 6 seasons'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a31-show-many-seasons');
+  await tester.tap(find.text('All 6 seasons'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a32-all-seasons');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
+
+  // A33: the status sheet with catch-up.
+  await revealHeader(tester);
+  await openShow('Stranger Things');
+  final pill = find.bySemanticsLabel(RegExp('^Season 5 status: '));
+  await tester.ensureVisible(pill);
+  await tester.pumpAndSettle();
+  await tester.tap(pill);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a33-season-status-catch-up');
+  await closeSheet(tester);
+  await closeSheet(tester);
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('show seasons', (tester) async {
+    await walkSeasons(tester);
+  });
+
+  testWidgets('show seasons at a larger text size', (tester) async {
+    await walkSeasons(tester, scale: 1.3);
+  });
 
   testWidgets('library screens in dark and light', (tester) async {
     await tester.pumpWidget(

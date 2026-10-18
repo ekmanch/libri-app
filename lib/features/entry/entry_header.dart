@@ -14,13 +14,11 @@ class EntryHeader extends StatelessWidget {
   final Entry entry;
   final bool showCover;
 
-  /// "MOVIE · 1999", "SONG · 1981", or just the kind without a date.
+  /// "MOVIE · 1999", "SONG · 1981", "SHOW · 2025–2026" for a show with
+  /// seasons, or just the kind without a date.
   static String kindLine(Entry entry) {
-    final year = entry.year;
-    return [
-      entryKindLabel(entry),
-      if (year != null) '$year',
-    ].join(' · ').toUpperCase();
+    final years = showYears(entry) ?? entry.year?.toString();
+    return [entryKindLabel(entry), ?years].join(' · ').toUpperCase();
   }
 
   @override
@@ -63,6 +61,10 @@ class EntryHeader extends StatelessWidget {
                       color: colors.muted,
                     ),
                   ),
+                ],
+                if (entry.hasNewSeason) ...[
+                  const SizedBox(height: 8),
+                  const OutlineBadge(EntryRow.newSeasonLabel, large: true),
                 ],
               ],
             ),
