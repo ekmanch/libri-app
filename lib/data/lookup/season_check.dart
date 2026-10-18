@@ -106,7 +106,7 @@ class SeasonCheck {
         final existing = show.seasons ?? const <Season>[];
         final highest = existing.isEmpty ? 0 : existing.last.season;
         final added = [
-          for (final s in Season.listable(fetched, today))
+          for (final s in Season.listable(fetched))
             if (s.season > highest)
               existing.isEmpty ? s : s.copyWith(fresh: true),
         ];

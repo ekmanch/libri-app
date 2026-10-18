@@ -14,6 +14,7 @@ _Season _$SeasonFromJson(Map<String, dynamic> json) => _Season(
   ),
   status: $enumDecodeNullable(_$EntryStatusEnumMap, json['status']),
   fresh: json['new'] as bool?,
+  manual: json['manual'] as bool?,
 );
 
 Map<String, dynamic> _$SeasonToJson(_Season instance) => <String, dynamic>{
@@ -24,6 +25,7 @@ Map<String, dynamic> _$SeasonToJson(_Season instance) => <String, dynamic>{
   ),
   'status': _$EntryStatusEnumMap[instance.status],
   'new': ?instance.fresh,
+  'manual': ?instance.manual,
 };
 
 Value? _$JsonConverterFromJson<Json, Value>(

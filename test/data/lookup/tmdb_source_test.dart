@@ -218,26 +218,19 @@ void main() {
     expect(await tmdb.seasons('tmdb:movie:564'), isNull);
   });
 
-  test('a season is listable once out or at most two weeks away', () {
-    final today = DateTime(2026, 10, 18);
-    bool listable(Released? r) =>
-        Season(season: 1, released: r).isListableOn(today);
-    expect(listable(const Released(2026, 11, 1)), isTrue);
-    expect(listable(const Released(2026, 11, 2)), isFalse);
-    // "2026-10" is out from November 1, within two weeks.
-    expect(listable(const Released(2026, 10)), isTrue);
-    // "2026" only from 2027-01-01.
-    expect(listable(const Released(2026)), isFalse);
-    expect(listable(null), isFalse);
+  test('every season with a date is listable, announced ones too', () {
     expect(
       Season.listable(const [
         Season(season: 2, released: Released(2025)),
         Season(season: 1, released: Released(2024), status: EntryStatus.done),
         Season(season: 3, released: Released(2027)),
-      ], today),
+        Season(season: 4),
+        Season(season: 0, released: Released(2023)),
+      ]),
       const [
         Season(season: 1, released: Released(2024)),
         Season(season: 2, released: Released(2025)),
+        Season(season: 3, released: Released(2027)),
       ],
     );
   });

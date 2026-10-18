@@ -4,6 +4,8 @@ import '../models/entry.dart';
 import '../models/entry_id.dart';
 import '../models/entry_status.dart';
 import '../models/library.dart';
+import '../models/media_type.dart';
+import '../models/season.dart';
 import '../models/track.dart';
 import 'library_operation.dart';
 
@@ -20,6 +22,29 @@ String _statusWord(EntryStatus status) => switch (status) {
   EntryStatus.done => 'done',
   EntryStatus.dnf => 'DNF',
 };
+
+/// [entry] with [status]. A show's status comes from its seasons: one
+/// season takes the status; with more, every season that is out does, so
+/// ticking a show in a plan marks what has aired Done.
+Entry _withStatus(Entry entry, EntryStatus status) {
+  final seasons = entry.seasons;
+  if (entry.type != MediaType.shows || seasons == null || seasons.isEmpty) {
+    return entry.copyWith(status: status);
+  }
+  final today = seasonClock();
+  return entry.withSeasons([
+    for (final s in seasons)
+      seasons.length == 1 || s.isReleasedOn(today)
+          ? s.copyWith(status: status, fresh: null)
+          : s,
+  ], today: today);
+}
+
+/// A show's status as its seasons give it; other entries as they are.
+Entry _derived(Entry entry) =>
+    entry.type == MediaType.shows && (entry.seasons?.isNotEmpty ?? false)
+    ? entry.withSeasons(entry.seasons)
+    : entry;
 
 /// Replaces the entry with the same id in place. Missing: unchanged.
 Library _replaceEntry(Library library, Entry entry) {
@@ -53,7 +78,7 @@ class SetStatus extends LibraryOperation {
         'not allowed for ${entry.type.name}',
       );
     }
-    return _replaceEntry(library, entry.copyWith(status: status));
+    return _replaceEntry(library, _withStatus(entry, status));
   }
 
   @override
@@ -110,7 +135,7 @@ class AddEntry extends LibraryOperation {
     return library.copyWith(
       entries: [
         ...library.entries,
-        entry.copyWith(id: id),
+        _derived(entry).copyWith(id: id),
       ],
     );
   }
@@ -134,7 +159,7 @@ class UpdateEntry extends LibraryOperation {
   @override
   Library apply(Library library) {
     if (library.entryById(entry.id) == null) return library;
-    return _replaceEntry(library, entry).withUnusedTagsRemoved();
+    return _replaceEntry(library, _derived(entry)).withUnusedTagsRemoved();
   }
 
   @override

@@ -15,10 +15,11 @@ Entry? _show(Library library, String entryId) {
   return entry?.type == MediaType.shows ? entry : null;
 }
 
+/// The show with [seasons] and the status they give, in its place.
 Library _withSeasons(Library library, Entry show, List<Season> seasons) {
   final index = library.entries.indexWhere((e) => e.id == show.id);
   final entries = [...library.entries];
-  entries[index] = show.copyWith(seasons: seasons.isEmpty ? null : seasons);
+  entries[index] = show.withSeasons(seasons);
   return library.copyWith(entries: entries);
 }
 
@@ -158,4 +159,117 @@ class AddSeasons extends LibraryOperation {
     final what = numbers.isEmpty ? 'seasons' : seasonsPhrase(numbers);
     return 'Add $what of ${_title(before, entryId)}';
   }
+}
+
+/// Puts back a show's seasons as they were, such as after unticking a plan
+/// item that marked them Done.
+@JsonSerializable()
+class SetSeasons extends LibraryOperation {
+  const SetSeasons(this.entryId, this.seasons);
+
+  factory SetSeasons.fromJson(Map<String, Object?> json) =>
+      _$SetSeasonsFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetSeasonsToJson(this);
+
+  final String entryId;
+  final List<Season> seasons;
+
+  @override
+  Library apply(Library library) {
+    final show = _show(library, entryId);
+    if (show == null) return library;
+    return _withSeasons(library, show, seasons);
+  }
+
+  @override
+  String summary(Library before) =>
+      'Set the seasons of ${_title(before, entryId)}';
+}
+
+/// Removes one season: one the lookup no longer lists (A36).
+@JsonSerializable()
+class RemoveSeason extends LibraryOperation {
+  const RemoveSeason(this.entryId, this.season);
+
+  factory RemoveSeason.fromJson(Map<String, Object?> json) =>
+      _$RemoveSeasonFromJson(json);
+
+  Map<String, Object?> toJson() => _$RemoveSeasonToJson(this);
+
+  final String entryId;
+  final int season;
+
+  @override
+  Library apply(Library library) {
+    final show = _show(library, entryId);
+    final seasons = show?.seasons;
+    if (show == null || seasons == null) return library;
+    if (!seasons.any((s) => s.season == season)) return library;
+    return _withSeasons(library, show, [
+      for (final s in seasons)
+        if (s.season != season) s,
+    ]);
+  }
+
+  @override
+  String summary(Library before) =>
+      'Remove season $season of ${_title(before, entryId)}';
+}
+
+/// Keeps a season the lookup no longer lists (A36): it is marked manual,
+/// so the daily check leaves it alone from then on.
+@JsonSerializable()
+class KeepSeason extends LibraryOperation {
+  const KeepSeason(this.entryId, this.season);
+
+  factory KeepSeason.fromJson(Map<String, Object?> json) =>
+      _$KeepSeasonFromJson(json);
+
+  Map<String, Object?> toJson() => _$KeepSeasonToJson(this);
+
+  final String entryId;
+  final int season;
+
+  @override
+  Library apply(Library library) {
+    final show = _show(library, entryId);
+    final seasons = show?.seasons;
+    if (show == null || seasons == null) return library;
+    if (!seasons.any((s) => s.season == season)) return library;
+    return _withSeasons(library, show, [
+      for (final s in seasons)
+        s.season == season ? s.copyWith(manual: true) : s,
+    ]);
+  }
+
+  @override
+  String summary(Library before) =>
+      'Keep season $season of ${_title(before, entryId)}';
+}
+
+/// Writes the status a show's seasons give, when a season coming out has
+/// changed it (the daily check).
+@JsonSerializable()
+class RefreshShowStatus extends LibraryOperation {
+  const RefreshShowStatus(this.entryId);
+
+  factory RefreshShowStatus.fromJson(Map<String, Object?> json) =>
+      _$RefreshShowStatusFromJson(json);
+
+  Map<String, Object?> toJson() => _$RefreshShowStatusToJson(this);
+
+  final String entryId;
+
+  @override
+  Library apply(Library library) {
+    final show = _show(library, entryId);
+    final seasons = show?.seasons;
+    if (show == null || seasons == null) return library;
+    return _withSeasons(library, show, seasons);
+  }
+
+  @override
+  String summary(Library before) =>
+      'Update the status of ${_title(before, entryId)} from its seasons';
 }

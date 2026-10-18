@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Season {
 
- int get season;@ReleasedConverter() Released? get released; EntryStatus? get status;@JsonKey(name: 'new', includeIfNull: false) bool? get fresh;
+ int get season;@ReleasedConverter() Released? get released; EntryStatus? get status;@JsonKey(name: 'new', includeIfNull: false) bool? get fresh;@JsonKey(includeIfNull: false) bool? get manual;
 /// Create a copy of Season
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $SeasonCopyWith<Season> get copyWith => _$SeasonCopyWithImpl<Season>(this as Sea
 @override
 bool operator ==(Object other) {
   final _this = this as Season;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Season&&(identical(other.season, _this.season) || other.season == _this.season)&&(identical(other.released, _this.released) || other.released == _this.released)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.fresh, _this.fresh) || other.fresh == _this.fresh));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Season&&(identical(other.season, _this.season) || other.season == _this.season)&&(identical(other.released, _this.released) || other.released == _this.released)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.fresh, _this.fresh) || other.fresh == _this.fresh)&&(identical(other.manual, _this.manual) || other.manual == _this.manual));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Season;
-  return Object.hash(runtimeType,_this.season,_this.released,_this.status,_this.fresh);
+  return Object.hash(runtimeType,_this.season,_this.released,_this.status,_this.fresh,_this.manual);
 }
 
 @override
 String toString() {
   final _this = this as Season;
-  return 'Season(season: ${_this.season}, released: ${_this.released}, status: ${_this.status}, fresh: ${_this.fresh})';
+  return 'Season(season: ${_this.season}, released: ${_this.released}, status: ${_this.status}, fresh: ${_this.fresh}, manual: ${_this.manual})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $SeasonCopyWith<$Res>  {
   factory $SeasonCopyWith(Season value, $Res Function(Season) _then) = _$SeasonCopyWithImpl;
 @useResult
 $Res call({
- int season,@ReleasedConverter() Released? released, EntryStatus? status,@JsonKey(name: 'new', includeIfNull: false) bool? fresh
+ int season,@ReleasedConverter() Released? released, EntryStatus? status,@JsonKey(name: 'new', includeIfNull: false) bool? fresh,@JsonKey(includeIfNull: false) bool? manual
 });
 
 
@@ -71,12 +71,13 @@ class _$SeasonCopyWithImpl<$Res>
 
 /// Create a copy of Season
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? season = null,Object? released = freezed,Object? status = freezed,Object? fresh = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? season = null,Object? released = freezed,Object? status = freezed,Object? fresh = freezed,Object? manual = freezed,}) {
   return _then(Season(
 season: null == season ? _self.season : season // ignore: cast_nullable_to_non_nullable
 as int,released: freezed == released ? _self.released : released // ignore: cast_nullable_to_non_nullable
 as Released?,status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as EntryStatus?,fresh: freezed == fresh ? _self.fresh : fresh // ignore: cast_nullable_to_non_nullable
+as bool?,manual: freezed == manual ? _self.manual : manual // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
 }
@@ -162,10 +163,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int season, @ReleasedConverter()  Released? released,  EntryStatus? status, @JsonKey(name: 'new', includeIfNull: false)  bool? fresh)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int season, @ReleasedConverter()  Released? released,  EntryStatus? status, @JsonKey(name: 'new', includeIfNull: false)  bool? fresh, @JsonKey(includeIfNull: false)  bool? manual)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Season() when $default != null:
-return $default(_that.season,_that.released,_that.status,_that.fresh);case _:
+return $default(_that.season,_that.released,_that.status,_that.fresh,_that.manual);case _:
   return orElse();
 
 }
@@ -183,10 +184,10 @@ return $default(_that.season,_that.released,_that.status,_that.fresh);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int season, @ReleasedConverter()  Released? released,  EntryStatus? status, @JsonKey(name: 'new', includeIfNull: false)  bool? fresh)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int season, @ReleasedConverter()  Released? released,  EntryStatus? status, @JsonKey(name: 'new', includeIfNull: false)  bool? fresh, @JsonKey(includeIfNull: false)  bool? manual)  $default,) {final _that = this;
 switch (_that) {
 case _Season():
-return $default(_that.season,_that.released,_that.status,_that.fresh);case _:
+return $default(_that.season,_that.released,_that.status,_that.fresh,_that.manual);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -203,10 +204,10 @@ return $default(_that.season,_that.released,_that.status,_that.fresh);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int season, @ReleasedConverter()  Released? released,  EntryStatus? status, @JsonKey(name: 'new', includeIfNull: false)  bool? fresh)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int season, @ReleasedConverter()  Released? released,  EntryStatus? status, @JsonKey(name: 'new', includeIfNull: false)  bool? fresh, @JsonKey(includeIfNull: false)  bool? manual)?  $default,) {final _that = this;
 switch (_that) {
 case _Season() when $default != null:
-return $default(_that.season,_that.released,_that.status,_that.fresh);case _:
+return $default(_that.season,_that.released,_that.status,_that.fresh,_that.manual);case _:
   return null;
 
 }
@@ -218,13 +219,14 @@ return $default(_that.season,_that.released,_that.status,_that.fresh);case _:
 @JsonSerializable()
 
 class _Season extends Season {
-  const _Season({required this.season, @ReleasedConverter() this.released, this.status, @JsonKey(name: 'new', includeIfNull: false) this.fresh}): super._();
+  const _Season({required this.season, @ReleasedConverter() this.released, this.status, @JsonKey(name: 'new', includeIfNull: false) this.fresh, @JsonKey(includeIfNull: false) this.manual}): super._();
   factory _Season.fromJson(Map<String, dynamic> json) => _$SeasonFromJson(json);
 
 @override final  int season;
 @override@ReleasedConverter() final  Released? released;
 @override final  EntryStatus? status;
 @override@JsonKey(name: 'new', includeIfNull: false) final  bool? fresh;
+@override@JsonKey(includeIfNull: false) final  bool? manual;
 
 /// Create a copy of Season
 /// with the given fields replaced by the non-null parameter values.
@@ -239,18 +241,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Season&&(identical(other.season, season) || other.season == season)&&(identical(other.released, released) || other.released == released)&&(identical(other.status, status) || other.status == status)&&(identical(other.fresh, fresh) || other.fresh == fresh));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Season&&(identical(other.season, season) || other.season == season)&&(identical(other.released, released) || other.released == released)&&(identical(other.status, status) || other.status == status)&&(identical(other.fresh, fresh) || other.fresh == fresh)&&(identical(other.manual, manual) || other.manual == manual));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,season,released,status,fresh);
+    return Object.hash(runtimeType,season,released,status,fresh,manual);
 }
 
 @override
 String toString() {
-    return 'Season(season: $season, released: $released, status: $status, fresh: $fresh)';
+    return 'Season(season: $season, released: $released, status: $status, fresh: $fresh, manual: $manual)';
 }
 
 
@@ -261,7 +263,7 @@ abstract mixin class _$SeasonCopyWith<$Res> implements $SeasonCopyWith<$Res> {
   factory _$SeasonCopyWith(_Season value, $Res Function(_Season) _then) = __$SeasonCopyWithImpl;
 @override @useResult
 $Res call({
- int season,@ReleasedConverter() Released? released, EntryStatus? status,@JsonKey(name: 'new', includeIfNull: false) bool? fresh
+ int season,@ReleasedConverter() Released? released, EntryStatus? status,@JsonKey(name: 'new', includeIfNull: false) bool? fresh,@JsonKey(includeIfNull: false) bool? manual
 });
 
 
@@ -278,12 +280,13 @@ class __$SeasonCopyWithImpl<$Res>
 
 /// Create a copy of Season
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? season = null,Object? released = freezed,Object? status = freezed,Object? fresh = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? season = null,Object? released = freezed,Object? status = freezed,Object? fresh = freezed,Object? manual = freezed,}) {
   return _then(_Season(
 season: null == season ? _self.season : season // ignore: cast_nullable_to_non_nullable
 as int,released: freezed == released ? _self.released : released // ignore: cast_nullable_to_non_nullable
 as Released?,status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as EntryStatus?,fresh: freezed == fresh ? _self.fresh : fresh // ignore: cast_nullable_to_non_nullable
+as bool?,manual: freezed == manual ? _self.manual : manual // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
 }

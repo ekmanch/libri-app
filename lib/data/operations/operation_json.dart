@@ -25,6 +25,10 @@ Map<String, Object?> encodeOperation(LibraryOperation operation) {
     SetSeasonStatus() => ('setSeasonStatus', operation.toJson()),
     MarkSeasonsDone() => ('markSeasonsDone', operation.toJson()),
     AddSeasons() => ('addSeasons', operation.toJson()),
+    SetSeasons() => ('setSeasons', operation.toJson()),
+    RemoveSeason() => ('removeSeason', operation.toJson()),
+    KeepSeason() => ('keepSeason', operation.toJson()),
+    RefreshShowStatus() => ('refreshShowStatus', operation.toJson()),
     _ => throw ArgumentError.value(
       operation,
       'operation',
@@ -55,6 +59,10 @@ LibraryOperation decodeOperation(Map<String, Object?> json) {
     'setSeasonStatus' => SetSeasonStatus.fromJson(json),
     'markSeasonsDone' => MarkSeasonsDone.fromJson(json),
     'addSeasons' => AddSeasons.fromJson(json),
+    'setSeasons' => SetSeasons.fromJson(json),
+    'removeSeason' => RemoveSeason.fromJson(json),
+    'keepSeason' => KeepSeason.fromJson(json),
+    'refreshShowStatus' => RefreshShowStatus.fromJson(json),
     final other => throw FormatException('Unknown operation: $other'),
   };
 }

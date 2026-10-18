@@ -89,7 +89,7 @@ void main() {
   });
 
   test(
-    'adds the seasons above the highest as New, two weeks ahead at most',
+    'adds the seasons above the highest as New, announced ones too',
     () async {
       setUpCheck();
       final operations = await check.run(library([watching]), now);
@@ -97,10 +97,14 @@ void main() {
       expect(added.entryId, watching.id);
       expect(added.seasons, const [
         Season(season: 3, released: Released(2026, 10, 30), fresh: true),
+        Season(season: 4, released: Released(2027, 6, 1), fresh: true),
       ]);
       final after = added.apply(library([watching]));
-      expect(after.entries.single.hasNewSeason, isTrue);
-      expect(added.summary(library([watching])), 'Add season 3 of watching');
+      expect(
+        after.entries.single.hasNewSeasonOn(DateTime(2026, 10, 30)),
+        isTrue,
+      );
+      expect(added.summary(library([watching])), 'Add seasons 3–4 of watching');
     },
   );
 
@@ -112,13 +116,14 @@ void main() {
       Season(season: 1, released: Released(2022, 11, 23)),
       Season(season: 2, released: Released(2025, 8, 6)),
       Season(season: 3, released: Released(2026, 10, 30)),
+      Season(season: 4, released: Released(2027, 6, 1)),
     ]);
   });
 
   test('nothing new means no operation', () async {
     setUpCheck();
     final upToDate = watching.copyWith(
-      seasons: const [Season(season: 3, released: Released(2026, 10, 30))],
+      seasons: const [Season(season: 4, released: Released(2027, 6, 1))],
     );
     expect(await check.run(library([upToDate]), now), isEmpty);
   });

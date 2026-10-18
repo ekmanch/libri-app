@@ -6,6 +6,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/plan.dart';
 import '../../data/models/plan_item.dart';
+import '../../data/models/season.dart';
 import '../../data/operations/operations.dart';
 import '../shell/app_shell.dart';
 import 'plan_progress.dart';
@@ -40,10 +41,32 @@ final statusBeforeDoneProvider =
 
 String planItemKey(String planId, String entryId) => '$planId/$entryId';
 
+/// A show's seasons before a plan check marked them Done, by plan item, so
+/// unticking can put them back exactly (DESIGN.md: a show's status comes
+/// from its seasons).
+class SeasonsBeforeDoneNotifier extends Notifier<Map<String, List<Season>>> {
+  @override
+  Map<String, List<Season>> build() => const {};
+
+  void remember(String key, List<Season> seasons) =>
+      state = {...state, key: seasons};
+
+  List<Season>? take(String key) {
+    final seasons = state[key];
+    if (seasons != null) state = {...state}..remove(key);
+    return seasons;
+  }
+}
+
+final seasonsBeforeDoneProvider =
+    NotifierProvider<SeasonsBeforeDoneNotifier, Map<String, List<Season>>>(
+      SeasonsBeforeDoneNotifier.new,
+    );
+
 /// Ticks or unticks a plan item (S1, S2, S7, S8).
 ///
 /// Ticking also marks the entry Done when it was not, and remembers what
-/// it was. Unticking puts that status back, but only if the entry is still
+/// it was (a show: its seasons, every one that is out marked Done). Unticking puts that status back, but only if the entry is still
 /// Done; a status changed elsewhere in between stays. An entry that was
 /// already Done when ticked is left alone when unticked.
 ///
@@ -67,12 +90,20 @@ Future<bool> togglePlanItemDone(
       memory.forget(key);
     } else {
       memory.remember(key, entry.status);
+      if (entry.seasons case final seasons? when seasons.isNotEmpty) {
+        ref.read(seasonsBeforeDoneProvider.notifier).remember(key, seasons);
+      }
       await repository.apply(SetStatus(entry.id, EntryStatus.done));
     }
   } else {
     final previous = memory.take(key);
+    final seasons = ref.read(seasonsBeforeDoneProvider.notifier).take(key);
     if (previous != null && entry.status == EntryStatus.done) {
-      await repository.apply(SetStatus(entry.id, previous));
+      await repository.apply(
+        seasons != null
+            ? SetSeasons(entry.id, seasons)
+            : SetStatus(entry.id, previous),
+      );
     }
   }
   if (!done) return false;

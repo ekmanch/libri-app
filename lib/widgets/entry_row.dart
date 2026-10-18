@@ -107,7 +107,9 @@ class EntryRow extends StatelessWidget {
        status = entry.status,
        typeLabel = showType ? entryKindLabel(entry) : null,
        typeColor = showType ? colors?.forType(entry.type) : null,
-       badge = entry.hasNewSeason ? newSeasonLabel : null;
+       badge = entry.hasNewSeasonOn(today ?? DateTime.now())
+           ? newSeasonLabel
+           : null;
 
   static const newSeasonLabel = 'New season';
 

@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/entry_status.dart';
+import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/features/plans/plan_entry_sheet.dart';
 import 'package:library_app/features/plans/plan_progress.dart';
@@ -70,6 +73,60 @@ void main() {
             .done,
         isFalse,
       );
+    });
+
+    testWidgets('ticking a show marks its aired seasons; unticking undoes', (
+      tester,
+    ) async {
+      const id = 'shows/over-the-garden-wall-2014';
+      final fixture = loadFixture();
+      const seasons = [
+        Season(season: 1, released: Released(2014), status: EntryStatus.done),
+        Season(season: 2, released: Released(2015)),
+        Season(season: 3, released: Released(2099), status: EntryStatus.want),
+      ];
+      final show = fixture
+          .entryById(id)!
+          .copyWith(status: EntryStatus.done, seasons: seasons);
+      final container = await pumpApp(
+        tester,
+        PlanScreen(planId: 'halloween-2026', tab: ShellTab.plans),
+        library: fixture.copyWith(
+          entries: [for (final e in fixture.entries) e.id == id ? show : e],
+        ),
+      );
+      await tester.ensureVisible(check('Over the Garden Wall'));
+      await tester.pumpAndSettle();
+      await tester.tap(check('Over the Garden Wall'));
+      await tester.pumpAndSettle();
+      // Already Done by its seasons: ticking leaves it as it is.
+      expect(repo(container).current!.entryById(id)!.seasons, seasons);
+      await tester.tap(check('Over the Garden Wall'));
+      await tester.pumpAndSettle();
+
+      final watching = show.copyWith(
+        status: EntryStatus.inProgress,
+        seasons: [
+          seasons[0],
+          seasons[1].copyWith(status: EntryStatus.inProgress),
+          seasons[2],
+        ],
+      );
+      await repo(container).apply(UpdateEntry(watching));
+      await tester.pumpAndSettle();
+      await tester.tap(check('Over the Garden Wall'));
+      await tester.pumpAndSettle();
+      final ticked = repo(container).current!.entryById(id)!;
+      expect(
+        [for (final s in ticked.seasons!) s.status],
+        [EntryStatus.done, EntryStatus.done, EntryStatus.want],
+      );
+      expect(ticked.status, EntryStatus.done);
+      await tester.tap(check('Over the Garden Wall'));
+      await tester.pumpAndSettle();
+      final unticked = repo(container).current!.entryById(id)!;
+      expect(unticked.seasons, watching.seasons);
+      expect(unticked.status, EntryStatus.inProgress);
     });
 
     testWidgets('a row opens the entry in the plan (S8)', (tester) async {

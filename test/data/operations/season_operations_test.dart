@@ -34,7 +34,12 @@ Library withShow([Entry? show]) {
 
 Entry showIn(Library library) => library.entryById(wednesday.id)!;
 
+final today = DateTime(2026, 10, 18);
+
 void main() {
+  setUp(() => seasonClock = () => today);
+  tearDown(() => seasonClock = DateTime.now);
+
   group('Season in the file', () {
     test('writes season, released and status, and new only while true', () {
       expect(wednesday.seasons![0].toJson(), {
@@ -71,13 +76,68 @@ void main() {
       expect(wednesday.copyWith(seasons: null).year, 2022);
     });
 
-    test('New needs the mark and no status', () {
-      expect(wednesday.hasNewSeason, isTrue);
+    test('New needs the mark, no status and the season out', () {
+      expect(wednesday.hasNewSeasonOn(today), isTrue);
       expect(
-        const Season(season: 2, fresh: true, status: EntryStatus.want).isNew,
+        const Season(
+          season: 2,
+          fresh: true,
+          status: EntryStatus.want,
+        ).isNewOn(today),
         isFalse,
       );
-      expect(const Season(season: 2).isNew, isFalse);
+      expect(const Season(season: 2).isNewOn(today), isFalse);
+      const coming = Season(season: 3, released: Released(2027), fresh: true);
+      expect(coming.isNewOn(today), isFalse);
+      expect(coming.isNewOn(DateTime(2028)), isTrue);
+    });
+
+    test('manual is written only while true, after new', () {
+      expect(const Season(season: 3, fresh: true, manual: true).toJson().keys, [
+        'season',
+        'released',
+        'status',
+        'new',
+        'manual',
+      ]);
+    });
+  });
+
+  group('the show status from its seasons', () {
+    EntryStatus status(List<EntryStatus?> statuses, {Released? last}) =>
+        Season.showStatus([
+          for (final (i, s) in statuses.indexed)
+            Season(
+              season: i + 1,
+              released: i == statuses.length - 1 && last != null
+                  ? last
+                  : Released(2020 + i),
+              status: s,
+            ),
+        ], today);
+    const want = EntryStatus.want,
+        watching = EntryStatus.inProgress,
+        done = EntryStatus.done,
+        dnf = EntryStatus.dnf;
+
+    test('follows the rule in order', () {
+      expect(status([done, watching, dnf]), watching);
+      expect(status([done, dnf]), dnf);
+      expect(status([done, done]), done);
+      expect(status([done, want]), watching);
+      expect(status([want, want]), want);
+      expect(status([null, null]), want);
+      expect(status([done, null]), done);
+    });
+
+    test('a season not out yet does not count', () {
+      expect(status([done, want], last: const Released(2027)), done);
+      expect(status([done, want], last: const Released(2026, 10, 1)), watching);
+    });
+
+    test('one season is that season\'s status, out or not', () {
+      expect(status([null]), want);
+      expect(status([done], last: const Released(2027)), done);
     });
   });
 
@@ -93,12 +153,12 @@ void main() {
       expect(seasons[1].fresh, isNull);
       expect(seasons[0], wednesday.seasons![0]);
       expect(showIn(result).status, EntryStatus.inProgress);
-      expect(showIn(result).hasNewSeason, isFalse);
+      expect(showIn(result).hasNewSeasonOn(today), isFalse);
     });
 
     test('clearing to Not set keeps a season New', () {
       final result = SetSeasonStatus(wednesday.id, 2, null).apply(withShow());
-      expect(showIn(result).seasons![1].isNew, isTrue);
+      expect(showIn(result).seasons![1].isNewOn(today), isTrue);
       final cleared = SetSeasonStatus(wednesday.id, 1, null).apply(result);
       expect(showIn(cleared).seasons![0].status, isNull);
     });
@@ -138,7 +198,8 @@ void main() {
         [for (final s in seasons) s.status],
         [EntryStatus.done, EntryStatus.done, EntryStatus.done, null, null],
       );
-      expect(result.entryById(southPark.id)!.status, EntryStatus.want);
+      // The show's status follows: three Done, the rest not set.
+      expect(result.entryById(southPark.id)!.status, EntryStatus.done);
       expect(
         MarkSeasonsDone(southPark.id, 4).summary(library),
         'Mark South Park seasons 1–3 as done',
@@ -196,12 +257,88 @@ void main() {
     });
   });
 
+  group('the other season operations', () {
+    test('SetSeasons puts the seasons back and the status with them', () {
+      final done = MarkSeasonsDone(wednesday.id, 3).apply(withShow());
+      final back = SetSeasons(wednesday.id, wednesday.seasons!).apply(done);
+      expect(showIn(back).seasons, wednesday.seasons);
+      expect(showIn(back).status, EntryStatus.done);
+    });
+
+    test('RemoveSeason drops one season; KeepSeason marks it manual', () {
+      final removed = RemoveSeason(wednesday.id, 2).apply(withShow());
+      expect([for (final s in showIn(removed).seasons!) s.season], [1]);
+      expect(
+        RemoveSeason(wednesday.id, 2).summary(withShow()),
+        'Remove season 2 of Wednesday',
+      );
+      final kept = KeepSeason(wednesday.id, 2).apply(withShow());
+      expect(showIn(kept).seasons![1].isManual, isTrue);
+    });
+
+    test('RefreshShowStatus writes what the seasons give', () {
+      final stale = wednesday.copyWith(status: EntryStatus.want);
+      final fixed = RefreshShowStatus(wednesday.id).apply(withShow(stale));
+      expect(showIn(fixed).status, EntryStatus.done);
+      expect(
+        RefreshShowStatus(wednesday.id).summary(withShow()),
+        'Update the status of Wednesday from its seasons',
+      );
+    });
+
+    test('SetStatus on a show sets the seasons that are out', () {
+      final coming = wednesday.copyWith(
+        seasons: [
+          ...wednesday.seasons!,
+          const Season(season: 3, released: Released(2027)),
+        ],
+      );
+      final result = SetStatus(
+        wednesday.id,
+        EntryStatus.done,
+      ).apply(withShow(coming));
+      final seasons = showIn(result).seasons!;
+      expect(
+        [for (final s in seasons) s.status],
+        [EntryStatus.done, EntryStatus.done, null],
+      );
+      expect(seasons[1].fresh, isNull);
+      expect(showIn(result).status, EntryStatus.done);
+    });
+
+    test('SetStatus on a one-season show is that season\'s status', () {
+      final single = wednesday.copyWith(
+        seasons: const [Season(season: 1, released: Released(2027))],
+      );
+      final result = SetStatus(
+        wednesday.id,
+        EntryStatus.want,
+      ).apply(withShow(single));
+      expect(showIn(result).seasons!.single.status, EntryStatus.want);
+      expect(showIn(result).status, EntryStatus.want);
+    });
+
+    test('UpdateEntry and AddEntry write the status the seasons give', () {
+      final edited = UpdateEntry(wednesday.copyWith(status: EntryStatus.dnf))
+          .apply(withShow());
+      expect(showIn(edited).status, EntryStatus.done);
+      final added = AddEntry(
+        wednesday.copyWith(id: 'shows/other', status: EntryStatus.dnf),
+      ).apply(sampleLibrary());
+      expect(added.entries.last.status, EntryStatus.done);
+    });
+  });
+
   test('season operations survive a JSON round trip', () {
     final library = withShow();
     for (final operation in <LibraryOperation>[
       SetSeasonStatus(wednesday.id, 2, EntryStatus.dnf),
       SetSeasonStatus(wednesday.id, 1, null),
       MarkSeasonsDone(wednesday.id, 2),
+      SetSeasons(wednesday.id, const [Season(season: 1)]),
+      RemoveSeason(wednesday.id, 2),
+      KeepSeason(wednesday.id, 2),
+      RefreshShowStatus(wednesday.id),
       AddSeasons(wednesday.id, const [
         Season(season: 3, released: Released(2026, 10), fresh: true),
       ]),

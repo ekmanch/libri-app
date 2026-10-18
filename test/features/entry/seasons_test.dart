@@ -92,33 +92,40 @@ void main() {
     }
   });
 
-  testWidgets('a pick in the status sheet sets the season only', (
-    tester,
-  ) async {
-    final container = await open(tester, _strangerThings);
-    expect(find.bySemanticsLabel(RegExp('Season 4 status: not set')), findsOne);
-    await tapIn(tester, pill(4));
-    expect(find.byType(SeasonStatusSheet), findsOneWidget);
-    expect(
-      find.text("Released May 27, 2022. The show's own status stays as it is."),
-      findsOneWidget,
-    );
-    await tapIn(
-      tester,
-      find.descendant(
-        of: find.byType(SeasonStatusSheet),
-        matching: find.text('In progress'),
-      ),
-    );
-    expect(find.byType(SeasonStatusSheet), findsNothing);
-    final show = saved(container, _strangerThings);
-    expect(show.seasons![3].status, EntryStatus.inProgress);
-    expect(show.status, EntryStatus.dnf);
-    expect(
-      find.bySemanticsLabel(RegExp('Season 4 status: in progress')),
-      findsOne,
-    );
-  });
+  testWidgets(
+    'a pick in the status sheet sets the season and the show follows',
+    (tester) async {
+      final container = await open(tester, _strangerThings);
+      expect(
+        find.bySemanticsLabel(RegExp('Season 4 status: not set')),
+        findsOne,
+      );
+      await tapIn(tester, pill(4));
+      expect(find.byType(SeasonStatusSheet), findsOneWidget);
+      expect(
+        find.text(
+          "Released May 27, 2022. The show's own status stays as it is.",
+        ),
+        findsOneWidget,
+      );
+      await tapIn(
+        tester,
+        find.descendant(
+          of: find.byType(SeasonStatusSheet),
+          matching: find.text('In progress'),
+        ),
+      );
+      expect(find.byType(SeasonStatusSheet), findsNothing);
+      final show = saved(container, _strangerThings);
+      expect(show.seasons![3].status, EntryStatus.inProgress);
+      // Season 3 is DNF, but a season In progress comes first.
+      expect(show.status, EntryStatus.inProgress);
+      expect(
+        find.bySemanticsLabel(RegExp('Season 4 status: in progress')),
+        findsOne,
+      );
+    },
+  );
 
   testWidgets('catch-up marks the earlier seasons Done and stays open', (
     tester,

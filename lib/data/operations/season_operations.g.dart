@@ -45,3 +45,34 @@ Map<String, dynamic> _$AddSeasonsToJson(AddSeasons instance) =>
       'entryId': instance.entryId,
       'seasons': instance.seasons.map((e) => e.toJson()).toList(),
     };
+
+SetSeasons _$SetSeasonsFromJson(Map<String, dynamic> json) => SetSeasons(
+  json['entryId'] as String,
+  (json['seasons'] as List<dynamic>)
+      .map((e) => Season.fromJson(e as Map<String, dynamic>))
+      .toList(),
+);
+
+Map<String, dynamic> _$SetSeasonsToJson(SetSeasons instance) =>
+    <String, dynamic>{
+      'entryId': instance.entryId,
+      'seasons': instance.seasons.map((e) => e.toJson()).toList(),
+    };
+
+RemoveSeason _$RemoveSeasonFromJson(Map<String, dynamic> json) =>
+    RemoveSeason(json['entryId'] as String, (json['season'] as num).toInt());
+
+Map<String, dynamic> _$RemoveSeasonToJson(RemoveSeason instance) =>
+    <String, dynamic>{'entryId': instance.entryId, 'season': instance.season};
+
+KeepSeason _$KeepSeasonFromJson(Map<String, dynamic> json) =>
+    KeepSeason(json['entryId'] as String, (json['season'] as num).toInt());
+
+Map<String, dynamic> _$KeepSeasonToJson(KeepSeason instance) =>
+    <String, dynamic>{'entryId': instance.entryId, 'season': instance.season};
+
+RefreshShowStatus _$RefreshShowStatusFromJson(Map<String, dynamic> json) =>
+    RefreshShowStatus(json['entryId'] as String);
+
+Map<String, dynamic> _$RefreshShowStatusToJson(RefreshShowStatus instance) =>
+    <String, dynamic>{'entryId': instance.entryId};

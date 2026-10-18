@@ -198,9 +198,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _seasonalOnly = entry?.seasonalOnly ?? false;
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
-    _seasons =
-        entry?.seasons ??
-        Season.listable(match?.seasons ?? const [], DateTime.now());
+    _seasons = entry?.seasons ?? Season.listable(match?.seasons ?? const []);
     _creatorFocus.addListener(() => setState(() {}));
   }
 
@@ -468,7 +466,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _released ??= match.released;
     if (_description.isEmpty) _description = match.description;
     if (_seasons.isEmpty) {
-      _seasons = Season.listable(match.seasons, DateTime.now());
+      _seasons = Season.listable(match.seasons);
     }
     if (_type == MediaType.music) {
       _kind = match.album == null ? MusicKind.album : MusicKind.song;

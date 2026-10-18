@@ -124,7 +124,8 @@ class SeasonRow extends StatelessWidget {
                         'Season ${season.season}',
                         style: theme.textTheme.titleMedium,
                       ),
-                      if (season.isNew) const OutlineBadge('New'),
+                      if (season.isNewOn(DateTime.now()))
+                        const OutlineBadge('New'),
                     ],
                   ),
                   const SizedBox(height: 2),

@@ -322,8 +322,8 @@ void main() {
     final saved = (await container.read(libraryRepositoryProvider).load())
         .entryById(severance.id)!;
     expect([for (final s in saved.seasons!) s.season], [1, 2, 3]);
-    expect(saved.seasons!.last.isNew, isTrue);
-    expect(saved.hasNewSeason, isTrue);
+    expect(saved.seasons!.last.fresh, isTrue);
+    expect(saved.hasNewSeasonOn(soon), isTrue);
     expect(fake.calls, ['seasons:tmdb:tv:95396']);
   });
 }

@@ -55,15 +55,31 @@ abstract class Entry with _$Entry {
 
   factory Entry.fromJson(Map<String, Object?> json) => _$EntryFromJson(json);
 
-  /// The release year. A show with seasons counts from its first season,
-  /// so sorting and the decade filter place it where it began.
+  /// The release year. A show counts from its first season, so sorting
+  /// and the decade filter place it where it began.
   int? get year => firstSeason?.released?.year ?? released?.year;
 
   Season? get firstSeason =>
       seasons == null || seasons!.isEmpty ? null : seasons!.first;
 
-  /// A season added by the daily check that has no status yet.
-  bool get hasNewSeason => seasons?.any((s) => s.isNew) ?? false;
+  /// A show with more than one season: its status comes from the seasons
+  /// and its screens list them. A show with one season looks like a movie.
+  bool get hasSeasonList => (seasons?.length ?? 0) > 1;
+
+  /// The entry with [seasons] and, for a show, the status they give.
+  Entry withSeasons(List<Season>? seasons, {DateTime? today}) {
+    final list = seasons == null || seasons.isEmpty ? null : seasons;
+    return copyWith(
+      seasons: list,
+      status: list == null || type != MediaType.shows
+          ? status
+          : Season.showStatus(list, today ?? seasonClock()),
+    );
+  }
+
+  /// A season added by the daily check, out and with no status yet.
+  bool hasNewSeasonOn(DateTime today) =>
+      seasons?.any((s) => s.isNewOn(today)) ?? false;
 
   /// False only when a release date is known and still in the future.
   bool isReleasedOn(DateTime today) => released?.isReleasedOn(today) ?? true;

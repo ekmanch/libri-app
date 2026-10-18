@@ -62,7 +62,7 @@ class EntryHeader extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (entry.hasNewSeason) ...[
+                if (entry.hasNewSeasonOn(DateTime.now())) ...[
                   const SizedBox(height: 8),
                   const OutlineBadge(EntryRow.newSeasonLabel, large: true),
                 ],
