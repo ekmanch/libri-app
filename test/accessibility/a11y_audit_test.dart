@@ -309,6 +309,9 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     banners.show(SyncBanner.offline);
     await tester.pumpAndSettle();
     await a.check('A12 offline');
+    banners.show(SyncBanner.notFound);
+    await tester.pumpAndSettle();
+    await a.check('A12 not found');
     banners.clear();
     await tester.pumpAndSettle();
   });

@@ -17,6 +17,14 @@ class SyncBannerCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final banner = ref.watch(syncBannerProvider);
     if (banner == null) return const SizedBox.shrink();
+    // Not found: say what is gone, then that nothing syncs.
+    final missing = banner == SyncBanner.notFound
+        ? ref.watch(syncStatusProvider).value?.missing
+        : null;
+    final body = missing == null
+        ? banner.body
+        : '${missingDetail(missing, ref.watch(libraryConnectionProvider))} '
+              '${banner.body}';
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final dot = switch (banner) {
@@ -30,7 +38,7 @@ class SyncBannerCard extends ConsumerWidget {
           // Sends the queue again; the banner follows the real state.
           ref.read(syncBannerProvider.notifier).follow();
           ref.read(librarySyncProvider)?.syncNow();
-        case SyncBanner.tokenProblem:
+        case SyncBanner.tokenProblem || SyncBanner.notFound:
           openConnectionScreen(context);
         case SyncBanner.conflict:
           showConflictDialog(context, ref);
@@ -74,7 +82,7 @@ class SyncBannerCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 1),
                     Text(
-                      banner.body,
+                      body,
                       style: theme.textTheme.bodySmall!.copyWith(
                         fontSize: 13,
                         height: 1.35,

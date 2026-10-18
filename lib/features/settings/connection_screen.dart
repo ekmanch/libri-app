@@ -76,12 +76,22 @@ class ConnectionScreen extends ConsumerWidget {
     SyncPhase.failed => 'Could not save to GitHub',
     SyncPhase.tokenProblem => 'GitHub refused the token',
     SyncPhase.conflict => 'Changed here and on GitHub',
+    SyncPhase.notFound => 'Library not found on GitHub',
   };
 
-  /// The status card's second line: what is waiting, else when the phone
-  /// last matched GitHub.
-  static String statusDetail(SyncStatus status, {DateTime? now}) =>
-      status.phase == SyncPhase.conflict
+  /// The status card's second line: what is gone (with the [connection]
+  /// to name it), what is waiting, else when the phone last matched
+  /// GitHub.
+  static String statusDetail(
+    SyncStatus status, {
+    DateTime? now,
+    LibraryConnection? connection,
+  }) =>
+      status.phase == SyncPhase.notFound &&
+          status.missing != null &&
+          connection != null
+      ? missingDetail(status.missing!, connection)
+      : status.phase == SyncPhase.conflict
       ? 'Pick which copy to keep'
       : status.pendingCount > 0
       ? '${status.pendingCount} '
@@ -110,7 +120,8 @@ class ConnectionScreen extends ConsumerWidget {
             SyncPhase.offline => colors.muted,
             SyncPhase.failed ||
             SyncPhase.tokenProblem ||
-            SyncPhase.conflict => colors.dangerText,
+            SyncPhase.conflict ||
+            SyncPhase.notFound => colors.dangerText,
           };
     return Scaffold(
       body: SafeArea(
@@ -157,7 +168,10 @@ class ConnectionScreen extends ConsumerWidget {
                               Text(
                                 local
                                     ? 'Your library is kept on this phone'
-                                    : statusDetail(status),
+                                    : statusDetail(
+                                        status,
+                                        connection: connection,
+                                      ),
                                 style: theme.textTheme.bodySmall!.copyWith(
                                   fontSize: 13,
                                   fontStyle: FontStyle.normal,

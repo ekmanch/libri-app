@@ -25,7 +25,16 @@ enum SyncPhase {
   /// matched. Nothing moves until a side is picked
   /// ([LibrarySync.resolveConflict]).
   conflict,
+
+  /// GitHub answered 404: the file, its branch or the whole repo is gone,
+  /// or the token no longer sees the repo ([SyncStatus.missing] says
+  /// which). Nothing syncs until the connection is fixed; the checks go
+  /// on, so a restored file or branch is picked up again.
+  notFound,
 }
+
+/// What a 404 turned out to be about.
+enum MissingPart { repository, branch, file }
 
 /// The sync state the banners (A12) and D6 show.
 @immutable
@@ -36,6 +45,7 @@ class SyncStatus {
     this.lastChecked,
     this.pendingCount = 0,
     this.remoteChangedAt,
+    this.missing,
   });
 
   static const idle = SyncStatus();
@@ -56,6 +66,9 @@ class SyncStatus {
   /// conflict is found (D17 says "GitHub: last commit …").
   final DateTime? remoteChangedAt;
 
+  /// What is gone, while the phase is [SyncPhase.notFound].
+  final MissingPart? missing;
+
   bool get hasPending => pendingCount > 0;
 
   SyncStatus copyWith({
@@ -64,12 +77,14 @@ class SyncStatus {
     DateTime? lastChecked,
     int? pendingCount,
     DateTime? remoteChangedAt,
+    MissingPart? missing,
   }) => SyncStatus(
     phase: phase ?? this.phase,
     lastSynced: lastSynced ?? this.lastSynced,
     lastChecked: lastChecked ?? this.lastChecked,
     pendingCount: pendingCount ?? this.pendingCount,
     remoteChangedAt: remoteChangedAt ?? this.remoteChangedAt,
+    missing: missing ?? this.missing,
   );
 
   @override
@@ -79,7 +94,8 @@ class SyncStatus {
       other.lastSynced == lastSynced &&
       other.lastChecked == lastChecked &&
       other.pendingCount == pendingCount &&
-      other.remoteChangedAt == remoteChangedAt;
+      other.remoteChangedAt == remoteChangedAt &&
+      other.missing == missing;
 
   @override
   int get hashCode => Object.hash(
@@ -88,6 +104,7 @@ class SyncStatus {
     lastChecked,
     pendingCount,
     remoteChangedAt,
+    missing,
   );
 
   @override

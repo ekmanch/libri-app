@@ -697,6 +697,11 @@ void main() {
         .show(SyncBanner.couldNotSave);
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a12-could-not-save');
+    largeTextContainer
+        .read(syncBannerProvider.notifier)
+        .show(SyncBanner.notFound);
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a12-not-found');
     largeTextContainer.read(syncBannerProvider.notifier).clear();
     await tester.pumpAndSettle();
 
@@ -743,6 +748,7 @@ void main() {
       (SyncBanner.offline, 'a12-offline'),
       (SyncBanner.couldNotSave, 'a12-could-not-save'),
       (SyncBanner.tokenProblem, 'a12-token-problem'),
+      (SyncBanner.notFound, 'a12-not-found'),
       (SyncBanner.conflict, 'a27-conflict'),
     ]) {
       banners.show(banner);
@@ -1180,6 +1186,9 @@ void main() {
     banners.show(SyncBanner.conflict);
     await tester.pumpAndSettle();
     await shot('a27-conflict');
+    banners.show(SyncBanner.notFound);
+    await tester.pumpAndSettle();
+    await shot('a12-not-found');
     banners.clear();
     await tester.pumpAndSettle();
     container

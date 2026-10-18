@@ -14,7 +14,8 @@ enum SyncBanner {
   offline,
   couldNotSave,
   tokenProblem,
-  conflict;
+  conflict,
+  notFound;
 
   String get title => switch (this) {
     saving => 'Saving your change',
@@ -22,8 +23,11 @@ enum SyncBanner {
     couldNotSave => 'Could not save to GitHub',
     tokenProblem => 'GitHub refused the token',
     conflict => 'Changed here and on GitHub',
+    notFound => 'Library not found on GitHub',
   };
 
+  /// The second line. For [notFound] the card says what is gone instead,
+  /// when the sync state knows ([missingDetail]).
   String get body => switch (this) {
     saving => 'Sending it to GitHub.',
     offline =>
@@ -32,18 +36,22 @@ enum SyncBanner {
     couldNotSave => 'Your change is kept on this phone.',
     tokenProblem => 'It may have expired.',
     conflict => 'Pick which copy to keep.',
+    notFound => 'Nothing syncs until you reconnect.',
   };
 
   /// The button on the right; null for a banner without one.
   String? get actionLabel => switch (this) {
     couldNotSave => 'Retry',
-    tokenProblem => 'Fix',
+    tokenProblem || notFound => 'Fix',
     conflict => 'Choose',
     _ => null,
   };
 
   bool get isError =>
-      this == couldNotSave || this == tokenProblem || this == conflict;
+      this == couldNotSave ||
+      this == tokenProblem ||
+      this == conflict ||
+      this == notFound;
 
   /// The value of the SYNC_BANNER dart-define, or null.
   static SyncBanner? fromDemo(String name) => switch (name) {
@@ -52,6 +60,7 @@ enum SyncBanner {
     'failed' => couldNotSave,
     'token' => tokenProblem,
     'conflict' => conflict,
+    'missing' => notFound,
     _ => null,
   };
 
@@ -62,9 +71,24 @@ enum SyncBanner {
     SyncPhase.failed => couldNotSave,
     SyncPhase.tokenProblem => tokenProblem,
     SyncPhase.conflict => conflict,
+    SyncPhase.notFound => notFound,
     SyncPhase.idle || SyncPhase.checking => null,
   };
 }
+
+/// What a 404 means for this connection, as the banner (A12) and D6 say
+/// it: "library.json is gone from owner/repo on main."
+String missingDetail(MissingPart missing, LibraryConnection connection) =>
+    switch (missing) {
+      MissingPart.repository =>
+        '${connection.repository} is gone, or the token no longer sees it.',
+      MissingPart.branch =>
+        'The branch ${connection.branch} is gone from '
+            '${connection.repository}.',
+      MissingPart.file =>
+        '${connection.file} is gone from ${connection.repository} on '
+            '${connection.branch}.',
+    };
 
 /// A banner set by hand (tests, the screenshots) that wins over the real
 /// state until [SyncBannerNotifier.follow]. [_noOverride] means none.

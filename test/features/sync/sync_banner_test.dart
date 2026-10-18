@@ -51,6 +51,58 @@ void main() {
     expect(find.text('Changed here and on GitHub'), findsOneWidget);
     expect(find.text('Pick which copy to keep.'), findsOneWidget);
     expect(find.text('Choose'), findsOneWidget);
+
+    // Forced by hand there is no sync state to say what is gone.
+    notifier.show(SyncBanner.notFound);
+    await tester.pumpAndSettle();
+    expect(find.text('Library not found on GitHub'), findsOneWidget);
+    expect(find.text('Nothing syncs until you reconnect.'), findsOneWidget);
+    expect(find.text('Fix'), findsOneWidget);
+  });
+
+  testWidgets('not found says what is gone, and Fix opens the connection', (
+    tester,
+  ) async {
+    final sync = FakeLibrarySync(
+      const SyncStatus(
+        phase: SyncPhase.notFound,
+        missing: MissingPart.branch,
+        pendingCount: 1,
+      ),
+    );
+    await pumpApp(
+      tester,
+      const Scaffold(body: SyncBannerCard()),
+      overrides: [librarySyncProvider.overrideWithValue(sync)],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Library not found on GitHub'), findsOneWidget);
+    expect(
+      find.text(
+        'The branch main is gone from ekmanch/library. Nothing syncs until '
+        'you reconnect.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Fix'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectionScreen), findsOneWidget);
+    expect(
+      find.text('The branch main is gone from ekmanch/library.'),
+      findsOneWidget,
+    );
+  });
+
+  test('the detail names the part that is gone', () {
+    const connection = LibraryConnection(connected: true);
+    expect(
+      missingDetail(MissingPart.repository, connection),
+      'ekmanch/library is gone, or the token no longer sees it.',
+    );
+    expect(
+      missingDetail(MissingPart.file, connection),
+      'library.json is gone from ekmanch/library on main.',
+    );
   });
 
   testWidgets('Choose opens D17, and a side resolves the conflict', (
@@ -140,6 +192,7 @@ void main() {
     expect(SyncBanner.fromDemo('failed'), SyncBanner.couldNotSave);
     expect(SyncBanner.fromDemo('token'), SyncBanner.tokenProblem);
     expect(SyncBanner.fromDemo('conflict'), SyncBanner.conflict);
+    expect(SyncBanner.fromDemo('missing'), SyncBanner.notFound);
     expect(SyncBanner.fromDemo(''), isNull);
   });
 
@@ -166,5 +219,11 @@ void main() {
     sync.emit(const SyncStatus(phase: SyncPhase.failed, pendingCount: 1));
     await tester.pumpAndSettle();
     expect(find.text('Could not save to GitHub'), findsOneWidget);
+    sync.emit(
+      const SyncStatus(phase: SyncPhase.notFound, missing: MissingPart.file),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Library not found on GitHub'), findsOneWidget);
+    expect(find.textContaining('library.json is gone'), findsOneWidget);
   });
 }

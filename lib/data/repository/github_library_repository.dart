@@ -190,7 +190,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
       return library;
     } on GitHubException catch (e) {
       // The first download failed; the load fails with it.
-      _setStatus(_status.copyWith(phase: _phaseFor(e.failure)));
+      await _report(e);
       rethrow;
     }
   }
@@ -254,7 +254,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
       );
     } on GitHubException catch (e) {
       _log('Sync failed: $e');
-      _setStatus(_status.copyWith(phase: _phaseFor(e.failure)));
+      await _report(e);
     } on Object catch (e, stack) {
       // A bug, or a file GitHub holds that the app cannot read. Shown as
       // a failure rather than lost in the chain.
@@ -497,7 +497,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
       _setStatus(_status.copyWith(phase: SyncPhase.idle));
     } on GitHubException catch (e) {
       _log('Resolving the conflict failed: $e');
-      _setStatus(_status.copyWith(phase: _phaseFor(e.failure)));
+      await _report(e);
     }
   }
 
@@ -544,6 +544,37 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
 
   static String _shaOf(Library library) =>
       gitBlobSha(utf8.encode(encodeLibrary(library)));
+
+  /// The status for a failed call. A 404 gets two more calls to tell
+  /// what is gone: the repo (or a token that no longer sees it), the
+  /// branch, or the file. That is not a failed save: Retry cannot help,
+  /// only the connection can be fixed (D6).
+  Future<void> _report(GitHubException e) async {
+    if (e.failure != GitHubFailure.notFound) {
+      _setStatus(_status.copyWith(phase: _phaseFor(e.failure)));
+      return;
+    }
+    MissingPart missing;
+    try {
+      await _api.getRepo();
+      try {
+        await _api.commits(path, branch: branch, limit: 1);
+        missing = MissingPart.file;
+      } on GitHubException catch (e) {
+        if (e.failure != GitHubFailure.notFound) rethrow;
+        missing = MissingPart.branch;
+      }
+    } on GitHubException catch (e) {
+      if (e.failure != GitHubFailure.notFound) {
+        // Offline or refused while asking: that state, then.
+        _setStatus(_status.copyWith(phase: _phaseFor(e.failure)));
+        return;
+      }
+      missing = MissingPart.repository;
+    }
+    _log('Not found on GitHub: the ${missing.name}.');
+    _setStatus(_status.copyWith(phase: SyncPhase.notFound, missing: missing));
+  }
 
   static SyncPhase _phaseFor(GitHubFailure failure) => switch (failure) {
     GitHubFailure.unauthorized ||

@@ -325,6 +325,65 @@ void main() {
     repo.dispose();
   });
 
+  group('a 404 is "not found", not a failed save', () {
+    test('a deleted file; a restored one syncs again', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      github.deleteFile('library.json');
+      await repo.apply(SetStatus(mummy.id, EntryStatus.want));
+      await settle(repo);
+      expect(repo.status.phase, SyncPhase.notFound);
+      expect(repo.status.missing, MissingPart.file);
+      expect(repo.status.pendingCount, 1);
+      expect(logged, contains('Not found on GitHub: the file.'));
+
+      github.setFile('library.json', seedText);
+      await repo.syncNow();
+      expect(repo.status.phase, SyncPhase.idle);
+      expect(repo.status.pendingCount, 0);
+      expect(github.putCount, 1);
+      repo.dispose();
+    });
+
+    test('a deleted branch', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      github.deleteBranch('main');
+      await repo.apply(SetStatus(mummy.id, EntryStatus.want));
+      await settle(repo);
+      expect(repo.status.phase, SyncPhase.notFound);
+      expect(repo.status.missing, MissingPart.branch);
+      expect(repo.status.pendingCount, 1);
+      expect(github.putCount, 0);
+      repo.dispose();
+    });
+
+    test('a repo that is gone, or that the token no longer sees', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      github.failure = GitHubFailure.notFound;
+      await repo.checkForChanges();
+      expect(repo.status.phase, SyncPhase.notFound);
+      expect(repo.status.missing, MissingPart.repository);
+      repo.dispose();
+    });
+
+    test('going offline while asking what is gone is offline', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      github.deleteFile('library.json');
+      github.failAfter = 1;
+      github.failure = GitHubFailure.offline;
+      await repo.checkForChanges();
+      expect(repo.status.phase, SyncPhase.offline);
+      repo.dispose();
+    });
+  });
+
   group('a save whose answer was lost', () {
     test('that landed is not sent twice', () async {
       final repo = repository();

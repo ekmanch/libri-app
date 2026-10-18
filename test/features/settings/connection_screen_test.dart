@@ -238,6 +238,29 @@ void main() {
     expect(sync.resolutions, [true]);
   });
 
+  testWidgets('a deleted file shows as not found, with what is gone', (
+    tester,
+  ) async {
+    final sync = FakeLibrarySync(
+      const SyncStatus(
+        phase: SyncPhase.notFound,
+        missing: MissingPart.file,
+        pendingCount: 2,
+      ),
+    );
+    await pumpApp(
+      tester,
+      const ConnectionScreen(),
+      overrides: [librarySyncProvider.overrideWithValue(sync)],
+    );
+    expect(find.text('Library not found on GitHub'), findsOneWidget);
+    expect(
+      find.text('library.json is gone from ekmanch/library on main.'),
+      findsOneWidget,
+    );
+    expect(find.text('Sync now'), findsOneWidget);
+  });
+
   testWidgets('Sync now and the status card follow the sync', (tester) async {
     final sync = FakeLibrarySync();
     await pumpApp(
