@@ -76,6 +76,14 @@ void main() {
         expect(entrySubtitle(one, today: today), '2018');
       });
 
+      test('the years count only seasons out', () {
+        final announced = show(const [
+          Season(season: 1, released: Released(2025, 9, 19)),
+          Season(season: 2, released: Released(2027)),
+        ]);
+        expect(entrySubtitle(announced, today: today), '2025 · 2 seasons');
+      });
+
       test('not released yet goes by the first season', () {
         final coming = show(const [
           Season(season: 1, released: Released(2026, 10, 30)),

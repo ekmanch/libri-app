@@ -9,12 +9,14 @@ import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'labels.dart';
 
-/// The years a show with seasons ran, from its first season to its last:
-/// "2025–2026", or "2025" when they are the same. Null without dated
-/// seasons.
-String? showYears(Entry entry) {
+/// The years a show ran, from its first season out to its last one out:
+/// "2025–2026", or "2025" when they are the same. Null when no season is
+/// out yet.
+String? showYears(Entry entry, {DateTime? today}) {
+  final day = today ?? DateTime.now();
   final years = [
-    for (final s in entry.seasons ?? const <Season>[]) ?s.released?.year,
+    for (final s in entry.seasons ?? const <Season>[])
+      if (s.isReleasedOn(day)) ?s.released?.year,
   ];
   if (years.isEmpty) return null;
   final first = years.first, last = years.last;
@@ -37,7 +39,10 @@ String entrySubtitle(Entry entry, {DateTime? today}) {
     return 'Not released yet';
   }
   if (seasonCountLabel(entry) case final count?) {
-    return [showYears(entry), count].whereType<String>().join(' · ');
+    return [
+      showYears(entry, today: today),
+      count,
+    ].whereType<String>().join(' · ');
   }
   final year = released?.year.toString();
   final lead = switch (entry.type) {

@@ -20,6 +20,65 @@ import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/touch_target.dart';
 
+/// A season's date in its row: "Sep 19, 2025"; "Coming 2027" or "Coming
+/// Oct 30, 2026" while it is not out; "Release date not set".
+String seasonDateLabel(Season season, DateTime today) {
+  final released = season.released;
+  if (released == null) return 'Release date not set';
+  final date = releasedLabel(released);
+  return released.isReleasedOn(today) ? date : 'Coming $date';
+}
+
+/// The show's status as its seasons give it, in place of the status
+/// control (A29): "Status · In progress · from seasons", above Rating.
+class ShowStatusRow extends StatelessWidget {
+  const ShowStatusRow({super.key, required this.status});
+
+  final EntryStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    final muted = theme.textTheme.bodyMedium!.copyWith(
+      fontSize: 15,
+      color: colors.muted,
+    );
+    return Semantics(
+      label: 'Status, ${status.label}, from seasons',
+      excludeSemantics: true,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colors.divider)),
+        ),
+        child: Row(
+          children: [
+            Text('Status', style: muted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: status.label,
+                      style: theme.textTheme.titleMedium!.copyWith(
+                        fontSize: 15,
+                      ),
+                    ),
+                    TextSpan(text: ' · from seasons', style: muted),
+                  ],
+                ),
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// "1 season", "29 seasons".
 String seasonsCount(int count) => count == 1 ? '1 season' : '$count seasons';
 
@@ -102,7 +161,6 @@ class SeasonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final released = season.released;
     return Container(
       constraints: const BoxConstraints(minHeight: 60),
       decoration: BoxDecoration(
@@ -130,9 +188,7 @@ class SeasonRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    released == null
-                        ? 'Release date not set'
-                        : releasedLabel(released),
+                    seasonDateLabel(season, DateTime.now()),
                     style: theme.textTheme.bodySmall!.copyWith(
                       fontStyle: FontStyle.normal,
                       fontSize: 13.5,

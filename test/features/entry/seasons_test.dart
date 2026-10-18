@@ -11,6 +11,8 @@ import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/features/entry/entry_details_sheet.dart';
 import 'package:library_app/features/entry/seasons.dart';
+import 'package:library_app/data/operations/operations.dart';
+import 'package:library_app/widgets/segmented_control.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -34,6 +36,7 @@ class _Opener extends StatelessWidget {
 const _twinPeaks = 'shows/twin-peaks-1990';
 const _shadows = 'shows/what-we-do-in-the-shadows-2019';
 const _strangerThings = 'shows/stranger-things-2016';
+const _hillHouse = 'shows/the-haunting-of-hill-house-2018';
 
 void main() {
   Future<ProviderContainer> open(
@@ -196,6 +199,75 @@ void main() {
     expect(find.text('New season'), findsNothing);
     expect(find.text('New'), findsNothing);
     expect(saved(container, _twinPeaks).seasons!.last.fresh, isNull);
+  });
+
+  testWidgets('several seasons: a status row from the seasons, no control', (
+    tester,
+  ) async {
+    await open(tester, _twinPeaks);
+    expect(find.byType(StatusSegmentedControl), findsNothing);
+    expect(find.bySemanticsLabel('Status, Done, from seasons'), findsOneWidget);
+  });
+
+  testWidgets('one season: the status control is that season, no list', (
+    tester,
+  ) async {
+    final container = await open(tester, _hillHouse);
+    expect(find.text('SEASONS'), findsNothing);
+    expect(find.byType(ShowStatusRow), findsNothing);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(StatusSegmentedControl),
+        matching: find.text('Want'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final show = saved(container, _hillHouse);
+    expect(show.status, EntryStatus.want);
+    expect(show.seasons!.single.status, EntryStatus.want);
+
+    // A second season appears (A35): the list replaces the control, and
+    // the show keeps the status Season 1 gives.
+    await container
+        .read(libraryRepositoryProvider)
+        .apply(
+          const AddSeasons(_hillHouse, [
+            Season(season: 2, released: Released(2099), fresh: true),
+          ]),
+        );
+    await tester.pumpAndSettle();
+    expect(find.byType(StatusSegmentedControl), findsNothing);
+    expect(find.bySemanticsLabel('Status, Want, from seasons'), findsOneWidget);
+    expect(find.text('SEASONS'), findsOneWidget);
+    expect(find.text('Coming 2099'), findsOneWidget);
+    // Not out yet: no New label.
+    expect(find.text('New'), findsNothing);
+  });
+
+  test('a season\'s date says Coming until it is out', () {
+    final today = DateTime(2026, 10, 18);
+    expect(
+      seasonDateLabel(const Season(season: 1, released: Released(2027)), today),
+      'Coming 2027',
+    );
+    expect(
+      seasonDateLabel(
+        const Season(season: 1, released: Released(2026, 10, 30)),
+        today,
+      ),
+      'Coming Oct 30, 2026',
+    );
+    expect(
+      seasonDateLabel(
+        const Season(season: 1, released: Released(2026, 10, 18)),
+        today,
+      ),
+      'Oct 18, 2026',
+    );
+    expect(
+      seasonDateLabel(const Season(season: 1), today),
+      'Release date not set',
+    );
   });
 
   test('All seasons opens at the one in progress, else the first not Done', () {

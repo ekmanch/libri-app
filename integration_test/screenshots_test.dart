@@ -17,6 +17,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
+import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/operations/operations.dart';
@@ -25,6 +26,7 @@ import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/data/storage/connection_store.dart';
+import 'package:library_app/features/entry/dropped_season_dialog.dart';
 import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/first_run/first_run_flow.dart';
@@ -287,6 +289,42 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
   await closeSheet(tester);
+
+  // A34: one season, the status control; A35: a second season announced.
+  await revealHeader(tester);
+  await openShow('The Haunting of Hill House');
+  await capture(tester, '${prefix}a34-show-one-season');
+  await closeSheet(tester);
+  await container
+      .read(libraryRepositoryProvider)
+      .apply(
+        AddSeasons('shows/the-haunting-of-hill-house-2018', [
+          Season(season: 2, released: Released(today.year + 1), fresh: true),
+        ]),
+      );
+  await tester.pumpAndSettle();
+  await revealHeader(tester);
+  await openShow('The Haunting of Hill House');
+  await tester.ensureVisible(find.text('SEASONS'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a35-show-season-announced');
+  await closeSheet(tester);
+
+  // A36: a dropped season the user had given a status.
+  final hillHouse = (await container.read(libraryRepositoryProvider).load())
+      .entryById('shows/the-haunting-of-hill-house-2018')!;
+  unawaited(
+    showDroppedSeasonDialog(
+      tester.element(find.text('Library').first),
+      show: hillHouse,
+      season: 2,
+      status: EntryStatus.want,
+    ),
+  );
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a36-season-dropped');
+  await tester.tap(find.text('Keep it'));
+  await tester.pumpAndSettle();
 
   // A33: the status sheet with catch-up.
   await revealHeader(tester);

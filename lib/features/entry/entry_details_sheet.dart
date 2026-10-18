@@ -38,7 +38,9 @@ Future<void> showEntryDetailsSheet(BuildContext context, String entryId) {
 }
 
 /// Entry details (A6): cover spot, status, rating, note, about, tags,
-/// plans, Edit and Delete. A show with seasons lists them (A29). An album also gets its track list with track
+/// plans, Edit and Delete. A show with more than one season lists them
+/// and shows the status they give as a row (A29); a show with one season
+/// has the status control, which is that season's status (A34). An album also gets its track list with track
 /// ratings (A22). Watches the library, so a change made here or in the
 /// edit form shows at once. Status and rating apply immediately.
 class EntryDetailsSheet extends ConsumerWidget {
@@ -129,20 +131,25 @@ class EntryDetailsSheet extends ConsumerWidget {
         children: [
           EntryHeader(entry: entry, showCover: showCover),
           const SizedBox(height: 13),
-          const SectionHeading('Status', padding: EdgeInsets.zero),
-          const SizedBox(height: 6),
-          StatusSegmentedControl(
-            selected: entry.status,
-            type: entry.type,
-            style: SegmentedStyle.accent,
-            inset: true,
-            onChanged: (status) {
-              if (status != null && status != entry.status) {
-                repository.apply(SetStatus(entry.id, status));
-              }
-            },
-          ),
-          const SizedBox(height: 13),
+          if (entry.hasSeasonList)
+            // The seasons set the status (A29): a row, then Rating.
+            ShowStatusRow(status: entry.status)
+          else ...[
+            const SectionHeading('Status', padding: EdgeInsets.zero),
+            const SizedBox(height: 6),
+            StatusSegmentedControl(
+              selected: entry.status,
+              type: entry.type,
+              style: SegmentedStyle.accent,
+              inset: true,
+              onChanged: (status) {
+                if (status != null && status != entry.status) {
+                  repository.apply(SetStatus(entry.id, status));
+                }
+              },
+            ),
+            const SizedBox(height: 13),
+          ],
           BorderedRow(
             onTap: pickRating,
             semanticsLabel: 'Rating, ${ratingLabel(entry.rating)}',
@@ -159,7 +166,7 @@ class EntryDetailsSheet extends ConsumerWidget {
               style: theme.textTheme.titleMedium!.copyWith(fontSize: 15),
             ),
           ),
-          if (entry.seasons?.isNotEmpty ?? false) ...[
+          if (entry.hasSeasonList) ...[
             const SizedBox(height: 13),
             SeasonsSection(show: entry),
           ],
