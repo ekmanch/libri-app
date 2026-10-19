@@ -64,6 +64,34 @@ void main() {
     expect(find.byType(BottomSheet), findsNothing);
   });
 
+  testWidgets('a pull on the body moves the sheet with the finger', (
+    tester,
+  ) async {
+    await openLongSheet(tester);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Row 3')),
+    );
+    // Past the touch slop, so the sheet already follows.
+    for (var i = 0; i < 4; i++) {
+      await gesture.moveBy(const Offset(0, 10));
+      await tester.pump();
+    }
+    final top = tester.getTopLeft(find.text('Details')).dy;
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(const Offset(0, 10));
+      await tester.pump();
+    }
+    expect(tester.getTopLeft(find.text('Details')).dy, closeTo(top + 100, 1));
+    // Let go more than half gone: closed within the 200 ms exit.
+    await gesture.moveBy(const Offset(0, 400));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    expect(find.byType(BottomSheet), findsNothing);
+  });
+
   testWidgets('a short pull on the body springs back', (tester) async {
     await openLongSheet(tester);
     final top = tester.getTopLeft(find.text('Details')).dy;

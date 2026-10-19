@@ -87,13 +87,22 @@ class _SheetFrameState extends State<SheetFrame> {
     _tracker!.addPosition(event.timeStamp, event.position);
     final sheet = _sheet;
     if (sheet == null || !_bodyDragging) return;
-    if (sheet.status == AnimationStatus.reverse) return;
     final dy = event.delta.dy;
     if (!_pulling) {
+      // Closing already.
+      if (sheet.status == AnimationStatus.reverse) return;
       // Down past the top of the body: from here the sheet follows.
       if (!_atTop || dy <= 0) return;
       _pulling = true;
       _sheetMoved = true;
+      // Running in reverse, the sheet takes its linear reverse curve
+      // ([_sheetMotion]) and keeps it until it is open or gone, so it
+      // follows the finger 1:1 and a flick closes it at an even pace. On
+      // the opening curve it lagged far behind the finger, and closing
+      // started slowly.
+      sheet
+        ..reverse()
+        ..stop();
     }
     final height = _frameKey.currentContext?.size?.height ?? 0;
     if (height > 0) sheet.value -= dy / height;
@@ -253,6 +262,11 @@ class _SheetDrag extends InheritedWidget {
       controller != oldWidget.controller;
 }
 
+/// Material's decelerating curve to open, a linear one to close: a sheet
+/// pulled down follows the finger and leaves at once (see
+/// [_SheetFrameState._move]).
+const _sheetMotion = AnimationStyle(reverseCurve: Curves.linear);
+
 /// Opens a modal bottom sheet styled by the theme, on the root navigator so
 /// it covers the floating navigation. With [inheritTheme] the sheet keeps
 /// the opener's theme, e.g. the seasonal accent inside a plan (S7, D2).
@@ -280,6 +294,7 @@ Future<T?> showAppSheet<T>(
     context: context,
     useRootNavigator: true,
     transitionAnimationController: controller,
+    sheetAnimationStyle: _sheetMotion,
     isScrollControlled: true,
     useSafeArea: true,
     constraints: BoxConstraints(
