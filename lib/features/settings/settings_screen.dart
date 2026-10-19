@@ -23,9 +23,9 @@ Future<void> openSettingsScreen(BuildContext context) {
   ).push<void>(MaterialPageRoute(builder: (_) => const SettingsScreen()));
 }
 
-/// Settings (S6): a preview of the accent, theme, accent color in the
-/// Vivid and Pastel groups, the defaults for new plans, the default game
-/// platform, the library connection and the About row that opens D19.
+/// Settings: a preview of the accent, theme, accent color in the Vivid and
+/// Pastel groups, the defaults for new plans, the default game platform, the
+/// library connection and the About row that opens Settings › About Libri.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 

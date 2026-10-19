@@ -6,14 +6,15 @@ import '../../widgets/app_buttons.dart';
 import '../../widgets/app_dialog.dart';
 import '../../widgets/labels.dart';
 
-/// What was picked in A36. Null when the dialog was dismissed otherwise;
-/// then it is asked again after the next daily check.
+/// What was picked in Show & seasons › Announced season dropped. Null when the
+/// dialog was dismissed otherwise; then it is asked again after the next daily
+/// check.
 enum DroppedSeasonChoice { keep, remove }
 
-/// "Season 2 of Carrie is no longer listed" (A36): a season Libri added
-/// that TMDB no longer lists, or a show it marks Canceled, which the user
-/// had given [status]. Keep it marks the season manual, so it is never
-/// asked about again; Remove takes it out.
+/// "Season 2 of Carrie is no longer listed" (Show & seasons › Announced season
+/// dropped): a season Libri added that TMDB no longer lists, or a show it marks
+/// Canceled, which the user had given [status]. Keep it marks the season
+/// manual, so it is never asked about again; Remove takes it out.
 Future<DroppedSeasonChoice?> showDroppedSeasonDialog(
   BuildContext context, {
   required Entry show,

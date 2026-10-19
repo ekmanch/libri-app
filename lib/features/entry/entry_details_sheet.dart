@@ -29,7 +29,8 @@ import 'entry_form_screen.dart';
 import 'rating_sheet.dart';
 import 'seasons.dart';
 
-/// Opens the entry details sheet (A6) for the entry with [entryId].
+/// Opens the entry details sheet (Library › Entry details) for the entry with
+/// [entryId].
 Future<void> showEntryDetailsSheet(BuildContext context, String entryId) {
   return showAppSheet<void>(
     context,
@@ -37,12 +38,14 @@ Future<void> showEntryDetailsSheet(BuildContext context, String entryId) {
   );
 }
 
-/// Entry details (A6): cover spot, status, rating, note, about, tags,
-/// plans, Edit and Delete. A show lists its seasons; with more than one
-/// the status they give is a row (A29), and with one the Status row holds
-/// Season 1's pill, which is the show's status (A34). An album also gets its track list with track
-/// ratings (A22). Watches the library, so a change made here or in the
-/// edit form shows at once. Status and rating apply immediately.
+/// Entry details (Library › Entry details): cover spot, status, rating, note,
+/// about, tags, plans, Edit and Delete. A show lists its seasons; with more
+/// than one the status they give is a row (Show & seasons › Show with seasons
+/// (Haunted Hotel)), and with one the Status row holds Season 1's pill, which
+/// is the show's status (Show & seasons › One season (Carrie)). An album also
+/// gets its track list with track ratings (Music › Album with track ratings).
+/// Watches the library, so a change made here or in the edit form shows at
+/// once. Status and rating apply immediately.
 class EntryDetailsSheet extends ConsumerWidget {
   const EntryDetailsSheet({super.key, required this.entryId});
 
@@ -132,10 +135,12 @@ class EntryDetailsSheet extends ConsumerWidget {
           EntryHeader(entry: entry, showCover: showCover),
           const SizedBox(height: 13),
           if (entry.hasSeasonList)
-            // The seasons set the status (A29): a row, then Rating.
+            // The seasons set the status (Show & seasons › Show with seasons
+            // (Haunted Hotel)): a row, then Rating.
             ShowStatusRow(status: entry.status)
           else if (entry.seasons?.length == 1)
-            // One season: its pill is the show's status (A34).
+            // One season: its pill is the show's status (Show & seasons › One
+            // season (Carrie)).
             SingleSeasonStatusRow(show: entry)
           else ...[
             const SectionHeading('Status', padding: EdgeInsets.zero),
@@ -264,11 +269,11 @@ class EntryDetailsSheet extends ConsumerWidget {
   }
 }
 
-/// The Tracks section of an album (A22). With a track list every track is
-/// listed, numbered, with its rating or "Rate"; the first six are shown
-/// until "Show all" is tapped. While it loads, when it could not be fetched
-/// (offline) or when the source has none, only the rated tracks are listed
-/// and a line says why.
+/// The Tracks section of an album (Music › Album with track ratings). With a
+/// track list every track is listed, numbered, with its rating or "Rate"; the
+/// first six are shown until "Show all" is tapped. While it loads, when it
+/// could not be fetched (offline) or when the source has none, only the rated
+/// tracks are listed and a line says why.
 class _TrackList extends StatefulWidget {
   const _TrackList({
     required this.album,
@@ -386,7 +391,8 @@ class _TrackListState extends State<_TrackList> {
                       rating == null ? 'Rate' : ratingLabel(rating.rating),
                       style: theme.textTheme.labelMedium!.copyWith(
                         // An unrated track is quiet, so the list does not read
-                        // as a column of calls to action (A22).
+                        // as a column of calls to action (Music › Album with
+                        // track ratings).
                         color: rating == null
                             ? LibraryColors.of(context).placeholder
                             : theme.colorScheme.onSurface,

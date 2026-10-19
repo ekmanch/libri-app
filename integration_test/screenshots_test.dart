@@ -62,8 +62,8 @@ Override _demoGitHub({Duration latency = Duration.zero}) {
 
 const _demoLatency = Duration(milliseconds: 300);
 
-/// D6 as the artboard draws it: synced a few minutes ago. The fixture has
-/// no sync of its own.
+/// Settings › Library connection as the artboard draws it: synced a few minutes
+/// ago. The fixture has no sync of its own.
 final _syncedRecently = syncStatusProvider.overrideWithValue(
   AsyncValue.data(
     SyncStatus(lastSynced: DateTime.now().subtract(const Duration(minutes: 3))),
@@ -87,9 +87,9 @@ Future<void> capture(WidgetTester tester, String name) async {
   debugPrint('Wrote ${file.absolute.path}');
 }
 
-/// The home's header is part of its scroll (A1), so after a list has been
-/// scrolled the search box or the chips may be off screen and not built:
-/// jump every vertical list back to the top first.
+/// The home's header is part of its scroll (Library › Home), so after a list
+/// has been scrolled the search box or the chips may be off screen and not
+/// built: jump every vertical list back to the top first.
 Future<void> revealHeader(WidgetTester tester) async {
   final vertical = find.byWidgetPredicate(
     (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
@@ -156,8 +156,9 @@ Future<void> tapSheetChip(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-/// Closes the open sheet with the system back, like the phone's gesture.
-/// A tall sheet (A22) can leave no scrim to tap on a 780 dp screen.
+/// Closes the open sheet with the system back, like the phone's gesture. A tall
+/// sheet (Music › Album with track ratings) can leave no scrim to tap on a 780
+/// dp screen.
 Future<void> closeSheet(WidgetTester tester) async {
   await tester.binding.handlePopRoute();
   await tester.pumpAndSettle();
@@ -181,7 +182,7 @@ Future<void> pickView(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-/// A29 to A35, A39 to A41 at [scale]: the show rows with a new season,
+/// Show & seasons at [scale]: the show rows with a new season,
 /// the Seasons section with few and many seasons, all seasons, the status
 /// sheet with catch-up, and a season's episodes out and airing. Severance
 /// gets a new season 3 (the daily check's work, applied directly).
@@ -241,19 +242,19 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await pickChip(tester, 'Shows');
   await capture(tester, '${prefix}a1-shows-new-season');
 
-  // A30: a new season just out.
+  // Show & seasons › New season just out.
   await openShow('Severance');
   await capture(tester, '${prefix}a30-show-new-season');
   await toSeasons();
   await capture(tester, '${prefix}a30-show-new-season-seasons');
   await closeSheet(tester);
 
-  // A29: a few seasons, all listed.
+  // Show & seasons › Show with seasons: a few seasons, all listed.
   await revealHeader(tester);
   await openShow('Twin Peaks');
   await toSeasons();
   await capture(tester, '${prefix}a29-show-seasons');
-  // A8: a show's seasons in the form.
+  // Add / edit entry › Edit a show: a show's seasons in the form.
   await tester.ensureVisible(find.text('Edit'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Edit'));
@@ -278,7 +279,7 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await closeSheet(tester);
 
-  // A31 and A32: many seasons.
+  // Show & seasons › Many seasons, then All seasons.
   await revealHeader(tester);
   await openShow('What We Do in the Shadows');
   await tester.ensureVisible(find.text('All 6 seasons'));
@@ -291,8 +292,9 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await closeSheet(tester);
 
-  // A34: one season, its status in the Status row's pill, the sheet titled
-  // with the show; A41: its season; A35: a second season announced.
+  // Show & seasons › One season: its status in the Status row's pill, the sheet
+  // titled with the show; Episodes of a one-season show: its season; Season 2
+  // announced: a second season appears.
   await revealHeader(tester);
   await openShow('The Haunting of Hill House');
   await capture(tester, '${prefix}a34-show-one-season');
@@ -324,7 +326,8 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await capture(tester, '${prefix}a35-show-season-announced');
   await closeSheet(tester);
 
-  // A36: a dropped season the user had given a status.
+  // Show & seasons › Announced season dropped: a dropped season the user had
+  // given a status.
   final hillHouse = (await container.read(libraryRepositoryProvider).load())
       .entryById('shows/the-haunting-of-hill-house-2018')!;
   unawaited(
@@ -340,7 +343,8 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(find.text('Keep it'));
   await tester.pumpAndSettle();
 
-  // A33: the status sheet with catch-up.
+  // Show & seasons › All seasons, just added: catch up: the status sheet with
+  // catch-up.
   await revealHeader(tester);
   await openShow('Stranger Things');
   final pill = find.bySemanticsLabel(RegExp('^Season 5 status: '));
@@ -351,8 +355,9 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await capture(tester, '${prefix}a33-season-status-catch-up');
   await closeSheet(tester);
 
-  // A39: a season out on one day; A40: one airing weekly (the fake's
-  // Severance season 3, from today).
+  // Show & seasons › Season episodes (all out): a season out on one day; Season
+  // episodes (airing weekly): one airing weekly (the fake's Severance season 3,
+  // from today).
   Future<void> openSeasonRow(int season) async {
     final row = find.bySemanticsLabel(RegExp('^Season $season, .*Episodes\$'));
     await tester.ensureVisible(row);
@@ -375,9 +380,9 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await closeSheet(tester);
 }
 
-/// A38 at [scale]: a book's details with its page count under the author,
-/// in a photo view as drawn, and the Pages field in A8. Captures are
-/// prefixed "large-text-" above 1.
+/// Library › Book details (page count) at [scale]: a book's details with its
+/// page count under the author, in a photo view as drawn, and the Pages field
+/// in Add / edit entry. Captures are prefixed "large-text-" above 1.
 Future<void> walkBook(WidgetTester tester, {double scale = 1}) async {
   final prefix = scale == 1 ? '' : 'large-text-';
   await tester.pumpWidget(
@@ -461,7 +466,7 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'a1-home-dark');
 
-    // A4 and A21: Movies picked, text and grid.
+    // Library › Movies, text view and grid with covers.
     await tester.tap(find.widgetWithText(PillChip, 'Movies'));
     await tester.pumpAndSettle();
     await capture(tester, 'a4-movies-text');
@@ -491,7 +496,8 @@ void main() {
     await tester.pumpAndSettle();
     await pickChip(tester, 'All');
 
-    // A2 and L5: filter to shows tagged horror.
+    // Library › Filter sheet and Filtered results, one type: filter to shows
+    // tagged horror.
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await tester.tap(
@@ -508,7 +514,7 @@ void main() {
     await tester.tap(find.text('Clear all'));
     await tester.pumpAndSettle();
 
-    // A5: search.
+    // Library › Search.
     await tester.tap(find.text('Search titles and tags'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'hal');
@@ -517,7 +523,8 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    // A6, D11, A7, A9: the details sheet and what opens from it.
+    // Library › Entry details and what opens from it: Rating picker, Add to
+    // plan, Delete confirmation.
     await tester.tap(find.widgetWithText(PillChip, 'Movies'));
     await tester.pumpAndSettle();
     // Movies is still in the grid view, so the sheet shows the cover spot.
@@ -544,7 +551,8 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    // A8 edit, the tag picker, D9 and D10.
+    // Add / edit entry: editing, the tag picker, New tag: a similar one
+    // exists and New tag: confirm and pick a category.
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     await capture(tester, 'a8-edit-entry');
@@ -569,7 +577,7 @@ void main() {
     await closeSheet(tester);
     await pickChip(tester, 'All');
 
-    // A13: a new entry, picking a match.
+    // Add / edit entry › New entry: pick a match.
     await tester.tap(find.byType(AddButton));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'The Last of Us');
@@ -602,9 +610,10 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
-    // A8 from a movie match (Back lands on A13 again): the billed cast as
-    // actor suggestions, D10 starting on Actors, and the picker's "New on
-    // this entry" group.
+    // Add / edit entry from a movie match (Back lands on New entry: pick a
+    // match again): the billed cast as actor suggestions, New tag: confirm
+    // and pick a category starting on Actors, and the picker's "New on this
+    // entry" group.
     // The field lost focus on the way back, so typing needs a tap first.
     await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
@@ -636,7 +645,8 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
-    // A14, A17, A18: the music tabs in the three views.
+    // Library › Music: artists, text view, list with photos and grid with
+    // photos: the music tabs in the three views.
     await pickChip(tester, 'Music');
     await capture(tester, 'a14-music-artists');
     await pickView(tester, 'List with photos');
@@ -645,7 +655,7 @@ void main() {
     await capture(tester, 'a18-music-grid');
     await pickView(tester, 'Text');
 
-    // A15: one artist; A22: an album with its tracks.
+    // Music › Artist, text view; Music › Album with track ratings.
     await tester.tap(find.text('Alice in Chains'));
     await tester.pumpAndSettle();
     await capture(tester, 'a15-artist');
@@ -662,8 +672,9 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'a14-music-songs');
 
-    // A3 for music: opened from Songs, the sheet has Music + Songs; Albums
-    // instead comes back as the Albums tab (A24).
+    // Library › Filter sheet from a type view, for music: opened from Songs,
+    // the sheet has Music + Songs; Albums instead comes back as the Albums tab
+    // (Library › Music: albums (filter result)).
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await capture(tester, 'a3-filter-from-music-songs');
@@ -690,7 +701,7 @@ void main() {
     await tester.tap(find.text('Songs'));
     await tester.pumpAndSettle();
 
-    // D12: saving an album whose song is already saved.
+    // Add / edit entry › Saving an album: songs already saved.
     await tester.tap(find.byType(AddButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fill in the details myself'));
@@ -722,7 +733,7 @@ void main() {
     await tester.pumpAndSettle();
     await pickChip(tester, 'All');
 
-    // D8: home in light.
+    // Library › Home, light theme.
     final container = ProviderScope.containerOf(
       tester.element(find.text('Library').first),
     );
@@ -750,7 +761,7 @@ void main() {
       tester.element(find.text('Library').first),
     );
 
-    // A10: a filter nothing matches.
+    // Library › Empty states: a filter nothing matches.
     container
         .read(libraryFilterProvider.notifier)
         .set(const LibraryFilter(tags: {'horror', 'cozy', 'jazz'}));
@@ -759,7 +770,8 @@ void main() {
     container.read(libraryFilterProvider.notifier).clear();
     await tester.pumpAndSettle();
 
-    // A8 with "Look up again", and A13 as the picker it opens (phase 5).
+    // Add / edit entry with "Look up again", and New entry: pick a match as
+    // the picker it opens (phase 5).
     await pickChip(tester, 'Movies');
     await tester.ensureVisible(find.text('Dune: Part Two'));
     await tester.pumpAndSettle();
@@ -781,13 +793,13 @@ void main() {
     await closeSheet(tester);
     await pickChip(tester, 'All');
 
-    // A20: Movies as a list with covers.
+    // Library › Movies, list with covers.
     await pickChip(tester, 'Movies');
     await pickView(tester, 'List with covers');
     await capture(tester, 'a20-movies-list-covers');
     await pickView(tester, 'Text');
 
-    // A19: an artist with photos.
+    // Music › Artist, with photos.
     await pickChip(tester, 'Music');
     await pickView(tester, 'List with photos');
     await tester.tap(find.text('Alice in Chains'));
@@ -797,7 +809,7 @@ void main() {
     await tester.pumpAndSettle();
     await pickView(tester, 'Text');
 
-    // D13: a song whose album is saved.
+    // Add / edit entry › Saving a song: album already saved.
     await tester.tap(find.byType(AddButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fill in the details myself'));
@@ -827,7 +839,8 @@ void main() {
     await tester.pumpAndSettle();
     await pickChip(tester, 'All');
 
-    // S8 and the plan note; the linked tags and copy-from sheets.
+    // Plans › Entry details (timeline off) and the plan note; the linked tags
+    // and copy-from sheets.
     await tester.tap(find.text('Plans'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Christmas 2026'));
@@ -954,7 +967,8 @@ void main() {
     await capture(tester, 'large-text-a25-released-picker');
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
-    // D10 with its ten category chips: a new suggested tag opens it.
+    // Add / edit entry › New tag: confirm and pick a category, with its ten
+    // category chips: a new suggested tag opens it.
     await tester.scrollUntilVisible(
       find.bySemanticsLabel('Add #stealth'),
       200,
@@ -971,7 +985,8 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
-    // S6, D6, F3 and A12 at the larger text size.
+    // Settings, Settings › Library connection, First run › Connect GitHub and
+    // Library › Sync and errors at the larger text size.
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-s6-settings');
@@ -1018,8 +1033,9 @@ void main() {
     largeTextContainer.read(syncBannerProvider.notifier).clear();
     await tester.pumpAndSettle();
 
-    // F4 at the larger text size: the first run after the library is
-    // deleted from the phone (D16), up to the branch list.
+    // First run › Pick a branch at the larger text size: the first run after
+    // the library is deleted from the phone (Settings › Disconnect: keep or
+    // delete), up to the branch list.
     largeTextContainer
         .read(libraryConnectionProvider.notifier)
         .disconnect(keepLibrary: false);
@@ -1054,7 +1070,7 @@ void main() {
       tester.element(find.text('Library').first),
     );
 
-    // A12: the four banners on the home.
+    // Library › Sync and errors: the four banners on the home.
     final banners = container.read(syncBannerProvider.notifier);
     for (final (banner, name) in [
       (SyncBanner.saving, 'a12-saving'),
@@ -1069,7 +1085,7 @@ void main() {
       await tester.pumpAndSettle();
       await capture(tester, name);
     }
-    // D17 from the conflict banner's Choose.
+    // Library › Conflict: keep which copy?, from the conflict banner's Choose.
     await tester.tap(find.text('Choose'));
     await tester.pumpAndSettle();
     await capture(tester, 'd17-conflict');
@@ -1078,7 +1094,7 @@ void main() {
     banners.clear();
     await tester.pumpAndSettle();
 
-    // S6 top and bottom, D6.
+    // Settings top and bottom, Settings › Library connection.
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     await capture(tester, 's6-settings');
@@ -1099,8 +1115,9 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'd6-connection');
 
-    // Disconnect is two steps (D15, D16); deleting the library from the
-    // phone starts the first run at the welcome screen (F2).
+    // Disconnect is two steps (Settings › Disconnect: confirm, then keep or
+    // delete); deleting the library from the phone starts the first run at the
+    // welcome screen (First run › Welcome).
     await tester.tap(find.text('Disconnect'));
     await tester.pumpAndSettle();
     await capture(tester, 'd15-disconnect-confirm');
@@ -1165,7 +1182,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Library'), findsWidgets);
 
-    // D6 with the library kept on this phone (D16, "Keep it on this phone").
+    // Settings › Library connection with the library kept on this phone
+    // (Settings › Disconnect: keep or delete, "Keep it on this phone").
     await tester.pumpWidget(
       ProviderScope(
         key: UniqueKey(),
@@ -1190,7 +1208,8 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'd6-connection-local');
 
-    // D18: connecting again and picking another file than the kept one.
+    // First run › Different file: which library?: connecting again and picking
+    // another file than the kept one.
     await tester.tap(find.text('Connect to GitHub'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'github_pat_example');
@@ -1214,19 +1233,21 @@ void main() {
     await capture(tester, 'd18-which-library');
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    // F7 to F5 to F4 to F3, then F3 pops back to D6.
+    // First run › Pick an existing file, Library file: new or existing, Pick a
+    // branch, Connect GitHub; then Connect GitHub pops back to Settings ›
+    // Library connection.
     for (var i = 0; i < 4; i++) {
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
     }
-    // The navigator outlives the scope swap (the root key), so leave D6
-    // and Settings before the next one.
+    // The navigator outlives the scope swap (the root key), so leave Settings ›
+    // Library connection and Settings before the next one.
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
-    // F1: the splash, on a cold start without a connection.
+    // First run › Splash, on a cold start without a connection.
     await tester.pumpWidget(
       ProviderScope(
         key: UniqueKey(),
@@ -1244,7 +1265,8 @@ void main() {
     await tester.pump(FirstRunFlow.splashDuration);
     await tester.pumpAndSettle();
 
-    // D6 with changes that could not be saved, and its Disconnect dialog.
+    // Settings › Library connection with changes that could not be saved, and
+    // its Disconnect dialog.
     await tester.pumpWidget(
       ProviderScope(
         key: UniqueKey(),
@@ -1279,7 +1301,7 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    // D7: a library that never finishes loading.
+    // First run › First load: a library that never finishes loading.
     final never = Completer<String>();
     await tester.pumpWidget(
       ProviderScope(
@@ -1299,7 +1321,7 @@ void main() {
   });
 
   /// The app with a connection whose token expires at [tokenExpires], for
-  /// D20 and the "Token expired" state.
+  /// Library › Token expires soon and the "Token expired" state.
   Future<ProviderContainer> pumpWithToken(
     WidgetTester tester, {
     required DateTime tokenExpires,
@@ -1336,7 +1358,7 @@ void main() {
     );
   }
 
-  testWidgets('D20 token expiry warning in dark and light', (tester) async {
+  testWidgets('token expires soon warning in dark and light', (tester) async {
     // Six days left, as the artboard's default variant.
     final container = await pumpWithToken(
       tester,
@@ -1352,7 +1374,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('D20 at a larger text size', (tester) async {
+  testWidgets('token expires soon at a larger text size', (tester) async {
     await pumpWithToken(
       tester,
       tokenExpires: DateTime.now().add(const Duration(days: 1)),
@@ -1363,7 +1385,9 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('an expired token on the home and in D6', (tester) async {
+  testWidgets('an expired token on the home and in the library connection', (
+    tester,
+  ) async {
     await pumpWithToken(
       tester,
       tokenExpires: DateTime.now().subtract(const Duration(days: 1)),
@@ -1636,7 +1660,7 @@ void main() {
     await shot('f8-done');
     await tapText('Open Libri');
 
-    // F1: the splash, on a cold start without a connection.
+    // First run › Splash, on a cold start without a connection.
     await tester.pumpWidget(
       ProviderScope(
         key: UniqueKey(),
@@ -1678,7 +1702,7 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 's5-plans');
 
-    // S15: the conflict banner on the plans overview.
+    // Plans › Plans with the sync conflict banner.
     final plansBanners = ProviderScope.containerOf(
       tester.element(find.byType(LibraryApp)),
     ).read(syncBannerProvider.notifier);
@@ -1688,7 +1712,8 @@ void main() {
     plansBanners.clear();
     await tester.pumpAndSettle();
 
-    // S11 and S2: the Halloween plan has the timeline on.
+    // Plans › Halloween touches and Plan with timing on: the Halloween plan has
+    // the timeline on.
     await tester.tap(find.text('Halloween 2026'));
     await tester.pumpAndSettle();
     await capture(tester, 's2-s11-halloween-timeline');
@@ -1718,7 +1743,8 @@ void main() {
     await tester.tap(find.text('2026'));
     await tester.pumpAndSettle();
 
-    // S7, D2, D4 from an item on the timeline.
+    // Plans › Entry details (timeline on), When: a day or a period, and Remove
+    // from plan, or everywhere, from an item on the timeline.
     await tester.tap(find.text('The Mummy'));
     await tester.pumpAndSettle();
     await capture(tester, 's7-plan-entry');
@@ -1747,7 +1773,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // S12 and S1: the Christmas checklist; S9 and S10.
+    // Plans › Christmas touches and Plan checklist: the Christmas checklist;
+    // then Edit plan and New plan.
     await tester.tap(find.text('Christmas 2026'));
     await tester.pumpAndSettle();
     await capture(tester, 's1-s12-christmas-checklist');
@@ -1795,8 +1822,8 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'l2-rail-newest-added');
 
-    // The header scrolls away with the list; Library in the pill brings
-    // it back (A1, DESIGN.md section 3).
+    // The header scrolls away with the list; Library in the pill brings it back
+    // (Library › Home, DESIGN.md section 3).
     await tester.drag(find.byType(EntryRow).first, const Offset(0, -600));
     await tester.pumpAndSettle();
     await capture(tester, 'a4-movies-scrolled');
@@ -1804,8 +1831,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Newest added'), findsOneWidget);
 
-    // A2 with a long group as a row, and A28 behind it. From All: the
-    // authors are on books, so Movies alone would hide the group (A2).
+    // Library › Filter sheet with a long group as a row, and Filter: all
+    // Authors behind it. From All: the authors are on books, so Movies alone
+    // would hide the group (Library › Filter sheet).
     await pickChip(tester, 'All');
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
@@ -1869,14 +1897,15 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
 
-    // L5 and L6: filtered results, one type and several types.
+    // Library › Filtered results, one type and several types.
     final container = ProviderScope.containerOf(
       tester.element(find.text('Library').first),
     );
     container
         .read(libraryFilterProvider.notifier)
         .set(
-          // A lone type filter is the type view; one more filter makes L5.
+          // A lone type filter is the type view; one more filter makes Library
+          // › Filtered results, one type.
           const LibraryFilter(
             types: {MediaType.movies},
             includeSeasonalOnly: true,
@@ -1901,7 +1930,8 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'l6-filtered-several-types');
 
-    // L3: the alphabet rail on a long artist list.
+    // Library › Long list: music artists A–Z: the alphabet rail on a long
+    // artist list.
     container.read(libraryFilterProvider.notifier).clear();
     await tester.pumpAndSettle();
     await pickChip(tester, 'Music');
@@ -1910,7 +1940,7 @@ void main() {
     await capture(tester, 'l3-rail-artists');
   });
 
-  testWidgets('the long tag group and A28 at a larger text size', (
+  testWidgets('the long tag group and all Authors at a larger text size', (
     tester,
   ) async {
     final long = padForLongLists(
@@ -1951,7 +1981,7 @@ void main() {
     await closeSheet(tester);
   });
 
-  testWidgets('A13 lookup states: looking up, offline, not set up', (
+  testWidgets('pick a match lookup states: looking up, offline, not set up', (
     tester,
   ) async {
     for (final (name, overrides) in [

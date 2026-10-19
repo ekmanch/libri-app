@@ -68,10 +68,10 @@ class Decade implements Comparable<Decade> {
   String toString() => label;
 }
 
-/// The filter sheet's choices (A2). Within type, status, kind and released
-/// any choice matches; every chosen tag must be on the entry. Kind (albums,
-/// songs) only narrows music. Seasonal-only entries are hidden unless
-/// [includeSeasonalOnly] is on.
+/// The filter sheet's choices (Library › Filter sheet). Within type, status,
+/// kind and released any choice matches; every chosen tag must be on the entry.
+/// Kind (albums, songs) only narrows music. Seasonal-only entries are hidden
+/// unless [includeSeasonalOnly] is on.
 @immutable
 class LibraryFilter {
   const LibraryFilter({
@@ -103,8 +103,9 @@ class LibraryFilter {
 
   bool get isActive => !isEmpty;
 
-  /// Spells out a filter that matches nothing (A10): "No books are both
-  /// in progress and tagged #christmas. Remove a filter to see more."
+  /// Spells out a filter that matches nothing (Library › Empty states): "No
+  /// books are both in progress and tagged #christmas. Remove a filter to see
+  /// more."
   String get noMatchesText {
     String join(List<String> parts, String word) => parts.length < 2
         ? parts.join()
@@ -152,11 +153,12 @@ class LibraryFilter {
     return 'No $subject are $what. $tail';
   }
 
-  /// The type view that shows this filter, when the home's chips can: one
-  /// type and at most one status, nothing else (A11). For music the kind
-  /// plays the status segment's part: at most one kind and no status, so
-  /// Music + Songs is the Songs tab (A23) and Music + Albums the Albums tab
-  /// (A24). That is not a results screen.
+  /// The type view that shows this filter, when the home's chips can: one type
+  /// and at most one status, nothing else (Library › Movies + Done (filter
+  /// result)). For music the kind plays the status segment's part: at most one
+  /// kind and no status, so Music + Songs is the Songs tab (Library › Music:
+  /// songs (filter result)) and Music + Albums the Albums tab (Library › Music:
+  /// albums (filter result)). That is not a results screen.
   TypeView? get typeView {
     if (types.length != 1 ||
         decades.isNotEmpty ||
@@ -193,9 +195,10 @@ class LibraryFilter {
             if (types.any((t) => EntryStatus.optionsFor(t).contains(s))) s,
         ];
 
-  /// The tag groups the sheet shows (A2), in category order: a group shows
-  /// when an entry of a chosen type uses one of its tags, so Games shows
-  /// Genres too once a game is tagged #horror. With no type, every group.
+  /// The tag groups the sheet shows (Library › Filter sheet), in category
+  /// order: a group shows when an entry of a chosen type uses one of its tags,
+  /// so Games shows Genres too once a game is tagged #horror. With no type,
+  /// every group.
   List<(TagCategory, List<String>)> tagGroupsIn(Library library) {
     final used = types.isEmpty
         ? null
@@ -280,7 +283,8 @@ class LibraryFilter {
       copyWith(decades: _toggled(decades, d));
   LibraryFilter toggleTag(String tag) => copyWith(tags: _toggled(tags, tag));
 
-  /// The removable chips of L5 and L6, in sheet order.
+  /// The removable chips of Library › Filtered results, one type and several
+  /// types, in sheet order.
   List<ActiveFilterChip> get chips => [
     for (final t in MediaType.values)
       if (types.contains(t)) ActiveFilterChip(t.label, (f) => f.toggleType(t)),

@@ -4,8 +4,9 @@ import '../../widgets/app_buttons.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/sheet_frame.dart';
 
-/// Edits the note on a plan item (the "Plan note" of S7 and S8). Resolves
-/// with the new text, or null when dismissed.
+/// Edits the note on a plan item (the "Plan note" of Plans › Entry details
+/// (timeline on) and Entry details (timeline off)). Resolves with the new text,
+/// or null when dismissed.
 Future<String?> showPlanNoteSheet(
   BuildContext context, {
   required String title,

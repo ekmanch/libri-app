@@ -232,8 +232,9 @@ void main() {
     expect(show.seasons!.single.status, EntryStatus.want);
     expect(find.bySemanticsLabel('Status: want. Change'), findsOneWidget);
 
-    // A second season appears (A35): the Status row turns read-only, each
-    // season gets its pill, and the show keeps the status Season 1 gives.
+    // A second season appears (Show & seasons › Season 2 announced): the Status
+    // row turns read-only, each season gets its pill, and the show keeps the
+    // status Season 1 gives.
     await container
         .read(libraryRepositoryProvider)
         .apply(

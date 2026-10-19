@@ -9,8 +9,8 @@ import '../settings/connection_screen.dart';
 import 'conflict_dialog.dart';
 import 'sync_state.dart';
 
-/// The sync and error banner under a top-level screen's title (A12).
-/// Nothing when there is nothing to say.
+/// The sync and error banner under a top-level screen's title (Library › Sync
+/// and errors). Nothing when there is nothing to say.
 class SyncBannerCard extends ConsumerWidget {
   const SyncBannerCard({super.key});
 

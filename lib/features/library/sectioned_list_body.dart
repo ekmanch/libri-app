@@ -7,8 +7,9 @@ import '../../theme/app_theme.dart';
 import '../shell/app_shell.dart';
 import 'entry_sections.dart';
 
-/// A run of consecutive items in a sorted list that share a heading: a
-/// decade, a month added, a first letter (L1 to L6), or a type.
+/// A run of consecutive items in a sorted list that share a heading: a decade,
+/// a month added, a first letter (Library › Long list: rail by release year to
+/// Filtered results, several types), or a type.
 class ListSection<T> {
   const ListSection({
     required this.label,
@@ -34,7 +35,8 @@ class ListSection<T> {
   final Color? color;
 
   /// When set, the rail shows a dot of this color instead of [railLabel]
-  /// (L6: one dot per type in filtered results).
+  /// (Library › Filtered results, several types: one dot per type in filtered
+  /// results).
   final Color? dotColor;
 
   /// The short form on the rail: "20s", "Oct", "A".
@@ -45,15 +47,16 @@ class ListSection<T> {
   final List<T> items;
 }
 
-/// The scrolling part of a list of [T]. Short lists are plain. A list at
-/// least three screens tall with two sections or more gets section headers
-/// and a jump rail on the right (L1 to L3), or, in the grid, a draggable
-/// thumb with a label bubble (L4). Rows have a fixed height so section
-/// offsets can be computed without measuring.
+/// The scrolling part of a list of [T]. Short lists are plain. A list at least
+/// three screens tall with two sections or more gets section headers and a jump
+/// rail on the right (Library › Long list: rail by release year to Long list:
+/// music artists A–Z), or, in the grid, a draggable thumb with a label bubble
+/// (Library › Long grid: fast-scroll thumb). Rows have a fixed height so
+/// section offsets can be computed without measuring.
 ///
 /// [leadingSlivers] scroll away above the list, like the home's header
-/// (A1), except the [pinnedExtent] of them that stays: the rail starts
-/// under them and its offsets are measured from where the list itself
+/// (Library › Home), except the [pinnedExtent] of them that stays: the rail
+/// starts under them and its offsets are measured from where the list itself
 /// begins.
 class SectionedListBody<T> extends StatefulWidget {
   const SectionedListBody({
@@ -78,8 +81,8 @@ class SectionedListBody<T> extends StatefulWidget {
 
   final int itemCount;
 
-  /// The height of the part of [leadingSlivers] that stays pinned at the
-  /// top once scrolled (the chips and the count row of A1): the rail
+  /// The height of the part of [leadingSlivers] that stays pinned at the top
+  /// once scrolled (the chips and the count row of Library › Home): the rail
   /// starts under it, and a jump puts the section right below it.
   final double pinnedExtent;
 
@@ -94,7 +97,8 @@ class SectionedListBody<T> extends StatefulWidget {
   final List<ListSection<T>> sections;
 
   /// Sections to show with headers when the list is too short for a rail
-  /// (L6 groups filtered results by type). Null means a flat list.
+  /// (filtered results by type: Library › Filtered results, several types).
+  /// Null means a flat list.
   final List<ListSection<T>>? plainSections;
 
   /// True for the grid: no headers, a thumb instead of a rail.
@@ -476,7 +480,8 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
     );
   }
 
-  /// A short label, or a type dot that grows a little when current (L6).
+  /// A short label, or a type dot that grows a little when current (Library ›
+  /// Filtered results, several types).
   Widget _railCell(ListSection<T> section, bool current) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);

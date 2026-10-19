@@ -22,8 +22,9 @@ import 'plan_done.dart';
 import 'plan_note_sheet.dart';
 import 'when_sheet.dart';
 
-/// Opens an entry's details inside a plan (S7 with the timeline on, S8
-/// without). Keeps the opener's theme, so a seasonal accent carries over.
+/// Opens an entry's details inside a plan (Plans › Entry details (timeline on)
+/// and Entry details (timeline off)). Keeps the opener's theme, so a seasonal
+/// accent carries over.
 Future<void> showPlanEntrySheet(
   BuildContext context, {
   required String planId,
@@ -37,8 +38,8 @@ Future<void> showPlanEntrySheet(
 }
 
 /// Entry details in a plan: a Mark as done button instead of the status
-/// segments, the rating, "When" when the plan has a timeline, the plan
-/// note, About, tags, Edit and Remove (D4).
+/// segments, the rating, "When" when the plan has a timeline, the plan note,
+/// About, tags, Edit and Remove (Plans › Remove from plan, or everywhere).
 class PlanEntrySheet extends ConsumerWidget {
   const PlanEntrySheet({
     super.key,

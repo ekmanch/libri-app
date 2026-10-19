@@ -314,8 +314,8 @@ Future<void> _walk(_Walk w) async {
     await tester.pumpAndSettle();
   });
   await w.step('first run', () async {
-    // Deleting the library from the phone (D16) starts the first run at
-    // the welcome screen.
+    // Deleting the library from the phone (Settings › Disconnect: keep or
+    // delete) starts the first run at the welcome screen.
     w.container
         .read(libraryConnectionProvider.notifier)
         .disconnect(keepLibrary: false);
@@ -341,9 +341,9 @@ Future<void> _walk(_Walk w) async {
   });
 }
 
-/// The home's header is part of its scroll (A1), so after a list has been
-/// scrolled the search box or the chips may be off screen and not built:
-/// jump every vertical list back to the top first.
+/// The home's header is part of its scroll (Library › Home), so after a list
+/// has been scrolled the search box or the chips may be off screen and not
+/// built: jump every vertical list back to the top first.
 Future<void> revealHeader(WidgetTester tester) async {
   final vertical = find.byWidgetPredicate(
     (w) => w is Scrollable && w.axisDirection == AxisDirection.down,

@@ -44,44 +44,45 @@ void main() {
     return container;
   }
 
-  testWidgets('S7: done button, rating, when, plan note, about, tags', (
-    tester,
-  ) async {
-    final container = await open(
-      tester,
-      'halloween-2026',
-      'movies/the-mummy-1999',
-    );
-    expect(find.text('The Mummy'), findsOneWidget);
-    expect(find.text('Mark as done'), findsOneWidget);
-    expect(find.text('9 / 10'), findsOneWidget);
-    expect(find.text('When'), findsOneWidget);
-    expect(find.text('Oct 19–31'), findsOneWidget);
-    expect(find.text('PLAN NOTE'), findsOneWidget);
-    expect(find.text('Add a note'), findsOneWidget);
-    expect(find.text('ABOUT'), findsOneWidget);
-    expect(find.text('#halloween'), findsOneWidget);
+  testWidgets(
+    'entry in a plan: done button, rating, when, plan note, about, tags',
+    (tester) async {
+      final container = await open(
+        tester,
+        'halloween-2026',
+        'movies/the-mummy-1999',
+      );
+      expect(find.text('The Mummy'), findsOneWidget);
+      expect(find.text('Mark as done'), findsOneWidget);
+      expect(find.text('9 / 10'), findsOneWidget);
+      expect(find.text('When'), findsOneWidget);
+      expect(find.text('Oct 19–31'), findsOneWidget);
+      expect(find.text('PLAN NOTE'), findsOneWidget);
+      expect(find.text('Add a note'), findsOneWidget);
+      expect(find.text('ABOUT'), findsOneWidget);
+      expect(find.text('#halloween'), findsOneWidget);
 
-    await tester.tap(find.text('Mark as done'));
-    await tester.pumpAndSettle();
-    expect(find.text('Done. Tap to undo'), findsOneWidget);
-    final plan = repo(container).current!.planById('halloween-2026')!;
-    expect(plan.itemFor('movies/the-mummy-1999')!.done, isTrue);
+      await tester.tap(find.text('Mark as done'));
+      await tester.pumpAndSettle();
+      expect(find.text('Done. Tap to undo'), findsOneWidget);
+      final plan = repo(container).current!.planById('halloween-2026')!;
+      expect(plan.itemFor('movies/the-mummy-1999')!.done, isTrue);
 
-    await tester.tap(find.text('Add a note'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'With the kids');
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-    await tester.pumpAndSettle();
-    expect(find.text('With the kids'), findsOneWidget);
-    expect(
-      repo(container).current!
-          .planById('halloween-2026')!
-          .itemFor('movies/the-mummy-1999')!
-          .note,
-      'With the kids',
-    );
-  });
+      await tester.tap(find.text('Add a note'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'With the kids');
+      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.pumpAndSettle();
+      expect(find.text('With the kids'), findsOneWidget);
+      expect(
+        repo(container).current!
+            .planById('halloween-2026')!
+            .itemFor('movies/the-mummy-1999')!
+            .note,
+        'With the kids',
+      );
+    },
+  );
 
   testWidgets('marking done also finishes a wanted entry', (tester) async {
     final container = await open(
@@ -97,7 +98,7 @@ void main() {
     );
   });
 
-  testWidgets('D4: remove from this plan or delete everywhere', (tester) async {
+  testWidgets('remove from this plan or delete everywhere', (tester) async {
     final container = await open(
       tester,
       'halloween-2026',
@@ -127,7 +128,9 @@ void main() {
     expect(find.byType(PlanEntrySheet), findsNothing);
   });
 
-  testWidgets('D4: a slow save closes only the sheet', (tester) async {
+  testWidgets('remove from plan: a slow save closes only the sheet', (
+    tester,
+  ) async {
     final slow = SlowSaveRepository(
       FixtureLibraryRepository(
         loadJson: () async => encodeLibrary(loadFixture()),
@@ -156,7 +159,9 @@ void main() {
     expect(slow.inner.current!.entryById('movies/klaus-2019'), isNull);
   });
 
-  testWidgets('D4: delete everywhere removes the entry', (tester) async {
+  testWidgets('remove from plan: delete everywhere removes the entry', (
+    tester,
+  ) async {
     final container = await open(tester, 'christmas-2026', 'movies/klaus-2019');
     await tester.ensureVisible(find.text('Remove'));
     await tester.tap(find.text('Remove'));

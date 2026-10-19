@@ -2,7 +2,7 @@ import '../../data/models/plan.dart';
 import '../../data/models/plan_item.dart';
 import 'plan_dates.dart';
 
-/// Where a timeline group sits relative to today (S2).
+/// Where a timeline group sits relative to today (Plans › Plan with timing on).
 enum TimelineState { past, current, future, undated }
 
 /// Items that share the same "When", shown under one heading with a rail
@@ -30,10 +30,10 @@ class TimelineGroup {
   final double? todayFraction;
 }
 
-/// Groups a plan's items for the timeline by time, not by type (the S2
-/// note). Buckets, in order: Earlier, Last week, This week, then each
-/// future single day ("Sat Oct 17") and Later, by date, and Whenever for
-/// undated items. Inside a bucket items follow the global type order
+/// Groups a plan's items for the timeline by time, not by type (the Plans ›
+/// Plan with timing on note). Buckets, in order: Earlier, Last week, This week,
+/// then each future single day ("Sat Oct 17") and Later, by date, and Whenever
+/// for undated items. Inside a bucket items follow the global type order
 /// ([typeRank], lower first), then date, then the plan's order.
 List<TimelineGroup> timelineGroups(
   Plan plan, {

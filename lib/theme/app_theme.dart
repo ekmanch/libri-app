@@ -4,11 +4,11 @@
 // docs/DESIGN.md. Widgets read colors from Theme.of(context) or from
 // LibraryColors.of(context), never from literals.
 //
-// Accent mapping, from S6 and D8: the accent *fill* (the pastel color) is the
-// same on both themes and is used for filled surfaces: the "+" button, primary
-// buttons, progress bars. Accent *text, icons and outlines* use the fill on
-// the dark theme and the darker "ink" on the light theme, where the pastel
-// would be too faint. In Material terms:
+// Accent mapping, from Settings and Library › Home, light theme: the accent
+// *fill* (the pastel color) is the same on both themes and is used for filled
+// surfaces: the "+" button, primary buttons, progress bars. Accent *text, icons
+// and outlines* use the fill on the dark theme and the darker "ink" on the
+// light theme, where the pastel would be too faint. In Material terms:
 //   colorScheme.primary          = accent ink on light, accent fill on dark
 //   colorScheme.primaryContainer = accent fill, always
 //
@@ -156,15 +156,16 @@ class SeasonalAccents {
 }
 
 /// Font families. Figtree is bundled; the code font falls back to the
-/// platform's monospace face (the F6 preview).
+/// platform's monospace face (the First run › Create a new library preview).
 class AppFonts {
   AppFonts._();
   static const body = 'Figtree';
   static const code = 'monospace';
 }
 
-/// The Libri mark (F1, F2): a peach left half with a play triangle and a
-/// paper right half with three lines. Fixed colors, the same on both themes.
+/// The Libri mark (First run › Splash; Welcome): a peach left half with a play
+/// triangle and a paper right half with three lines. Fixed colors, the same on
+/// both themes.
 class BrandColors {
   BrandColors._();
   static const peach = Color(0xFFF8B289);
@@ -265,8 +266,9 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   /// Border of the floating navigation pill; transparent on light.
   final Color navBorder;
 
-  /// A translucent dark well behind a segmented pair or a chip on a plan
-  /// header (S1): darker than the page on dark, a neutral fill on light.
+  /// A translucent dark well behind a segmented pair or a chip on a plan header
+  /// (Plans › Plan checklist): darker than the page on dark, a neutral fill on
+  /// light.
   final Color tray;
 
   /// Hairline around a chip on that tray.
@@ -292,20 +294,22 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   /// Round badge over a cover, e.g. behind the Done check in the grid.
   final Color coverBadge;
 
-  /// Fill of an error banner (A12); the text on it stays the main color.
+  /// Fill of an error banner (Library › Sync and errors); the text on it stays
+  /// the main color.
   final Color dangerFill;
 
-  /// The "connected" dot (D6).
+  /// The "connected" dot (Settings › Library connection).
   final Color success;
 
-  /// Placeholder blocks while the library loads (D7).
+  /// Placeholder blocks while the library loads (First run › First load).
   final Color skeleton;
 
   /// Outline of an outline button (Cancel, Delete, Replace token): a step
   /// lighter than the field outline.
   final Color buttonOutline;
 
-  /// A heads-up that is not an error yet: the key in D20's amber circle.
+  /// A heads-up that is not an error yet: the key in the amber circle of the
+  /// Library › Token expires soon dialog.
   /// Its field is this at 14% alpha.
   final Color caution;
 
@@ -327,7 +331,7 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     divider: Color(0xFF26292D),
     muted: Color(0xFFA3A8AE),
     soft: Color(0xFFD0D4D9),
-    // 5:1 on the surface, as the S9 hint color (#8A8F96).
+    // 5:1 on the surface, as the Plans › Edit plan hint color (#8A8F96).
     placeholder: Color(0xFF8A8F96),
     dangerText: Color(0xFFFF6B6B),
     neutralFill: Color(0xFF3A3E44),
@@ -356,9 +360,10 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     caution: Color(0xFFF2B544),
   );
 
-  // Values from the light mockups D8 and S6. The type colors follow the D8
-  // note: as colorful as they can be while readable, 4.5:1 (AA) on white,
-  // except Movies (3.8:1, kept on purpose so gold stays gold).
+  // Values from the light mockups Library › Home, light theme and Settings. The
+  // type colors follow the Library › Home, light theme note: as colorful as
+  // they can be while readable, 4.5:1 (AA) on white, except Movies (3.8:1, kept
+  // on purpose so gold stays gold).
   static const light = LibraryColors(
     surfaceHigh: Color(0xFFE9EBEE),
     dialog: Color(0xFFFFFFFF),

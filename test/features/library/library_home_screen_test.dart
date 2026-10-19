@@ -328,7 +328,7 @@ void main() {
     await tester.tap(find.text('Newest added'));
     await tester.pumpAndSettle();
     expect(find.text('Sort by'), findsOneWidget);
-    // D1 lists the rating order last.
+    // Library › Sort menu lists the rating order last.
     final labels = tester
         .widgetList<Text>(
           find.descendant(
@@ -453,7 +453,7 @@ void main() {
   });
 
   testWidgets(
-    'the filter sheet lists tags A to Z; a long group is a row that opens A28',
+    'the filter sheet lists tags A to Z; a long group is a row that opens its full list',
     (tester) async {
       // Twenty-five authors make a long group; genres stay inline chips.
       final authors = [
@@ -614,7 +614,7 @@ void main() {
       expect(sheetChip('In progress'), findsOneWidget);
     });
 
-    testWidgets('it opens with the picked status segment chosen too (A3)', (
+    testWidgets('it opens with the picked status segment chosen too', (
       tester,
     ) async {
       await pumpApp(tester, const LibraryHomeScreen());
@@ -716,7 +716,8 @@ void main() {
       await tester.tapAt(const Offset(20, 20));
       await tester.pumpAndSettle();
 
-      // Songs: Music + Songs, and back again lands on Songs (A23).
+      // Songs: Music + Songs, and back again lands on Songs (Library › Music:
+      // songs (filter result)).
       await pickMusicTab(tester, 'Songs');
       await openSheet(tester);
       expect(selected(tester, 'Songs'), isTrue);
@@ -727,7 +728,8 @@ void main() {
       await tester.pumpAndSettle();
       await show(tester);
 
-      // Music + Albums is the Albums tab, not results (A24).
+      // Music + Albums is the Albums tab, not results (Library › Music: albums
+      // (filter result)).
       expect(container.read(libraryFilterProvider).isActive, isFalse);
       expect(container.read(homeTypeProvider), MediaType.music);
       expect(container.read(homeMusicTabProvider), MusicTab.albums);
@@ -807,9 +809,7 @@ void main() {
     });
   });
 
-  testWidgets('a filter with no matches spells itself out (A10)', (
-    tester,
-  ) async {
+  testWidgets('a filter with no matches spells itself out', (tester) async {
     final container = await pumpApp(tester, const LibraryHomeScreen());
     container
         .read(libraryFilterProvider.notifier)

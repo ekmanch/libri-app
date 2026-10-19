@@ -39,8 +39,9 @@ import 'tag_dialogs.dart';
 import 'tag_picker_sheet.dart';
 import 'creator_tags.dart';
 
-/// Opens the form (A8) for a new entry, prefilled from a lookup [match] or
-/// just a [type] and [title]. Resolves with the saved entry, or null.
+/// Opens the form (Add / edit entry) for a new entry, prefilled from a lookup
+/// [match] or just a [type] and [title]. Resolves with the saved entry, or
+/// null.
 Future<Entry?> openNewEntryForm(
   BuildContext context, {
   MediaType? type,
@@ -60,8 +61,8 @@ Future<Entry?> openNewEntryForm(
   );
 }
 
-/// Opens the form (A8) to edit [entry]. Resolves with the saved entry, or
-/// null when the user went back.
+/// Opens the form (Add / edit entry) to edit [entry]. Resolves with the saved
+/// entry, or null when the user went back.
 Future<Entry?> openEditEntryForm(BuildContext context, Entry entry) {
   return Navigator.of(
     context,
@@ -69,10 +70,11 @@ Future<Entry?> openEditEntryForm(BuildContext context, Entry entry) {
   ).push<Entry>(MaterialPageRoute(builder: (_) => EntryFormScreen.edit(entry)));
 }
 
-/// The add / edit entry form (A8). Saving applies [AddEntry] or
-/// [UpdateEntry], preceded by an [AddTag] for every tag created in the tag
-/// picker, and pops with the saved entry. Saving an album whose songs are
-/// saved, or a song whose album is, asks first (D12, D13).
+/// The add / edit entry form. Saving applies [AddEntry] or [UpdateEntry],
+/// preceded by an [AddTag] for every tag created in the tag picker, and pops
+/// with the saved entry. Saving an album whose songs are saved, or a song whose
+/// album is, asks first (Add / edit entry › Saving an album: songs already
+/// saved; Saving a song: album already saved).
 class EntryFormScreen extends ConsumerStatefulWidget {
   const EntryFormScreen.edit(Entry this.entry, {super.key})
     : type = null,
@@ -93,7 +95,8 @@ class EntryFormScreen extends ConsumerStatefulWidget {
   final String? title;
   final LookupMatch? match;
 
-  /// Tags a new entry starts with, e.g. a plan's tags from its pool (S4).
+  /// Tags a new entry starts with, e.g. a plan's tags from its pool (Plans ›
+  /// All Halloween: add, edit, remove).
   final List<String> tags;
 
   bool get isEditing => entry != null;
@@ -226,7 +229,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   List<EntryStatus> get _statusOptions => EntryStatus.optionsFor(_type);
 
   /// Wide enough for the longest date, "Sep 30, 2000", so it never clips
-  /// (A25).
+  /// (Add / edit entry › Released: wheel picker).
   double _releasedWidth(BuildContext context) {
     final painter = TextPainter(
       text: TextSpan(
@@ -289,10 +292,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     ];
   });
 
-  /// One season in the form (A37): its name and a button that removes it,
-  /// then its release date (A25) and its status pill, which opens the same
-  /// sheet as details. A date fixed here is the user's, so the daily check
-  /// leaves it alone.
+  /// One season in the form (Add / edit entry › Edit a show): its name and a
+  /// button that removes it, then its release date (Add / edit entry ›
+  /// Released: wheel picker) and its status pill, which opens the same sheet as
+  /// details. A date fixed here is the user's, so the daily check leaves it
+  /// alone.
   Widget _seasonField(BuildContext context, Season season) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
@@ -351,7 +355,8 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   ),
                 ),
               ),
-              // One season: the Status control sets it (A37).
+              // One season: the Status control sets it (Add / edit entry › Edit
+              // a show).
               if (_seasons.length > 1) ...[
                 const SizedBox(width: 8),
                 SeasonStatusPill(
@@ -460,15 +465,15 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   /// The tags for the creator field as it reads now: #stephen-king for an
   /// author, #naughty-dog for a studio, #pixar for a Pixar film whoever
-  /// directed it (A8, DESIGN.md section 7).
+  /// directed it (Add / edit entry, DESIGN.md section 7).
   List<CreatorTag> get _creatorTags => creatorTags(
     type: _type,
     creator: _creator.text,
     companies: _match?.companies ?? const [],
   );
 
-  /// The actor tags for the lookup's billed cast (A8): #kate-siegel, at
-  /// most three, for movies and shows.
+  /// The actor tags for the lookup's billed cast (Add / edit entry):
+  /// #kate-siegel, at most three, for movies and shows.
   List<CreatorTag> get _actorTags =>
       actorTags(type: _type, cast: _match?.cast ?? const []);
 
@@ -525,9 +530,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     });
   }
 
-  /// "Look up again": A13 on this entry's type and title; a pick fills in
-  /// what the form has empty and sets the source. The owner's own text is
-  /// never overwritten.
+  /// "Look up again": the match picker (Add / edit entry › New entry: pick a
+  /// match) on this entry's type and title; a pick fills in what the form has
+  /// empty and sets the source. The owner's own text is never overwritten.
   Future<void> _lookUpAgain() async {
     final match = await openMatchPicker(
       context,
@@ -618,7 +623,8 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final title = _title.text.trim();
     final creator = _creator.text.trim();
     final isShow = _type == MediaType.shows;
-    // A show has no date of its own: its seasons do (A37).
+    // A show has no date of its own: its seasons do (Add / edit entry › Edit a
+    // show).
     final released = isShow ? null : _released;
     final isMusic = _type == MediaType.music;
     final platform = _platformOptions.where(_platformsOn.contains).join(', ');
@@ -1035,7 +1041,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   const SizedBox(height: 14),
                   const FieldLabel('Status'),
                   if (_type == MediaType.shows && _seasons.length > 1)
-                    // The seasons set it (A37).
+                    // The seasons set it (Add / edit entry › Edit a show).
                     DerivedStatusField(status: _effectiveStatus)
                   else
                     StatusSegmentedControl(

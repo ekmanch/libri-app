@@ -125,7 +125,7 @@ const monthNames = [
   'December',
 ];
 
-/// The Released field (A8): "2013", "Jun 2013" or "Jun 14, 2013".
+/// The Released field (Add / edit entry): "2013", "Jun 2013" or "Jun 14, 2013".
 String releasedLabel(Released released) {
   final month = released.month, day = released.day;
   if (month == null) return '${released.year}';
@@ -134,8 +134,8 @@ String releasedLabel(Released released) {
   return '$name $day, ${released.year}';
 }
 
-/// The line under the picker's title (A25): "Year only: 2013", "June 2013"
-/// or "June 14, 2013".
+/// The line under the picker's title (Add / edit entry › Released: wheel
+/// picker): "Year only: 2013", "June 2013" or "June 14, 2013".
 String releasedLongLabel(Released released) {
   final month = released.month, day = released.day;
   if (month == null) return 'Year only: ${released.year}';
@@ -158,7 +158,8 @@ String albumsAndSongsLabel(int albums, int songs) {
   return parts.isEmpty ? '0 albums' : parts.join(', ');
 }
 
-/// The count line of the music list (A14): "17 artists, 13 albums, 5 songs".
+/// The count line of the music list (Library › Music: artists, text view): "17
+/// artists, 13 albums, 5 songs".
 String musicCountLabel({
   required int artists,
   required int albums,

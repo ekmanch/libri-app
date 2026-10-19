@@ -17,8 +17,8 @@ import 'library_filter.dart';
 import 'tag_list_screen.dart';
 import 'tag_sort.dart';
 
-/// Opens the filter sheet (A2). Resolves with the chosen filter, or null
-/// when dismissed.
+/// Opens the filter sheet (Library › Filter sheet). Resolves with the chosen
+/// filter, or null when dismissed.
 Future<LibraryFilter?> showFilterSheet(
   BuildContext context, {
   required Library library,
@@ -208,8 +208,8 @@ class _FilterSheetState extends State<FilterSheet> {
             onChanged: (value) => setState(() => _tagQuery = value),
           ),
           for (final (category, names) in groups)
-            // A long group is a row that opens A28; a search shows its
-            // matches inline like any other group.
+            // A long group is a row that opens Library › Filter: all Authors; a
+            // search shows its matches inline like any other group.
             if (query.isEmpty && names.length > longTagGroup)
               TagGroupRow(
                 label: category.label,

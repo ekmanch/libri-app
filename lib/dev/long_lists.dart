@@ -8,14 +8,16 @@ import '../data/models/released.dart';
 import '../data/models/tag_category.dart';
 
 /// Development only: pads every type with generated entries so that the
-/// long-list rail (A23 to A25) and the grid's fast scroll (A26) can be tried
-/// on a device, and the Authors group with enough tags to be a row that
-/// opens the full-screen list (A2, A28). Enabled with
-/// `--dart-define=LONG_LISTS=true`.
+/// long-list rail (Library › Long list: rail by release year to Long list:
+/// music artists A–Z) and the grid's fast scroll (Library › Long grid:
+/// fast-scroll thumb) can be tried on a device, and the Authors group with
+/// enough tags to be a row that opens the full-screen list (Library › Filter
+/// sheet; Filter: all Authors). Enabled with `--dart-define=LONG_LISTS=true`.
 const longListsEnabled = bool.fromEnvironment('LONG_LISTS');
 
-/// Author names spread over the alphabet, one tag each, so the Authors
-/// group is long (over [longTagGroup]) and A28 has letter sections.
+/// Author names spread over the alphabet, one tag each, so the Authors group is
+/// long (over [longTagGroup]) and Library › Filter: all Authors has letter
+/// sections.
 const longListAuthors = [
   'Isaac Asimov',
   'Margaret Atwood',
@@ -51,9 +53,9 @@ const longListAuthors = [
 
 /// [perType] extra entries per type, cloned from that type's first entry,
 /// spread over the decades since 1925 and over the last two years of added
-/// dates, with a mix of statuses. Music is spread over generated artists
-/// (some starting with "The", one "Various Artists") and over albums and
-/// songs, so the artist list (A14) gets long too.
+/// dates, with a mix of statuses. Music is spread over generated artists (some
+/// starting with "The", one "Various Artists") and over albums and songs, so
+/// the artist list (Library › Music: artists, text view) gets long too.
 Library padForLongLists(Library library, {int perType = 120}) {
   final extra = <Entry>[];
   final authorTags = [for (final a in longListAuthors) slugify(a)];

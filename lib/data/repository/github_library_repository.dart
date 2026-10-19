@@ -354,7 +354,8 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
       'matched; waiting for a choice.',
     );
     await _saveMeta(meta.copyWith(lastChecked: now));
-    // For D17: when GitHub's copy last changed. Not worth failing over.
+    // When GitHub's copy last changed, for Library › Conflict: keep which
+    // copy? Not worth failing over.
     try {
       final commits = await _api.commits(path, branch: branch, limit: 1);
       if (commits.isNotEmpty) {
@@ -451,9 +452,9 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
     }
   }
 
-  /// The user picked a side (D17). Keep mine: the phone's copy replaces
-  /// GitHub's, whatever is there now. Keep GitHub's: its copy replaces
-  /// the phone's and the queue is dropped.
+  /// The user picked a side (Library › Conflict: keep which copy?). Keep mine:
+  /// the phone's copy replaces GitHub's, whatever is there now. Keep GitHub's:
+  /// its copy replaces the phone's and the queue is dropped.
   Future<void> _resolve({required bool keepMine}) async {
     try {
       await _ensureLoaded();
@@ -548,7 +549,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
   /// The status for a failed call. A 404 gets two more calls to tell
   /// what is gone: the repo (or a token that no longer sees it), the
   /// branch, or the file. That is not a failed save: Retry cannot help,
-  /// only the connection can be fixed (D6).
+  /// only the connection can be fixed (Settings › Library connection).
   Future<void> _report(GitHubException e) async {
     if (e.failure != GitHubFailure.notFound) {
       _setStatus(_status.copyWith(phase: _phaseFor(e.failure)));

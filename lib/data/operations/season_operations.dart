@@ -169,8 +169,9 @@ class SetSeasonStatus extends LibraryOperation {
             'as ${_statusWord(status)}';
 }
 
-/// Catch-up (A33): marks every season numbered below [before] Done. Later
-/// seasons and the show's own status stay as they are.
+/// Catch-up (Show & seasons › All seasons, just added: catch up): marks every
+/// season numbered below [before] Done. Later seasons and the show's own status
+/// stay as they are.
 @JsonSerializable()
 class MarkSeasonsDone extends LibraryOperation {
   const MarkSeasonsDone(this.entryId, this.before);
@@ -288,7 +289,8 @@ class SetSeasons extends LibraryOperation {
       'Set the seasons of ${_title(before, entryId)}';
 }
 
-/// Removes one season: one the lookup no longer lists (A36).
+/// Removes one season: one the lookup no longer lists (Show & seasons ›
+/// Announced season dropped).
 @JsonSerializable()
 class RemoveSeason extends LibraryOperation {
   const RemoveSeason(this.entryId, this.season);
@@ -318,8 +320,9 @@ class RemoveSeason extends LibraryOperation {
       'Remove season $season of ${_title(before, entryId)}';
 }
 
-/// Keeps a season the lookup no longer lists (A36): it is marked manual,
-/// so the daily check leaves it alone from then on.
+/// Keeps a season the lookup no longer lists (Show & seasons › Announced season
+/// dropped): it is marked manual, so the daily check leaves it alone from then
+/// on.
 @JsonSerializable()
 class KeepSeason extends LibraryOperation {
   const KeepSeason(this.entryId, this.season);

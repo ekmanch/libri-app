@@ -24,11 +24,12 @@ class FakeGitHubApi implements GitHubApi {
     files.forEach(setFile);
   }
 
-  /// The repo the canvas draws in F4 and F7: the branches `main` (the
-  /// default, updated two days ago), `app-sync-test` (last week) and `dev`
-  /// (August), listed out of order; the fixture as `library.json`, updated
-  /// two days ago; a smaller copy in `backup/library-2025.json` from March;
-  /// and `data/old-lists.json`, which is not a library.
+  /// The repo the canvas draws in First run › Pick a branch and Pick an
+  /// existing file: the branches `main` (the default, updated two days ago),
+  /// `app-sync-test` (last week) and `dev` (August), listed out of order; the
+  /// fixture as `library.json`, updated two days ago; a smaller copy in
+  /// `backup/library-2025.json` from March; and `data/old-lists.json`, which is
+  /// not a library.
   factory FakeGitHubApi.demo(
     String fixtureText, {
     Duration latency = Duration.zero,

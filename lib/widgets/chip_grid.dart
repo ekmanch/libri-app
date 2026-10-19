@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Equal-width chips in rows, like the CSS grids in A2 and A8. A last row
-/// with fewer chips keeps the column widths.
+/// Equal-width chips in rows, like the CSS grids in Library › Filter sheet and
+/// Add / edit entry. A last row with fewer chips keeps the column widths.
 class ChipGrid extends StatelessWidget {
   const ChipGrid({
     super.key,

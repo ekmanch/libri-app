@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// A tappable row between two hairlines: the rating, "When" and plans rows
-/// of the details sheets (A6, S7).
+/// A tappable row between two hairlines: the rating, "When" and plans rows of
+/// the details sheets (Library › Entry details; Plans › Entry details (timeline
+/// on)).
 class BorderedRow extends StatelessWidget {
   const BorderedRow({
     super.key,

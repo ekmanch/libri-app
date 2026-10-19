@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// A one-line title that steps down through [sizes] until the text fits,
-/// and cuts off with an ellipsis at the smallest size (S11 to S14).
+/// A one-line title that steps down through [sizes] until the text fits, and
+/// cuts off with an ellipsis at the smallest size (Plans › Halloween touches to
+/// Christmas, long plan name).
 class FittedTitle extends StatelessWidget {
   const FittedTitle(
     this.text, {

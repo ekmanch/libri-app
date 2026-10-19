@@ -20,8 +20,9 @@ import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import 'entry_form_screen.dart';
 
-/// Starts a new entry (A13 then A8), full screen above the floating
-/// navigation. Resolves with the saved entry, or null.
+/// Starts a new entry (Add / edit entry › New entry: pick a match, then the
+/// form), full screen above the floating navigation. Resolves with the saved
+/// entry, or null.
 Future<Entry?> openNewEntryScreen(
   BuildContext context, {
   MediaType? type,
@@ -39,9 +40,10 @@ Future<Entry?> openNewEntryScreen(
   );
 }
 
-/// "Look up again" from the form (A8): the same screen as A13, started on
-/// the entry's type and title, that hands the picked match back instead
-/// of opening a form. Resolves with null when nothing was picked.
+/// "Look up again" from the form (Add / edit entry): the same screen as
+/// Add / edit entry › New entry: pick a match, started on the entry's type and
+/// title, that hands the picked match back instead of opening a form. Resolves
+/// with null when nothing was picked.
 Future<LookupMatch?> openMatchPicker(
   BuildContext context, {
   required MediaType type,
@@ -55,12 +57,12 @@ Future<LookupMatch?> openMatchPicker(
   );
 }
 
-/// New entry: pick a match (A13). The title typed here is looked up online
-/// once typing pauses; a match is fetched in full and opens the form
-/// prefilled, "Fill in the details myself" opens it with just the title
-/// and type. With [pick] the screen is "Look up again": a match is handed
-/// back to the form that asked, and there is no "Fill in" button. Nothing
-/// here names a provider.
+/// Add / edit entry › New entry: pick a match. The title typed here is looked
+/// up online once typing pauses; a match is fetched in full and opens the form
+/// prefilled, "Fill in the details myself" opens it with just the title and
+/// type. With [pick] the screen is "Look up again": a match is handed back to
+/// the form that asked, and there is no "Fill in" button. Nothing here names a
+/// provider.
 class NewEntryScreen extends ConsumerStatefulWidget {
   const NewEntryScreen({
     super.key,

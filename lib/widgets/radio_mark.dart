@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// The round selection mark in sort and option lists (D1).
+/// The round selection mark in sort and option lists (Library › Sort menu).
 class RadioMark extends StatelessWidget {
   const RadioMark({super.key, required this.selected});
 

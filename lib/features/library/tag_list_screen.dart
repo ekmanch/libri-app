@@ -13,11 +13,11 @@ import 'entry_sections.dart';
 import 'sectioned_list_body.dart';
 import 'tag_sort.dart';
 
-/// Opens the full-screen list of one long tag group (A28) above the sheet
-/// that asked for it: a search box, the tags A to Z under letter headers
-/// with the index rail when the list is long, and a check per row. Every
-/// toggle goes straight to [onToggle], so the sheet underneath is up to
-/// date when Done or back closes the list.
+/// Opens the full-screen list of one long tag group (Library › Filter: all
+/// Authors) above the sheet that asked for it: a search box, the tags A to Z
+/// under letter headers with the index rail when the list is long, and a check
+/// per row. Every toggle goes straight to [onToggle], so the sheet underneath
+/// is up to date when Done or back closes the list.
 Future<void> showTagListScreen(
   BuildContext context, {
   required TagCategory category,
@@ -176,7 +176,8 @@ class _TagListScreenState extends State<TagListScreen> {
   }
 }
 
-/// One tag in A28: the name, "#tag · 3 entries" and a round check.
+/// One tag in Library › Filter: all Authors: the name, "#tag · 3 entries" and a
+/// round check.
 class _TagRow extends StatelessWidget {
   const _TagRow({
     required this.name,

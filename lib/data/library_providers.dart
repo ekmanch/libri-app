@@ -65,18 +65,18 @@ final gitHubApiFactoryProvider = Provider<GitHubApiFactory>((ref) {
     ref.watch(httpClientProvider),
     token: token,
     repository: repository,
-    // When the token expires, for D20. The connection keeps it only for
-    // the token in use.
+    // When the token expires, for Library › Token expires soon. The connection
+    // keeps it only for the token in use.
     onTokenExpiration: (expires) => ref
         .read(libraryConnectionProvider.notifier)
         .recordTokenExpiry(token: token, expires: expires),
   );
 });
 
-/// The repository for this run of the app: the library on GitHub, built
-/// from the connection and the token, and rebuilt when either changes; or
-/// the `library.json` kept on the phone after a disconnect (D16), with no
-/// sync. Tests override it with a fixture.
+/// The repository for this run of the app: the library on GitHub, built from
+/// the connection and the token, and rebuilt when either changes; or the
+/// `library.json` kept on the phone after a disconnect (Settings › Disconnect:
+/// keep or delete), with no sync. Tests override it with a fixture.
 final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
   final (target, local) = ref.watch(
     libraryConnectionProvider.select((c) => (c.target, c.keptLocally)),
@@ -122,7 +122,8 @@ final librarySyncProvider = Provider<LibrarySync?>((ref) {
   return repository is LibrarySync ? repository as LibrarySync : null;
 });
 
-/// The sync state for the banners (A12) and D6.
+/// The sync state for the banners (Library › Sync and errors) and Settings ›
+/// Library connection.
 final syncStatusProvider = StreamProvider<SyncStatus>((ref) async* {
   final sync = ref.watch(librarySyncProvider);
   if (sync == null) {

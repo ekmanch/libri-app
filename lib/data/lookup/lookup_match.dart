@@ -4,9 +4,10 @@ import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
 
-/// One candidate from a title lookup (A13), or the match a cover was
-/// resolved from. Filled by the sources in `lib/data/lookup/`; the fake in
-/// `lib/dev/fake_lookup.dart` serves a fixed catalog for tests and demos.
+/// One candidate from a title lookup (Add / edit entry › New entry: pick a
+/// match), or the match a cover was resolved from. Filled by the sources in
+/// `lib/data/lookup/`; the fake in `lib/dev/fake_lookup.dart` serves a fixed
+/// catalog for tests and demos.
 @immutable
 class LookupMatch {
   const LookupMatch({

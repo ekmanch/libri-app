@@ -9,16 +9,17 @@ import '../../widgets/labels.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/wheel_picker.dart';
 
-/// The first year on the wheel; older years are typed (A26).
+/// The first year on the wheel; older years are typed (Add / edit entry ›
+/// Released: type the year).
 const releasedWheelFirstYear = 1800;
 
 /// How far past this year the wheel reaches.
 const releasedWheelYearsAhead = 5;
 
-/// Opens the Released picker (A25): three wheels, Year, Month and Day.
-/// Month and Day start on "—", so the value can be a year, a year and
-/// month, or a full date. Every change is applied at once through
-/// [onChanged]; Done and swiping down both just close. Clear hands back
+/// Opens the Released picker (Add / edit entry › Released: wheel picker): three
+/// wheels, Year, Month and Day. Month and Day start on "—", so the value can be
+/// a year, a year and month, or a full date. Every change is applied at once
+/// through [onChanged]; Done and swiping down both just close. Clear hands back
 /// null. [today] fixes the current year, for tests and captures.
 Future<void> showReleasedSheet(
   BuildContext context, {
@@ -143,7 +144,8 @@ class _ReleasedSheetState extends State<ReleasedSheet> {
     );
     final titleStyle = theme.textTheme.headlineSmall!;
     return SheetFrame(
-      // Scrolls when the keyboard leaves it too little room (A26).
+      // Scrolls when the keyboard leaves it too little room (Add / edit entry ›
+      // Released: type the year).
       scrollable: true,
       // The sheet's own header, so the title steps down a size when Clear
       // and Done leave it no room at a large text size.
@@ -250,8 +252,8 @@ class _ReleasedSheetState extends State<ReleasedSheet> {
   }
 }
 
-/// The Year column while the year is typed (A26): a numeric field in the
-/// middle row, where the chosen year was.
+/// The Year column while the year is typed (Add / edit entry › Released: type
+/// the year): a numeric field in the middle row, where the chosen year was.
 class _YearField extends StatelessWidget {
   const _YearField({required this.controller, required this.onChanged});
 

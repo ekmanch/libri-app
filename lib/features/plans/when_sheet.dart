@@ -17,9 +17,9 @@ class WhenChoice {
   final PlanWhen? when;
 }
 
-/// D2: a day or a period for a plan item. One tap picks a day, a second
-/// tap stretches it to a period, a third starts over. Resolves with null
-/// when dismissed.
+/// A day or a period for a plan item (Plans › When: a day or a period). One tap
+/// picks a day, a second tap stretches it to a period, a third starts over.
+/// Resolves with null when dismissed.
 Future<WhenChoice?> showWhenSheet(
   BuildContext context, {
   required PlanWhen? current,
@@ -205,8 +205,8 @@ class _WhenSheetState extends State<WhenSheet> {
               padding: EdgeInsets.only(top: row == 0 ? 0 : 2),
               child: Stack(
                 children: [
-                  // The range band is one shape per week row, so there
-                  // are no seams between the days (D2).
+                  // The range band is one shape per week row, so there are no
+                  // seams between the days (Plans › When: a day or a period).
                   Positioned.fill(
                     child: CustomPaint(
                       painter: _BandPainter(

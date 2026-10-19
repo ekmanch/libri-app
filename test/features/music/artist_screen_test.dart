@@ -77,7 +77,7 @@ void main() {
     );
   });
 
-  testWidgets('a photo view for Artists shows covers (A19)', (tester) async {
+  testWidgets('a photo view for Artists shows covers', (tester) async {
     final container = await pumpApp(
       tester,
       const ArtistScreen(name: 'Alice in Chains'),

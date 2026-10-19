@@ -166,25 +166,25 @@ class _Audit {
 
 Future<void> _walk(_Audit a, ProviderContainer container) async {
   final tester = a.tester;
-  await a.step('home', () => a.check('A1 home'));
+  await a.step('home', () => a.check('Library › Home'));
   await a.step('movies', () async {
     await a.pickChip('Movies');
-    await a.check('A4 movies text');
+    await a.check('Library › Movies, text view');
     await a.pickView('Grid with covers');
-    await a.check('A21 movies grid');
+    await a.check('Library › Movies, grid with covers');
     await a.tap(find.byTooltip('Change view'));
-    await a.check('A16 view menu');
+    await a.check('Library › View menu open');
     await a.tapText('Text');
     await a.tapText('Newest added');
-    await a.check('D1 sort');
+    await a.check('Library › Sort menu');
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
   });
   await a.step('filter', () async {
     await a.tap(find.byTooltip('Filters'));
     await a.tap(find.widgetWithText(PillChip, '#horror'));
-    await a.check('A2 filter sheet');
+    await a.check('Library › Filter sheet');
     await a.tap(find.textContaining('Show '));
-    await a.check('L5 filtered');
+    await a.check('Library › Filtered results, one type');
     await a.tapText('Clear all');
   });
   await a.step('search', () async {
@@ -192,29 +192,29 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tapText('Search titles and tags');
     await tester.enterText(find.byType(TextField), 'hal');
     await tester.pumpAndSettle();
-    await a.check('A5 search');
+    await a.check('Library › Search');
     await a.tapText('Cancel');
   });
   await a.step('details', () async {
     await a.pickChip('Movies');
 
     await a.tapText('The Mummy');
-    await a.check('A6 entry details');
+    await a.check('Library › Entry details');
     await a.tapText('9 / 10');
-    await a.check('D11 rating');
+    await a.check('Library › Rating picker');
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
     await a.tapText('Add to plan');
-    await a.check('A7 add to plan');
+    await a.check('Library › Add to plan');
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.ensureVisible(find.text('Delete'));
     await a.tapText('Delete');
-    await a.check('A9 delete');
+    await a.check('Library › Delete confirmation');
     await a.tapText('Cancel');
     await a.tapText('Edit');
-    await a.check('A8 edit entry');
+    await a.check('Add / edit entry');
     await tester.ensureVisible(find.text('#adventure'));
     await a.tapText('#adventure');
-    await a.check('D14 tag picker');
+    await a.check('Add / edit entry › Tag picker');
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
     await a.back();
     await a.closeSheet();
@@ -226,24 +226,24 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.reveal(find.text('All 6 seasons'));
     await tester.ensureVisible(find.text('All 6 seasons'));
     await tester.pumpAndSettle();
-    await a.check('A31 show with many seasons');
+    await a.check('Show & seasons › Many seasons');
     await a.tapText('All 6 seasons');
-    await a.check('A32 all seasons');
+    await a.check('Show & seasons › All seasons');
     await a.back();
     await a.closeSheet();
     await a.tapText('Stranger Things');
     await a.tap(find.bySemanticsLabel(RegExp('^Season 5 status: ')));
-    await a.check('A33 season status with catch-up');
+    await a.check('Show & seasons › season status with catch-up');
     await a.closeSheet();
     await a.tap(find.bySemanticsLabel(RegExp(r'^Season 1, .*Episodes$')));
-    await a.check('A39 season episodes');
+    await a.check('Show & seasons › Season episodes');
     await a.back();
     await a.tapText('Edit');
-    await a.check('A37 edit a show');
+    await a.check('Add / edit entry › Edit a show');
     await a.back();
     await a.closeSheet();
     await a.tapText('The Haunting of Hill House');
-    await a.check('A34 show with one season');
+    await a.check('Show & seasons › One season');
     await a.closeSheet();
     await a.pickChip('All');
   });
@@ -252,86 +252,86 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await tester.enterText(find.byType(TextField), 'The Last of Us');
     await tester.pump(NewEntryScreen.debounce);
     await tester.pumpAndSettle();
-    await a.check('A13 new entry');
+    await a.check('Add / edit entry › New entry: pick a match');
     await a.tapText('GAME · 2013');
-    await a.check('A8 new entry from a match');
+    await a.check('Add / edit entry › New game from a match');
     await a.back();
     await a.back();
   });
   await a.step('music', () async {
     await a.pickChip('Music');
-    await a.check('A14 music artists');
+    await a.check('Library › Music: artists, text view');
     await a.pickView('List with photos');
-    await a.check('A17 music list with photos');
+    await a.check('Library › Music: artists, list with photos');
     await a.pickView('Text');
     await a.tapText('Alice in Chains');
-    await a.check('A15 artist');
+    await a.check('Music › Artist, text view');
     await a.tapText('Dirt');
-    await a.check('A22 album details');
+    await a.check('Music › Album with track ratings');
     await a.closeSheet();
     await a.back();
     await a.tapText('Albums');
-    await a.check('A14 albums tab');
+    await a.check('Library › Music: albums tab');
     await a.tapText('Songs');
-    await a.check('A14 songs tab');
+    await a.check('Library › Music: songs tab');
     await a.pickChip('All');
   });
   await a.step('plans', () async {
     await a.navTab('Plans');
-    await a.check('S5 plans');
+    await a.check('Plans › Plans overview');
     await a.tapText('Halloween 2026');
-    await a.check('S2/S11 halloween timeline');
+    await a.check('Plans › Plan with timing on, Halloween touches');
     await a.tap(find.bySemanticsLabel('Choose year'));
     await a.check('year menu');
     await a.tapText('2026');
     await a.tapText('All Halloween');
-    await a.check('S4 pool');
+    await a.check('Plans › All Halloween: add, edit, remove');
     await a.tapText('This plan');
     await a.tapText('The Mummy');
-    await a.check('S7 plan entry');
+    await a.check('Plans › Entry details (timeline on)');
     await a.tapText('Oct 19–31');
-    await a.check('D2 when');
+    await a.check('Plans › When: a day or a period');
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.ensureVisible(find.text('Remove'));
     await a.tapText('Remove');
-    await a.check('D4 remove');
+    await a.check('Plans › Remove from plan, or everywhere');
     await a.tapText('Cancel');
     await a.closeSheet();
     await a.tap(find.byTooltip('Plan options'));
-    await a.check('D3 plan menu');
+    await a.check('Plans › Plan menu');
     await a.tapText('Delete plan');
-    await a.check('D5 delete plan');
+    await a.check('Plans › Delete plan');
     await a.tapText('Cancel');
     await a.tap(find.byTooltip('Plan options'));
     await a.tapText('Edit plan');
-    await a.check('S9 edit plan');
+    await a.check('Plans › Edit plan');
     await a.back();
     await a.navTab('Plans');
     await a.tapText('Christmas 2026');
-    await a.check('S1/S12 christmas checklist');
+    await a.check('Plans › Plan checklist, Christmas touches');
     await a.tapText('Die Hard');
-    await a.check('S8 plan entry without when');
+    await a.check('Plans › Entry details (timeline off)');
     await a.closeSheet();
     await a.navTab('Plans');
     await a.tap(find.byType(AddButton));
-    await a.check('S10 new plan');
+    await a.check('Plans › New plan');
     await a.back();
   });
   await a.step('settings', () async {
     await a.tap(find.byTooltip('Settings'));
-    await a.check('S6 settings top');
+    await a.check('Settings, top');
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
     await tester.pumpAndSettle();
-    await a.check('S6 settings bottom');
+    await a.check('Settings, bottom');
     await tester.ensureVisible(find.text('Libri'));
     await tester.pumpAndSettle();
     await a.tapText('Libri');
-    await a.check('D19 about');
+    await a.check('Settings › About Libri');
     await a.back();
     await a.tapText('Library source');
-    await a.check('D6 connection');
+    await a.check('Settings › Library connection');
     await a.tapText('Disconnect');
-    await a.check('D6 disconnect confirm');
+    await a.check('Settings › Disconnect: confirm');
     await a.tapText('Cancel');
     await a.back();
     await a.back();
@@ -340,19 +340,20 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     final banners = container.read(syncBannerProvider.notifier);
     banners.show(SyncBanner.couldNotSave);
     await tester.pumpAndSettle();
-    await a.check('A12 could not save');
+    await a.check('Library › Sync and errors: could not save');
     banners.show(SyncBanner.offline);
     await tester.pumpAndSettle();
-    await a.check('A12 offline');
+    await a.check('Library › Sync and errors: offline');
     banners.show(SyncBanner.notFound);
     await tester.pumpAndSettle();
-    await a.check('A12 not found');
+    await a.check('Library › Sync and errors: not found');
     banners.show(SyncBanner.tokenExpired);
     await tester.pumpAndSettle();
-    await a.check('A12 token expired');
+    await a.check('Library › Sync and errors: token expired');
     banners.clear();
     await tester.pumpAndSettle();
-    // D20, as the shell shows it in the token's last week.
+    // Library › Token expires soon, as the shell shows it in the token's last
+    // week.
     unawaited(
       showTokenExpiryDialog(
         tester.element(find.text('Library').first),
@@ -361,37 +362,37 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
       ),
     );
     await tester.pumpAndSettle();
-    await a.check('D20 token expiry');
+    await a.check('Library › Token expires soon');
     await a.tapText('Later');
   });
   await a.step('first run', () async {
-    // Deleting the library from the phone (D16) starts the first run at
-    // the welcome screen.
+    // Deleting the library from the phone (Settings › Disconnect: keep or
+    // delete) starts the first run at the welcome screen.
     container
         .read(libraryConnectionProvider.notifier)
         .disconnect(keepLibrary: false);
     await tester.pumpAndSettle();
-    await a.check('F2 welcome');
+    await a.check('First run › Welcome');
     await a.tapText('Get started');
-    await a.check('F3 connect');
+    await a.check('First run › Connect GitHub');
     await tester.enterText(find.byType(TextField).last, 'github_pat_example');
     await tester.pumpAndSettle();
     await a.tapText('Connect');
-    await a.check('F4 branch');
+    await a.check('First run › Pick a branch');
     await a.tapText('Continue');
-    await a.check('F5 file');
+    await a.check('First run › Library file: new or existing');
     await a.tapText('Continue');
-    await a.check('F6 create');
+    await a.check('First run › Create a new library');
     await a.back();
     await a.tapText('Use a file I already have');
     await a.tapText('Continue');
-    await a.check('F7 existing');
+    await a.check('First run › Pick an existing file');
     await a.tapText('Use this file');
-    await a.check('F8 done');
+    await a.check('First run › All set');
     await a.tapText('Open Libri');
   });
   await a.step('cold start', () async {
-    // F1: the splash, on a cold start without a connection.
+    // First run › Splash, on a cold start without a connection.
     final mode = container.read(displayPreferencesProvider).themeMode;
     await tester.pumpWidget(
       ProviderScope(
@@ -409,15 +410,15 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
         .read(displayPreferencesProvider.notifier)
         .setThemeMode(mode);
     await tester.pump();
-    await a.check('F1 splash');
+    await a.check('First run › Splash');
     await tester.pump(FirstRunFlow.splashDuration);
     await tester.pumpAndSettle();
   });
 }
 
-/// The home's header is part of its scroll (A1), so after a list has been
-/// scrolled the search box or the chips may be off screen and not built:
-/// jump every vertical list back to the top first.
+/// The home's header is part of its scroll (Library › Home), so after a list
+/// has been scrolled the search box or the chips may be off screen and not
+/// built: jump every vertical list back to the top first.
 Future<void> revealHeader(WidgetTester tester) async {
   final vertical = find.byWidgetPredicate(
     (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
@@ -487,9 +488,9 @@ void main() {
     });
   }
 
-  // A28 needs a long tag group, which the fixture has not; the dev padding
-  // gives Authors thirty tags.
-  testWidgets('audit A28 tag list', (tester) async {
+  // Library › Filter: all Authors needs a long tag group, which the fixture has
+  // not; the dev padding gives Authors thirty tags.
+  testWidgets('audit Library › Filter: all Authors', (tester) async {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(360, 780);
     addTearDown(() {
@@ -515,28 +516,31 @@ void main() {
     );
     await tester.pumpAndSettle();
     final audit = _Audit(tester, 'dark');
-    await audit.step('A2 long group and A28', () async {
-      await audit.tap(find.byTooltip('Filters'));
-      final row = find.widgetWithText(TagGroupRow, 'Authors');
-      await tester.scrollUntilVisible(
-        row,
-        200,
-        scrollable: find
-            .descendant(
-              of: find.byType(FilterSheet),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.pumpAndSettle();
-      await audit.check('A2 filter sheet with a long group');
-      await audit.tap(row);
-      await audit.check('A28 tag list');
-      await audit.tapText('Stephen King');
-      await tester.enterText(find.byType(TextField).last, 'le');
-      await tester.pumpAndSettle();
-      await audit.check('A28 tag list, searching');
-    });
+    await audit.step(
+      'Library › Filter sheet long group and all Authors',
+      () async {
+        await audit.tap(find.byTooltip('Filters'));
+        final row = find.widgetWithText(TagGroupRow, 'Authors');
+        await tester.scrollUntilVisible(
+          row,
+          200,
+          scrollable: find
+              .descendant(
+                of: find.byType(FilterSheet),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await tester.pumpAndSettle();
+        await audit.check('Library › Filter sheet with a long group');
+        await audit.tap(row);
+        await audit.check('Library › Filter: all Authors');
+        await audit.tapText('Stephen King');
+        await tester.enterText(find.byType(TextField).last, 'le');
+        await tester.pumpAndSettle();
+        await audit.check('Library › Filter: all Authors, searching');
+      },
+    );
     handle.dispose();
     report.addAll(audit.findings);
     failures.addAll(audit.failures);

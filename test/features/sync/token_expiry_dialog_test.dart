@@ -9,61 +9,62 @@ import 'package:library_app/features/sync/token_expiry_dialog.dart';
 import '../../helpers/pump_app.dart';
 
 void main() {
-  testWidgets('D20 says when the token stops working, with three ways out', (
-    tester,
-  ) async {
-    TokenExpiryChoice? choice;
-    var opened = false;
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: Builder(
-          builder: (context) => TextButton(
-            onPressed: () async {
-              opened = true;
-              choice = await showTokenExpiryDialog(
-                context,
-                repository: 'ekmanch/library',
-                expires: DateTime(2026, 10, 24, 16, 20),
-                now: DateTime(2026, 10, 18, 10),
-              );
-            },
-            child: const Text('Open'),
+  testWidgets(
+    'the expiry warning says when the token stops working, with three ways out',
+    (tester) async {
+      TokenExpiryChoice? choice;
+      var opened = false;
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                opened = true;
+                choice = await showTokenExpiryDialog(
+                  context,
+                  repository: 'ekmanch/library',
+                  expires: DateTime(2026, 10, 24, 16, 20),
+                  now: DateTime(2026, 10, 18, 10),
+                );
+              },
+              child: const Text('Open'),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    expect(opened, isTrue);
-    expect(find.text('Your GitHub token expires in 6 days'), findsOneWidget);
-    expect(
-      find.text(
-        'The access token for ekmanch/library stops working on October 24. '
-        "After that, Libri can't sync until you add a new one.",
-      ),
-      findsOneWidget,
-    );
-    expect(find.textContaining('regenerate the token'), findsOneWidget);
-    expect(find.text('Replace token'), findsOneWidget);
-    expect(find.text('Open GitHub'), findsOneWidget);
-    expect(
-      find.bySemanticsLabel('Open token settings on GitHub, opens website'),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('Later'));
-    await tester.pumpAndSettle();
-    expect(choice, TokenExpiryChoice.later);
-    expect(find.byType(Dialog), findsNothing);
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(opened, isTrue);
+      expect(find.text('Your GitHub token expires in 6 days'), findsOneWidget);
+      expect(
+        find.text(
+          'The access token for ekmanch/library stops working on October 24. '
+          "After that, Libri can't sync until you add a new one.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('regenerate the token'), findsOneWidget);
+      expect(find.text('Replace token'), findsOneWidget);
+      expect(find.text('Open GitHub'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Open token settings on GitHub, opens website'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Later'));
+      await tester.pumpAndSettle();
+      expect(choice, TokenExpiryChoice.later);
+      expect(find.byType(Dialog), findsNothing);
 
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Replace token'));
-    await tester.pumpAndSettle();
-    expect(choice, TokenExpiryChoice.replace);
-  });
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Replace token'));
+      await tester.pumpAndSettle();
+      expect(choice, TokenExpiryChoice.replace);
+    },
+  );
 
-  group('the shell shows D20 on open', () {
+  group('the shell shows the expiry warning on open', () {
     late MemoryConnectionStore store;
 
     Future<void> pumpShell(WidgetTester tester, LibraryConnection connection) {

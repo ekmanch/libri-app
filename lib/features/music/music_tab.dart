@@ -1,8 +1,8 @@
 import '../../data/models/music_kind.dart';
 
-/// The three tabs of the music list (A14). The view is remembered per tab.
-/// Albums and Songs match the filter sheet's Kind; Artists is a way of
-/// browsing, not a filter.
+/// The three tabs of the music list (Library › Music: artists, text view). The
+/// view is remembered per tab. Albums and Songs match the filter sheet's Kind;
+/// Artists is a way of browsing, not a filter.
 enum MusicTab {
   artists,
   albums,

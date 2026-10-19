@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'svg_path.dart';
 
-/// The Libri mark from the canvas (F1, F2): a rounded 7:5 tile, peach on
-/// the left with a play triangle, paper on the right with three lines.
+/// The Libri mark from the canvas (First run › Splash; Welcome): a rounded 7:5
+/// tile, peach on the left with a play triangle, paper on the right with three
+/// lines.
 class LibriLogo extends StatelessWidget {
   const LibriLogo({super.key, this.width = 168});
 

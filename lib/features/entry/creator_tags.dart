@@ -1,11 +1,11 @@
-/// The tags the entry form suggests for the people behind an entry (A8):
-/// the creator field's author of a book, director of a movie or studio of
-/// a game or an anime, each as a slug ("#stephen-king", "#naughty-dog") in
-/// its creator group, and for movies and shows the top-billed cast from the
-/// lookup as actor tags ("#kate-siegel"). Studios whose name is how their
-/// films are known get their tag instead of the director's: a Pixar film
-/// suggests #pixar, not the director. Music suggests nothing, since an
-/// artist is not a tag.
+/// The tags the entry form suggests for the people behind an entry
+/// (Add / edit entry): the creator field's author of a book, director of a
+/// movie or studio of a game or an anime, each as a slug ("#stephen-king",
+/// "#naughty-dog") in its creator group, and for movies and shows the
+/// top-billed cast from the lookup as actor tags ("#kate-siegel"). Studios
+/// whose name is how their films are known get their tag instead of the
+/// director's: a Pixar film suggests #pixar, not the director. Music suggests
+/// nothing, since an artist is not a tag.
 library;
 
 import '../../data/models/entry_id.dart';
@@ -71,7 +71,7 @@ List<CreatorTag> creatorTags({
   return tags;
 }
 
-/// How many of the billed cast A8 suggests, at most.
+/// How many of the billed cast Add / edit entry suggests, at most.
 const maxActorTags = 3;
 
 /// Actor tags for an entry of [type] from a lookup's billed [cast], in

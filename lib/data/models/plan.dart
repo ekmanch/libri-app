@@ -19,8 +19,8 @@ abstract class Plan with _$Plan {
     @Default(false) bool timeline,
     @JsonKey(name: 'seasonal_theme') @Default(false) bool seasonalTheme,
 
-    /// Set by the Started switch in S9, and by the app when the plan's
-    /// first date arrives. Never cleared on its own.
+    /// Set by the Started switch in Plans › Edit plan, and by the app when the
+    /// plan's first date arrives. Never cleared on its own.
     @Default(false) bool started,
     @Default([]) List<PlanItem> items,
   }) = _Plan;

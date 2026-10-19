@@ -16,7 +16,7 @@ void main() {
     (w) => w is TextField && w.decoration?.hintText == hint,
   );
 
-  testWidgets('S10: a free-form plan with the Settings defaults', (
+  testWidgets('new plan: a free-form plan with the Settings defaults', (
     tester,
   ) async {
     final container = await pumpApp(tester, const PlanFormScreen.create());
@@ -136,7 +136,9 @@ void main() {
     },
   );
 
-  testWidgets('S9: edit saves, and Delete plan removes it', (tester) async {
+  testWidgets('edit plan: edit saves, and Delete plan removes it', (
+    tester,
+  ) async {
     final fixture = loadFixture();
     final plan = fixture.planById('christmas-2026')!;
     final container = await pumpApp(tester, PlanFormScreen.edit(plan));
@@ -165,7 +167,7 @@ void main() {
     expect(saved.items.length, 6);
   });
 
-  testWidgets('S9: Delete plan asks and removes it', (tester) async {
+  testWidgets('edit plan: Delete plan asks and removes it', (tester) async {
     final plan = loadFixture().planById('christmas-2026')!;
     final container = await pumpApp(tester, PlanFormScreen.edit(plan));
     await tester.scrollUntilVisible(
@@ -182,7 +184,7 @@ void main() {
     expect(find.byType(PlanFormScreen), findsNothing);
   });
 
-  testWidgets('S9: the Started switch shows the state and saves it', (
+  testWidgets('edit plan: the Started switch shows the state and saves it', (
     tester,
   ) async {
     final plan = loadFixture().planById('christmas-2026')!;
@@ -203,7 +205,7 @@ void main() {
     );
   });
 
-  testWidgets('S10: a new plan has no Started switch', (tester) async {
+  testWidgets('new plan: a new plan has no Started switch', (tester) async {
     await pumpApp(tester, PlanFormScreen.create());
     expect(find.text('Started'), findsNothing);
   });

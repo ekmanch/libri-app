@@ -13,9 +13,9 @@ import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import 'library_search.dart';
 
-/// Search over titles and tags (A5). Pops with a tag name when a tag row is
-/// tapped, so the home can show that tag's results. With [type] set the
-/// search covers only that type, as the hint says ("Search movies").
+/// Search over titles and tags (Library › Search). Pops with a tag name when a
+/// tag row is tapped, so the home can show that tag's results. With [type] set
+/// the search covers only that type, as the hint says ("Search movies").
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key, this.type, this.onOpenEntry, this.onAddEntry});
 

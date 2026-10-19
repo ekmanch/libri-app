@@ -9,15 +9,17 @@ import '../../data/sync/sync_status.dart';
 import '../../dev/demo_states.dart';
 import 'token_expiry.dart';
 
-/// The banner at the top of the Library and Plans screens (A12).
+/// The banner at the top of the Library and Plans screens (Library › Sync and
+/// errors).
 enum SyncBanner {
   saving,
   offline,
   couldNotSave,
   tokenProblem,
 
-  /// GitHub refused the token after the date it gave for its expiry
-  /// (D20): the same phase as [tokenProblem], with the cause known.
+  /// GitHub refused the token after the date it gave for its expiry (Library ›
+  /// Token expires soon): the same phase as [tokenProblem], with the cause
+  /// known.
   tokenExpired,
   conflict,
   notFound;
@@ -92,8 +94,9 @@ enum SyncBanner {
   };
 }
 
-/// What a 404 means for this connection, as the banner (A12) and D6 say
-/// it: "library.json is gone from owner/repo on main."
+/// What a 404 means for this connection, as the banner (Library › Sync and
+/// errors) and Settings › Library connection say it: "library.json is gone from
+/// owner/repo on main."
 String missingDetail(MissingPart missing, LibraryConnection connection) =>
     switch (missing) {
       MissingPart.repository =>
@@ -181,9 +184,9 @@ class ConnectionTarget {
   int get hashCode => Object.hash(repository, file, branch);
 }
 
-/// What the app knows about its library file on GitHub (D6), kept in
-/// `connection.json`. The token is in the secure storage, not here; when
-/// it expires is ([tokenExpires]), as GitHub last said.
+/// What the app knows about its library file on GitHub (Settings › Library
+/// connection), kept in `connection.json`. The token is in the secure storage,
+/// not here; when it expires is ([tokenExpires]), as GitHub last said.
 @immutable
 class LibraryConnection {
   const LibraryConnection({
@@ -196,14 +199,15 @@ class LibraryConnection {
     this.tokenWarnedOn,
   }) : assert(!(connected && keptLocally));
 
-  /// The first run, with the last repo and file as hints for F3.
+  /// The first run, with the last repo and file as hints for First run ›
+  /// Connect GitHub.
   static const disconnected = LibraryConnection(connected: false);
 
   final bool connected;
 
-  /// Disconnected, but the library stayed on the phone (D16, "Keep it on
-  /// this phone"): the app shows and edits `library.json` without a sync
-  /// until a repo is connected again.
+  /// Disconnected, but the library stayed on the phone (Settings › Disconnect:
+  /// keep or delete, "Keep it on this phone"): the app shows and edits
+  /// `library.json` without a sync until a repo is connected again.
   final bool keptLocally;
 
   /// Whether the app opens on the library rather than the first run.
@@ -216,13 +220,13 @@ class LibraryConnection {
   final String file;
   final String branch;
 
-  /// When the token stops working, from GitHub's expiration header on
-  /// the last successful answer; null until one said, or for a token
-  /// that never expires. D20 warns from seven days before.
+  /// When the token stops working, from GitHub's expiration header on the last
+  /// successful answer; null until one said, or for a token that never expires.
+  /// The Library › Token expires soon dialog warns from seven days before.
   final DateTime? tokenExpires;
 
-  /// The day D20 was last shown, so it shows once a day. A date, in
-  /// local time.
+  /// The day the Library › Token expires soon dialog was last shown, so it
+  /// shows once a day. A date, in local time.
   final DateTime? tokenWarnedOn;
 
   /// Where to sync, or null until connected.
@@ -267,7 +271,7 @@ class LibraryConnection {
   };
 
   /// A stored connection counts as connected, unless it was kept locally
-  /// (D16); the token is checked apart.
+  /// (Settings › Disconnect: keep or delete); the token is checked apart.
   static LibraryConnection fromJson(Map<String, Object?> json) {
     final local = json['local'] == true;
     return LibraryConnection(
@@ -314,9 +318,9 @@ class LibraryConnection {
   );
 }
 
-/// True once the library was deleted from the phone in this run of the
-/// app (D16): the first run then starts at the welcome screen (F2), not
-/// the splash.
+/// True once the library was deleted from the phone in this run of the app
+/// (Settings › Disconnect: keep or delete): the first run then starts at the
+/// welcome screen (First run › Welcome), not the splash.
 class StartOverNotifier extends Notifier<bool> {
   @override
   bool build() => false;
@@ -374,7 +378,7 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
     if (firstRunDemo) return LibraryConnection.disconnected;
     final connection = ref.watch(initialConnectionProvider);
     // The TOKEN_EXPIRES_IN dev switch: a token that expires in that many
-    // days, so D20 can be looked at.
+    // days, so the Library › Token expires soon dialog can be looked at.
     if (tokenExpiresInDemo >= 0 && connection.connected) {
       return connection.copyWith(
         tokenExpires: DateTime.now().add(Duration(days: tokenExpiresInDemo)),
@@ -384,11 +388,11 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
     return connection;
   }
 
-  /// GitHub said when [token] expires (the expiration header on a
-  /// successful answer). Kept only for the token in use (F3 checks a new
-  /// token before it is saved) and only when the date is ahead: in
-  /// September 2025 GitHub briefly sent the current time by mistake, and
-  /// a date that has passed while requests still succeed means nothing.
+  /// GitHub said when [token] expires (the expiration header on a successful
+  /// answer). Kept only for the token in use (First run › Connect GitHub checks
+  /// a new token before it is saved) and only when the date is ahead: in
+  /// September 2025 GitHub briefly sent the current time by mistake, and a date
+  /// that has passed while requests still succeed means nothing.
   Future<void> recordTokenExpiry({
     required String token,
     required DateTime expires,
@@ -400,7 +404,8 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
     await _save();
   }
 
-  /// D20 was shown on [day]: not again that day.
+  /// The Library › Token expires soon dialog was shown on [day]: not again that
+  /// day.
   Future<void> markTokenWarned(DateTime day) async {
     state = state.copyWith(
       tokenWarnedOn: DateTime(day.year, day.month, day.day),
@@ -411,9 +416,9 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
   Future<void> _save() =>
       ref.read(connectionStoreProvider).save(state.toJson());
 
-  /// The end of the first run (F8) or a replaced token (D6): keeps the
-  /// token and the connection on the device, then the app opens the
-  /// library.
+  /// The end of the first run (First run › All set) or a replaced token
+  /// (Settings › Library connection): keeps the token and the connection on the
+  /// device, then the app opens the library.
   Future<void> connect({
     required String repository,
     required String file,
@@ -431,8 +436,9 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
     state = connection;
   }
 
-  /// A new token for the same connection (D6, D20). Its expiry comes with
-  /// the next answer from GitHub, so the old one goes.
+  /// A new token for the same connection (Settings › Library connection;
+  /// Library › Token expires soon). Its expiry comes with the next answer from
+  /// GitHub, so the old one goes.
   Future<void> replaceToken(String token) async {
     await ref.read(tokenProvider.notifier).set(token);
     if (state.tokenExpires == null && state.tokenWarnedOn == null) return;
@@ -440,11 +446,11 @@ class LibraryConnectionNotifier extends Notifier<LibraryConnection> {
     await _save();
   }
 
-  /// Disconnect (D15, D16). The [sync] stops, the queue, the sync meta and
-  /// the token leave the device, and GitHub is never touched. With
-  /// [keepLibrary] the cached `library.json` stays and the app keeps
-  /// showing it without a sync; otherwise the file goes too and the app
-  /// starts over at the welcome screen (F2).
+  /// Disconnect (Settings › Disconnect: confirm; Disconnect: keep or delete).
+  /// The [sync] stops, the queue, the sync meta and the token leave the device,
+  /// and GitHub is never touched. With [keepLibrary] the cached `library.json`
+  /// stays and the app keeps showing it without a sync; otherwise the file goes
+  /// too and the app starts over at the welcome screen (First run › Welcome).
   ///
   /// The caller passes the sync: the sync provider depends on this one,
   /// so reading it from here is a circular dependency.

@@ -139,7 +139,8 @@ void main() {
     expect(sent.single.url.path, '/3/movie/564');
     expect(sent.single.url.queryParameters, {'append_to_response': 'credits'});
     expect(full.creator, 'Stephen Sommers');
-    // The top three billed, in order (A8 suggests them as actor tags).
+    // The top three billed, in order (Add / edit entry suggests them as actor
+    // tags).
     expect(full.cast, ['Brendan Fraser', 'Rachel Weisz', 'John Hannah']);
     expect(full.tags, ['Adventure', 'Fantasy']);
     expect(full.description, 'Full overview.');

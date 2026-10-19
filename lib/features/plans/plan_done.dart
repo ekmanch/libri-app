@@ -63,16 +63,17 @@ final seasonsBeforeDoneProvider =
       SeasonsBeforeDoneNotifier.new,
     );
 
-/// Ticks or unticks a plan item (S1, S2, S7, S8).
+/// Ticks or unticks a plan item (Plans › Plan checklist; Plan with timing on;
+/// Entry details (timeline on); Entry details (timeline off)).
 ///
 /// Ticking also marks the entry Done when it was not, and remembers what
 /// it was (a show: its seasons, every one that is out marked Done). Unticking puts that status back, but only if the entry is still
 /// Done; a status changed elsewhere in between stays. An entry that was
 /// already Done when ticked is left alone when unticked.
 ///
-/// Ticking an item starts the plan, so unticking one later, or adding an
-/// entry to a finished plan, leaves it Active (the S9 note). Returns true
-/// when this tick finished the plan.
+/// Ticking an item starts the plan, so unticking one later, or adding an entry
+/// to a finished plan, leaves it Active (the Plans › Edit plan note). Returns
+/// true when this tick finished the plan.
 Future<bool> togglePlanItemDone(
   WidgetRef ref, {
   required Plan plan,

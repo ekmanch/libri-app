@@ -113,22 +113,25 @@ void main() {
       return container;
     }
 
-    testWidgets('D13: replacing the album deletes it and adds the song', (
+    testWidgets(
+      'song over its album: replacing the album deletes it and adds the song',
+      (tester) async {
+        final container = await fillSong(tester);
+        await tester.tap(find.text('Replace album with this song'));
+        await tester.pumpAndSettle();
+        final library = repo(container).current!;
+        expect(library.entryById(dirt.id), isNull);
+        final song = library.entries.last;
+        expect(song.id, 'music/rooster-alice-in-chains');
+        expect(song.kind, MusicKind.song);
+        expect(song.album, 'Dirt');
+        expect(find.byType(EntryFormScreen), findsNothing);
+      },
+    );
+
+    testWidgets('song over its album: keeping both leaves the album', (
       tester,
     ) async {
-      final container = await fillSong(tester);
-      await tester.tap(find.text('Replace album with this song'));
-      await tester.pumpAndSettle();
-      final library = repo(container).current!;
-      expect(library.entryById(dirt.id), isNull);
-      final song = library.entries.last;
-      expect(song.id, 'music/rooster-alice-in-chains');
-      expect(song.kind, MusicKind.song);
-      expect(song.album, 'Dirt');
-      expect(find.byType(EntryFormScreen), findsNothing);
-    });
-
-    testWidgets('D13: keeping both leaves the album', (tester) async {
       final container = await fillSong(tester);
       await tester.tap(find.text('Keep both'));
       await tester.pumpAndSettle();
@@ -137,60 +140,66 @@ void main() {
       expect(library.entries.last.title, 'Rooster');
     });
 
-    testWidgets('D13: cancel saves nothing and keeps the form', (tester) async {
-      final container = await fillSong(tester);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(repo(container).current!.entries.length, fixture.entries.length);
-      expect(find.byType(EntryFormScreen), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add'))
-            .onPressed,
-        isNotNull,
-      );
-    });
+    testWidgets(
+      'song over its album: cancel saves nothing and keeps the form',
+      (tester) async {
+        final container = await fillSong(tester);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(repo(container).current!.entries.length, fixture.entries.length);
+        expect(find.byType(EntryFormScreen), findsOneWidget);
+        expect(
+          tester
+              .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add'))
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
 
-    testWidgets('D12: an album absorbs its saved songs when replacing', (
-      tester,
-    ) async {
-      final container = await pumpApp(
-        tester,
-        const EntryFormScreen.create(type: MediaType.music),
-      );
-      await tester.enterText(hinted('Title'), 'Green River');
-      await tester.enterText(
-        hinted('Optional').at(0),
-        'Creedence Clearwater Revival',
-      );
-      await tester.tap(find.text('Not set'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('${DateTime.now().year}'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).last, '1969');
-      await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('You have 1 song from Green River saved'),
-        findsOneWidget,
-      );
-      expect(find.text('Bad Moon Rising'), findsOneWidget);
-      await tester.tap(find.text('Replace songs with album'));
-      await tester.pumpAndSettle();
-      final library = repo(container).current!;
-      expect(
-        library.entryById('music/bad-moon-rising-creedence-clearwater-revival'),
-        isNull,
-      );
-      final album = library.entries.last;
-      expect(album.id, 'music/green-river-creedence-clearwater-revival');
-      expect(album.tracks!.single.title, 'Bad Moon Rising');
-      expect(album.tracks!.single.rating, 9);
-      // The song's tags were only pruned where nothing else uses them.
-      expect(library.allTags.contains('halloween'), isTrue);
-    });
+    testWidgets(
+      'album over its songs: an album absorbs its saved songs when replacing',
+      (tester) async {
+        final container = await pumpApp(
+          tester,
+          const EntryFormScreen.create(type: MediaType.music),
+        );
+        await tester.enterText(hinted('Title'), 'Green River');
+        await tester.enterText(
+          hinted('Optional').at(0),
+          'Creedence Clearwater Revival',
+        );
+        await tester.tap(find.text('Not set'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('${DateTime.now().year}'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).last, '1969');
+        await tester.pump();
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('You have 1 song from Green River saved'),
+          findsOneWidget,
+        );
+        expect(find.text('Bad Moon Rising'), findsOneWidget);
+        await tester.tap(find.text('Replace songs with album'));
+        await tester.pumpAndSettle();
+        final library = repo(container).current!;
+        expect(
+          library.entryById(
+            'music/bad-moon-rising-creedence-clearwater-revival',
+          ),
+          isNull,
+        );
+        final album = library.entries.last;
+        expect(album.id, 'music/green-river-creedence-clearwater-revival');
+        expect(album.tracks!.single.title, 'Bad Moon Rising');
+        expect(album.tracks!.single.rating, 9);
+        // The song's tags were only pruned where nothing else uses them.
+        expect(library.allTags.contains('halloween'), isTrue);
+      },
+    );
   });
 }

@@ -10,8 +10,8 @@ class TagMatch {
   final int count;
 }
 
-/// What A5 shows for a query: matching titles, matching tags, and the
-/// entries behind each matching tag.
+/// What Library › Search shows for a query: matching titles, matching tags, and
+/// the entries behind each matching tag.
 class SearchResults {
   const SearchResults({
     this.titles = const [],

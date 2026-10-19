@@ -25,7 +25,8 @@ enum TagCategory {
   @JsonValue('Directors')
   directors,
 
-  /// The cast of movies and shows; A8 suggests the top three billed.
+  /// The cast of movies and shows; Add / edit entry suggests the top three
+  /// billed.
   @JsonValue('Actors')
   actors,
   @JsonValue('Studios')
@@ -35,10 +36,10 @@ enum TagCategory {
   @JsonValue('Other')
   other;
 
-  /// Whether the tag picker (D14) lists this category for an entry of
-  /// [type] before anything is typed: game genres only for games, music
-  /// genres only for music, actors only for movies and shows. A search
-  /// finds every tag.
+  /// Whether the tag picker (Add / edit entry › Tag picker) lists this category
+  /// for an entry of [type] before anything is typed: game genres only for
+  /// games, music genres only for music, actors only for movies and shows. A
+  /// search finds every tag.
   bool offeredFor(MediaType type) => switch (this) {
     gameGenre => type == MediaType.games,
     musicGenre => type == MediaType.music,
@@ -46,7 +47,8 @@ enum TagCategory {
     _ => true,
   };
 
-  /// The category a new tag starts on in D10.
+  /// The category a new tag starts on in Add / edit entry › New tag: confirm
+  /// and pick a category.
   static TagCategory defaultFor(MediaType type) => switch (type) {
     MediaType.games => gameGenre,
     MediaType.music => musicGenre,

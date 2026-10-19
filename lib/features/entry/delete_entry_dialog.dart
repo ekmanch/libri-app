@@ -7,8 +7,8 @@ import '../../widgets/app_dialog.dart';
 import '../../widgets/app_icons.dart';
 import '../plans/plan_progress.dart';
 
-/// Delete confirmation (A9). [plans] are the plans the entry is in, which
-/// the body names. Resolves true when the user confirms.
+/// Delete confirmation (Library › Delete confirmation). [plans] are the plans
+/// the entry is in, which the body names. Resolves true when the user confirms.
 Future<bool> confirmDeleteEntry(
   BuildContext context, {
   required Entry entry,

@@ -14,8 +14,8 @@ class RatingChoice {
   final int? rating;
 }
 
-/// The rating picker (D11): ten buttons, never a slider. [title] names the
-/// entry under the heading.
+/// The rating picker (Library › Rating picker): ten buttons, never a slider.
+/// [title] names the entry under the heading.
 Future<RatingChoice?> showRatingSheet(
   BuildContext context, {
   required String title,

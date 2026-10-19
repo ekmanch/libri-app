@@ -10,7 +10,7 @@ import '../../widgets/page_header.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/setting_row.dart';
 
-/// Opens About (D19) above everything, like Settings.
+/// Opens About (Settings › About Libri) above everything, like Settings.
 Future<void> openAboutScreen(BuildContext context) {
   return Navigator.of(
     context,
@@ -18,7 +18,7 @@ Future<void> openAboutScreen(BuildContext context) {
   ).push<void>(MaterialPageRoute(builder: (_) => const AboutScreen()));
 }
 
-/// A service Libri looks things up in, credited on D19.
+/// A service Libri looks things up in, credited on Settings › About Libri.
 class DataSource {
   const DataSource({
     required this.name,
@@ -50,7 +50,8 @@ class DataSource {
       brightness == Brightness.dark ? logoOnDark ?? logo : logo;
 }
 
-/// The services Libri looks things up in, in the order of D19.
+/// The services Libri looks things up in, in the order of Settings › About
+/// Libri.
 const dataSources = [
   DataSource(
     name: 'TMDB',
@@ -91,9 +92,9 @@ const dataSources = [
   ),
 ];
 
-/// About (D19): the app icon, the name, the version and build from the
-/// build itself, the open-source licenses, and a credit per data source
-/// that opens its website.
+/// About (Settings › About Libri): the app icon, the name, the version and
+/// build from the build itself, the open-source licenses, and a credit per data
+/// source that opens its website.
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key, this.openUrl});
 

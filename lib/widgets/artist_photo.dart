@@ -7,8 +7,9 @@ import '../theme/app_theme.dart';
 import 'cached_image.dart';
 import 'cover_placeholder.dart';
 
-/// An artist's round photo (A17, A18, A19): a colored disc with the
-/// initials until the photo has been found and fetched. Only built in the
+/// An artist's round photo (Library › Music: artists, list with photos; Music:
+/// artists, grid with photos; Music › Artist, with photos): a colored disc with
+/// the initials until the photo has been found and fetched. Only built in the
 /// photo views.
 class ArtistPhoto extends ConsumerStatefulWidget {
   const ArtistPhoto({
@@ -23,7 +24,8 @@ class ArtistPhoto extends ConsumerStatefulWidget {
   final String initials;
   final double size;
 
-  /// Defaults to a third of the disc; the grid (A18) uses a fixed 22.
+  /// Defaults to a third of the disc; the grid (Library › Music: artists, grid
+  /// with photos) uses a fixed 22.
   final double? initialsSize;
 
   @override

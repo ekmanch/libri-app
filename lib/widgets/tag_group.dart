@@ -7,11 +7,11 @@ import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'chips.dart';
 
-/// One collapsible tag category: a 44 px header with the number picked and
-/// a chevron, and the tags as chips when open. Used by the filter sheet
-/// (A2) and the entry form's tag picker (D14). Without [onToggleOpen] the
-/// header is a plain label and the group is always open ("New on this
-/// entry" in D14).
+/// One collapsible tag category: a 44 px header with the number picked and a
+/// chevron, and the tags as chips when open. Used by the filter sheet
+/// (Library › Filter sheet) and the entry form's tag picker (Add / edit entry ›
+/// Tag picker). Without [onToggleOpen] the header is a plain label and the
+/// group is always open ("New on this entry" in Add / edit entry › Tag picker).
 ///
 /// A group the user opens scrolls its list just enough to show all of it,
 /// never so far that its header leaves the top.
@@ -185,8 +185,9 @@ class _TagGroupState extends State<TagGroup> {
   }
 }
 
-/// A long group as one row (A2, D14, S9): the label, then "64 authors · 1
-/// selected" and a chevron, muted. Opens the full-screen list (A28).
+/// A long group as one row (Library › Filter sheet; Add / edit entry › Tag
+/// picker; Plans › Edit plan): the label, then "64 authors · 1 selected" and a
+/// chevron, muted. Opens the full-screen list (Library › Filter: all Authors).
 class TagGroupRow extends StatelessWidget {
   const TagGroupRow({
     super.key,

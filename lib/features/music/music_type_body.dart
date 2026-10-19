@@ -24,11 +24,12 @@ import 'artist_index.dart';
 import 'artist_tiles.dart';
 import 'music_tab.dart';
 
-/// The music list with Music picked on the home (A14, A17, A18): an
-/// Artists / Albums / Songs toggle instead of status segments, one count
-/// line for all three, no sort, and a view button whose choice is kept per
-/// tab. Albums and Songs are flat lists in title order; the Songs tab lists
-/// song entries and rated tracks together.
+/// The music list with Music picked on the home (Library › Music: artists, text
+/// view; Music: artists, list with photos; Music: artists, grid with photos):
+/// an Artists / Albums / Songs toggle instead of status segments, one count
+/// line for all three, no sort, and a view button whose choice is kept per tab.
+/// Albums and Songs are flat lists in title order; the Songs tab lists song
+/// entries and rated tracks together.
 class MusicTypeBody extends ConsumerStatefulWidget {
   const MusicTypeBody({
     super.key,
@@ -44,8 +45,8 @@ class MusicTypeBody extends ConsumerStatefulWidget {
   final void Function(Entry entry) onOpenEntry;
   final void Function(ArtistSummary artist) onOpenArtist;
 
-  /// The home's scroll controller and header: the tabs go under the
-  /// header and scroll away with it, the count line pins at the top (A1).
+  /// The home's scroll controller and header: the tabs go under the header and
+  /// scroll away with it, the count line pins at the top (Library › Home).
   final ScrollController? controller;
   final List<Widget> leadingSlivers;
 
@@ -150,7 +151,7 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
 }
 
 /// The artists in the chosen view, with letter sections and the alphabet
-/// rail when the list is long (L3).
+/// rail when the list is long (Library › Long list: music artists A–Z).
 class ArtistList extends StatelessWidget {
   const ArtistList({
     super.key,

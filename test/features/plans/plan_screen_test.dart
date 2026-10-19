@@ -33,7 +33,7 @@ void main() {
   Finder check(String title) =>
       find.byWidgetPredicate((w) => w is PlanCheck && w.title == title);
 
-  group('checklist (S1)', () {
+  group('checklist', () {
     testWidgets('groups by type, with progress, tabs and the year chip', (
       tester,
     ) async {
@@ -129,7 +129,7 @@ void main() {
       expect(unticked.status, EntryStatus.inProgress);
     });
 
-    testWidgets('a row opens the entry in the plan (S8)', (tester) async {
+    testWidgets('a row opens the entry in the plan', (tester) async {
       await open(tester, 'christmas-2026');
       await tester.tap(find.text('Die Hard'));
       await tester.pumpAndSettle();
@@ -272,7 +272,7 @@ void main() {
     expect(planState(undone), PlanState.active);
   });
 
-  group('timeline (S2)', () {
+  group('timeline', () {
     testWidgets('dated groups with the rail and today, then Whenever', (
       tester,
     ) async {
@@ -361,7 +361,7 @@ void main() {
     });
   });
 
-  group('seasonal theme (S11, S12)', () {
+  group('seasonal theme', () {
     testWidgets('Halloween: orange accent, strip, web, icon and marker', (
       tester,
     ) async {
@@ -409,7 +409,7 @@ void main() {
     });
   });
 
-  group('pool (S4)', () {
+  group('pool', () {
     testWidgets('lists everything with the tag, adds and removes', (
       tester,
     ) async {
@@ -513,7 +513,7 @@ void main() {
       expect(find.text('0 of 6 done'), findsOneWidget); // Switched to it.
     });
 
-    testWidgets('the plan menu deletes the plan (D3, D5)', (tester) async {
+    testWidgets('the plan menu deletes the plan', (tester) async {
       final container = await open(tester, 'christmas-2026');
       await tester.tap(find.byTooltip('Plan options'));
       await tester.pumpAndSettle();

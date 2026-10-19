@@ -113,8 +113,8 @@ class LibraryApp extends ConsumerWidget {
       libraryConnectionProvider.select((c) => c.showsLibrary),
     );
     final startOver = ref.watch(startOverProvider);
-    // A new library connection (F8) starts the shell fresh, on the library
-    // home; see ShellSessionNotifier.
+    // A new library connection (First run › All set) starts the shell fresh, on
+    // the library home; see ShellSessionNotifier.
     final session = ref.watch(shellSessionProvider);
     return MaterialApp(
       title: appName,
@@ -123,8 +123,9 @@ class LibraryApp extends ConsumerWidget {
       darkTheme: buildTheme(brightness: Brightness.dark, accent: prefs.accent),
       themeMode: prefs.themeMode,
       // Until a library file is connected, or kept on the phone after a
-      // disconnect (D16), the app is the first run (F1 to F8). Deleting
-      // the library in D16 brings it back at the welcome screen.
+      // disconnect (Settings › Disconnect: keep or delete), the app is the
+      // first run. Deleting the library in Settings › Disconnect: keep or
+      // delete brings it back at the welcome screen.
       home: showsLibrary
           ? AppShell(key: ValueKey(session))
           : FirstRunFlow(

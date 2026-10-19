@@ -27,14 +27,15 @@ class TagPick {
   final Map<String, TagCategory> created;
 }
 
-/// The entry form's tag picker (D14), the only place a tag can be created.
-/// The library's categories are folding rows, all folded when the picker
-/// opens except the ones that hold a tag already on the entry; "New on
-/// this entry" is always open. Game genres show only for games, music
-/// genres for music and actors for movies and shows. A search shows the
-/// matches from every group, folded or not, and a name that matches
-/// nothing exactly can be created, through the similar-tag check (D9) and
-/// the category dialog (D10). Resolves with null when dismissed.
+/// The entry form's tag picker (Add / edit entry › Tag picker), the only place
+/// a tag can be created. The library's categories are folding rows, all folded
+/// when the picker opens except the ones that hold a tag already on the entry;
+/// "New on this entry" is always open. Game genres show only for games, music
+/// genres for music and actors for movies and shows. A search shows the matches
+/// from every group, folded or not, and a name that matches nothing exactly can
+/// be created, through the similar-tag check (Add / edit entry › New tag: a
+/// similar one exists) and the category dialog (Add / edit entry › New tag:
+/// confirm and pick a category). Resolves with null when dismissed.
 Future<TagPick?> showTagPickerSheet(
   BuildContext context, {
   required Library library,
@@ -44,7 +45,8 @@ Future<TagPick?> showTagPickerSheet(
 }) {
   return showAppSheet<TagPick>(
     context,
-    // The form stays in view above the picker, as on D14.
+    // The form stays in view above the picker, as on Add / edit entry › Tag
+    // picker.
     maxHeightFactor: 0.78,
     builder: (context) => TagPickerSheet(
       library: library,
@@ -81,8 +83,8 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
   late final Map<String, TagCategory> _created = {...widget.created};
   final _query = TextEditingController();
 
-  /// The groups unfolded right now. Every group starts folded except the
-  /// ones that already hold a tag on this entry (D14).
+  /// The groups unfolded right now. Every group starts folded except the ones
+  /// that already hold a tag on this entry (Add / edit entry › Tag picker).
   late final Set<TagCategory> _open = {
     for (final MapEntry(key: category, value: names)
         in widget.library.tags.entries)
@@ -160,9 +162,10 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
     final canCreate = query.isNotEmpty && !_allNames.contains(query);
     bool matches(String tag) => query.isEmpty || tag.contains(query);
 
-    // "New on this entry" first, then the library's categories, each A to
-    // Z. A long group is a row that opens A28 (D14 note), unless a search
-    // narrows it; while a search is typed every group with a match is open.
+    // "New on this entry" first, then the library's categories, each A to Z. A
+    // long group is a row that opens Library › Filter: all Authors
+    // (Add / edit entry › Tag picker note), unless a search narrows it; while a
+    // search is typed every group with a match is open.
     final groups = <(TagCategory?, String, List<String>)>[
       if (_created.isNotEmpty)
         (null, 'New on this entry', _created.keys.where(matches).toList()),

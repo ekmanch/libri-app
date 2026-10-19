@@ -20,7 +20,8 @@ abstract class LookupSource {
   /// fake answers for every provider.
   bool issued(String source) => LookupMatch.providerOf(source) == id;
 
-  /// Candidates for what the user typed (A13), in the provider's order.
+  /// Candidates for what the user typed (Add / edit entry › New entry: pick a
+  /// match), in the provider's order.
   Future<List<LookupMatch>> search(
     String query, {
     required MediaType type,
@@ -45,10 +46,10 @@ abstract class LookupSource {
   /// source without shows.
   Future<ShowSeasons?> seasons(String source) async => null;
 
-  /// The episodes of [season] of the show with [source], in number order,
-  /// for the season screen (A39, A40); empty when the show has no such
-  /// season. Null from a source without shows. Never asked by the daily
-  /// check.
+  /// The episodes of [season] of the show with [source], in number order, for
+  /// the season screen (Show & seasons › Season episodes (all out) and Season
+  /// episodes (airing weekly)); empty when the show has no such season. Null
+  /// from a source without shows. Never asked by the daily check.
   Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async =>
       null;
 

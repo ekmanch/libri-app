@@ -6,10 +6,10 @@ import '../../widgets/artist_photo.dart';
 import '../library/entry_list_views.dart';
 import 'artist_index.dart';
 
-/// One artist in the text or list view (A14, A17): name and what is saved,
-/// "7 albums, 2 songs". A text row is 48 dp with the count on the right;
-/// with [photo] the row is 64 dp, a 48 dp photo, and the count under the
-/// name.
+/// One artist in the text or list view (Library › Music: artists, text view;
+/// Music: artists, list with photos): name and what is saved, "7 albums, 2
+/// songs". A text row is 48 dp with the count on the right; with [photo] the
+/// row is 64 dp, a 48 dp photo, and the count under the name.
 class ArtistRow extends StatelessWidget {
   const ArtistRow({
     super.key,
@@ -101,7 +101,8 @@ class ArtistRow extends StatelessWidget {
   }
 }
 
-/// One cell of the artist grid (A18): round photo, name, count.
+/// One cell of the artist grid (Library › Music: artists, grid with photos):
+/// round photo, name, count.
 class ArtistGridTile extends StatelessWidget {
   const ArtistGridTile({super.key, required this.artist, required this.onTap});
 

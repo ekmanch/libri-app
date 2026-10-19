@@ -1,11 +1,13 @@
 import '../../widgets/labels.dart';
 import 'sync_state.dart';
 
-/// The rules behind the token expiry warning (D20) and the "Token expired"
-/// sync state. GitHub says when a token expires in a header on every
-/// answer; the connection keeps the date ([LibraryConnection.tokenExpires]).
+/// The rules behind the token expiry warning (Library › Token expires soon) and
+/// the "Token expired" sync state. GitHub says when a token expires in a header
+/// on every answer; the connection keeps the date
+/// ([LibraryConnection.tokenExpires]).
 
-/// D20 shows from this long before the expiry.
+/// The Library › Token expires soon dialog shows from this long before the
+/// expiry.
 const tokenWarningWindow = Duration(days: 7);
 
 /// Where "Open GitHub" goes: the fine-grained tokens page, where a token
@@ -26,9 +28,10 @@ int daysUntil(DateTime when, DateTime now) {
   ).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
 }
 
-/// Whether D20 is due: the token expires within [tokenWarningWindow] but
-/// has not yet (a date that passed while requests still succeed is
-/// ignored, as is one with no date), and D20 was not shown today.
+/// Whether the Library › Token expires soon dialog is due: the token expires
+/// within [tokenWarningWindow] but has not yet (a date that passed while
+/// requests still succeed is ignored, as is one with no date), and it was
+/// not shown today.
 bool tokenWarningDue({
   required DateTime? expires,
   required DateTime? warnedOn,

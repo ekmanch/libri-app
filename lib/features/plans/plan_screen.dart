@@ -53,11 +53,13 @@ Future<void> openPlanScreen(
 
 enum PlanTab { thisPlan, pool }
 
-/// One plan: the checklist grouped by type (S1) or the timeline (S2), and
-/// with linked tags a second tab with everything that has them (S4). The
-/// header has the year chip, the plan menu (D3), progress and the tabs.
-/// With the seasonal theme on, the strip, icon, marker and accent of S11
-/// or S12 apply, only inside this screen.
+/// One plan: the checklist grouped by type (Plans › Plan checklist) or the
+/// timeline (Plans › Plan with timing on), and with linked tags a second tab
+/// with everything that has them (Plans › All Halloween: add, edit, remove).
+/// The header has the year chip, the plan menu (Plans › Plan menu), progress
+/// and the tabs. With the seasonal theme on, the strip, icon, marker and accent
+/// of Plans › Halloween touches or Christmas touches apply, only inside
+/// this screen.
 class PlanScreen extends ConsumerStatefulWidget {
   const PlanScreen({super.key, required this.planId, required this.tab});
 
@@ -539,7 +541,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// The round check on a plan row (S1, S2).
+/// The round check on a plan row (Plans › Plan checklist; Plan with timing on).
 class PlanCheck extends StatelessWidget {
   const PlanCheck({
     super.key,
@@ -810,7 +812,7 @@ class _Timeline extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 // The gap to the next group is inside the row, so the rail
-                // runs through it as one line (S2).
+                // runs through it as one line (Plans › Plan with timing on).
                 _Rail(group: group),
                 const SizedBox(width: 12),
                 Expanded(
@@ -952,7 +954,8 @@ class _TimelineCard extends StatelessWidget {
                         height: 1.25,
                         color: item.done ? colors.muted : null,
                       ),
-                      // Two lines before cutting off, as on S2.
+                      // Two lines before cutting off, as on Plans › Plan with
+                      // timing on.
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     );
@@ -1017,8 +1020,9 @@ class _TimelineCard extends StatelessWidget {
   }
 }
 
-/// Everything in the library with any of the plan's tags (S4): add to or
-/// remove from this plan, and a row of actions behind "⋮".
+/// Everything in the library with any of the plan's tags (Plans › All
+/// Halloween: add, edit, remove): add to or remove from this plan, and a row of
+/// actions behind "⋮".
 class _Pool extends ConsumerWidget {
   const _Pool({
     required this.plan,
@@ -1242,7 +1246,8 @@ class _Pool extends ConsumerWidget {
   }
 }
 
-/// One of the three actions under a pool row (S4): 44 px, neutral fill.
+/// One of the three actions under a pool row (Plans › All Halloween: add, edit,
+/// remove): 44 px, neutral fill.
 class _ActionChip extends StatelessWidget {
   const _ActionChip({
     required this.label,

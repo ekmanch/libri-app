@@ -65,9 +65,10 @@ String entryKindLabel(Entry entry) => switch (entry.kind) {
   null => entry.type.singular,
 };
 
-/// A song's subtitle in the Songs tab (A14): the artist and the year the
-/// song, or the album it is on, came out. The tab mixes every artist, so
-/// the artist is named, unlike on an artist's own screen.
+/// A song's subtitle in the Songs tab (Library › Music: artists, text view):
+/// the artist and the year the song, or the album it is on, came out. The tab
+/// mixes every artist, so the artist is named, unlike on an artist's own
+/// screen.
 String songSubtitle(Entry songOrAlbum, {DateTime? today}) {
   final released = songOrAlbum.released;
   if (released != null && !released.isReleasedOn(today ?? DateTime.now())) {
@@ -135,8 +136,8 @@ class EntryRow extends StatelessWidget {
   /// subtitle: "New" for "New season".
   static const shortBadge = 'New';
 
-  /// The subtitle, then the badge right after it. The badge reads "New
-  /// season" as drawn (A1); when the whole subtitle and it do not fit side
+  /// The subtitle, then the badge right after it. The badge reads "New season"
+  /// as drawn (Library › Home); when the whole subtitle and it do not fit side
   /// by side, it shortens to "New", and only then does the subtitle give way.
   Widget _withBadge(TextSpan span) {
     final subtitle = Text.rich(

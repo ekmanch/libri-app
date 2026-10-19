@@ -1,8 +1,9 @@
 import 'track_info.dart';
 
-/// What the music source knows beyond matches: an album's track list (A22)
-/// and an artist's photo. Deezer implements it; so does the fake. The
-/// services find it among the lookup sources, so nothing else names Deezer.
+/// What the music source knows beyond matches: an album's track list (Music ›
+/// Album with track ratings) and an artist's photo. Deezer implements it; so
+/// does the fake. The services find it among the lookup sources, so nothing
+/// else names Deezer.
 abstract interface class MusicSource {
   /// The tracks of the album with lookup id [albumSource]
   /// ("deezer:album:302127"), in order. Throws [LookupException].

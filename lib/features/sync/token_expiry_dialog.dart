@@ -7,18 +7,20 @@ import '../../widgets/app_dialog.dart';
 import '../../widgets/app_icons.dart';
 import 'token_expiry.dart';
 
-/// What was picked in D20. Null when the dialog was dismissed otherwise.
+/// What was picked in Library › Token expires soon. Null when the dialog was
+/// dismissed otherwise.
 enum TokenExpiryChoice {
-  /// Open the token step with the repo kept (F3 as "Replace token").
+  /// Open the token step with the repo kept (First run › Connect GitHub as
+  /// "Replace token").
   replace,
 
   /// Dismiss until the next day.
   later,
 }
 
-/// The token expiry warning (D20): the token for [repository] stops
-/// working on [expires]. "Open GitHub" opens the tokens page in the
-/// browser and leaves the dialog up, so the new token can be pasted on
+/// The token expiry warning (Library › Token expires soon): the token for
+/// [repository] stops working on [expires]. "Open GitHub" opens the tokens page
+/// in the browser and leaves the dialog up, so the new token can be pasted on
 /// return; the other two buttons close it with their choice.
 Future<TokenExpiryChoice?> showTokenExpiryDialog(
   BuildContext context, {

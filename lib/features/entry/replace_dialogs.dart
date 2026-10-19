@@ -8,7 +8,8 @@ import '../../data/models/track.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_dialog.dart';
 
-/// What the user picked in D12 or D13. Null means cancel the save.
+/// What the user picked in Add / edit entry › Saving an album: songs already
+/// saved or Saving a song: album already saved. Null means cancel the save.
 enum ReplaceChoice { keepBoth, replace }
 
 String _norm(String? text) => (text ?? '').trim().toLowerCase();
@@ -17,8 +18,9 @@ String _norm(String? text) => (text ?? '').trim().toLowerCase();
 bool _sameArtist(Entry a, Entry b) =>
     _norm(a.creator).isNotEmpty && _norm(a.creator) == _norm(b.creator);
 
-/// Song entries that are from [album] (same artist, album title matches
-/// the song's `album` field). Saving the album then asks D12.
+/// Song entries that are from [album] (same artist, album title matches the
+/// song's `album` field). Saving the album then asks Add / edit entry › Saving
+/// an album: songs already saved.
 List<Entry> songsFromAlbum(Library library, Entry album) => library.entries
     .where(
       (e) =>
@@ -30,10 +32,10 @@ List<Entry> songsFromAlbum(Library library, Entry album) => library.entries
     )
     .toList();
 
-/// The album entry [song] is from, if saved: the one with the song's
-/// album id ([albumSource], from the lookup) when both are known, else by
-/// artist and album title. No album info on the song means no match.
-/// Saving the song then asks D13.
+/// The album entry [song] is from, if saved: the one with the song's album id
+/// ([albumSource], from the lookup) when both are known, else by artist and
+/// album title. No album info on the song means no match. Saving the song then
+/// asks Add / edit entry › Saving a song: album already saved.
 Entry? albumOfSong(Library library, Entry song, {String? albumSource}) {
   if (albumSource != null) {
     for (final e in library.entries) {
@@ -86,7 +88,8 @@ const _words = [
 
 String _count(int n) => n < _words.length ? _words[n] : '$n';
 
-/// D12: saving an album when song entries from it exist.
+/// Saving an album when song entries from it exist (Add / edit entry ›
+/// Saving an album: songs already saved).
 Future<ReplaceChoice?> showReplaceSongsDialog(
   BuildContext context, {
   required Entry album,
@@ -126,7 +129,8 @@ Future<ReplaceChoice?> showReplaceSongsDialog(
   );
 }
 
-/// D13: saving a song when its album is saved. Says what would be lost.
+/// Saving a song when its album is saved (Add / edit entry › Saving a song:
+/// album already saved). Says what would be lost.
 Future<ReplaceChoice?> showReplaceAlbumDialog(
   BuildContext context, {
   required Entry song,

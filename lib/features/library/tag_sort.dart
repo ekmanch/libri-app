@@ -1,14 +1,17 @@
-/// How tags are listed wherever a group of them is shown (A2, D14, S9,
-/// A28): A to Z by the tag itself, so people sort by first name, with a
-/// leading "the" ignored. Groups over [longTagGroup] tags are a row that
-/// opens the full-screen list (A28) instead of inline chips.
+/// How tags are listed wherever a group of them is shown (Library › Filter
+/// sheet; Add / edit entry › Tag picker; Plans › Edit plan; Library › Filter:
+/// all Authors): A to Z by the tag itself, so people sort by first name, with a
+/// leading "the" ignored. Groups over [longTagGroup] tags are a row that opens
+/// the full-screen list (Library › Filter: all Authors) instead of inline
+/// chips.
 library;
 
 import '../../data/models/entry_id.dart';
 import '../../data/models/library.dart';
 import '../../data/models/tag_category.dart';
 
-/// A group with more tags than this is shown as a row that opens A28.
+/// A group with more tags than this is shown as a row that opens Library ›
+/// Filter: all Authors.
 const longTagGroup = 24;
 
 /// The key a tag sorts by: the tag without a leading "the-".
@@ -52,8 +55,9 @@ List<String> splitCreators(String creator) => creator
     .where((p) => p.isNotEmpty)
     .toList();
 
-/// "author", "authors" for the creator groups, "tag", "tags" for the rest:
-/// the noun A28 counts in ("64 authors · 1 selected", "Search authors").
+/// "author", "authors" for the creator groups, "tag", "tags" for the rest: the
+/// noun Library › Filter: all Authors counts in ("64 authors · 1 selected",
+/// "Search authors").
 String tagGroupNoun(TagCategory category, int count) {
   final one = switch (category) {
     TagCategory.authors => 'author',

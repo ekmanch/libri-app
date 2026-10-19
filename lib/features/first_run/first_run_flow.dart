@@ -22,8 +22,8 @@ import '../sync/relative_time.dart';
 import '../sync/sync_state.dart';
 import 'which_library_dialog.dart';
 
-/// Opens the Connect GitHub step on its own, from "Replace token" in D6.
-/// Pops when the token is saved.
+/// Opens the Connect GitHub step on its own, from "Replace token" in Settings ›
+/// Library connection. Pops when the token is saved.
 Future<void> openReplaceTokenScreen(BuildContext context) {
   return Navigator.of(context, rootNavigator: true).push<void>(
     MaterialPageRoute(builder: (_) => const FirstRunFlow.replaceToken()),
@@ -43,7 +43,7 @@ enum FirstRunStep {
 
 enum _FileChoice { newFile, existing }
 
-/// A branch in the repo, as F4 lists them.
+/// A branch in the repo, as First run › Pick a branch lists them.
 class RepoBranch {
   const RepoBranch(this.name, {required this.isDefault, this.updated});
 
@@ -58,13 +58,14 @@ class RepoBranch {
   String? get info => updated == null ? null : 'Updated $updated';
 }
 
-/// A JSON file in the repo, as F7 lists them.
+/// A JSON file in the repo, as First run › Pick an existing file lists them.
 class RepoFile {
   const RepoFile(this.path, {this.entries, this.updated, this.sha});
 
   final String path;
 
-  /// The blob sha, for replacing the file with this phone's library (D18).
+  /// The blob sha, for replacing the file with this phone's library
+  /// (First run › Different file: which library?).
   final String? sha;
 
   /// How many entries the library holds; null for a JSON file that is not
@@ -96,11 +97,11 @@ String describeGitHubFailure(GitHubException e) => switch (e.failure) {
         '${e.status == null ? '' : ' (${e.status})'}. Try again.',
 };
 
-/// The first run (F1 to F8): splash, welcome, connect GitHub, pick a
+/// The first run: splash, welcome, connect GitHub, pick a
 /// branch, new or existing library file, create or pick it, all set. One
 /// screen whose content changes with the step, like the canvas template.
 /// Talks to GitHub through [GitHubApi]; the token and the connection are
-/// stored at the end (F8).
+/// stored at the end (First run › All set).
 class FirstRunFlow extends ConsumerStatefulWidget {
   const FirstRunFlow({super.key, this.initialStep = FirstRunStep.splash})
     : replaceToken = false,
@@ -112,9 +113,10 @@ class FirstRunFlow extends ConsumerStatefulWidget {
       replaceToken = true,
       reconnect = false;
 
-  /// Connecting a repo again while the library is kept on the phone (D6
-  /// after D16): F3 to F8 pushed above the app, popped when done or on
-  /// back from F3.
+  /// Connecting a repo again while the library is kept on the phone (Settings ›
+  /// Library connection after Settings › Disconnect: keep or delete):
+  /// First run › Connect GitHub to All set pushed above the app, popped when
+  /// done or on back from First run › Connect GitHub.
   const FirstRunFlow.reconnect({super.key})
     : initialStep = FirstRunStep.connect,
       replaceToken = false,
@@ -127,7 +129,8 @@ class FirstRunFlow extends ConsumerStatefulWidget {
   /// How long the splash stays before the welcome screen.
   static const splashDuration = Duration(milliseconds: 900);
 
-  /// How many JSON files F7 looks into, and how large one may be.
+  /// How many JSON files First run › Pick an existing file looks into, and how
+  /// large one may be.
   static const maxFiles = 20;
   static const maxFileBytes = 20 * 1024 * 1024;
 
@@ -136,10 +139,12 @@ class FirstRunFlow extends ConsumerStatefulWidget {
     'https://github.com/settings/personal-access-tokens/new',
   );
 
-  /// The commit that creates the file (F6), empty or from this phone.
+  /// The commit that creates the file (First run › Create a new library), empty
+  /// or from this phone.
   static const createMessage = 'Create Libri library';
 
-  /// The commit that puts this phone's library over a chosen file (D18).
+  /// The commit that puts this phone's library over a chosen file (First run ›
+  /// Different file: which library?).
   static const replaceMessage = 'Replace with the library from this phone';
 
   @override
@@ -154,17 +159,18 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
   late final TextEditingController _token;
   late final TextEditingController _fileName;
 
-  /// The client for the repo and token of F3, once they are accepted.
+  /// The client for the repo and token of First run › Connect GitHub, once they
+  /// are accepted.
   GitHubApi? _api;
 
-  /// The repo's default branch, from F3.
+  /// The repo's default branch, from First run › Connect GitHub.
   String _defaultBranch = 'main';
 
-  /// The branch picked in F4 (the default until another is tapped), used
-  /// for everything after it.
+  /// The branch picked in First run › Pick a branch (the default until another
+  /// is tapped), used for everything after it.
   String _branch = 'main';
 
-  /// F4: null while the branches are being read.
+  /// First run › Pick a branch: null while the branches are being read.
   List<RepoBranch>? _branches;
 
   /// Connect or Create in progress; a second press is ignored.
@@ -173,22 +179,26 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
   /// Shown under the step's field after a failed call.
   String? _error;
 
-  /// F7: null while the repo is being read.
+  /// First run › Pick an existing file: null while the repo is being read.
   List<RepoFile>? _files;
   int _file = 0;
 
-  /// F8: how many entries the chosen file holds.
+  /// First run › All set: how many entries the chosen file holds.
   int _loadedEntries = 0;
 
-  /// The library kept on this phone after a disconnect (D16), once read;
-  /// F6 creates the new file from it and F7 asks which to keep (D18).
+  /// The library kept on this phone after a disconnect (Settings › Disconnect:
+  /// keep or delete), once read; First run › Create a new library creates the
+  /// new file from it and Pick an existing file asks which to keep (First run ›
+  /// Different file: which library?).
   Library? _kept;
 
   /// The connection the kept library belongs to, to tell the same file
   /// from another one.
   LibraryConnection? _keptConnection;
 
-  /// F8 after "This phone's" in D18: the chosen file now holds it.
+  /// First run › All set after "This phone's" in the which-library question
+  /// (First run › Different file: which library?): the chosen file now holds
+  /// it.
   bool _replacedFile = false;
 
   @override
@@ -258,8 +268,8 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
   bool get _canConnect =>
       _repo.text.trim().contains('/') && _token.text.trim().isNotEmpty;
 
-  /// F3: checks the token against the repo. A token that can read but
-  /// not write is refused here, not at the first save.
+  /// First run › Connect GitHub: checks the token against the repo. A token
+  /// that can read but not write is refused here, not at the first save.
   Future<void> _connect() async {
     if (_busy) return;
     setState(() {
@@ -303,8 +313,9 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     }
   }
 
-  /// F4: the repo's branches, the default first and the rest A to Z, each
-  /// with when its head was committed. The default is preselected.
+  /// First run › Pick a branch: the repo's branches, the default first and the
+  /// rest A to Z, each with when its head was committed. The default is
+  /// preselected.
   Future<void> _loadBranches() async {
     setState(() {
       _branches = null;
@@ -341,8 +352,8 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     }
   }
 
-  /// F6: adds the empty library to the repo. An existing file is never
-  /// overwritten.
+  /// First run › Create a new library: adds the empty library to the repo. An
+  /// existing file is never overwritten.
   Future<void> _create() async {
     if (_busy) return;
     setState(() {
@@ -375,8 +386,8 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     }
   }
 
-  /// F7: the JSON files in the repo, each opened to see whether it is a
-  /// Libri library and how many entries it holds.
+  /// First run › Pick an existing file: the JSON files in the repo, each opened
+  /// to see whether it is a Libri library and how many entries it holds.
   Future<void> _loadFiles() async {
     setState(() {
       _files = null;
@@ -452,8 +463,9 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     final file = _chosenFile!;
     final kept = _kept;
     if (kept != null && _otherFile) {
-      // D18: which library to keep. The same file needs no question: the
-      // sync compares both copies to their base.
+      // Which library to keep (First run › Different file: which library?). The
+      // same file needs no question: the sync compares both copies to their
+      // base.
       final choice = await askWhichLibrary(
         context,
         phoneEntries: kept.entries.length,
@@ -469,8 +481,9 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     _go(FirstRunStep.done);
   }
 
-  /// D18, "This phone's": the kept library goes over the chosen file,
-  /// then the file is connected like any other.
+  /// First run › Different file: which library?, "This phone's": the kept
+  /// library goes over the chosen file, then the file is connected like any
+  /// other.
   Future<void> _replaceFile(RepoFile file, Library kept) async {
     if (_busy) return;
     setState(() {
@@ -498,10 +511,11 @@ class _FirstRunFlowState extends ConsumerState<FirstRunFlow> {
     }
   }
 
-  /// F8: the token and the connection are stored; the app then opens the
-  /// library from GitHub, always on the library home with All picked: the
-  /// filter and the type are cleared and the shell starts fresh. A flow
-  /// pushed above the app (reconnect) pops, with D6 and Settings under it.
+  /// First run › All set: the token and the connection are stored; the app then
+  /// opens the library from GitHub, always on the library home with All picked:
+  /// the filter and the type are cleared and the shell starts fresh. A flow
+  /// pushed above the app (reconnect) pops, with Settings › Library connection
+  /// and Settings under it.
   void _finish() {
     ref.read(libraryFilterProvider.notifier).clear();
     ref.read(shellSessionProvider.notifier).restart();
@@ -876,7 +890,7 @@ class _ErrorText extends StatelessWidget {
   }
 }
 
-/// F1: the mark in the middle, the name near the bottom.
+/// First run › Splash: the mark in the middle, the name near the bottom.
 class _Splash extends StatelessWidget {
   const _Splash();
 
@@ -900,7 +914,7 @@ class _Splash extends StatelessWidget {
   }
 }
 
-/// F2.
+/// First run › Welcome.
 class _Welcome extends StatelessWidget {
   const _Welcome({required this.onStart});
 
@@ -966,8 +980,9 @@ class _Welcome extends StatelessWidget {
   }
 }
 
-/// F3 to F7: a back arrow with the step label, a title and a line under
-/// it, the step's content, and the buttons pinned to the bottom.
+/// First run › Connect GitHub to Pick an existing file: a back arrow with the
+/// step label, a title and a line under it, the step's content, and the buttons
+/// pinned to the bottom.
 class _StepPage extends StatelessWidget {
   const _StepPage({
     required this.label,
@@ -1082,7 +1097,7 @@ class _Help extends StatelessWidget {
   }
 }
 
-/// The JSON that F6 adds to the repo.
+/// The JSON that First run › Create a new library adds to the repo.
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock(this.code);
 
@@ -1112,7 +1127,8 @@ class _CodeBlock extends StatelessWidget {
   }
 }
 
-/// F5: one of the two ways to get a library file.
+/// First run › Library file: new or existing: one of the two ways to get a
+/// library file.
 class _ChoiceCard extends StatelessWidget {
   const _ChoiceCard({
     required this.icon,
@@ -1205,8 +1221,8 @@ class _ChoiceCard extends StatelessWidget {
   }
 }
 
-/// F4: a branch in the repo, with the branch icon, a Default badge on the
-/// repo's default branch and when it was last updated.
+/// First run › Pick a branch: a branch in the repo, with the branch icon, a
+/// Default badge on the repo's default branch and when it was last updated.
 class _BranchRow extends StatelessWidget {
   const _BranchRow({
     required this.branch,
@@ -1309,8 +1325,8 @@ class _BranchRow extends StatelessWidget {
   }
 }
 
-/// F7: a JSON file in the repo. A file that is not a library is dimmed
-/// and cannot be picked.
+/// First run › Pick an existing file: a JSON file in the repo. A file that is
+/// not a library is dimmed and cannot be picked.
 class _FileRow extends StatelessWidget {
   const _FileRow({
     required this.file,
@@ -1373,7 +1389,7 @@ class _FileRow extends StatelessWidget {
   }
 }
 
-/// F8.
+/// First run › All set.
 class _Done extends StatelessWidget {
   const _Done({required this.text, required this.onOpen});
 

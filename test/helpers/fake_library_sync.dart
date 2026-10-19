@@ -14,7 +14,8 @@ class FakeLibrarySync implements LibrarySync {
   int syncNows = 0;
   int discards = 0;
 
-  /// Discards that kept the library on the phone (D16).
+  /// Discards that kept the library on the phone (Settings › Disconnect: keep
+  /// or delete).
   int keeps = 0;
 
   /// Conflict resolutions, true for "Keep mine".

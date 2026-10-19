@@ -10,7 +10,8 @@ import 'plan_progress.dart';
 
 enum RemoveChoice { fromPlan, everywhere }
 
-/// D4: remove an entry from this plan, or delete it everywhere. [plan] is
+/// Removes an entry from this plan, or deletes it everywhere (Plans › Remove
+/// from plan, or everywhere). [plan] is
 /// the one open; [otherPlans] are the other plans it is in. Null means
 /// cancel.
 Future<RemoveChoice?> showRemoveFromPlanDialog(
@@ -52,7 +53,8 @@ Future<RemoveChoice?> showRemoveFromPlanDialog(
   );
 }
 
-/// D5: delete a plan. Its entries stay. Resolves true when confirmed.
+/// Deletes a plan (Plans › Delete plan). Its entries stay. Resolves true when
+/// confirmed.
 Future<bool> confirmDeletePlan(BuildContext context, Plan plan) async {
   final n = plan.items.length;
   final ok = await showAppDialog<bool>(
@@ -83,7 +85,8 @@ Future<bool> confirmDeletePlan(BuildContext context, Plan plan) async {
 
 enum PlanMenuAction { edit, copy, delete }
 
-/// D3: the plan menu under the "⋮" button, anchored to [anchor].
+/// The plan menu (Plans › Plan menu) under the "⋮" button, anchored to
+/// [anchor].
 Future<PlanMenuAction?> showPlanMenu(
   BuildContext context,
   BuildContext anchor, {

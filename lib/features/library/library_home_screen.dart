@@ -43,11 +43,14 @@ import 'search_screen.dart';
 import 'sort_sheet.dart';
 import 'view_menu.dart';
 
-/// The library home (A1). On All it shows the active plan and two rows per
-/// type under tappable headings. With a type chip or heading picked it
-/// becomes that type's list in place (A4, A20, A21): status segments, count,
-/// sort and view; Music gets its artist, album and song tabs instead (A14).
-/// Also shows filtered results (L5, L6) and the empty states of A10.
+/// The library home (Library › Home). On All it shows the active plan and two
+/// rows per type under tappable headings. With a type chip or heading picked it
+/// becomes that type's list in place (Library › Movies, text view; Movies, list
+/// with covers; Movies, grid with covers): status segments, count, sort and
+/// view; Music gets its artist, album and song tabs instead (Library › Music:
+/// artists, text view). Also shows filtered results (Library › Filtered
+/// results, one type and several types) and the empty states (Library › Empty
+/// states).
 ///
 /// The whole top is part of the one scroll view: the title, the banner,
 /// the search box, the type chips and the status segments scroll away with
@@ -124,8 +127,9 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     ref.read(homeMusicTabProvider.notifier).set(MusicTab.artists);
   }
 
-  /// Opens the filter sheet. With no filter active it starts with what the
-  /// home shows: the picked type and its status segment or music tab (A3).
+  /// Opens the filter sheet. With no filter active it starts with what the home
+  /// shows: the picked type and its status segment or music tab (Library ›
+  /// Filter sheet from Movies (Done picked)).
   Future<void> _openFilters(Library library) async {
     final filter = ref.read(libraryFilterProvider);
     final result = await showFilterSheet(
@@ -151,7 +155,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     final type = ref.read(libraryFilterProvider).isActive
         ? null
         : ref.read(homeTypeProvider);
-    // Full screen, above the floating navigation (A5 has none).
+    // Full screen, above the floating navigation (Library › Search has none).
     final tag = await Navigator.of(context, rootNavigator: true).push<String>(
       MaterialPageRoute(
         builder: (searchContext) => SearchScreen(
@@ -182,7 +186,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     ref.listen(homeReturnProvider, (_, _) => _onReturn());
 
     if (library == null && !libraryAsync.hasError) {
-      // D7: the first load.
+      // The first load (First run › First load).
       return Scaffold(
         body: SafeArea(
           bottom: false,
@@ -502,9 +506,10 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     );
   }
 
-  /// Filtered results (L5, L6): removable chips, then the count and sort
-  /// row, which pins, then the rows grouped by type; a long list gets a
-  /// rail (L5, L6).
+  /// Filtered results (Library › Filtered results, one type and several types):
+  /// removable chips, then the count and sort row, which pins, then the rows
+  /// grouped by type; a long list gets a rail (Library › Filtered results, one
+  /// type and several types).
   Widget _filtered(
     List<Widget> header,
     Library library,
@@ -534,8 +539,8 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
                 onRemove: () =>
                     ref.read(libraryFilterProvider.notifier).remove(chip),
               ),
-            // With no results the empty state's button clears the
-            // filters, so the chip row has no link of its own (A10).
+            // With no results the empty state's button clears the filters, so
+            // the chip row has no link of its own (Library › Empty states).
             if (matching.isNotEmpty)
               TextButton(
                 onPressed: () =>
@@ -596,8 +601,9 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       entries: matching,
       sort: prefs.filteredSort,
       view: EntryView.text,
-      // One type: sections follow the sort in that type's color
-      // (L5). Several: one section per type with a dot rail (L6).
+      // One type: sections follow the sort in that type's color (Library ›
+      // Filtered results, one type). Several: one section per type with a dot
+      // rail (Library › Filtered results, several types).
       color: types.length == 1 ? colors.forType(types.single) : colors.muted,
       railSections: types.length == 1 ? null : byType,
       plainSections: byType,

@@ -69,8 +69,8 @@ SeasonCheck fileSeasonCheck(Ref ref) => SeasonCheck(
   store: FileSeasonCheckStore(ref.watch(appCacheDirectoryProvider)),
 );
 
-/// Album track lists (A22), stored under the app cache folder. The fake
-/// overrides keep them in memory.
+/// Album track lists (Music › Album with track ratings), stored under the app
+/// cache folder. The fake overrides keep them in memory.
 final trackListServiceProvider = Provider<TrackListService>(
   (ref) => TrackListService(
     lookups: ref.watch(lookupServiceProvider),
@@ -96,7 +96,8 @@ final trackListProvider = FutureProvider.autoDispose.family<TrackList?, String>(
   retry: (_, _) => null,
 );
 
-/// Season episodes (A39, A40), stored under the app cache folder. The fake
+/// Season episodes (Show & seasons › Season episodes (all out) and Season
+/// episodes (airing weekly)), stored under the app cache folder. The fake
 /// overrides keep them in memory.
 final episodeServiceProvider = Provider<EpisodeService>(
   (ref) => EpisodeService(

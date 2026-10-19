@@ -24,8 +24,9 @@ class FieldLabel extends StatelessWidget {
   }
 }
 
-/// A 52 px text field on the surface color with the 14 px corner of the
-/// forms (A8, A13). Grows for [maxLines] > 1.
+/// A 52 px text field on the surface color with the 14 px corner of the forms
+/// (Add / edit entry; Add / edit entry › New entry: pick a match). Grows for
+/// [maxLines] > 1.
 class AppTextField extends StatelessWidget {
   const AppTextField({
     super.key,
@@ -59,7 +60,7 @@ class AppTextField extends StatelessWidget {
   /// Stops typing past this many characters; no counter is shown.
   final int? maxLength;
 
-  /// Hides the text, for the access token (F3).
+  /// Hides the text, for the access token (First run › Connect GitHub).
   final bool obscureText;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
@@ -116,7 +117,8 @@ class FieldButton extends StatelessWidget {
   final bool placeholder;
   final String? semanticsLabel;
 
-  /// 14 px in front of text; chips sit 8 px in (A8, S9).
+  /// 14 px in front of text; chips sit 8 px in (Add / edit entry; Plans › Edit
+  /// plan).
   final EdgeInsets padding;
 
   @override

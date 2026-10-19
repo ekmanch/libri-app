@@ -487,8 +487,8 @@ void main() {
     await repo.load();
     await repo.flush();
     repo.dispose();
-    // Edits made while the library was kept on the phone (D16), with no
-    // queue to say what they were.
+    // Edits made while the library was kept on the phone (Settings ›
+    // Disconnect: keep or delete), with no queue to say what they were.
     final mine = sampleLibrary().copyWith(entries: [mummy]);
     File('${dir.path}/library.json').writeAsStringSync(encodeLibrary(mine));
 

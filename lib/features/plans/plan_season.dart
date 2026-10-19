@@ -5,8 +5,9 @@ import '../../theme/app_theme.dart';
 import 'seasonal_art.dart';
 import 'seasonal_art_data.dart';
 
-/// The two seasons with artwork (S11, S12). A plan has one when it is
-/// linked to the season's tag and its seasonal theme is on.
+/// The two seasons with artwork (Plans › Halloween touches; Christmas touches).
+/// A plan has one when it is linked to the season's tag and its seasonal theme
+/// is on.
 enum PlanSeason {
   halloween,
   christmas;
@@ -31,7 +32,8 @@ enum PlanSeason {
     PlanSeason.christmas => christmasMarker,
   };
 
-  /// The help line under the Seasonal theme switch (S9, S10).
+  /// The help line under the Seasonal theme switch (Plans › Edit plan; New
+  /// plan).
   String get help => switch (this) {
     PlanSeason.halloween =>
       'Halloween artwork and an orange accent inside this plan.',

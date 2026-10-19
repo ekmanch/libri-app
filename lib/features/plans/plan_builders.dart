@@ -10,7 +10,8 @@ String newPlanId(String name, int? year, Iterable<String> existingIds) {
 }
 
 /// Plans with the same name as [plan], newest year first; [plan] included.
-/// These are the choices in the year chip on the plan screen (S1).
+/// These are the choices in the year chip on the plan screen (Plans › Plan
+/// checklist).
 List<Plan> planYears(Library library, Plan plan) {
   final same = library.plans
       .where((p) => p.name.toLowerCase() == plan.name.toLowerCase())
@@ -24,9 +25,9 @@ List<Plan> planYears(Library library, Plan plan) {
 int nextYearFor(Plan plan, {DateTime? today}) =>
     (plan.year ?? (today ?? DateTime.now()).year) + 1;
 
-/// A new plan built from [source] (S10, "Copy a plan"): same linked tags
-/// and switches, and the items that were not finished, without their
-/// dates and checkmarks. The caller gives it a name, year and id.
+/// A new plan built from [source] (Plans › New plan, "Copy a plan"): same
+/// linked tags and switches, and the items that were not finished, without
+/// their dates and checkmarks. The caller gives it a name, year and id.
 Plan copyPlan(
   Plan source, {
   required String id,
@@ -45,7 +46,8 @@ Plan copyPlan(
   ],
 );
 
-/// The first unfinished items, for "Next up" on the plans overview (S5).
+/// The first unfinished items, for "Next up" on the plans overview (Plans ›
+/// Plans overview).
 List<String> nextUp(Plan plan, Library library, {int count = 2}) => [
   for (final item in plan.items)
     if (!item.done)

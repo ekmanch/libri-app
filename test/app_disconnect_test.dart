@@ -42,8 +42,9 @@ void main() {
     expect(finder, findsOneWidget);
   }
 
-  /// Starts the connected app and opens D6. Real file I/O only completes
-  /// under [WidgetTester.runAsync], so the whole test runs there.
+  /// Starts the connected app and opens Settings › Library connection. Real
+  /// file I/O only completes under [WidgetTester.runAsync], so the whole test
+  /// runs there.
   Future<void> openConnection(WidgetTester tester) async {
     await FileConnectionStore(File('${dir.path}/connection.json'))
         .save(const LibraryConnection(connected: true).toJson());

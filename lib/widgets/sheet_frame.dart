@@ -47,9 +47,9 @@ class _SheetFrameState extends State<SheetFrame> {
   int? _pointer;
   VelocityTracker? _tracker;
 
-  /// True once the body itself has taken the finger's drag. A scroller
-  /// inside it that takes the drag instead (a wheel in A25, a row that
-  /// scrolls sideways) never moves the sheet.
+  /// True once the body itself has taken the finger's drag. A scroller inside
+  /// it that takes the drag instead (a wheel in Add / edit entry › Released:
+  /// wheel picker, a row that scrolls sideways) never moves the sheet.
   bool _bodyDragging = false;
 
   /// True while the finger moves the sheet instead of the body.
@@ -177,9 +177,10 @@ class _SheetFrameState extends State<SheetFrame> {
               ],
             ),
           );
-    // The keyboard (a sheet with a text field: the plan note, the tag
-    // picker's search, the typed year in A26) pushes the sheet up and
-    // shrinks a scrollable body, so the field stays in view.
+    // The keyboard (a sheet with a text field: the plan note, the tag picker's
+    // search, the typed year in Add / edit entry › Released: type the year)
+    // pushes the sheet up and shrinks a scrollable body, so the field stays in
+    // view.
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     const sides = EdgeInsets.symmetric(horizontal: 20);
     return Padding(
@@ -195,7 +196,7 @@ class _SheetFrameState extends State<SheetFrame> {
           // The scroll view spans the sheet's full width with the side
           // margin inside it, so it clips at the sheet's edges, not at the
           // margin: a chip's outline or a row that bleeds (the decade row
-          // in A2) is not cut off.
+          // in Library › Filter sheet) is not cut off.
           if (widget.scrollable)
             Flexible(
               child: Listener(
@@ -267,12 +268,14 @@ class _SheetDrag extends InheritedWidget {
 /// [_SheetFrameState._move]).
 const _sheetMotion = AnimationStyle(reverseCurve: Curves.linear);
 
-/// Opens a modal bottom sheet styled by the theme, on the root navigator so
-/// it covers the floating navigation. With [inheritTheme] the sheet keeps
-/// the opener's theme, e.g. the seasonal accent inside a plan (S7, D2).
+/// Opens a modal bottom sheet styled by the theme, on the root navigator so it
+/// covers the floating navigation. With [inheritTheme] the sheet keeps the
+/// opener's theme, e.g. the seasonal accent inside a plan (Plans › Entry
+/// details (timeline on); When: a day or a period).
 ///
-/// A sheet never takes the whole screen: at most [maxHeightFactor] of it,
-/// so the screen it came from stays in view above it (A22, D14).
+/// A sheet never takes the whole screen: at most [maxHeightFactor] of it, so
+/// the screen it came from stays in view above it (Music › Album with track
+/// ratings; Add / edit entry › Tag picker).
 ///
 /// A text field behind the sheet gives up its focus first. Otherwise the
 /// field takes it back when the sheet closes and the keyboard pops up

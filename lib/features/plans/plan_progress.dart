@@ -3,7 +3,8 @@ import '../../data/models/plan.dart';
 import '../../data/operations/plan_operations.dart';
 import 'plan_dates.dart';
 
-/// Where a plan stands, as grouped on S5 (the S9 note).
+/// Where a plan stands, as grouped on Plans › Plans overview (the Plans › Edit
+/// plan note).
 enum PlanState { active, notStarted, finished }
 
 /// Finished: at least one entry, and every entry done (removed ones are no

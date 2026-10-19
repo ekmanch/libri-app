@@ -32,8 +32,8 @@ import 'floating_nav_bar.dart';
 /// The app frame: one navigator per tab, the floating pill navigation and
 /// the round "+" button laid over the content.
 ///
-/// Screens inside a tab keep the pill visible (A4), so lists add
-/// [contentBottomPadding] at the end to scroll clear of it.
+/// Screens inside a tab keep the pill visible (Library › Movies, text view), so
+/// lists add [contentBottomPadding] at the end to scroll clear of it.
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({
     super.key,
@@ -47,8 +47,9 @@ class AppShell extends ConsumerStatefulWidget {
   final Widget? libraryHome;
   final Widget? plansHome;
 
-  /// Called with the Library tab's navigator context when "+" is pressed.
-  /// By default "+" starts the new-entry flow (A13).
+  /// Called with the Library tab's navigator context when "+" is pressed. By
+  /// default "+" starts the new-entry flow (Add / edit entry › New entry: pick
+  /// a match).
   final void Function(BuildContext context)? onAddEntry;
   final void Function(BuildContext context)? onAddPlan;
 
@@ -70,7 +71,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   late final SyncScheduler _scheduler;
   AppLifecycleListener? _lifecycle;
 
-  /// Whether D20 is being shown, so a resume meanwhile adds no second.
+  /// Whether the Library › Token expires soon dialog is being shown, so a
+  /// resume meanwhile adds no second.
   bool _warning = false;
 
   /// Whether the move to seasons is being applied, so it is queued once.
@@ -87,8 +89,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     // session, a little after the library loads.
     ref.listenManual(artworkPrunerProvider, (_, _) {});
     // A plan whose first date has come turns its Started switch on, so the
-    // switch always shows the real state (S9). Plans never stop on their
-    // own.
+    // switch always shows the real state (Plans › Edit plan). Plans never stop
+    // on their own.
     ref.listenManual(libraryProvider, (_, next) {
       final library = next.value;
       if (library == null) return;
@@ -105,9 +107,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             .whenComplete(() => _movingShows = false);
       }
     }, fireImmediately: true);
-    // The token expiry warning (D20) on the first open of the day, in
-    // the last week of the token: when the app starts or comes back to
-    // the foreground, and when GitHub first says when the token expires.
+    // The token expiry warning (Library › Token expires soon) on the first open
+    // of the day, in the last week of the token: when the app starts or comes
+    // back to the foreground, and when GitHub first says when the token
+    // expires.
     ref.listenManual(
       libraryConnectionProvider.select((c) => c.tokenExpires),
       (_, _) => unawaited(_warnAboutToken()),
@@ -139,7 +142,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       await repository.apply(operation);
     }
     // Seasons TMDB dropped that the user gave a status: ask, one at a time
-    // (A36). One left unanswered is asked again after the next check.
+    // (Show & seasons › Announced season dropped). One left unanswered is asked
+    // again after the next check.
     for (final dropped in result.dropped) {
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
@@ -172,9 +176,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.dispose();
   }
 
-  /// Shows D20 when it is due ([tokenWarningDue]) and records the day, so
-  /// it comes once a day. Replace token opens the token step with the
-  /// repo kept; Later leaves it until the next day.
+  /// Shows Library › Token expires soon when it is due ([tokenWarningDue]) and
+  /// records the day, so it comes once a day. Replace token opens the token
+  /// step with the repo kept; Later leaves it until the next day.
   Future<void> _warnAboutToken() async {
     if (_warning) return;
     _warning = true;
@@ -210,10 +214,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  /// The current tab's item returns to its overview one step at a time:
-  /// a screen above it is popped (Plans to S5, Library to the home); on
-  /// the Library home, the next tap scrolls to the top and the one after
-  /// returns to All (A1, DESIGN.md section 3).
+  /// The current tab's item returns to its overview one step at a time: a
+  /// screen above it is popped (Plans to Plans › Plans overview, Library to the
+  /// home); on the Library home, the next tap scrolls to the top and the one
+  /// after returns to All (Library › Home, DESIGN.md section 3).
   void _select(ShellTab tab) {
     if (tab == _tab) {
       final navigator = _current;
@@ -241,8 +245,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  /// The active plan card on the home (A1) opens the plan in the Plans
-  /// tab, so the pill says where you are and back lands on the overview.
+  /// The active plan card on the home (Library › Home) opens the plan in the
+  /// Plans tab, so the pill says where you are and back lands on the overview.
   void _openPlan(Plan plan) {
     setState(() => _tab = ShellTab.plans);
     final plans = _keys[ShellTab.plans]!.currentState!;
@@ -317,7 +321,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                   FloatingNavBar(selected: _tab, onSelect: _select),
                   Builder(
                     builder: (context) {
-                      // A screen inside the tab may claim the button (S1, S4).
+                      // A screen inside the tab may claim the button (Plans ›
+                      // Plan checklist; All Halloween: add, edit, remove).
                       final fab = ref.watch(fabActionProvider);
                       final claimed = fab != null && fab.tab == _tab;
                       final button = AddButton(

@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
 
-/// The one search box (A5, A13, and the tag searches in A2, D14, S9): a 52 px rounded field with a magnifier,
-/// the text inside it and a clear button once there is text. The text
-/// field inside draws no border of its own, so there is never a second
-/// rectangle inside the first.
+/// The one search box (Library › Search; Add / edit entry › New entry: pick a
+/// match, and the tag searches in Library › Filter sheet; Add / edit entry ›
+/// Tag picker; Plans › Edit plan): a 52 px rounded field with a magnifier, the
+/// text inside it and a clear button once there is text. The text field inside
+/// draws no border of its own, so there is never a second rectangle inside the
+/// first.
 class SearchField extends StatefulWidget {
   const SearchField({
     super.key,

@@ -1,7 +1,8 @@
-// GENERATED from the seasonal artboards S11 and S12 in design/canvas.html
-// by a one-off script (the Halloween ghost and title pumpkin were ported
-// by hand the same way); do not edit by hand otherwise. Each shape is drawn in the
-// artboard's own coordinates and the painter scales the whole picture.
+// GENERATED from the seasonal artboards Plans › Halloween touches and Christmas
+// touches in design/canvas.html by a one-off script (the Halloween ghost and
+// title pumpkin were ported by hand the same way); do not edit by hand
+// otherwise. Each shape is drawn in the artboard's own coordinates and the
+// painter scales the whole picture.
 
 import 'package:flutter/painting.dart' show Color;
 

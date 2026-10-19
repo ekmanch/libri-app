@@ -4,7 +4,8 @@ import '../theme/app_theme.dart';
 import 'app_buttons.dart';
 import 'app_icons.dart';
 
-/// Centered icon, title, one line of help and an optional action (A10).
+/// Centered icon, title, one line of help and an optional action (Library ›
+/// Empty states).
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,

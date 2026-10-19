@@ -5,7 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/fitted_title.dart';
 import '../plans/plan_progress.dart';
 
-/// The card on the library home for the plan in progress (A1).
+/// The card on the library home for the plan in progress (Library › Home).
 class ActivePlanCard extends StatelessWidget {
   const ActivePlanCard({super.key, required this.plan, this.onTap});
 

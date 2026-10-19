@@ -7,10 +7,11 @@ import '../data/models/entry.dart';
 import 'cached_image.dart';
 import 'cover_placeholder.dart';
 
-/// An entry's cover (A20, A21, A6 and the rest): the placeholder until the
-/// cover has been found and fetched, then the image. Only built in the
-/// photo views, so a text view fetches nothing. [labeled] gives the image
-/// the title as its screen reader name, for the details header.
+/// An entry's cover (Library › Movies, list with covers; Movies, grid with
+/// covers; Entry details and the rest): the placeholder until the cover has
+/// been found and fetched, then the image. Only built in the photo views, so a
+/// text view fetches nothing. [labeled] gives the image the title as its screen
+/// reader name, for the details header.
 class CoverImage extends ConsumerStatefulWidget {
   const CoverImage({
     super.key,

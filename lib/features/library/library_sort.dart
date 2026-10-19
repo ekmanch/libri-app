@@ -1,7 +1,7 @@
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 
-/// The sort choices in D1, in menu order.
+/// The sort choices in Library › Sort menu, in menu order.
 enum LibrarySort { newestAdded, titleAz, yearNewest, yearOldest, ratingHighest }
 
 extension LibrarySortLabel on LibrarySort {
@@ -70,8 +70,8 @@ List<Entry> sortEntries(Iterable<Entry> entries, LibrarySort sort) {
   return list;
 }
 
-/// The order on the library home (A1): In progress, then Want, then Done,
-/// then DNF; newest added first within each.
+/// The order on the library home (Library › Home): In progress, then Want, then
+/// Done, then DNF; newest added first within each.
 List<Entry> homeOrder(Iterable<Entry> entries) {
   int rank(EntryStatus s) => switch (s) {
     EntryStatus.inProgress => 0,

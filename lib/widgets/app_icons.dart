@@ -65,7 +65,8 @@ class AppIcons {
     ],
   );
 
-  /// A triangle with an exclamation mark (D16).
+  /// A triangle with an exclamation mark (Settings › Disconnect: keep or
+  /// delete).
   static const warning = StrokeIconData(
     polylines: [
       [Offset(12, 3), Offset(21.5, 20), Offset(2.5, 20), Offset(12, 3)],
@@ -86,7 +87,7 @@ class AppIcons {
     ],
   );
 
-  /// A key: the GitHub token is about to expire (D20).
+  /// A key: the GitHub token is about to expire (Library › Token expires soon).
   static const key = StrokeIconData(
     circles: [StrokeCircle(Offset(8, 15), 4)],
     polylines: [
@@ -96,7 +97,7 @@ class AppIcons {
     ],
   );
 
-  /// An arrow out of a box: the row opens a website (D19).
+  /// An arrow out of a box: the row opens a website (Settings › About Libri).
   static const externalLink = StrokeIconData(
     polylines: [
       [Offset(14, 4), Offset(20, 4), Offset(20, 10)],
@@ -111,7 +112,7 @@ class AppIcons {
     ],
   );
 
-  /// The heavier chevron after a tappable section heading (A1).
+  /// The heavier chevron after a tappable section heading (Library › Home).
   static const chevronRightBold = StrokeIconData(
     strokeWidth: 2.5,
     polylines: [
@@ -195,7 +196,7 @@ class AppIcons {
     ],
   );
 
-  /// Three dots: a menu for the thing on this screen (D3).
+  /// Three dots: a menu for the thing on this screen (Plans › Plan menu).
   static const more = StrokeIconData(
     strokeWidth: 3,
     polylines: [
@@ -216,7 +217,7 @@ class AppIcons {
     ],
   );
 
-  /// A heavier check, for the big "all set" disc (F8).
+  /// A heavier check, for the big "all set" disc (First run › All set).
   static const checkBold = StrokeIconData(
     strokeWidth: 2.6,
     polylines: [
@@ -224,7 +225,8 @@ class AppIcons {
     ],
   );
 
-  /// A git branch: two commits on a line and one branching off (F4).
+  /// A git branch: two commits on a line and one branching off (First run ›
+  /// Pick a branch).
   static const branch = StrokeIconData(
     circles: [
       StrokeCircle(Offset(6, 5), 2.2),
@@ -247,7 +249,8 @@ class AppIcons {
     ],
   );
 
-  /// A page with a folded corner and a plus: a new library file (F5).
+  /// A page with a folded corner and a plus: a new library file (First run ›
+  /// Library file: new or existing).
   static const filePlus = StrokeIconData(
     polylines: [
       [
@@ -264,7 +267,7 @@ class AppIcons {
     ],
   );
 
-  /// A folder: an existing file (F5).
+  /// A folder: an existing file (First run › Library file: new or existing).
   static const folder = StrokeIconData(
     polylines: [
       [

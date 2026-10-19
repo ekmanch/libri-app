@@ -13,9 +13,9 @@ import '../../widgets/sheet_frame.dart';
 import '../plans/plan_form_screen.dart';
 import '../plans/plan_progress.dart';
 
-/// Add to plan (A7): one row per plan with a check. Toggling applies at
-/// once; Done just closes. An entry that is already Done when it is added
-/// is marked as a repeat (a rewatch or re-read).
+/// Add to plan (Library › Add to plan): one row per plan with a check. Toggling
+/// applies at once; Done just closes. An entry that is already Done when it is
+/// added is marked as a repeat (a rewatch or re-read).
 Future<void> showAddToPlanSheet(BuildContext context, String entryId) {
   return showAppSheet<void>(
     context,

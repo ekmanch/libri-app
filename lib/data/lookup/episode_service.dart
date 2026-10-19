@@ -14,12 +14,12 @@ class SeasonEpisodes {
   final bool fromCache;
 }
 
-/// The episodes of a show's season (A39, A40), fetched when the season
-/// screen opens and kept on the phone. Stored episodes show at once; they
-/// are fetched again behind them unless [isSettled]. The show is known by
-/// its `source`, or by the id the artwork resolver matched it to on the
-/// phone. Opening a season writes nothing to the library, and the daily
-/// season check never comes here.
+/// The episodes of a show's season (Show & seasons › Season episodes (all out)
+/// and Season episodes (airing weekly)), fetched when the season screen opens
+/// and kept on the phone. Stored episodes show at once; they are fetched again
+/// behind them unless [isSettled]. The show is known by its `source`, or by the
+/// id the artwork resolver matched it to on the phone. Opening a season writes
+/// nothing to the library, and the daily season check never comes here.
 class EpisodeService {
   EpisodeService({
     required this.lookups,

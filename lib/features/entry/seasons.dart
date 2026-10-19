@@ -30,8 +30,9 @@ String seasonDateLabel(Season season, DateTime today) {
   return released.isReleasedOn(today) ? date : 'Coming $date';
 }
 
-/// The show's status as its seasons give it, in place of the status
-/// control (A29): "Status · In progress · from seasons", above Rating.
+/// The show's status as its seasons give it, in place of the status control
+/// (Show & seasons › Show with seasons (Haunted Hotel)): "Status · In
+/// progress · from seasons", above Rating.
 class ShowStatusRow extends StatelessWidget {
   const ShowStatusRow({super.key, required this.status});
 
@@ -80,9 +81,9 @@ class ShowStatusRow extends StatelessWidget {
   }
 }
 
-/// The status of a show with one season (A34): "Status" and the pill of
-/// Season 1, whose status is the show's. The pill opens the status sheet
-/// titled with the show.
+/// The status of a show with one season (Show & seasons › One season (Carrie)):
+/// "Status" and the pill of Season 1, whose status is the show's. The pill
+/// opens the status sheet titled with the show.
 class SingleSeasonStatusRow extends ConsumerWidget {
   const SingleSeasonStatusRow({super.key, required this.show});
 
@@ -127,8 +128,8 @@ class SingleSeasonStatusRow extends ConsumerWidget {
   }
 }
 
-/// The form's status for a show with several seasons (A37): a quiet
-/// field with the status they give and "Set by the seasons".
+/// The form's status for a show with several seasons (Add / edit entry › Edit a
+/// show): a quiet field with the status they give and "Set by the seasons".
 class DerivedStatusField extends StatelessWidget {
   const DerivedStatusField({super.key, required this.status});
 
@@ -178,9 +179,10 @@ class DerivedStatusField extends StatelessWidget {
 /// "1 season", "29 seasons".
 String seasonsCount(int count) => count == 1 ? '1 season' : '$count seasons';
 
-/// The Seasons section of a show's details (A29, A30, A31, A34). Up to
-/// [listedAll] seasons are all listed; with more, the latest three and a
-/// row that opens every season (A32).
+/// The Seasons section of a show's details (Show & seasons › Show with seasons
+/// (Haunted Hotel); New season just out; Many seasons (South Park); One season
+/// (Carrie)). Up to [listedAll] seasons are all listed; with more, the latest
+/// three and a row that opens every season (Show & seasons › All seasons).
 class SeasonsSection extends StatelessWidget {
   const SeasonsSection({super.key, required this.show});
 
@@ -211,7 +213,8 @@ class SeasonsSection extends StatelessWidget {
           SeasonRow(
             show: show,
             season: season,
-            // One season: its status is the Status row's pill (A34).
+            // One season: its status is the Status row's pill (Show & seasons ›
+            // One season (Carrie)).
             showPill: seasons.length > 1,
           ),
         if (many)
@@ -253,10 +256,12 @@ class SeasonsSection extends StatelessWidget {
   }
 }
 
-/// One season: its name, "New" while it is, its release date, the status
-/// pill that opens the status sheet (A33) unless [showPill] is false (the
-/// one season of A34), and a chevron. The rest of the row opens the
-/// season's episodes (A39, A40, A41).
+/// One season: its name, "New" while it is, its release date, the status pill
+/// that opens the status sheet (Show & seasons › All seasons, just added: catch
+/// up) unless [showPill] is false (the one season of Show & seasons › One
+/// season (Carrie)), and a chevron. The rest of the row opens the season's
+/// episodes (Show & seasons › Season episodes (all out), Season episodes
+/// (airing weekly) and Episodes of a one-season show).
 class SeasonRow extends ConsumerWidget {
   const SeasonRow({
     super.key,
@@ -437,12 +442,12 @@ class SeasonStatusPill extends StatelessWidget {
   }
 }
 
-/// The season status sheet (A33): Not set, Want, In progress, Done, DNF.
-/// A pick goes to [onPick] and closes the sheet. While an earlier season
-/// is not Done, "Mark seasons 1–N Done" calls [onCatchUp] and keeps the
-/// sheet open. Details save both at once; the form keeps them until Save.
-/// [title] replaces "Season N" (the show's name for a show with one
-/// season, A34).
+/// The season status sheet (Show & seasons › All seasons, just added: catch
+/// up): Not set, Want, In progress, Done, DNF. A pick goes to [onPick] and
+/// closes the sheet. While an earlier season is not Done, "Mark seasons 1–N
+/// Done" calls [onCatchUp] and keeps the sheet open. Details save both at once;
+/// the form keeps them until Save. [title] replaces "Season N" (the show's name
+/// for a show with one season, Show & seasons › One season (Carrie)).
 Future<void> showSeasonStatusSheet(
   BuildContext context, {
   required List<Season> seasons,
@@ -611,14 +616,15 @@ class _SeasonStatusSheetState extends State<SeasonStatusSheet> {
   }
 }
 
-/// Opens every season of the show (A32).
+/// Opens every season of the show (Show & seasons › All seasons).
 Future<void> openAllSeasons(BuildContext context, String showId) =>
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => AllSeasonsScreen(showId: showId)),
     );
 
-/// Every season of a show, oldest first (A32), opened scrolled to the
-/// season being watched: the one In progress, else the first not Done.
+/// Every season of a show, oldest first (Show & seasons › All seasons), opened
+/// scrolled to the season being watched: the one In progress, else the first
+/// not Done.
 class AllSeasonsScreen extends ConsumerStatefulWidget {
   const AllSeasonsScreen({super.key, required this.showId});
 
@@ -672,7 +678,8 @@ class _AllSeasonsScreenState extends ConsumerState<AllSeasonsScreen> {
               title: show?.title ?? 'Seasons',
               onBack: () => Navigator.pop(context),
             ),
-            // Under the title, past the back arrow (A32).
+            // Under the title, past the back arrow (Show & seasons › All
+            // seasons).
             Padding(
               padding: const EdgeInsets.fromLTRB(68, 0, 20, 8),
               child: Text(

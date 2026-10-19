@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// One column of a wheel picker (A25): a caption, then a flat, snapping
-/// list of [items] with the chosen one in the middle. Rows are
-/// [itemExtent] tall and [visibleRows] of them show; the rows above and
-/// below the middle fade out. Tapping another row scrolls to it; tapping
-/// the chosen row calls [onTapSelected], which the Released sheet uses to
-/// switch the year to typing.
+/// One column of a wheel picker (Add / edit entry › Released: wheel picker): a
+/// caption, then a flat, snapping list of [items] with the chosen one in the
+/// middle. Rows are [itemExtent] tall and [visibleRows] of them show; the rows
+/// above and below the middle fade out. Tapping another row scrolls to it;
+/// tapping the chosen row calls [onTapSelected], which the Released sheet uses
+/// to switch the year to typing.
 class WheelColumn extends StatefulWidget {
   const WheelColumn({
     super.key,

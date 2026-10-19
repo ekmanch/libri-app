@@ -10,8 +10,8 @@ StrokeIconData viewIcon(EntryView view) => switch (view) {
   EntryView.grid => AppIcons.gridView,
 };
 
-/// The 44 px button showing the current view; opens the view menu (A16)
-/// anchored under it.
+/// The 44 px button showing the current view; opens the view menu (Library ›
+/// View menu open) anchored under it.
 class ViewMenuButton extends StatelessWidget {
   const ViewMenuButton({
     super.key,

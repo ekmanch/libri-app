@@ -9,7 +9,8 @@ import '../../helpers/sample_library.dart';
 void main() {
   test('grid captions and placeholder colors', () {
     final today = DateTime(2026);
-    // The year only, whatever the status (the A21 note).
+    // The year only, whatever the status (the Library › Movies, grid with
+    // covers note).
     expect(CoverGridTile.yearCaption(mummy, today: today), '1999');
     expect(
       CoverGridTile.yearCaption(

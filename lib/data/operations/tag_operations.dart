@@ -6,9 +6,10 @@ import 'library_operation.dart';
 
 part 'tag_operations.g.dart';
 
-/// Adds a tag to the tag map under a category. Tags are only created from
-/// the entry form's tag picker (D10), right before the entry that uses them
-/// is saved; a tag no entry or plan uses is pruned on the next edit.
+/// Adds a tag to the tag map under a category. Tags are only created from the
+/// entry form's tag picker (Add / edit entry › New tag: confirm and pick a
+/// category), right before the entry that uses them is saved; a tag no entry or
+/// plan uses is pruned on the next edit.
 @JsonSerializable()
 class AddTag extends LibraryOperation {
   const AddTag(this.name, this.category);

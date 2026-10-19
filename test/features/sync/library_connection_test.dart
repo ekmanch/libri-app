@@ -33,7 +33,7 @@ void main() {
     expect(LibraryConnection.disconnected.showsLibrary, isFalse);
   });
 
-  test('the token expiry and the day D20 was shown survive too', () {
+  test('the token expiry and the day its warning was shown survive too', () {
     final connection = LibraryConnection(
       connected: true,
       tokenExpires: DateTime.utc(2026, 10, 24, 11, 20, 42),
@@ -77,7 +77,8 @@ void main() {
     test('is kept for the token in use, when the date is ahead', () async {
       final notifier = container.read(libraryConnectionProvider.notifier);
       final ahead = DateTime.now().add(const Duration(days: 30));
-      // Another token (F3 checking a new one before it is saved).
+      // Another token (First run › Connect GitHub checking a new one before it
+      // is saved).
       await notifier.recordTokenExpiry(token: 'pat_b', expires: ahead);
       expect(container.read(libraryConnectionProvider).tokenExpires, isNull);
       // The current time, as GitHub once sent by mistake.

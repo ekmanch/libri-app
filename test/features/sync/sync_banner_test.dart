@@ -166,50 +166,51 @@ void main() {
     );
   });
 
-  testWidgets('Choose opens D17, and a side resolves the conflict', (
-    tester,
-  ) async {
-    final sync = FakeLibrarySync(
-      SyncStatus(
-        phase: SyncPhase.conflict,
-        pendingCount: 3,
-        remoteChangedAt: DateTime(2026, 10, 13, 20, 12),
-      ),
-    );
-    final container = await pumpApp(
-      tester,
-      const Scaffold(body: SyncBannerCard()),
-      overrides: [librarySyncProvider.overrideWithValue(sync)],
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Changed here and on GitHub'), findsOneWidget);
-    await tester.tap(find.text('Choose'));
-    await tester.pumpAndSettle();
-    expect(find.text('Keep which copy?'), findsOneWidget);
-    expect(find.text('This phone: 3 changes'), findsOneWidget);
-    expect(find.text('GitHub: last commit Oct 13, 20:12'), findsOneWidget);
-    expect(find.textContaining("Earlier versions stay"), findsOneWidget);
+  testWidgets(
+    'Choose opens the conflict dialog, and a side resolves the conflict',
+    (tester) async {
+      final sync = FakeLibrarySync(
+        SyncStatus(
+          phase: SyncPhase.conflict,
+          pendingCount: 3,
+          remoteChangedAt: DateTime(2026, 10, 13, 20, 12),
+        ),
+      );
+      final container = await pumpApp(
+        tester,
+        const Scaffold(body: SyncBannerCard()),
+        overrides: [librarySyncProvider.overrideWithValue(sync)],
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Changed here and on GitHub'), findsOneWidget);
+      await tester.tap(find.text('Choose'));
+      await tester.pumpAndSettle();
+      expect(find.text('Keep which copy?'), findsOneWidget);
+      expect(find.text('This phone: 3 changes'), findsOneWidget);
+      expect(find.text('GitHub: last commit Oct 13, 20:12'), findsOneWidget);
+      expect(find.textContaining("Earlier versions stay"), findsOneWidget);
 
-    // Decide later: nothing happens, the banner stays.
-    await tester.tap(find.text('Decide later'));
-    await tester.pumpAndSettle();
-    expect(sync.resolutions, isEmpty);
-    expect(find.text('Changed here and on GitHub'), findsOneWidget);
+      // Decide later: nothing happens, the banner stays.
+      await tester.tap(find.text('Decide later'));
+      await tester.pumpAndSettle();
+      expect(sync.resolutions, isEmpty);
+      expect(find.text('Changed here and on GitHub'), findsOneWidget);
 
-    await tester.tap(find.text('Choose'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text("Keep GitHub's"));
-    await tester.pumpAndSettle();
-    expect(sync.resolutions, [false]);
+      await tester.tap(find.text('Choose'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("Keep GitHub's"));
+      await tester.pumpAndSettle();
+      expect(sync.resolutions, [false]);
 
-    container.read(syncBannerProvider.notifier).show(SyncBanner.conflict);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Choose'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Keep mine'));
-    await tester.pumpAndSettle();
-    expect(sync.resolutions, [false, true]);
-  });
+      container.read(syncBannerProvider.notifier).show(SyncBanner.conflict);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep mine'));
+      await tester.pumpAndSettle();
+      expect(sync.resolutions, [false, true]);
+    },
+  );
 
   test('the dialog\'s lines for an unqueued edit and an unknown commit', () {
     const status = SyncStatus(phase: SyncPhase.conflict);

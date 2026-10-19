@@ -9,7 +9,8 @@ import '../../widgets/labels.dart';
 
 enum SimilarTagChoice { useExisting, createAnyway }
 
-/// D9: the typed tag is close to one that exists. Null means cancel.
+/// The typed tag is close to one that exists (Add / edit entry › New tag: a
+/// similar one exists). Null means cancel.
 Future<SimilarTagChoice?> showSimilarTagDialog(
   BuildContext context, {
   required String typed,
@@ -65,10 +66,12 @@ Future<SimilarTagChoice?> showSimilarTagDialog(
   );
 }
 
-/// The order of the category chips in D10.
+/// The order of the category chips in Add / edit entry › New tag: confirm and
+/// pick a category.
 const newTagCategories = TagCategory.values;
 
-/// D10: confirm a new tag and pick its category. Null means cancel.
+/// Confirms a new tag and picks its category (Add / edit entry › New tag:
+/// confirm and pick a category). Null means cancel.
 Future<TagCategory?> showNewTagDialog(
   BuildContext context, {
   required String name,

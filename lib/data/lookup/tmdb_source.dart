@@ -21,7 +21,8 @@ class TmdbSource extends HttpLookupSource {
   final String token;
   final Uri _baseUrl;
 
-  /// How many of the billed cast a match carries (A8 suggests that many).
+  /// How many of the billed cast a match carries (Add / edit entry suggests
+  /// that many).
   static const topBilled = 3;
 
   static const _images = 'https://image.tmdb.org/t/p/';

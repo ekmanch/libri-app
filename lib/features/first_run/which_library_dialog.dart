@@ -5,12 +5,13 @@ import '../../widgets/app_dialog.dart';
 import '../../widgets/warning_note.dart';
 import 'first_run_flow.dart';
 
-/// The answer to D18.
+/// The answer to First run › Different file: which library?
 enum WhichLibrary { phone, gitHub }
 
-/// D18: "Use this file" (F7) while a library is kept on the phone and the
-/// chosen file is another one. This phone's replaces the file on GitHub;
-/// the one on GitHub replaces the phone's library. Null for Cancel.
+/// First run › Different file: which library?: "Use this file" (First run ›
+/// Pick an existing file) while a library is kept on the phone and the chosen
+/// file is another one. This phone's replaces the file on GitHub; the one on
+/// GitHub replaces the phone's library. Null for Cancel.
 Future<WhichLibrary?> askWhichLibrary(
   BuildContext context, {
   required int phoneEntries,

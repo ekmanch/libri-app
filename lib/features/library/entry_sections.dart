@@ -136,17 +136,19 @@ EntrySection _keyOf(Entry entry, LibrarySort sort, DateTime now) {
   }
 }
 
-/// A23 to A26: the jump rail (with its section headers) or the grid's
-/// fast-scroll thumb appears only when the list is at least three screens
-/// tall and has two sections or more.
+/// Library › Long list: rail by release year to Long grid: fast-scroll thumb:
+/// the jump rail (with its section headers) or the grid's fast-scroll thumb
+/// appears only when the list is at least three screens tall and has two
+/// sections or more.
 bool showJumpRail({
   required int sectionCount,
   required double contentHeight,
   required double viewportHeight,
 }) => sectionCount >= 2 && contentHeight >= 3 * viewportHeight;
 
-/// Filtered results with several types (L6): one section per type, in
-/// type order, each with its color for the header and the rail dot.
+/// Filtered results with several types (Library › Filtered results, several
+/// types): one section per type, in type order, each with its color for the
+/// header and the rail dot.
 List<EntrySection> sectionEntriesByType(
   List<Entry> sorted,
   Color Function(MediaType type) colorOf,

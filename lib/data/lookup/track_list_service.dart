@@ -13,10 +13,10 @@ class TrackList {
   final bool fromCache;
 }
 
-/// The track list of an album (A22): from the store when it is there,
-/// else fetched from the music source and stored. The album is known by
-/// its `source`, or by the id the artwork resolver matched it to on the
-/// device. Opening an album writes nothing to the library.
+/// The track list of an album (Music › Album with track ratings): from the
+/// store when it is there, else fetched from the music source and stored. The
+/// album is known by its `source`, or by the id the artwork resolver matched it
+/// to on the device. Opening an album writes nothing to the library.
 class TrackListService {
   TrackListService({
     required this.lookups,

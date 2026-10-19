@@ -7,7 +7,8 @@ import '../../widgets/radio_mark.dart';
 import '../../widgets/sheet_frame.dart';
 import 'library_sort.dart';
 
-/// The sort menu (D1). Picks apply at once; Done closes the sheet.
+/// The sort menu (Library › Sort menu). Picks apply at once; Done closes the
+/// sheet.
 Future<void> showSortSheet(
   BuildContext context, {
   required LibrarySort current,

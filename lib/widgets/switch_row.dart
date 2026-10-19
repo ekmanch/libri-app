@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 enum SwitchRowStyle {
-  /// On a card with a hairline border: the plan form (S9, S10).
+  /// On a card with a hairline border: the plan form (Plans › Edit plan; New
+  /// plan).
   card,
 
-  /// A plain row with a hairline under it: Settings (S6).
+  /// A plain row with a hairline under it: Settings.
   line,
 }
 

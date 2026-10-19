@@ -21,11 +21,13 @@ enum AppButtonKind {
   text,
 
   /// Raised fill with 14 px corners, main text: Edit on a details sheet
-  /// (A6, S7) and the actions under a pool row (S4).
+  /// (Library › Entry details; Plans › Entry details (timeline on)) and the
+  /// actions under a pool row (Plans › All Halloween: add, edit, remove).
   soft,
 
-  /// The [soft] shape with no fill, the grey outline and red text: Delete
-  /// next to Edit on a details sheet (A6) and under a pool row (S4).
+  /// The [soft] shape with no fill, the grey outline and red text: Delete next
+  /// to Edit on a details sheet (Library › Entry details) and under a pool row
+  /// (Plans › All Halloween: add, edit, remove).
   softDestructive,
 }
 

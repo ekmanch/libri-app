@@ -36,7 +36,8 @@ enum SyncPhase {
 /// What a 404 turned out to be about.
 enum MissingPart { repository, branch, file }
 
-/// The sync state the banners (A12) and D6 show.
+/// The sync state the banners (Library › Sync and errors) and Settings ›
+/// Library connection show.
 @immutable
 class SyncStatus {
   const SyncStatus({
@@ -62,8 +63,8 @@ class SyncStatus {
   /// Operations not yet saved to GitHub.
   final int pendingCount;
 
-  /// The date of GitHub's last commit on the file, looked up when a
-  /// conflict is found (D17 says "GitHub: last commit …").
+  /// The date of GitHub's last commit on the file, looked up when a conflict is
+  /// found (Library › Conflict: keep which copy? says "GitHub: last commit …").
   final DateTime? remoteChangedAt;
 
   /// What is gone, while the phase is [SyncPhase.notFound].

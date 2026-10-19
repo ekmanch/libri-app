@@ -16,8 +16,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Plan {
 
- String get id; String get name; int? get year; List<String> get tags; bool get timeline;@JsonKey(name: 'seasonal_theme') bool get seasonalTheme;/// Set by the Started switch in S9, and by the app when the plan's
-/// first date arrives. Never cleared on its own.
+ String get id; String get name; int? get year; List<String> get tags; bool get timeline;@JsonKey(name: 'seasonal_theme') bool get seasonalTheme;/// Set by the Started switch in Plans › Edit plan, and by the app when the
+/// plan's first date arrives. Never cleared on its own.
  bool get started; List<PlanItem> get items;
 /// Create a copy of Plan
 /// with the given fields replaced by the non-null parameter values.
@@ -239,8 +239,8 @@ class _Plan extends Plan {
 
 @override@JsonKey() final  bool timeline;
 @override@JsonKey(name: 'seasonal_theme') final  bool seasonalTheme;
-/// Set by the Started switch in S9, and by the app when the plan's
-/// first date arrives. Never cleared on its own.
+/// Set by the Started switch in Plans › Edit plan, and by the app when the
+/// plan's first date arrives. Never cleared on its own.
 @override@JsonKey() final  bool started;
  final  List<PlanItem> _items;
 @override@JsonKey() List<PlanItem> get items {

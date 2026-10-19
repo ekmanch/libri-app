@@ -47,7 +47,8 @@ class SegmentedControl<T> extends StatelessWidget {
   /// A track color of its own, without a border (the plan header's tabs).
   final Color? trackColor;
 
-  /// Every segment the same width, like a two-column grid (S10, S1 tabs).
+  /// Every segment the same width, like a two-column grid (Plans › New plan,
+  /// and the tabs of Plan checklist).
   final bool equalWidths;
 
   @override

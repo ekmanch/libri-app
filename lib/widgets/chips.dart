@@ -34,8 +34,9 @@ class PillChip extends StatelessWidget {
   final PillChipStyle style;
   final Color? dotColor;
 
-  /// Shows a check before the label while selected (the tag picker, D14,
-  /// and the platform chips in A8).
+  /// Shows a check before the label while selected (the tag picker,
+  /// Add / edit entry › Tag picker, and the platform chips in
+  /// Add / edit entry).
   final bool checked;
 
   /// 44 px by default; the tag picker's chips are 40.
@@ -186,8 +187,8 @@ class TagChip extends StatelessWidget {
   }
 }
 
-/// A chip with a dashed outline and a plus: something that is not there
-/// yet, like a suggested tag or "Other…" among the platforms (A8).
+/// A chip with a dashed outline and a plus: something that is not there yet,
+/// like a suggested tag or "Other…" among the platforms (Add / edit entry).
 class DashedChip extends StatelessWidget {
   const DashedChip({
     super.key,

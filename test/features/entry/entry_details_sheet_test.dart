@@ -89,9 +89,7 @@ void main() {
     expect(find.text('Not in any plan'), findsOneWidget);
   });
 
-  testWidgets('a book shows its page count under the author (A38)', (
-    tester,
-  ) async {
+  testWidgets('a book shows its page count under the author', (tester) async {
     await open(tester, entryId: 'books/dracula-1897');
     expect(find.text('Bram Stoker'), findsOneWidget);
     expect(find.text('418 pages'), findsOneWidget);
@@ -129,7 +127,7 @@ void main() {
     expect(inSegments('DNF'), findsNothing);
   });
 
-  group('album tracks (A22)', () {
+  group('album tracks (Music › Album with track ratings)', () {
     const dirt = 'music/dirt-alice-in-chains';
 
     testWidgets('a cached track list is numbered, rated and collapsible', (
@@ -301,7 +299,10 @@ void main() {
       repo(container).current!.planById('halloween-2026')!.itemFor(_mummy),
       isNull,
     );
-    expect(find.text('New plan'), findsOneWidget); // The A7 link.
+    expect(
+      find.text('New plan'),
+      findsOneWidget,
+    ); // The Library › Add to plan link.
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
     expect(find.text('Christmas 2026'), findsOneWidget); // Now in the sheet.

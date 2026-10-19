@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../shell/app_shell.dart';
 
-/// The library home while the library loads for the first time (D7): grey
-/// blocks where the search box, chips, headings and rows will be, and a
-/// line saying what is happening.
+/// The library home while the library loads for the first time (First run ›
+/// First load): grey blocks where the search box, chips, headings and rows will
+/// be, and a line saying what is happening.
 class LibrarySkeleton extends StatelessWidget {
   const LibrarySkeleton({super.key});
 

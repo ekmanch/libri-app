@@ -11,8 +11,9 @@ import 'entry_sections.dart';
 import 'library_sort.dart';
 import 'sectioned_list_body.dart';
 
-/// The scrolling part of a type's list: a [SectionedListBody] of entries
-/// whose sections follow the sort (L1 to L6).
+/// The scrolling part of a type's list: a [SectionedListBody] of entries whose
+/// sections follow the sort (Library › Long list: rail by release year to
+/// Filtered results, several types).
 class EntryListBody extends StatelessWidget {
   const EntryListBody({
     super.key,
@@ -45,11 +46,13 @@ class EntryListBody extends StatelessWidget {
   final double bottomPadding;
 
   /// The sections behind the rail. By default they follow [sort]; filtered
-  /// results with several types pass one section per type (L6).
+  /// results with several types pass one section per type (Library › Filtered
+  /// results, several types).
   final List<EntrySection>? railSections;
 
   /// Sections to show with headers when the list is too short for a rail
-  /// (L6 groups filtered results by type). Null means a flat list.
+  /// (filtered results by type: Library › Filtered results, several types).
+  /// Null means a flat list.
   final List<EntrySection>? plainSections;
 
   /// The line under a grid tile's title; the status by default.

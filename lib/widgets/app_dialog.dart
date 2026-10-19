@@ -24,14 +24,16 @@ class AppDialog extends StatelessWidget {
     this.actionsLayout = DialogActionsLayout.row,
   });
 
-  /// Above the title: the key in its amber circle (D20).
+  /// Above the title: the key in its amber circle (Library › Token expires
+  /// soon).
   final Widget? leading;
 
   final String title;
   final String? body;
 
-  /// Anything between the body and the note: a rich-text body (D9) or the
-  /// category chips of D10.
+  /// Anything between the body and the note: a rich-text body
+  /// (Add / edit entry › New tag: a similar one exists) or the category chips
+  /// of Add / edit entry › New tag: confirm and pick a category.
   final Widget? content;
 
   /// A quieter second paragraph, e.g. what happens in the GitHub history.
@@ -45,7 +47,8 @@ class AppDialog extends StatelessWidget {
     final colors = LibraryColors.of(context);
     return Dialog(
       // Scrolls only when the content is taller than the screen, e.g. the
-      // category chips of D10 at a large text size.
+      // category chips of Add / edit entry › New tag: confirm and pick a
+      // category at a large text size.
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(

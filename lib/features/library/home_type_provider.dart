@@ -5,8 +5,8 @@ import '../../data/models/media_type.dart';
 import '../../widgets/labels.dart';
 import '../music/music_tab.dart';
 
-/// The type chip picked on the library home (A1); null means All. Shared
-/// with the shell so the "+" button can say what it adds.
+/// The type chip picked on the library home (Library › Home); null means All.
+/// Shared with the shell so the "+" button can say what it adds.
 class HomeTypeNotifier extends Notifier<MediaType?> {
   @override
   MediaType? build() => null;
@@ -18,8 +18,8 @@ final homeTypeProvider = NotifierProvider<HomeTypeNotifier, MediaType?>(
   HomeTypeNotifier.new,
 );
 
-/// The status segment of the type view (A4); null means All. A new type
-/// starts on All.
+/// The status segment of the type view (Library › Movies, text view); null
+/// means All. A new type starts on All.
 class HomeStatusNotifier extends Notifier<EntryStatus?> {
   @override
   EntryStatus? build() {
@@ -34,7 +34,8 @@ final homeStatusProvider = NotifierProvider<HomeStatusNotifier, EntryStatus?>(
   HomeStatusNotifier.new,
 );
 
-/// The tab of the Music view (A14). A new type starts on Artists.
+/// The tab of the Music view (Library › Music: artists, text view). A new type
+/// starts on Artists.
 class HomeMusicTabNotifier extends Notifier<MusicTab> {
   @override
   MusicTab build() {

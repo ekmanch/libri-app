@@ -9,9 +9,11 @@ import '../../widgets/labels.dart';
 import '../../widgets/warning_note.dart';
 import 'sync_state.dart';
 
-/// The conflict question (D17), from the banner (A27, S15) and from D6:
-/// keep this phone's copy or GitHub's. "Decide later" closes it and the
-/// banner stays. The choice goes to [LibrarySync.resolveConflict].
+/// The conflict question (Library › Conflict: keep which copy?), from the
+/// banner (Library › Sync conflict banner; Plans › Plans with the sync conflict
+/// banner) and from Settings › Library connection: keep this phone's copy or
+/// GitHub's. "Decide later" closes it and the banner stays. The choice goes to
+/// [LibrarySync.resolveConflict].
 Future<void> showConflictDialog(BuildContext context, WidgetRef ref) async {
   final status = ref.read(syncStatusProvider).value ?? SyncStatus.idle;
   final keepMine = await showAppDialog<bool>(

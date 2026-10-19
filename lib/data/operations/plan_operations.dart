@@ -177,8 +177,8 @@ class RemovePlanItem extends LibraryOperation {
       'Remove ${_entryTitle(before, entryId)} from ${_planTitle(before, planId)}';
 }
 
-/// Turns a plan's Started switch on or off (S9). The app also turns it on
-/// when the plan's first date arrives.
+/// Turns a plan's Started switch on or off (Plans › Edit plan). The app also
+/// turns it on when the plan's first date arrives.
 @JsonSerializable()
 class SetPlanStarted extends LibraryOperation {
   const SetPlanStarted(this.planId, this.started);

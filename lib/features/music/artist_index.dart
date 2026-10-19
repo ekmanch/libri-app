@@ -7,8 +7,9 @@ import '../library/entry_sections.dart';
 import '../library/library_sort.dart';
 import '../library/sectioned_list_body.dart';
 
-/// One artist in the music list (A14): the albums and songs saved under
-/// that name. Albums and songs are in year order, oldest first.
+/// One artist in the music list (Library › Music: artists, text view): the
+/// albums and songs saved under that name. Albums and songs are in year order,
+/// oldest first.
 class ArtistSummary {
   const ArtistSummary({
     required this.name,
@@ -98,8 +99,9 @@ List<ArtistSummary> artistIndex(Iterable<Entry> entries) {
   return artists;
 }
 
-/// Letter sections for the artist list and its rail (A14, L3). "Various
-/// Artists" gets its own last section.
+/// Letter sections for the artist list and its rail (Library › Music: artists,
+/// text view; Long list: music artists A–Z). "Various Artists" gets its own
+/// last section.
 List<ListSection<ArtistSummary>> artistSections(List<ArtistSummary> artists) {
   final sections = <ListSection<ArtistSummary>>[];
   ListSection<ArtistSummary>? open;

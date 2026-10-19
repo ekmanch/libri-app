@@ -6,9 +6,10 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/cover_image.dart';
 
-/// One cell of the grid with covers (A21, L4): the cover, a title of up to
-/// two lines and the year. A check badge on the cover means Done; the
-/// caption never shows a status.
+/// One cell of the grid with covers (Library › Movies, grid with covers; Long
+/// grid: fast-scroll thumb): the cover, a title of up to two lines and the
+/// year. A check badge on the cover means Done; the caption never shows a
+/// status.
 class CoverGridTile extends StatelessWidget {
   const CoverGridTile({
     super.key,
@@ -37,7 +38,8 @@ class CoverGridTile extends StatelessWidget {
   static const captionFontSize = 12.0;
   static const captionLineHeight = 16.0;
 
-  /// The year, or "Not released yet" (the A21 note). Never the status.
+  /// The year, or "Not released yet" (the Library › Movies, grid with covers
+  /// note). Never the status.
   static String yearCaption(Entry entry, {DateTime? today}) {
     final released = entry.released;
     if (released != null && !released.isReleasedOn(today ?? DateTime.now())) {

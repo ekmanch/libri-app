@@ -18,7 +18,7 @@ import '../sync/relative_time.dart';
 import '../sync/sync_state.dart';
 import '../sync/token_expiry.dart';
 
-/// Opens D6 above everything, like Settings.
+/// Opens Settings › Library connection above everything, like Settings.
 Future<void> openConnectionScreen(BuildContext context) {
   return Navigator.of(
     context,
@@ -26,7 +26,7 @@ Future<void> openConnectionScreen(BuildContext context) {
   ).push<void>(MaterialPageRoute(builder: (_) => const ConnectionScreen()));
 }
 
-/// Settings: library connection (D6). Status, the GitHub details (repo,
+/// Settings › Library connection. Status, the GitHub details (repo,
 /// branch, file, token), how often the app checks for changes, and the
 /// buttons to replace the token or disconnect.
 class ConnectionScreen extends ConsumerWidget {
@@ -37,7 +37,8 @@ class ConnectionScreen extends ConsumerWidget {
   /// The label column of the GitHub rows, so their values share a left edge.
   static const _gitHubLabelWidth = 120.0;
 
-  /// Disconnect is two steps: D15 confirms, D16 asks what to do with the
+  /// Disconnect is two steps: Settings › Disconnect: confirm, then Disconnect:
+  /// keep or delete, which asks what to do with the
   /// library on this phone. Cancel on either leaves everything as it was.
   Future<void> _disconnect(BuildContext context, WidgetRef ref) async {
     final repository = ref.read(libraryConnectionProvider).repository;
@@ -50,8 +51,9 @@ class ConnectionScreen extends ConsumerWidget {
     if (!confirmed || !context.mounted) return;
     final choice = await askAboutLocalLibrary(context);
     if (choice == null || !context.mounted) return;
-    // Back to the Library: with the library kept it stays, deleted it
-    // gives way to the first run (F2). The screens stacked above go first.
+    // Back to the Library: with the library kept it stays, deleted it gives way
+    // to the first run (First run › Welcome). The screens stacked above go
+    // first.
     Navigator.of(context).popUntil((route) => route.isFirst);
     unawaited(
       ref
@@ -63,8 +65,8 @@ class ConnectionScreen extends ConsumerWidget {
     );
   }
 
-  /// Connect a repo again while the library is kept on the phone: F3 to
-  /// F8 above everything, like Replace token.
+  /// Connect a repo again while the library is kept on the phone: First run ›
+  /// Connect GitHub to All set above everything, like Replace token.
   Future<void> _reconnect(BuildContext context) {
     return Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(builder: (_) => const FirstRunFlow.reconnect()),
@@ -302,12 +304,14 @@ class ConnectionScreen extends ConsumerWidget {
   }
 }
 
-/// What to do with the library on this phone when disconnecting (D16).
+/// What to do with the library on this phone when disconnecting (Settings ›
+/// Disconnect: keep or delete).
 enum LocalLibraryChoice { keep, delete }
 
-/// The first Disconnect step (D15). Resolves true when the user confirms.
-/// With [pending] changes not yet on GitHub the dialog says they are lost
-/// unless the library is kept, and the button reads "Disconnect anyway".
+/// The first Disconnect step (Settings › Disconnect: confirm). Resolves true
+/// when the user confirms. With [pending] changes not yet on GitHub the dialog
+/// says they are lost unless the library is kept, and the button reads
+/// "Disconnect anyway".
 Future<bool> confirmDisconnect(
   BuildContext context, {
   required String repository,
@@ -324,7 +328,7 @@ Future<bool> confirmDisconnect(
                 'the library on this phone. Nothing on GitHub changes.'
           : 'Nothing on GitHub changes.',
       // "Disconnect anyway" does not fit half a row, so that variant
-      // stacks its buttons like D4.
+      // stacks its buttons like Plans › Remove from plan, or everywhere.
       actionsLayout: pending > 0
           ? DialogActionsLayout.column
           : DialogActionsLayout.row,
@@ -358,8 +362,9 @@ Future<bool> confirmDisconnect(
   return confirmed ?? false;
 }
 
-/// The second Disconnect step (D16): keep the library on the phone, delete
-/// it, or cancel (null). Nothing is disconnected before this choice.
+/// The second Disconnect step (Settings › Disconnect: keep or delete): keep the
+/// library on the phone, delete it, or cancel (null). Nothing is disconnected
+/// before this choice.
 Future<LocalLibraryChoice?> askAboutLocalLibrary(BuildContext context) {
   return showAppDialog<LocalLibraryChoice>(
     context,

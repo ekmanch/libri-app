@@ -73,7 +73,7 @@ flutter:
 
   assets:
     - assets/fixtures/library.json
-    # The TMDB and Deezer logos, as their terms require (About, D19).
+    # The TMDB and Deezer logos, as their terms require (About, Settings › About Libri).
     - assets/logos/tmdb/
     - assets/logos/deezer/
 

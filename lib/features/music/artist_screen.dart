@@ -20,8 +20,8 @@ import '../shell/app_shell.dart';
 import 'artist_index.dart';
 import 'music_tab.dart';
 
-/// Opens one artist (A15, A19) inside the Library tab, so the floating
-/// navigation stays.
+/// Opens one artist (Music › Artist, text view; Artist, with photos) inside the
+/// Library tab, so the floating navigation stays.
 Future<void> openArtistScreen(
   BuildContext context,
   ArtistSummary artist, {
@@ -34,9 +34,10 @@ Future<void> openArtistScreen(
   );
 }
 
-/// One artist: an Albums section, then a Songs section (A15). With a photo
-/// view chosen for the Artists tab the rows show covers (A19). The order
-/// comes from the sort link and is kept on the device.
+/// One artist: an Albums section, then a Songs section (Music › Artist, text
+/// view). With a photo view chosen for the Artists tab the rows show covers
+/// (Music › Artist, with photos). The order comes from the sort link and is
+/// kept on the device.
 class ArtistScreen extends ConsumerWidget {
   const ArtistScreen({super.key, required this.name, this.onOpenEntry});
 
@@ -103,7 +104,8 @@ class ArtistScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     // With a photo view chosen the artist's photo leads the
-                    // count line (A19); the count and sort stack beside it.
+                    // count line (Music › Artist, with photos); the count and
+                    // sort stack beside it.
                     if (photo) ...[
                       ArtistPhoto(
                         name: artist.name,

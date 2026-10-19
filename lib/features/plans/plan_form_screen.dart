@@ -29,9 +29,10 @@ import '../library/tag_sort.dart';
 /// What the plan form came back with.
 enum PlanFormOutcome { saved, deleted }
 
-/// Opens S10 to make a plan. With [copyFrom] the form starts as a copy of
-/// that plan for the following year (D3, "Copy to a new year"; the year
-/// chip's "New year…"). Resolves with the saved plan's id, or null.
+/// Opens Plans › New plan to make a plan. With [copyFrom] the form starts as a
+/// copy of that plan for the following year (Plans › Plan menu, "Copy to a new
+/// year"; the year chip's "New year…"). Resolves with the saved plan's id, or
+/// null.
 Future<String?> openNewPlanForm(BuildContext context, {Plan? copyFrom}) {
   return Navigator.of(context, rootNavigator: true).push<String>(
     MaterialPageRoute(
@@ -40,8 +41,8 @@ Future<String?> openNewPlanForm(BuildContext context, {Plan? copyFrom}) {
   );
 }
 
-/// Opens S9 to edit [plan]. Resolves with what happened, or null when the
-/// user went back.
+/// Opens Plans › Edit plan to edit [plan]. Resolves with what happened, or null
+/// when the user went back.
 Future<PlanFormOutcome?> openEditPlanForm(BuildContext context, Plan plan) {
   return Navigator.of(context, rootNavigator: true).push<PlanFormOutcome>(
     MaterialPageRoute(builder: (_) => PlanFormScreen.edit(plan)),
@@ -50,7 +51,7 @@ Future<PlanFormOutcome?> openEditPlanForm(BuildContext context, Plan plan) {
 
 enum _Start { empty, copy }
 
-/// New plan (S10) and Edit plan (S9): name, optional year, linked tags,
+/// Plans › New plan and Edit plan: name, optional year, linked tags,
 /// the seasonal theme switch when the tags imply a season, "Start with"
 /// for a new plan, the timeline switch, and Delete plan when editing.
 class PlanFormScreen extends ConsumerStatefulWidget {
@@ -295,8 +296,9 @@ class _PlanFormScreenState extends ConsumerState<PlanFormScreen> {
                   ),
                   if (editing) ...[
                     const SizedBox(height: 14),
-                    // Plan states, from the S9 note: on is Active, off is
-                    // Not started; the first date turns it on by itself.
+                    // Plan states, from the Plans › Edit plan note: on is
+                    // Active, off is Not started; the first date turns it on by
+                    // itself.
                     SwitchRow(
                       label: 'Started',
                       value: _started,
@@ -444,8 +446,8 @@ class _PlanFormScreenState extends ConsumerState<PlanFormScreen> {
   }
 }
 
-/// Multi-select of existing tags for a plan (S9, S10). No tag is created
-/// here; that only happens in the entry form.
+/// Multi-select of existing tags for a plan (Plans › Edit plan; New plan). No
+/// tag is created here; that only happens in the entry form.
 class _LinkedTagsSheet extends StatefulWidget {
   const _LinkedTagsSheet({required this.library, required this.selected});
 
@@ -498,8 +500,8 @@ class _LinkedTagsSheetState extends State<_LinkedTagsSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Every category, A to Z; a long group is a row that opens A28,
-          // like the filter sheet's.
+          // Every category, A to Z; a long group is a row that opens Library ›
+          // Filter: all Authors, like the filter sheet's.
           for (final MapEntry(key: category, value: names)
               in widget.library.tags.entries)
             if (names.any((n) => q.isEmpty || n.contains(q)))
@@ -552,7 +554,7 @@ class _LinkedTagsSheetState extends State<_LinkedTagsSheet> {
   }
 }
 
-/// The plan to copy from (S10).
+/// The plan to copy from (Plans › New plan).
 class _CopyFromSheet extends StatelessWidget {
   const _CopyFromSheet({
     required this.plans,

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
 
-/// A warning inside a dialog (D16): a red triangle and the text on a
-/// faint red field.
+/// A warning inside a dialog (Settings › Disconnect: keep or delete): a red
+/// triangle and the text on a faint red field.
 class WarningNote extends StatelessWidget {
   const WarningNote(this.text, {super.key});
 

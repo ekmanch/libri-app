@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
 
-/// A row in Settings (S6) and the connection screen (D6): a label on the
-/// left, a muted value, a hairline under it. With [onTap] the row is a
-/// button and ends in a chevron.
+/// A row in Settings and the connection screen (Settings › Library connection):
+/// a label on the left, a muted value, a hairline under it. With [onTap] the
+/// row is a button and ends in a chevron.
 ///
-/// The value is never centered. A single row puts it on the right (S6).
+/// The value is never centered. A single row puts it on the right (Settings).
 /// A block of several related details passes [labelWidth]: the label then
 /// sits in a fixed column and the value starts right after it, left
 /// aligned, so the values of neighboring rows line up (the GitHub rows of
-/// D6).
+/// Settings › Library connection).
 class SettingRow extends StatelessWidget {
   const SettingRow({
     super.key,

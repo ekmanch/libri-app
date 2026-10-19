@@ -18,8 +18,9 @@ import 'plan_form_screen.dart';
 import 'plan_progress.dart';
 import 'plan_screen.dart';
 
-/// The plans overview (S5): active plans as cards with their progress and
-/// what is next, then the ones not started and the finished ones as rows.
+/// The plans overview (Plans › Plans overview): active plans as cards with
+/// their progress and what is next, then the ones not started and the finished
+/// ones as rows.
 class PlansScreen extends ConsumerWidget {
   const PlansScreen({super.key, this.onOpenSettings});
 

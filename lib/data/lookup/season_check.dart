@@ -79,7 +79,7 @@ class MemorySeasonCheckStore implements SeasonCheckStore {
 }
 
 /// A season the lookup dropped that has a status, so the user is asked
-/// whether to keep it (A36).
+/// whether to keep it (Show & seasons › Announced season dropped).
 typedef DroppedSeason = ({String entryId, int season, EntryStatus status});
 
 /// What one daily check found: operations to apply at once, and seasons

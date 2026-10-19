@@ -63,7 +63,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a season row opens its episodes, out on one day (A39)', (
+  testWidgets('a season row opens its episodes, out on one day', (
     tester,
   ) async {
     await openDetails(tester);
@@ -87,7 +87,7 @@ void main() {
     expect(find.text('Episode details from TMDB.'), findsOneWidget);
   });
 
-  testWidgets('an airing season: count out, dimmed rows, Title TBA (A40)', (
+  testWidgets('an airing season: count out, dimmed rows, Title TBA', (
     tester,
   ) async {
     const List<EpisodeInfo> episodes = [
@@ -125,9 +125,7 @@ void main() {
     expect(out.opacity, 1);
   });
 
-  testWidgets('a one-season show\'s row opens its season (A41)', (
-    tester,
-  ) async {
+  testWidgets('a one-season show\'s row opens its season', (tester) async {
     final container = await pumpApp(
       tester,
       const _Opener('shows/the-haunting-of-hill-house-2018'),

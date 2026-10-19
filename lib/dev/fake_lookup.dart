@@ -208,10 +208,10 @@ const _trackListsBySource = <String, List<TrackInfo>>{
   ],
 };
 
-/// Episodes for the fixture's Stranger Things season 1 (all out on one
-/// day, A39), The Haunting of Hill House (one season, A41) and Severance
-/// seasons 1 and 2 (weekly), matched on the device
-/// as `fake:<slug>`.
+/// Episodes for the fixture's Stranger Things season 1 (all out on one day,
+/// Show & seasons › Season episodes (all out)), The Haunting of Hill House (one
+/// season, Show & seasons › Episodes of a one-season show) and Severance
+/// seasons 1 and 2 (weekly), matched on the device as `fake:<slug>`.
 final _episodesBySeason = <(String, int), List<EpisodeInfo>>{
   ('fake:stranger-things', 1): _sameDay(Released(2016, 7, 15), const [
     ('Chapter One: The Vanishing of Will Byers', 47),
@@ -280,8 +280,9 @@ List<EpisodeInfo> _weekly(DateTime first, List<(String, int)> episodes) => [
 
 Released _day(DateTime d) => Released(d.year, d.month, d.day);
 
-/// Severance season 3, airing weekly from today (A40): the first episode
-/// out, two more titled, the rest "Title TBA" with no runtime yet.
+/// Severance season 3, airing weekly from today (Show & seasons › Season
+/// episodes (airing weekly)): the first episode out, two more titled, the rest
+/// "Title TBA" with no runtime yet.
 List<EpisodeInfo> _airingFromToday() {
   final now = seasonClock();
   const titles = ['Cold Open', 'Lumon Days', 'The Testing Floor'];

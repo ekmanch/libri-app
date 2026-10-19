@@ -6,8 +6,9 @@ import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/cover_image.dart';
 
-/// The top of a details sheet (A6, A22, S7): the cover spot when a photo
-/// view is chosen, the kind and year in the type color, the title, the
+/// The top of a details sheet (Library › Entry details; Music › Album with
+/// track ratings; Plans › Entry details (timeline on)): the cover spot when a
+/// photo view is chosen, the kind and year in the type color, the title, the
 /// creator and a book's page count.
 class EntryHeader extends StatelessWidget {
   const EntryHeader({super.key, required this.entry, required this.showCover});
@@ -22,7 +23,8 @@ class EntryHeader extends StatelessWidget {
     return [entryKindLabel(entry), ?years].join(' · ').toUpperCase();
   }
 
-  /// "160 pages" for a book with a page count (A38), else null.
+  /// "160 pages" for a book with a page count (Library › Book details (page
+  /// count)), else null.
   static String? pagesLine(Entry entry) => switch (entry.pages) {
     final pages? when entry.type == MediaType.books && pages > 0 =>
       pages == 1 ? '1 page' : '$pages pages',

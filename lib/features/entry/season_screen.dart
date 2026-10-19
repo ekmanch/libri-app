@@ -14,7 +14,8 @@ import '../../widgets/labels.dart';
 import '../../widgets/section_heading.dart';
 import 'seasons.dart';
 
-/// Opens a season's episodes (A39, A40).
+/// Opens a season's episodes (Show & seasons › Season episodes (all out) and
+/// Season episodes (airing weekly)).
 Future<void> openSeason(BuildContext context, String showId, int season) =>
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -22,11 +23,13 @@ Future<void> openSeason(BuildContext context, String showId, int season) =>
       ),
     );
 
-/// One season of a show, for viewing (A39, A40): the show and the season
-/// with its date and episode count, the season's status pill (the A33
-/// sheet), then every episode with its number, title, air date and
-/// runtime. Episodes not out yet are dimmed. Nothing here is ticked or
-/// edited; the episodes come from the lookup and stay on the phone.
+/// One season of a show, for viewing (Show & seasons › Season episodes (all
+/// out) and Season episodes (airing weekly)): the show and the season with its
+/// date and episode count, the season's status pill (the Show & seasons › All
+/// seasons, just added: catch up sheet), then every episode with its number,
+/// title, air date and runtime. Episodes not out yet are dimmed. Nothing here
+/// is ticked or edited; the episodes come from the lookup and stay on the
+/// phone.
 class SeasonScreen extends ConsumerWidget {
   const SeasonScreen({super.key, required this.showId, required this.season});
 
@@ -74,7 +77,7 @@ class SeasonScreen extends ConsumerWidget {
       episode.aired?.isReleasedOn(today) ?? false;
 
   /// Every episode out, all on one day: the date is then in the header
-  /// only (A39).
+  /// only (Show & seasons › Season episodes (all out)).
   static bool sameDay(List<EpisodeInfo> episodes, DateTime today) =>
       episodes.isNotEmpty &&
       episodes.every(

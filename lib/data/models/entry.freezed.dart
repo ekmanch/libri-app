@@ -17,11 +17,12 @@ T _$identity<T>(T value) => value;
 mixin _$Entry {
 
  String get id; MediaType get type; String get title;@ReleasedConverter() Released? get released; String? get creator; EntryStatus get status; int? get rating; List<String> get tags; String get note; String get description;@JsonKey(name: 'seasonal_only') bool get seasonalOnly;@DateOnlyConverter() DateTime get added;/// The lookup id, "tmdb:movie:603", "deezer:album:302127",
-/// "openlibrary:OL45804W", or null until a match is picked in A13 or
-/// "Look up again". Always written, like `rating`. Covers and track lists
-/// for entries without one are matched on the device and never stored
-/// here. Changing the type clears it; editing the title never does.
- String? get source;@JsonKey(includeIfNull: false) String? get platform;@JsonKey(includeIfNull: false) List<BookFormat>? get formats;/// The page count, from the lookup or typed in A8.
+/// "openlibrary:OL45804W", or null until a match is picked in
+/// Add / edit entry › New entry: pick a match or "Look up again". Always
+/// written, like `rating`. Covers and track lists for entries without one
+/// are matched on the device and never stored here. Changing the type
+/// clears it; editing the title never does.
+ String? get source;@JsonKey(includeIfNull: false) String? get platform;@JsonKey(includeIfNull: false) List<BookFormat>? get formats;/// The page count, from the lookup or typed in Add / edit entry.
 @JsonKey(includeIfNull: false) int? get pages;@JsonKey(includeIfNull: false) MusicKind? get kind;@JsonKey(includeIfNull: false) String? get album;@JsonKey(includeIfNull: false) List<Track>? get tracks;@JsonKey(includeIfNull: false) List<Season>? get seasons;
 /// Create a copy of Entry
 /// with the given fields replaced by the non-null parameter values.
@@ -262,10 +263,11 @@ class _Entry extends Entry {
 @override@JsonKey(name: 'seasonal_only') final  bool seasonalOnly;
 @override@DateOnlyConverter() final  DateTime added;
 /// The lookup id, "tmdb:movie:603", "deezer:album:302127",
-/// "openlibrary:OL45804W", or null until a match is picked in A13 or
-/// "Look up again". Always written, like `rating`. Covers and track lists
-/// for entries without one are matched on the device and never stored
-/// here. Changing the type clears it; editing the title never does.
+/// "openlibrary:OL45804W", or null until a match is picked in
+/// Add / edit entry › New entry: pick a match or "Look up again". Always
+/// written, like `rating`. Covers and track lists for entries without one
+/// are matched on the device and never stored here. Changing the type
+/// clears it; editing the title never does.
 @override final  String? source;
 @override@JsonKey(includeIfNull: false) final  String? platform;
  final  List<BookFormat>? _formats;
@@ -277,7 +279,7 @@ class _Entry extends Entry {
   return EqualUnmodifiableListView(value);
 }
 
-/// The page count, from the lookup or typed in A8.
+/// The page count, from the lookup or typed in Add / edit entry.
 @override@JsonKey(includeIfNull: false) final  int? pages;
 @override@JsonKey(includeIfNull: false) final  MusicKind? kind;
 @override@JsonKey(includeIfNull: false) final  String? album;

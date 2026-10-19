@@ -104,7 +104,7 @@ void main() {
       const ConnectionScreen(),
       overrides: [librarySyncProvider.overrideWithValue(sync)],
     );
-    // D15.
+    // Settings › Disconnect: confirm.
     await tester.tap(find.text('Disconnect'));
     await tester.pumpAndSettle();
     expect(find.text('Disconnect from GitHub?'), findsOneWidget);
@@ -119,7 +119,7 @@ void main() {
     expect(container.read(libraryConnectionProvider).connected, isTrue);
     expect(find.byType(ConnectionScreen), findsOneWidget);
 
-    // D16.
+    // Settings › Disconnect: keep or delete.
     await toSecondStep(tester);
     expect(find.text('Keep your library on this phone?'), findsOneWidget);
     expect(find.text('Keep it on this phone'), findsOneWidget);
@@ -176,35 +176,37 @@ void main() {
     expect(container.read(startOverProvider), isTrue);
   });
 
-  testWidgets('kept on this phone, D6 says so and offers to connect', (
-    tester,
-  ) async {
-    await pumpApp(
-      tester,
-      const ConnectionScreen(),
-      overrides: [
-        initialConnectionProvider.overrideWithValue(
-          const LibraryConnection(connected: false, keptLocally: true),
-        ),
-      ],
-    );
-    expect(find.text('Not connected'), findsOneWidget);
-    expect(find.text('Your library is kept on this phone'), findsOneWidget);
-    expect(find.text('Sync now'), findsNothing);
-    expect(find.text('Disconnect'), findsNothing);
-    expect(find.text('Replace token'), findsNothing);
-    expect(find.text('ekmanch/library'), findsNothing);
-    await tester.tap(find.text('Connect to GitHub'));
-    await tester.pumpAndSettle();
-    expect(find.byType(FirstRunFlow), findsOneWidget);
-    expect(find.text('Connect GitHub'), findsOneWidget);
-    expect(find.text('STEP 1 OF 4'), findsOneWidget);
-    // Back from F3 returns to D6.
-    await tester.tap(find.byTooltip('Back'));
-    await tester.pumpAndSettle();
-    expect(find.byType(FirstRunFlow), findsNothing);
-    expect(find.byType(ConnectionScreen), findsOneWidget);
-  });
+  testWidgets(
+    'kept on this phone, the connection screen says so and offers to connect',
+    (tester) async {
+      await pumpApp(
+        tester,
+        const ConnectionScreen(),
+        overrides: [
+          initialConnectionProvider.overrideWithValue(
+            const LibraryConnection(connected: false, keptLocally: true),
+          ),
+        ],
+      );
+      expect(find.text('Not connected'), findsOneWidget);
+      expect(find.text('Your library is kept on this phone'), findsOneWidget);
+      expect(find.text('Sync now'), findsNothing);
+      expect(find.text('Disconnect'), findsNothing);
+      expect(find.text('Replace token'), findsNothing);
+      expect(find.text('ekmanch/library'), findsNothing);
+      await tester.tap(find.text('Connect to GitHub'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FirstRunFlow), findsOneWidget);
+      expect(find.text('Connect GitHub'), findsOneWidget);
+      expect(find.text('STEP 1 OF 4'), findsOneWidget);
+      // Back from First run › Connect GitHub returns to Settings › Library
+      // connection.
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FirstRunFlow), findsNothing);
+      expect(find.byType(ConnectionScreen), findsOneWidget);
+    },
+  );
 
   testWidgets('with unsaved changes the dialog says so', (tester) async {
     final sync = FakeLibrarySync(
@@ -265,27 +267,28 @@ void main() {
     expect(find.text('Save token'), findsOneWidget);
   });
 
-  testWidgets('a conflict shows in the status card, and Choose opens D17', (
-    tester,
-  ) async {
-    final sync = FakeLibrarySync(
-      const SyncStatus(phase: SyncPhase.conflict, pendingCount: 2),
-    );
-    await pumpApp(
-      tester,
-      const ConnectionScreen(),
-      overrides: [librarySyncProvider.overrideWithValue(sync)],
-    );
-    expect(find.text('Changed here and on GitHub'), findsOneWidget);
-    expect(find.text('Pick which copy to keep'), findsOneWidget);
-    expect(find.text('Sync now'), findsNothing);
-    await tester.tap(find.text('Choose'));
-    await tester.pumpAndSettle();
-    expect(find.text('Keep which copy?'), findsOneWidget);
-    await tester.tap(find.text('Keep mine'));
-    await tester.pumpAndSettle();
-    expect(sync.resolutions, [true]);
-  });
+  testWidgets(
+    'a conflict shows in the status card, and Choose opens the conflict dialog',
+    (tester) async {
+      final sync = FakeLibrarySync(
+        const SyncStatus(phase: SyncPhase.conflict, pendingCount: 2),
+      );
+      await pumpApp(
+        tester,
+        const ConnectionScreen(),
+        overrides: [librarySyncProvider.overrideWithValue(sync)],
+      );
+      expect(find.text('Changed here and on GitHub'), findsOneWidget);
+      expect(find.text('Pick which copy to keep'), findsOneWidget);
+      expect(find.text('Sync now'), findsNothing);
+      await tester.tap(find.text('Choose'));
+      await tester.pumpAndSettle();
+      expect(find.text('Keep which copy?'), findsOneWidget);
+      await tester.tap(find.text('Keep mine'));
+      await tester.pumpAndSettle();
+      expect(sync.resolutions, [true]);
+    },
+  );
 
   testWidgets('a deleted file shows as not found, with what is gone', (
     tester,

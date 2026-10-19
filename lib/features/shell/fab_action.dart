@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'floating_nav_bar.dart';
 
 /// What the round "+" button does while a screen inside a tab wants it for
-/// something else than a new entry or plan: "Add from All Halloween" on a
-/// plan (S1), "New Halloween entry" on its pool (S4).
+/// something else than a new entry or plan: "Add from All Halloween" on a plan
+/// (Plans › Plan checklist), "New Halloween entry" on its pool (Plans › All
+/// Halloween: add, edit, remove).
 @immutable
 class FabAction {
   const FabAction({
@@ -23,8 +24,8 @@ class FabAction {
   final String label;
   final VoidCallback onPressed;
 
-  /// A seasonal accent for the button while a themed plan is open (S11,
-  /// S12); null keeps the user's accent.
+  /// A seasonal accent for the button while a themed plan is open (Plans ›
+  /// Halloween touches, Christmas touches); null keeps the user's accent.
   final Color? accent;
 }
 

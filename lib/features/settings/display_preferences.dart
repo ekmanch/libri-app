@@ -35,7 +35,8 @@ class DisplayPreferences {
   /// per tab instead, in [musicViewByTab].
   final Map<MediaType, EntryView> viewByType;
 
-  /// View per music tab (A14); missing means [EntryView.text].
+  /// View per music tab (Library › Music: artists, text view); missing means
+  /// [EntryView.text].
   final Map<MusicTab, EntryView> musicViewByTab;
 
   /// Sort per type's "See all" screen; missing means newest added.
@@ -44,16 +45,17 @@ class DisplayPreferences {
   /// Sort of the filtered results on the library home.
   final LibrarySort filteredSort;
 
-  /// Order of the albums and songs on an artist's screen (A15).
+  /// Order of the albums and songs on an artist's screen (Music › Artist, text
+  /// view).
   final LibrarySort artistSort;
 
-  /// What a new plan's Timeline and Seasonal theme switches start as (S10);
-  /// set in Settings (S6).
+  /// What a new plan's Timeline and Seasonal theme switches start as (Plans ›
+  /// New plan); set in Settings.
   final bool timelineDefault;
   final bool seasonalThemeDefault;
 
-  /// Pre-selected on a new game that came out on it (A8); null means none.
-  /// The choices are listed in Settings (S6).
+  /// Pre-selected on a new game that came out on it (Add / edit entry); null
+  /// means none. The choices are listed in Settings.
   final String? defaultPlatform;
 
   static const platformChoices = [

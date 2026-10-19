@@ -18,9 +18,10 @@ class LibraryFilterNotifier extends Notifier<LibraryFilter> {
 
   /// The home's type follows the filter: one type picks it, none or several
   /// pick All. A filter the home's chips can show (one type, at most one
-  /// status, or for music at most one kind) is not a results screen: it
-  /// clears and the home shows that type's view with its status segment or
-  /// music tab picked (A11, A23, A24).
+  /// status, or for music at most one kind) is not a results screen: it clears
+  /// and the home shows that type's view with its status segment or music tab
+  /// picked (Library › Movies + Done (filter result); Music: songs (filter
+  /// result); Music: albums (filter result)).
   void _apply(LibraryFilter filter) {
     final types = filter.types;
     final view = filter.typeView;

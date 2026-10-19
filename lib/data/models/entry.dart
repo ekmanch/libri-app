@@ -36,17 +36,18 @@ abstract class Entry with _$Entry {
     @DateOnlyConverter() required DateTime added,
 
     /// The lookup id, "tmdb:movie:603", "deezer:album:302127",
-    /// "openlibrary:OL45804W", or null until a match is picked in A13 or
-    /// "Look up again". Always written, like `rating`. Covers and track lists
-    /// for entries without one are matched on the device and never stored
-    /// here. Changing the type clears it; editing the title never does.
+    /// "openlibrary:OL45804W", or null until a match is picked in
+    /// Add / edit entry › New entry: pick a match or "Look up again". Always
+    /// written, like `rating`. Covers and track lists for entries without one
+    /// are matched on the device and never stored here. Changing the type
+    /// clears it; editing the title never does.
     String? source,
     // Games.
     @JsonKey(includeIfNull: false) String? platform,
     // Books.
     @JsonKey(includeIfNull: false) List<BookFormat>? formats,
 
-    /// The page count, from the lookup or typed in A8.
+    /// The page count, from the lookup or typed in Add / edit entry.
     @JsonKey(includeIfNull: false) int? pages,
     // Music.
     @JsonKey(includeIfNull: false) MusicKind? kind,

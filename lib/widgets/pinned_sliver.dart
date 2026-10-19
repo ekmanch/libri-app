@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// A row that scrolls with the list until it reaches the top, then stays
-/// there while the rest scrolls under it (the type chips and the count row
-/// of the library home, A1). Pinned rows stack: a second one pins under the
-/// first. The row is opaque, on the screen background, so rows passing
+/// A row that scrolls with the list until it reaches the top, then stays there
+/// while the rest scrolls under it (the type chips and the count row of the
+/// library home, Library › Home). Pinned rows stack: a second one pins under
+/// the first. The row is opaque, on the screen background, so rows passing
 /// underneath never show through. [height] is fixed, since a pinned sliver
 /// cannot measure its child.
 class PinnedSliver extends StatelessWidget {
