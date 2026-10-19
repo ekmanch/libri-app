@@ -30,6 +30,84 @@ void main() {
     expect(find.byType(BottomSheet), findsOneWidget);
   });
 
+  /// Opens a sheet whose scrollable body is taller than the screen.
+  Future<void> openLongSheet(WidgetTester tester) async {
+    await pumpThemed(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showAppSheet<void>(
+            context,
+            builder: (_) => SheetFrame(
+              title: 'Details',
+              scrollable: true,
+              child: Column(
+                children: [
+                  for (var i = 0; i < 40; i++)
+                    SizedBox(height: 48, child: Text('Row $i')),
+                ],
+              ),
+            ),
+          ),
+          child: const Text('Open'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('pulling the body down closes the sheet', (tester) async {
+    await openLongSheet(tester);
+    await tester.drag(find.text('Row 3'), const Offset(0, 500));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+  });
+
+  testWidgets('a short pull on the body springs back', (tester) async {
+    await openLongSheet(tester);
+    final top = tester.getTopLeft(find.text('Details')).dy;
+    await tester.timedDrag(
+      find.text('Row 3'),
+      const Offset(0, 80),
+      const Duration(seconds: 1),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Details')).dy, top);
+  });
+
+  testWidgets('a scrolled body scrolls back before the sheet moves', (
+    tester,
+  ) async {
+    await openLongSheet(tester);
+    await tester.timedDrag(
+      find.text('Row 6'),
+      const Offset(0, -200),
+      const Duration(seconds: 1),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Row 0').hitTestable(), findsNothing);
+    final top = tester.getTopLeft(find.text('Details')).dy;
+    await tester.timedDrag(
+      find.text('Row 8'),
+      const Offset(0, 120),
+      const Duration(seconds: 1),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Details')).dy, top);
+    expect(find.text('Row 0').hitTestable(), findsNothing);
+    // Back at the top, the rest of a long pull closes the sheet.
+    await tester.timedDrag(
+      find.text('Row 8'),
+      const Offset(0, 600),
+      const Duration(milliseconds: 500),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+  });
+
   testWidgets('showAppDialog returns the chosen action', (tester) async {
     bool? result;
     await pumpThemed(
