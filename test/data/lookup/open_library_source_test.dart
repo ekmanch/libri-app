@@ -275,17 +275,100 @@ void main() {
       expect(filled.description, 'The Count.');
       expect(filled.coverUrl, 'https://g/abc.jpg');
 
-      // Nothing listed: nothing asked further.
+      // Nothing listed: the search is tried again, but no record is read.
+      sent = [];
       final none = await GoogleBooks(
         MockClient((request) async {
           sent.add(request);
           return json(200, {'totalItems': 0});
         }),
+        minGap: Duration.zero,
       ).lookUp('Nothing');
       expect(none.description, isNull);
-      expect(sent.length, 3);
+      expect(sent, hasLength(GoogleBooks.emptyTries));
+      expect(sent.every((r) => r.url.path == '/books/v1/volumes'), isTrue);
     },
   );
+
+  group('a Google search that fails or comes back empty', () {
+    /// Answers with [statuses] in turn, the last one from then on; 204
+    /// stands for a 200 with an empty list.
+    GoogleBooks google(List<int> statuses) {
+      sent = [];
+      var i = 0;
+      return GoogleBooks(
+        MockClient((request) async {
+          sent.add(request);
+          final status = statuses[i < statuses.length ? i++ : i - 1];
+          return status == 204
+              // An empty list: what a struggling Google sometimes answers.
+              ? json(200, {'kind': 'books#volumes', 'totalItems': 0})
+              : status == 200
+              ? json(200, {
+                  'items': [
+                    {
+                      'id': 'eOTEEQAAQBAJ',
+                      'volumeInfo': {'title': 'The Weight of Angels'},
+                    },
+                  ],
+                })
+              : json(status, {
+                  'error': {'message': 'Service temporarily unavailable.'},
+                });
+        }),
+        minGap: Duration.zero,
+      );
+    }
+
+    test('is sent again until it answers', () async {
+      final hits = await google([503, 503, 200])
+          .search('The Weight of Angels John Boyne');
+      expect(hits.single.source, 'googlebooks:eOTEEQAAQBAJ');
+      expect(sent, hasLength(3));
+    });
+
+    test('fails with the last error after every try', () async {
+      await expectLater(
+        google([503]).search('x'),
+        throwsA(
+          isA<LookupException>()
+              .having((e) => e.status, 'status', 503)
+              .having((e) => e.failure, 'failure', LookupFailure.other),
+        ),
+      );
+      expect(sent, hasLength(GoogleBooks.searchTries));
+    });
+
+    test('an empty list is tried again, and believed the third time or '
+        'when the rest failed', () async {
+      final found = await google([204, 503, 204, 200]).search('Dracula');
+      expect(found, hasLength(1));
+      expect(sent, hasLength(4));
+
+      expect(await google([204]).search('zzqxqv'), isEmpty);
+      expect(sent, hasLength(GoogleBooks.emptyTries));
+
+      expect(await google([204, 503]).search('zzqxqv'), isEmpty);
+      expect(sent, hasLength(GoogleBooks.searchTries));
+    });
+
+    test('anything but a server error is not tried again', () async {
+      for (final status in [429, 400, 403]) {
+        await expectLater(
+          google([status]).search('x'),
+          throwsA(isA<LookupException>()),
+        );
+        expect(sent, hasLength(1), reason: '$status');
+      }
+    });
+
+    test('the fill-in for an Open Library pick is sent again too', () async {
+      final filled = await google([500, 200]).lookUp('The Weight of Angels');
+      expect(sent.first.url.path, '/books/v1/volumes');
+      expect(sent[1].url.path, '/books/v1/volumes');
+      expect(filled.coverUrl, isNull);
+    });
+  });
 
   test('a failing fill-in leaves the gaps open rather than failing', () async {
     final ol = source((request) async {
@@ -549,42 +632,100 @@ void main() {
     expect(ol.issued('igdb:1'), isFalse);
   });
 
-  test(
-    'one source failing leaves the other\'s hits; both failing fails',
-    () async {
-      final googleDown = await source((request) async {
+  test('one source failing is a partial answer with the other\'s hits; '
+      'both failing fails', () async {
+    Matcher partialWith(String? source, LookupFailure failure) =>
+        isA<PartialLookupException>()
+            .having((e) => e.failure, 'failure', failure)
+            .having((e) => [for (final m in e.matches) m.source], 'matches', [
+              ?source,
+            ]);
+
+    // Google's text search down (a 503 "backendFailed" for every query on
+    // 2026-10-19): Open Library's hits, and the failure.
+    await expectLater(
+      source((request) async {
         if (request.url.host == 'openlibrary.org') {
           return json(200, {
             'docs': [dracula],
           });
         }
+        return json(503, {
+          'error': {'message': 'Service temporarily unavailable.'},
+        });
+      }).search('dracula', type: MediaType.books),
+      throwsA(partialWith('openlibrary:OL45804W', LookupFailure.other)),
+    );
+    // Open Library with nothing and Google down is not "no matches".
+    await expectLater(
+      source((request) async {
+        if (request.url.host == 'openlibrary.org') {
+          return json(200, {'numFound': 0, 'docs': []});
+        }
         return json(429, {});
-      }).search('dracula', type: MediaType.books);
-      expect(googleDown.single.source, 'openlibrary:OL45804W');
-
-      final openLibraryDown = await source((request) async {
+      }).search('The Weight of Angels John Boyne', type: MediaType.books),
+      throwsA(partialWith(null, LookupFailure.rateLimited)),
+    );
+    await expectLater(
+      source((request) async {
         if (request.url.host == 'openlibrary.org') return json(503, {});
         return json(200, {
           'items': [weightOfAngels],
         });
-      }).search('weight of angels', type: MediaType.books);
-      expect(openLibraryDown.single.source, 'googlebooks:eOTEEQAAQBAJ');
+      }).search('weight of angels', type: MediaType.books),
+      throwsA(partialWith('googlebooks:eOTEEQAAQBAJ', LookupFailure.other)),
+    );
 
-      expect(
-        source((request) async {
-          if (request.url.host == 'openlibrary.org') return json(503, {});
-          return json(429, {});
-        }).search('x', type: MediaType.books),
-        throwsA(
+    await expectLater(
+      source((request) async {
+        if (request.url.host == 'openlibrary.org') return json(503, {});
+        return json(429, {});
+      }).search('x', type: MediaType.books),
+      throwsA(
+        allOf(
+          isNot(isA<PartialLookupException>()),
           isA<LookupException>().having(
             (e) => e.failure,
             'failure',
             LookupFailure.other,
           ),
         ),
-      );
-    },
-  );
+      ),
+    );
+  });
+
+  test('the cover matcher takes a hit while one source is down, but a miss '
+      'then is a failure, so it is asked again', () async {
+    final found = await source((request) async {
+      if (request.url.host == 'openlibrary.org') {
+        return json(200, {
+          'docs': [dracula],
+        });
+      }
+      return json(503, {});
+    }).match('Dracula', type: MediaType.books, creator: 'Bram Stoker');
+    expect(found?.source, 'openlibrary:OL45804W');
+
+    await expectLater(
+      source((request) async {
+        if (request.url.host == 'openlibrary.org') {
+          return json(200, {'docs': []});
+        }
+        return json(503, {});
+      }).match(
+        'The Weight of Angels',
+        type: MediaType.books,
+        creator: 'John Boyne',
+      ),
+      throwsA(
+        isA<LookupException>().having(
+          (e) => e.failure,
+          'failure',
+          LookupFailure.other,
+        ),
+      ),
+    );
+  });
 
   test('the cover matcher finds a book only Google Books has', () async {
     final ol = source((request) async {

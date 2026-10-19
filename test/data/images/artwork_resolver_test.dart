@@ -31,6 +31,7 @@ class _Stub extends LookupSource implements MusicSource {
   final photos = <String, String>{};
   final asks = <String>[];
   LookupFailure? failure;
+  int? failureStatus;
   Completer<void>? gate;
   var inFlight = 0;
   var mostInFlight = 0;
@@ -48,7 +49,9 @@ class _Stub extends LookupSource implements MusicSource {
     if (inFlight > mostInFlight) mostInFlight = inFlight;
     try {
       if (gate case final gate?) await gate.future;
-      if (failure case final failure?) throw LookupException(failure);
+      if (failure case final failure?) {
+        throw LookupException(failure, status: failureStatus);
+      }
       return answer();
     } finally {
       inFlight--;
@@ -243,6 +246,18 @@ void main() {
     stub.failure = null;
     stub.covers['Y'] = 'https://img/y.jpg';
     expect(await r.coverUrl(y), isNull);
+
+    // Unless the provider was down (a 5xx): asked again.
+    stub
+      ..failure = LookupFailure.other
+      ..failureStatus = 503;
+    final z = entry('movies/z-2000', title: 'Z');
+    expect(await r.coverUrl(z), isNull);
+    stub
+      ..failure = null
+      ..failureStatus = null;
+    stub.covers['Z'] = 'https://img/z.jpg';
+    expect(await r.coverUrl(z), 'https://img/z.jpg');
   });
 
   test(

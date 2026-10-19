@@ -285,6 +285,12 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                                       'moment.',
                             onRetry: _lookUp,
                           )
+                        else if (matches.isEmpty && result.partlyFailed)
+                          _Notice(
+                            'Some lookups could not be reached, so a match '
+                            'may be missing. Try again in a moment.',
+                            onRetry: _lookUp,
+                          )
                         else if (matches.isEmpty)
                           _Notice(
                             _type == null

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
+import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_providers.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
@@ -239,6 +240,26 @@ void main() {
       expect(find.text('Try again'), findsOneWidget);
     });
 
+    testWidgets('a source that answered only in part, with nothing, is not '
+        '"no matches"', (tester) async {
+      await pumpApp(
+        tester,
+        const _Opener(type: MediaType.books),
+        lookupOverrides: fakeLookupOverrides(source: _HalfAnswering()),
+      );
+      await open(tester);
+      await type(tester, 'The Weight of Angels John Boyne');
+      expect(
+        find.text(
+          'Some lookups could not be reached, so a match may be missing. '
+          'Try again in a moment.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('No matches among books.'), findsNothing);
+      expect(find.text('Try again'), findsOneWidget);
+    });
+
     testWidgets('a missing key is "not set up", for the type or at all', (
       tester,
     ) async {
@@ -338,4 +359,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Fill in the details myself'), findsOneWidget);
   });
+}
+
+/// Books from two providers, one of which did not answer and the other
+/// found nothing.
+class _HalfAnswering extends FakeLookupSource {
+  @override
+  Future<List<LookupMatch>> search(
+    String query, {
+    required MediaType type,
+    int limit = 10,
+  }) async => throw const PartialLookupException([], LookupFailure.other);
 }

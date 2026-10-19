@@ -108,6 +108,16 @@ void main() {
           key: env['GOOGLE_BOOKS_KEY']!,
         ).lookUp('Dracula', author: 'Bram Stoker');
         expect(filled.description, isNotEmpty);
+        // Only Google Books has it (2026-10-19), and its search answered
+        // 503 to most requests then: the retry elsewhere must reach it.
+        final angels = await books.search(
+          'The Weight of Angels John Boyne',
+          type: MediaType.books,
+        );
+        expect(
+          angels.map((m) => m.source),
+          contains('googlebooks:eOTEEQAAQBAJ'),
+        );
       }
     },
   );

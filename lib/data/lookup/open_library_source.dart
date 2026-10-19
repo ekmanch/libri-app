@@ -115,17 +115,33 @@ class OpenLibrarySource extends HttpLookupSource {
     return [for (final doc in objectsAt(json, 'docs')) ?_match(doc)];
   }
 
+  /// Throws [PartialLookupException] with the hits of the source that
+  /// answered when the other did not, so the screen can say some were not
+  /// reached rather than that there are no matches.
   @override
   Future<List<LookupMatch>> search(
     String query, {
     required MediaType type,
     int limit = 10,
-  }) => _both(
-    _search({'q': query}, limit),
-    google?.search(query, limit: limit),
-    limit,
-  );
+  }) async {
+    final (:hits, :failure) = await _both(
+      _search({'q': query}, limit),
+      google?.search(query, limit: limit),
+      limit,
+    );
+    if (failure != null) {
+      throw PartialLookupException(
+        hits,
+        failure.failure,
+        status: failure.status,
+        message: failure.message,
+      );
+    }
+    return hits;
+  }
 
+  /// No match while one source failed is not a miss: the failure is
+  /// thrown, so the cover is asked for again rather than given up on.
   @override
   Future<LookupMatch?> match(
     String title, {
@@ -134,11 +150,22 @@ class OpenLibrarySource extends HttpLookupSource {
     String? creator,
   }) async {
     final author = creator != null && creator.isNotEmpty ? creator : null;
-    final hits = await _both(
+    final (:hits, :failure) = await _both(
       _search({'title': title, 'author': ?author}, 5),
       google?.searchTitle(title, author: author, limit: 5),
       10,
     );
+    final hit = _pick(hits, title, year: year, author: author);
+    if (hit == null && failure != null) throw failure;
+    return hit;
+  }
+
+  static LookupMatch? _pick(
+    List<LookupMatch> hits,
+    String title, {
+    required int? year,
+    required String? author,
+  }) {
     final same = hits.where((h) => sameTitle(h.title, title)).toList();
     if (year != null) {
       for (final hit in same) {
@@ -151,9 +178,10 @@ class OpenLibrarySource extends HttpLookupSource {
     return year == null && same.isNotEmpty ? same.first : null;
   }
 
-  /// Both searches at once, merged by [mergeBookHits]. Throws Open
-  /// Library's failure only when Google failed too (or is not there).
-  Future<List<LookupMatch>> _both(
+  /// Both searches at once, merged by [mergeBookHits], with the failure of
+  /// the one that did not answer. Throws when neither answered (Open
+  /// Library's failure; without Google, whenever Open Library fails).
+  Future<({List<LookupMatch> hits, LookupException? failure})> _both(
     Future<List<LookupMatch>> openLibrary,
     Future<List<LookupMatch>>? google,
     int limit,
@@ -164,21 +192,28 @@ class OpenLibrarySource extends HttpLookupSource {
           ? Future<Object>.value(const <LookupMatch>[])
           : _settle(google),
     ]);
-    if (ol is! List<LookupMatch>) {
-      if (gb is! List<LookupMatch> || google == null) throw ol;
-      return mergeBookHits(const [], gb, limit: limit);
+    switch ((ol, gb)) {
+      case (List<LookupMatch> ol, List<LookupMatch> gb):
+        return (hits: mergeBookHits(ol, gb, limit: limit), failure: null);
+      case (List<LookupMatch> ol, LookupException gb):
+        return (hits: mergeBookHits(ol, const [], limit: limit), failure: gb);
+      case (LookupException ol, List<LookupMatch> gb) when google != null:
+        return (hits: mergeBookHits(const [], gb, limit: limit), failure: ol);
+      case (LookupException ol, _):
+        throw ol;
     }
-    return mergeBookHits(
-      ol,
-      gb is List<LookupMatch> ? gb : const [],
-      limit: limit,
-    );
+    throw StateError('unreachable');
   }
 
-  /// The hits, or what was thrown; so neither search's failure goes
-  /// unhandled while the other is awaited.
+  /// The hits, or the failure as a [LookupException]; so neither search's
+  /// failure goes unhandled while the other is awaited.
   static Future<Object> _settle(Future<List<LookupMatch>> hits) =>
-      hits.then<Object>((h) => h, onError: (Object e) => e);
+      hits.then<Object>(
+        (h) => h,
+        onError: (Object e) => e is LookupException
+            ? e
+            : LookupException(LookupFailure.other, message: '$e'),
+      );
 
   /// One list from both sources' hits: each Open Library hit keeps its place
   /// and takes what it lacks (a cover, a year, a page count) from Google's

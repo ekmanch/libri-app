@@ -148,8 +148,9 @@ class ArtworkResolver {
       url = found.$1;
       source = found.$2;
     } on LookupException catch (e) {
-      // Not an answer: ask again next time.
-      if (e.failure != LookupFailure.other) {
+      // Not an answer: ask again next time. A server error (5xx) is the
+      // provider being down for now, not a verdict on the title.
+      if (e.failure != LookupFailure.other || (e.status ?? 0) >= 500) {
         _failures[entry.id] = e.failure;
         return null;
       }

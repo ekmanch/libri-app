@@ -58,6 +58,24 @@ class _Stub extends LookupSource {
       null;
 }
 
+/// A source with two providers, one of which did not answer.
+class _Partial extends _Stub {
+  _Partial(this.answered) : super('openlibrary', {MediaType.books});
+
+  final List<LookupMatch> answered;
+  var calls = 0;
+
+  @override
+  Future<List<LookupMatch>> search(
+    String query, {
+    required MediaType type,
+    int limit = 10,
+  }) async {
+    calls++;
+    throw PartialLookupException(answered, LookupFailure.other);
+  }
+}
+
 void main() {
   test('one type asks its source once, capped at ten, in its order', () async {
     final tmdb = _Stub('tmdb', {MediaType.movies, MediaType.shows}, count: 12);
@@ -101,6 +119,35 @@ void main() {
     expect(result.failures, [LookupFailure.offline]);
     expect(result.partlyFailed, isTrue);
     expect(result.allFailed, isNull);
+  });
+
+  test('a source answering in part counts as an answer and a failure, '
+      'and is not remembered', () async {
+    final books = _Partial([
+      const LookupMatch(
+        type: MediaType.books,
+        title: 'Dracula',
+        source: 'openlibrary:OL45804W',
+      ),
+    ]);
+    final service = LookupService([books]);
+    final result = await service.search('x', type: MediaType.books);
+    expect(result.matches.single.title, 'Dracula');
+    expect(result.failures, [LookupFailure.other]);
+    expect(result.asked, 2);
+    expect(result.partlyFailed, isTrue);
+    expect(result.allFailed, isNull);
+
+    // Nothing from the part that answered: still a partial failure, not
+    // "no matches" and not "the lookup did not answer".
+    final empty = await LookupService([_Partial(const [])])
+        .search('x', type: MediaType.books);
+    expect(empty.matches, isEmpty);
+    expect(empty.partlyFailed, isTrue);
+    expect(empty.allFailed, isNull);
+
+    await service.search('x', type: MediaType.books);
+    expect(books.calls, 2);
   });
 
   test('all sources failing names the shared reason', () async {

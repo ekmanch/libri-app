@@ -31,9 +31,10 @@ class GoogleBooks with LookupHttp {
     Uri? baseUrl,
     this.timeout = defaultHttpTimeout,
     this.userAgent = 'Libri',
+    Duration minGap = const Duration(milliseconds: 500),
   }) : _baseUrl =
            baseUrl ?? Uri.https('www.googleapis.com', '/books/v1/volumes'),
-       limiter = RateLimiter(const Duration(milliseconds: 500));
+       limiter = RateLimiter(minGap);
 
   @override
   final http.Client client;
@@ -46,6 +47,18 @@ class GoogleBooks with LookupHttp {
 
   final String key;
   final Uri _baseUrl;
+
+  /// How many times a search is sent before a server error (5xx) is
+  /// taken as the answer. In October 2026 Google's text search answered
+  /// 503 "backendFailed" to most requests, whatever the key, the country or
+  /// the parameters, and now and then an empty list for a search that has
+  /// hits, while reading one volume by id kept working. Each new try has
+  /// the same chance, so trying again is what helps.
+  static const searchTries = 9;
+
+  /// How many empty lists a search takes before it believes Google has
+  /// nothing, since a struggling Google answers some searches that way.
+  static const emptyTries = 3;
 
   /// The provider part of the ids it issues.
   static const id = 'googlebooks';
@@ -134,7 +147,29 @@ class GoogleBooks with LookupHttp {
     'User-Agent': userAgent,
   };
 
+  /// Sent again on a server error or an empty list, up to [searchTries]
+  /// times in all. An empty list is believed once it came [emptyTries]
+  /// times, or when it came and every other try failed; a server error is
+  /// thrown when every try failed so. Any other failure (offline, rate
+  /// limited, a bad request) is thrown at once.
   Future<List<LookupMatch>> _volumes(String q, int limit) async {
+    var empty = 0;
+    for (var tries = 1; ; tries++) {
+      try {
+        final hits = await _volumesIn(q, limit);
+        if (hits.isNotEmpty || ++empty == emptyTries) return hits;
+        if (tries == searchTries) return hits;
+      } on LookupException catch (e) {
+        if ((e.status ?? 0) < 500) rethrow;
+        if (tries == searchTries) {
+          if (empty > 0) return const [];
+          rethrow;
+        }
+      }
+    }
+  }
+
+  Future<List<LookupMatch>> _volumesIn(String q, int limit) async {
     final response = await send(
       () => client.get(
         _baseUrl.replace(

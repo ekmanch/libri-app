@@ -20,8 +20,10 @@ class LookupResult {
   /// One entry per ask (a source and a type) that failed.
   final List<LookupFailure> failures;
 
-  /// How many configured sources were asked. Zero means none is set up for
-  /// the chosen type (or for any type, on All).
+  /// How many providers were asked: one per configured source, and one
+  /// more for each that answered only in part ([PartialLookupException]).
+  /// Zero means none is set up for the chosen type (or for any type, on
+  /// All).
   final int asked;
 
   bool get notConfigured => asked == 0;
@@ -97,6 +99,7 @@ class LookupService {
     ]);
 
     final failures = <LookupFailure>[];
+    var partial = 0;
     final byType = <MediaType, List<LookupMatch>>{};
     for (final (i, answer) in answers.indexed) {
       final (t, _) = asks[i];
@@ -105,6 +108,10 @@ class LookupService {
           byType.putIfAbsent(t, () => []).addAll(matches.take(limit));
         case LookupFailure failure:
           failures.add(failure);
+        case (List<LookupMatch> matches, LookupFailure failure):
+          byType.putIfAbsent(t, () => []).addAll(matches.take(limit));
+          failures.add(failure);
+          partial++;
       }
     }
     final result = LookupResult(
@@ -112,13 +119,13 @@ class LookupService {
           ? _roundRobin([for (final t in types) byType[t] ?? const []])
           : [...?byType[type]],
       failures: failures,
-      asked: asks.length,
+      asked: asks.length + partial,
     );
     if (failures.isEmpty) _remember(key, result);
     return result;
   }
 
-  /// A list of matches, or the failure.
+  /// A list of matches, the failure, or for a partial answer both.
   Future<Object> _ask(
     LookupSource source,
     String query,
@@ -127,6 +134,8 @@ class LookupService {
   ) async {
     try {
       return await source.search(query, type: type, limit: limit);
+    } on PartialLookupException catch (e) {
+      return (e.matches, e.failure);
     } on LookupException catch (e) {
       return e.failure;
     } on Object {
