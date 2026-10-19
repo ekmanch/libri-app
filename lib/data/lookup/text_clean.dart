@@ -90,3 +90,12 @@ T? pickByTitleAndYear<T>(
   }
   return null;
 }
+
+/// Whether a book subject or category makes sense as a tag. Open Library's
+/// subjects mix genres with catalog notes ("Fiction, science fiction,
+/// general"), pseudo-tags ("award:hugo_award=1960") and long headings; only
+/// short plain ones do.
+bool isTagLike(String subject) =>
+    subject.length <= 24 &&
+    !subject.contains(RegExp(r'[:=,(){}\[\]/]')) &&
+    subject.trim().split(RegExp(r'\s+')).length <= 3;

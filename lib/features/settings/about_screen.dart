@@ -68,7 +68,7 @@ const dataSources = [
   ),
   DataSource(
     name: 'Google Books',
-    description: 'Books: a description or cover when Open Library has none.',
+    description: 'Books: those Open Library lacks, and missing details.',
     url: 'https://books.google.com',
   ),
   DataSource(

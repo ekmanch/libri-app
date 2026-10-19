@@ -3,7 +3,10 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:library_app/data/lookup/google_books_fill_in.dart';
+
+import 'dart:async';
+
+import 'package:library_app/data/lookup/google_books.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
@@ -40,10 +43,10 @@ void main() {
     ],
   };
 
-  /// Open Library and, on the Google host, the fill-in, from one handler.
+  /// Open Library and, on the Google host, Google Books, from one handler.
   OpenLibrarySource source(
     Future<http.Response> Function(http.Request) handler, {
-    bool withFillIn = true,
+    bool withGoogle = true,
   }) {
     sent = [];
     final client = MockClient((request) {
@@ -52,7 +55,7 @@ void main() {
     });
     return OpenLibrarySource(
       client,
-      fillIn: withFillIn ? GoogleBooksFillIn(client, key: 'g-key') : null,
+      google: withGoogle ? GoogleBooks(client, key: 'g-key') : null,
     );
   }
 
@@ -67,6 +70,7 @@ void main() {
             {'title': 'No key'},
           ],
         }),
+        withGoogle: false,
       );
       final hits = await ol.search('dracula', type: MediaType.books, limit: 10);
       final request = sent.single;
@@ -115,6 +119,7 @@ void main() {
           dracula,
         ],
       }),
+      withGoogle: false,
     );
     final hit = await ol.match(
       'Dracula',
@@ -166,6 +171,7 @@ void main() {
       title: 'Dracula',
       source: 'openlibrary:OL45804W',
       creator: 'Bram Stoker',
+      released: Released(1897),
       pages: 418,
     );
     final full = await ol.details(plain);
@@ -189,20 +195,25 @@ void main() {
           return json(200, {
             'items': [
               {
+                'id': 'x',
                 'volumeInfo': {
+                  'title': 'Dracula',
                   'imageLinks': {
                     'thumbnail': 'http://books.google.com/books/content?id=x&zoom=1&edge=curl&source=gbs_api',
                   },
                 },
               },
               {
+                'id': 'y',
                 'volumeInfo': {
+                  'title': 'Dracula',
                   'description': 'Google&#39;s <p>summary</p>',
                   'pageCount': 0,
                 },
               },
               {
-                'volumeInfo': {'pageCount': 488},
+                'id': 'z',
+                'volumeInfo': {'title': 'Dracula', 'pageCount': 488},
               },
             ],
           });
@@ -226,7 +237,7 @@ void main() {
   test(
     'the fill-in reads the volume itself when the list has no text',
     () async {
-      final fill = GoogleBooksFillIn(
+      final fill = GoogleBooks(
         MockClient((request) async {
           sent.add(request);
           if (request.url.path.endsWith('/volumes')) {
@@ -237,6 +248,7 @@ void main() {
                 {
                   'id': 'abc',
                   'volumeInfo': {
+                    'title': 'Dracula',
                     'imageLinks': {'thumbnail': 'http://g/abc.jpg'},
                   },
                 },
@@ -250,7 +262,10 @@ void main() {
           expect(request.url.path, '/books/v1/volumes/abc');
           return json(200, {
             'id': 'abc',
-            'volumeInfo': {'description': 'The <b>Count</b>.'},
+            'volumeInfo': {
+              'title': 'Dracula',
+              'description': 'The <b>Count</b>.',
+            },
           });
         }),
       );
@@ -261,7 +276,7 @@ void main() {
       expect(filled.coverUrl, 'https://g/abc.jpg');
 
       // Nothing listed: nothing asked further.
-      final none = await GoogleBooksFillIn(
+      final none = await GoogleBooks(
         MockClient((request) async {
           sent.add(request);
           return json(200, {'totalItems': 0});
@@ -294,7 +309,7 @@ void main() {
     final none =
         await source(
           (_) async => json(200, {'title': 'X'}),
-          withFillIn: false,
+          withGoogle: false,
         ).details(
           const LookupMatch(
             type: MediaType.books,
@@ -326,7 +341,10 @@ void main() {
         return json(200, {
           'items': [
             {
+              'id': 'x',
               'volumeInfo': {
+                'title': 'Dracula',
+                'description': 'The Count.',
                 'imageLinks': {'thumbnail': 'http://g/x.jpg'},
               },
             },
@@ -337,6 +355,363 @@ void main() {
       expect(
         source((_) async => json(200, {}))
             .coverUrl('igdb:1', type: MediaType.books),
+        throwsA(isA<LookupException>()),
+      );
+    },
+  );
+
+  /// A Google Books volume as the search lists it.
+  Map<String, Object?> volume(
+    String id,
+    String title, {
+    List<String> authors = const [],
+    String? date,
+    String? thumbnail,
+    String? description,
+    int? pages,
+  }) => {
+    'id': id,
+    'volumeInfo': {
+      'title': title,
+      'authors': authors,
+      'publishedDate': ?date,
+      'description': ?description,
+      'pageCount': ?pages,
+      if (thumbnail != null) 'imageLinks': {'thumbnail': thumbnail},
+    },
+  };
+
+  final weightOfAngels = volume(
+    'eOTEEQAAQBAJ',
+    'The Weight of Angels',
+    authors: ['John Boyne'],
+    date: '2026-02-19',
+    thumbnail: 'http://books.google.com/books/content?id=eOTEEQAAQBAJ&zoom=1',
+    description: 'A <i>novel</i>.',
+  );
+
+  LookupMatch book(
+    String source,
+    String title, {
+    String? creator,
+    String? coverUrl,
+    int? pages,
+    Released? released,
+  }) => LookupMatch(
+    type: MediaType.books,
+    title: title,
+    source: source,
+    creator: creator,
+    coverUrl: coverUrl,
+    pages: pages,
+    released: released,
+  );
+
+  group('the same book', () {
+    test('is the same title and author, case and punctuation aside', () {
+      expect(
+        sameBook(
+          book(
+            'openlibrary:OL1W',
+            'The Weight of Angels',
+            creator: 'John Boyne',
+          ),
+          book('googlebooks:a', 'the weight of angels', creator: 'JOHN BOYNE'),
+        ),
+        isTrue,
+      );
+      // One author in common is enough; the order does not matter.
+      expect(
+        sameBook(
+          book(
+            'openlibrary:OL2W',
+            'Good Omens',
+            creator: 'Terry Pratchett, Neil Gaiman',
+          ),
+          book('googlebooks:b', 'Good Omens', creator: 'Neil Gaiman'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('is not another title, nor another author, nor a missing one', () {
+      final ol = book('openlibrary:OL1W', 'Dracula', creator: 'Bram Stoker');
+      expect(
+        sameBook(ol, book('googlebooks:a', 'Carmilla', creator: 'Bram Stoker')),
+        isFalse,
+      );
+      expect(
+        sameBook(ol, book('googlebooks:b', 'Dracula', creator: 'Dacre Stoker')),
+        isFalse,
+      );
+      expect(sameBook(ol, book('googlebooks:c', 'Dracula')), isFalse);
+      expect(
+        sameBook(
+          book('openlibrary:OL9W', 'Beowulf'),
+          book('googlebooks:d', 'Beowulf'),
+        ),
+        isTrue,
+      );
+    });
+  });
+
+  test('the merge keeps one row per book with the Open Library id, fills its '
+      'gaps from Google, and takes turns with the books only Google has', () {
+    final merged = OpenLibrarySource.mergeBookHits(
+      [
+        book(
+          'openlibrary:OL45804W',
+          'Dracula',
+          creator: 'Bram Stoker',
+          pages: 418,
+        ),
+        book('openlibrary:OL2W', 'Carmilla', creator: 'Sheridan Le Fanu'),
+        book('openlibrary:OL3W', "Dracula's Guest", creator: 'Bram Stoker'),
+      ],
+      [
+        book(
+          'googlebooks:a',
+          'DRACULA',
+          creator: 'bram stoker',
+          coverUrl: 'https://g/a.jpg',
+          pages: 500,
+          released: const Released(2003),
+        ),
+        // Another edition of the same book: dropped.
+        book('googlebooks:b', 'Dracula', creator: 'Bram Stoker'),
+        book('googlebooks:c', 'The Weight of Angels', creator: 'John Boyne'),
+        book('googlebooks:d', 'The Weight of Angels', creator: 'John Boyne'),
+        book('googlebooks:e', 'Dracula', creator: 'Dacre Stoker'),
+      ],
+    );
+    expect(
+      [for (final m in merged) m.source],
+      [
+        'openlibrary:OL45804W',
+        'googlebooks:c',
+        'openlibrary:OL2W',
+        'googlebooks:e',
+        'openlibrary:OL3W',
+      ],
+    );
+    // What Open Library had stays; what it lacked comes from Google.
+    expect(merged.first.title, 'Dracula');
+    expect(merged.first.pages, 418);
+    expect(merged.first.coverUrl, 'https://g/a.jpg');
+    expect(merged.first.released, const Released(2003));
+    expect(
+      OpenLibrarySource.mergeBookHits(
+        [book('openlibrary:OL1W', 'A'), book('openlibrary:OL2W', 'B')],
+        [book('googlebooks:c', 'C')],
+        limit: 2,
+      ).map((m) => m.source),
+      ['openlibrary:OL1W', 'googlebooks:c'],
+    );
+  });
+
+  test('"The Weight of Angels John Boyne" finds the book only Google Books '
+      'has, asking both at once', () async {
+    final googleAsked = Completer<void>();
+    final ol = source((request) async {
+      if (request.url.host == 'openlibrary.org') {
+        // Answers only once Google was asked too: the two run in parallel.
+        await googleAsked.future;
+        return json(200, {'numFound': 0, 'docs': []});
+      }
+      googleAsked.complete();
+      expect(request.url.path, '/books/v1/volumes');
+      expect(
+        request.url.queryParameters['q'],
+        'The Weight of Angels John Boyne',
+      );
+      expect(request.url.queryParameters['maxResults'], '10');
+      return json(200, {
+        'items': [weightOfAngels, weightOfAngels],
+      });
+    });
+    final hits = await ol.search(
+      'The Weight of Angels John Boyne',
+      type: MediaType.books,
+    );
+    expect(hits, hasLength(1));
+    final hit = hits.single;
+    expect(hit.source, 'googlebooks:eOTEEQAAQBAJ');
+    expect(hit.title, 'The Weight of Angels');
+    expect(hit.creator, 'John Boyne');
+    expect(hit.released, const Released(2026, 2, 19));
+    expect(hit.description, 'A novel.');
+    expect(
+      hit.coverUrl,
+      'https://books.google.com/books/content?id=eOTEEQAAQBAJ&zoom=1',
+    );
+    expect(ol.issued(hit.source), isTrue);
+    expect(ol.issued('openlibrary:OL1W'), isTrue);
+    expect(ol.issued('igdb:1'), isFalse);
+  });
+
+  test(
+    'one source failing leaves the other\'s hits; both failing fails',
+    () async {
+      final googleDown = await source((request) async {
+        if (request.url.host == 'openlibrary.org') {
+          return json(200, {
+            'docs': [dracula],
+          });
+        }
+        return json(429, {});
+      }).search('dracula', type: MediaType.books);
+      expect(googleDown.single.source, 'openlibrary:OL45804W');
+
+      final openLibraryDown = await source((request) async {
+        if (request.url.host == 'openlibrary.org') return json(503, {});
+        return json(200, {
+          'items': [weightOfAngels],
+        });
+      }).search('weight of angels', type: MediaType.books);
+      expect(openLibraryDown.single.source, 'googlebooks:eOTEEQAAQBAJ');
+
+      expect(
+        source((request) async {
+          if (request.url.host == 'openlibrary.org') return json(503, {});
+          return json(429, {});
+        }).search('x', type: MediaType.books),
+        throwsA(
+          isA<LookupException>().having(
+            (e) => e.failure,
+            'failure',
+            LookupFailure.other,
+          ),
+        ),
+      );
+    },
+  );
+
+  test('the cover matcher finds a book only Google Books has', () async {
+    final ol = source((request) async {
+      if (request.url.host == 'openlibrary.org') {
+        expect(request.url.queryParameters['title'], 'The Weight of Angels');
+        return json(200, {'docs': []});
+      }
+      expect(
+        request.url.queryParameters['q'],
+        'intitle:"The Weight of Angels" inauthor:"John Boyne"',
+      );
+      return json(200, {
+        'items': [weightOfAngels],
+      });
+    });
+    final hit = await ol.match(
+      'The Weight of Angels',
+      type: MediaType.books,
+      year: 2025,
+      creator: 'John Boyne',
+    );
+    expect(hit?.source, 'googlebooks:eOTEEQAAQBAJ');
+    expect(hit?.cacheCoverUrl, startsWith('https://books.google.com/'));
+  });
+
+  test('details of a Google pick read its volume and fill the rest from '
+      'Open Library', () async {
+    final ol = source((request) async {
+      switch (request.url.path) {
+        case '/books/v1/volumes/eOTEEQAAQBAJ':
+          return json(200, {
+            'id': 'eOTEEQAAQBAJ',
+            'volumeInfo': {
+              'title': 'The Weight of Angels',
+              'authors': ['John Boyne'],
+              'publishedDate': '2026',
+              'imageLinks': {
+                'thumbnail': 'http://g/t.jpg',
+                'medium': 'http://g/m.jpg&edge=curl',
+              },
+            },
+          });
+        case '/search.json':
+          expect(request.url.queryParameters['title'], 'The Weight of Angels');
+          expect(request.url.queryParameters['author'], 'John Boyne');
+          return json(200, {
+            'docs': [
+              {
+                'key': '/works/OL99W',
+                'title': 'The Weight of Angels',
+                'author_name': ['John Boyne'],
+                'first_publish_year': 2025,
+                'number_of_pages_median': 320,
+              },
+            ],
+          });
+        case '/works/OL99W.json':
+          return json(200, {'description': 'From Open Library.'});
+      }
+      fail('unexpected ${request.url}');
+    });
+    final full = await ol.details(
+      book(
+        'googlebooks:eOTEEQAAQBAJ',
+        'The Weight of Angels',
+        creator: 'John Boyne',
+      ),
+    );
+    expect(full.source, 'googlebooks:eOTEEQAAQBAJ');
+    expect(full.description, 'From Open Library.');
+    expect(full.pages, 320);
+    // Google's own year and cover stay; only gaps are filled.
+    expect(full.released, const Released(2026));
+    expect(full.coverUrl, 'https://g/t.jpg');
+    expect(full.largeCoverUrl, 'https://g/m.jpg');
+  });
+
+  test(
+    'coverUrl handles a Google id: its own cover, else Open Library\'s',
+    () async {
+      Map<String, Object?> record({Map<String, String>? links}) => {
+        'id': 'eOTEEQAAQBAJ',
+        'volumeInfo': {
+          'title': 'The Weight of Angels',
+          'authors': ['John Boyne'],
+          'imageLinks': ?links,
+        },
+      };
+      expect(
+        await source((request) async {
+          expect(request.url.path, '/books/v1/volumes/eOTEEQAAQBAJ');
+          return json(
+            200,
+            record(
+              links: {
+                'thumbnail': 'http://g/t.jpg',
+                'medium': 'http://g/m.jpg',
+              },
+            ),
+          );
+        }).coverUrl('googlebooks:eOTEEQAAQBAJ', type: MediaType.books),
+        'https://g/m.jpg',
+      );
+      expect(
+        await source((request) async {
+          switch (request.url.path) {
+            case '/search.json':
+              return json(200, {
+                'docs': [
+                  {
+                    'key': '/works/OL99W',
+                    'title': 'The Weight of Angels',
+                    'author_name': ['John Boyne'],
+                    'cover_i': 42,
+                  },
+                ],
+              });
+            case '/works/OL99W.json':
+              return json(200, {});
+          }
+          return json(200, record());
+        }).coverUrl('googlebooks:eOTEEQAAQBAJ', type: MediaType.books),
+        'https://covers.openlibrary.org/b/id/42-L.jpg',
+      );
+      expect(
+        source((_) async => json(200, {}))
+            .coverUrl('googlebooks:', type: MediaType.books),
         throwsA(isA<LookupException>()),
       );
     },

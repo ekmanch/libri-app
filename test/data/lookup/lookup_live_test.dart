@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:library_app/data/lookup/anilist_source.dart';
 import 'package:library_app/data/lookup/deezer_source.dart';
-import 'package:library_app/data/lookup/google_books_fill_in.dart';
+import 'package:library_app/data/lookup/google_books.dart';
 import 'package:library_app/data/lookup/igdb_source.dart';
 import 'package:library_app/data/lookup/igdb_token_store.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
@@ -75,7 +75,7 @@ void main() {
     () async {
       final books = OpenLibrarySource(
         client,
-        fillIn: GoogleBooksFillIn(client, key: env['GOOGLE_BOOKS_KEY'] ?? ''),
+        google: GoogleBooks(client, key: env['GOOGLE_BOOKS_KEY'] ?? ''),
       );
       final hits = await books.search(
         'Dracula Bram Stoker',
@@ -103,7 +103,7 @@ void main() {
       // Without a key Google Books shares one small daily quota with
       // everyone, so only a key makes the fill-in worth asserting on.
       if ((env['GOOGLE_BOOKS_KEY'] ?? '').isNotEmpty) {
-        final filled = await GoogleBooksFillIn(
+        final filled = await GoogleBooks(
           client,
           key: env['GOOGLE_BOOKS_KEY']!,
         ).lookUp('Dracula', author: 'Bram Stoker');

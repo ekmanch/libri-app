@@ -1,20 +1,25 @@
 import '../models/media_type.dart';
 import '../models/released.dart';
-import 'google_books_fill_in.dart';
+import 'google_books.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'text_clean.dart';
 
-/// Books from Open Library. No key. Ids are the work ids,
-/// "openlibrary:OL45804W", never an edition, and the year is the first
-/// publication year and the page count the median of its editions'. Open
-/// Library has no description for many works and no cover or page count for
-/// some; then [fillIn] (Google Books) is asked for just that.
+/// Books, from Open Library and Google Books together. Open Library is
+/// asked first for ids, "openlibrary:OL45804W" (the work, never an
+/// edition), its year being the first publication year and its page count
+/// the median of its editions'. Google Books ([google]) is asked in parallel
+/// for the books Open Library does not have yet, which keep Google's id,
+/// "googlebooks:eOTEEQAAQBAJ"; a book both have is one row with Open
+/// Library's id. Whichever a pick came from, the other fills in what it
+/// leaves out (a description, a cover, a year, an author, a page count).
+/// Google's failures never fail a lookup Open Library answered, nor the
+/// other way round.
 class OpenLibrarySource extends HttpLookupSource {
   OpenLibrarySource(
     super.client, {
-    this.fillIn,
+    this.google,
     Uri? baseUrl,
     Uri? coversUrl,
     super.timeout,
@@ -22,7 +27,7 @@ class OpenLibrarySource extends HttpLookupSource {
        _coversUrl = coversUrl ?? Uri.https('covers.openlibrary.org'),
        super(minGap: const Duration(milliseconds: 500));
 
-  final GoogleBooksFillIn? fillIn;
+  final GoogleBooks? google;
   final Uri _baseUrl;
   final Uri _coversUrl;
 
@@ -30,22 +35,15 @@ class OpenLibrarySource extends HttpLookupSource {
       'key,title,author_name,first_publish_year,cover_i,subject,'
       'number_of_pages_median';
 
-  /// How many subjects become tag suggestions; the form keeps six at most.
-  static const maxSubjects = 6;
-
-  /// Open Library's subjects mix genres with catalog notes ("Fiction, science
-  /// fiction, general"), pseudo-tags ("award:hugo_award=1960") and long
-  /// headings; only short plain ones make sense as tags.
-  static bool _isTagLike(String subject) =>
-      subject.length <= 24 &&
-      !subject.contains(RegExp(r'[:=,(){}\[\]/]')) &&
-      subject.trim().split(RegExp(r'\s+')).length <= 3;
-
   @override
   String get id => 'openlibrary';
 
   @override
   Set<MediaType> get types => const {MediaType.books};
+
+  @override
+  bool issued(String source) =>
+      super.issued(source) || LookupMatch.providerOf(source) == GoogleBooks.id;
 
   Map<String, String> get _headers => {
     'Accept': 'application/json',
@@ -91,8 +89,8 @@ class OpenLibrarySource extends HttpLookupSource {
         for (final s
             in (doc['subject'] as List? ?? const [])
                 .map((s) => '$s')
-                .where(_isTagLike)
-                .take(maxSubjects))
+                .where(isTagLike)
+                .take(maxBookTags))
           s,
       ],
       pages: pages is num && pages > 0 ? pages.toInt() : null,
@@ -122,7 +120,11 @@ class OpenLibrarySource extends HttpLookupSource {
     String query, {
     required MediaType type,
     int limit = 10,
-  }) => _search({'q': query}, limit);
+  }) => _both(
+    _search({'q': query}, limit),
+    google?.search(query, limit: limit),
+    limit,
+  );
 
   @override
   Future<LookupMatch?> match(
@@ -131,10 +133,12 @@ class OpenLibrarySource extends HttpLookupSource {
     int? year,
     String? creator,
   }) async {
-    final hits = await _search({
-      'title': title,
-      if (creator != null && creator.isNotEmpty) 'author': creator,
-    }, 5);
+    final author = creator != null && creator.isNotEmpty ? creator : null;
+    final hits = await _both(
+      _search({'title': title, 'author': ?author}, 5),
+      google?.searchTitle(title, author: author, limit: 5),
+      10,
+    );
     final same = hits.where((h) => sameTitle(h.title, title)).toList();
     if (year != null) {
       for (final hit in same) {
@@ -143,10 +147,82 @@ class OpenLibrarySource extends HttpLookupSource {
     }
     // The same title by the same author is the same book whatever year the
     // library recorded; without an author, only an exact year is sure.
-    if (creator != null && creator.isNotEmpty && same.isNotEmpty) {
-      return same.first;
-    }
+    if (author != null && same.isNotEmpty) return same.first;
     return year == null && same.isNotEmpty ? same.first : null;
+  }
+
+  /// Both searches at once, merged by [mergeBookHits]. Throws Open
+  /// Library's failure only when Google failed too (or is not there).
+  Future<List<LookupMatch>> _both(
+    Future<List<LookupMatch>> openLibrary,
+    Future<List<LookupMatch>>? google,
+    int limit,
+  ) async {
+    final [ol, gb] = await Future.wait([
+      _settle(openLibrary),
+      google == null
+          ? Future<Object>.value(const <LookupMatch>[])
+          : _settle(google),
+    ]);
+    if (ol is! List<LookupMatch>) {
+      if (gb is! List<LookupMatch> || google == null) throw ol;
+      return mergeBookHits(const [], gb, limit: limit);
+    }
+    return mergeBookHits(
+      ol,
+      gb is List<LookupMatch> ? gb : const [],
+      limit: limit,
+    );
+  }
+
+  /// The hits, or what was thrown; so neither search's failure goes
+  /// unhandled while the other is awaited.
+  static Future<Object> _settle(Future<List<LookupMatch>> hits) =>
+      hits.then<Object>((h) => h, onError: (Object e) => e);
+
+  /// One list from both sources' hits: each Open Library hit keeps its place
+  /// and takes what it lacks (a cover, a year, a page count) from Google's
+  /// hit for the same book ([sameBook]); Google's other hits take turns
+  /// with Open Library's, so a long Open Library list cannot push out the
+  /// book only Google has. At most [limit].
+  static List<LookupMatch> mergeBookHits(
+    List<LookupMatch> openLibrary,
+    List<LookupMatch> google, {
+    int? limit,
+  }) {
+    final ol = [...openLibrary];
+    final onlyGoogle = <LookupMatch>[];
+    for (final hit in google) {
+      final i = ol.indexWhere((o) => sameBook(o, hit));
+      if (i >= 0) {
+        ol[i] = _fillGaps(ol[i], hit);
+      } else if (!onlyGoogle.any((o) => sameBook(o, hit))) {
+        onlyGoogle.add(hit);
+      }
+    }
+    final out = <LookupMatch>[];
+    for (var i = 0; i < ol.length || i < onlyGoogle.length; i++) {
+      if (i < ol.length) out.add(ol[i]);
+      if (i < onlyGoogle.length) out.add(onlyGoogle[i]);
+    }
+    return limit == null ? out : out.take(limit).toList();
+  }
+
+  /// [match] with the fields it lacks taken from [other]; nothing it has is
+  /// replaced.
+  static LookupMatch _fillGaps(LookupMatch match, LookupMatch? other) {
+    if (other == null) return match;
+    return match.copyWith(
+      released: match.released == null ? other.released : null,
+      creator: match.creator == null ? other.creator : null,
+      description: match.description.isEmpty ? other.description : null,
+      tags: match.tags.isEmpty ? other.tags : null,
+      pages: match.pages == null ? other.pages : null,
+      coverUrl: match.coverUrl == null ? other.coverUrl : null,
+      largeCoverUrl: match.coverUrl == null && match.largeCoverUrl == null
+          ? other.largeCoverUrl
+          : null,
+    );
   }
 
   static String _workId(String source) {
@@ -159,6 +235,16 @@ class OpenLibrarySource extends HttpLookupSource {
     }
     return parts[1];
   }
+
+  bool _isGoogle(String source) =>
+      LookupMatch.providerOf(source) == GoogleBooks.id;
+
+  GoogleBooks get _google =>
+      google ??
+      (throw const LookupException(
+        LookupFailure.notConfigured,
+        message: 'no Google Books',
+      ));
 
   /// The work record: its description (text or `{"value": text}`) and its
   /// first cover id.
@@ -183,45 +269,111 @@ class OpenLibrarySource extends HttpLookupSource {
     );
   }
 
-  /// Google Books, when there is one; its failures leave the gap open.
-  Future<GoogleBooksFill> _fill(String title, String? author) async {
-    const none = (description: null, coverUrl: null, pages: null);
-    final fill = fillIn;
-    if (fill == null) return none;
+  /// Google Books' fill-in for an Open Library pick, when there is one; its
+  /// failures leave the gaps open.
+  Future<GoogleBooksFill> _googleFill(String title, String? author) async {
+    const none = (
+      description: null,
+      coverUrl: null,
+      pages: null,
+      released: null,
+      creator: null,
+    );
+    final books = google;
+    if (books == null) return none;
     try {
-      return await fill.lookUp(title, author: author);
+      return await books.lookUp(title, author: author);
     } on LookupException {
       return none;
     }
   }
 
+  /// Open Library's record of a Google pick: the same title (by the same
+  /// author, when known) with its work's description; null when it has no
+  /// such book or does not answer.
+  Future<LookupMatch?> _openLibraryFill(String title, String? author) async {
+    try {
+      final hits = await _search({'title': title, 'author': ?author}, 5);
+      final probe = LookupMatch(
+        type: MediaType.books,
+        title: title,
+        source: '',
+        creator: author,
+      );
+      final hit = hits
+          .where(
+            (h) =>
+                author == null ? sameTitle(h.title, title) : sameBook(h, probe),
+          )
+          .firstOrNull;
+      if (hit == null) return null;
+      final work = await _work(hit.source);
+      return hit.copyWith(
+        description: work.description,
+        coverUrl: hit.coverUrl == null && work.coverId != null
+            ? _cover(work.coverId!, '-M')
+            : null,
+        largeCoverUrl: hit.largeCoverUrl == null && work.coverId != null
+            ? _cover(work.coverId!, '-L')
+            : null,
+      );
+    } on LookupException {
+      return null;
+    }
+  }
+
+  bool _complete(LookupMatch match) =>
+      match.description.isNotEmpty &&
+      match.coverUrl != null &&
+      match.released != null &&
+      match.creator != null &&
+      match.pages != null;
+
   @override
   Future<LookupMatch> details(LookupMatch match) async {
+    if (_isGoogle(match.source)) {
+      final full = _fillGaps(match, await _google.volume(match.source));
+      if (_complete(full)) return full;
+      return _fillGaps(full, await _openLibraryFill(full.title, full.creator));
+    }
     final work = await _work(match.source);
-    var description = work.description;
-    var cover = match.coverUrl;
-    if (cover == null && work.coverId != null) {
-      cover = _cover(work.coverId!, '-M');
-    }
-    var pages = match.pages;
-    if (description == null || cover == null || pages == null) {
-      final filled = await _fill(match.title, match.creator);
-      description ??= filled.description;
-      cover ??= filled.coverUrl;
-      pages ??= filled.pages;
-    }
-    return match.copyWith(
-      description: description,
-      coverUrl: cover,
-      pages: pages,
+    final full = match.copyWith(
+      description: work.description,
+      coverUrl: match.coverUrl == null && work.coverId != null
+          ? _cover(work.coverId!, '-M')
+          : null,
+    );
+    if (_complete(full)) return full;
+    final filled = await _googleFill(match.title, match.creator);
+    return _fillGaps(
+      full,
+      LookupMatch(
+        type: MediaType.books,
+        title: match.title,
+        source: '',
+        released: filled.released,
+        creator: filled.creator,
+        description: filled.description ?? '',
+        pages: filled.pages,
+        coverUrl: filled.coverUrl,
+      ),
     );
   }
 
   @override
   Future<String?> coverUrl(String source, {required MediaType type}) async {
+    if (_isGoogle(source)) {
+      final volume = await _google.volume(source);
+      if (volume == null) return null;
+      if (volume.cacheCoverUrl case final url?) return url;
+      return (await _openLibraryFill(
+        volume.title,
+        volume.creator,
+      ))?.cacheCoverUrl;
+    }
     final work = await _work(source);
     if (work.coverId != null) return _cover(work.coverId!, '-L');
     if (work.title == null) return null;
-    return (await _fill(work.title!, null)).coverUrl;
+    return (await _googleFill(work.title!, null)).coverUrl;
   }
 }

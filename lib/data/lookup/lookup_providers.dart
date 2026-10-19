@@ -10,7 +10,7 @@ import 'anilist_source.dart';
 import 'deezer_source.dart';
 import 'episode_service.dart';
 import 'episode_store.dart';
-import 'google_books_fill_in.dart';
+import 'google_books.dart';
 import 'igdb_source.dart';
 import 'igdb_token_store.dart';
 import 'lookup_keys.dart';
@@ -48,7 +48,7 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
     AniListSource(client),
     OpenLibrarySource(
       client,
-      fillIn: GoogleBooksFillIn(client, key: LookupKeys.googleBooksKey),
+      google: GoogleBooks(client, key: LookupKeys.googleBooksKey),
     ),
     DeezerSource(client),
   ];
