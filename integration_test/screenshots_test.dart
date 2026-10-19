@@ -181,7 +181,7 @@ Future<void> pickView(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-/// A29 to A33, A39 and A40 at [scale]: the show rows with a new season,
+/// A29 to A35, A39 to A41 at [scale]: the show rows with a new season,
 /// the Seasons section with few and many seasons, all seasons, the status
 /// sheet with catch-up, and a season's episodes out and airing. Severance
 /// gets a new season 3 (the daily check's work, applied directly).
@@ -291,10 +291,23 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await closeSheet(tester);
 
-  // A34: one season, the status control; A35: a second season announced.
+  // A34: one season, its status in the Status row's pill, the sheet titled
+  // with the show; A41: its season; A35: a second season announced.
   await revealHeader(tester);
   await openShow('The Haunting of Hill House');
   await capture(tester, '${prefix}a34-show-one-season');
+  await tester.tap(find.bySemanticsLabel(RegExp('^Status: ')));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a34-show-one-season-status');
+  await closeSheet(tester);
+  final onlySeason = find.bySemanticsLabel(RegExp(r'^Season 1, .*Episodes$'));
+  await tester.ensureVisible(onlySeason);
+  await tester.pumpAndSettle();
+  await tester.tap(onlySeason);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a41-season-one-season-show');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
   await closeSheet(tester);
   await container
       .read(libraryRepositoryProvider)

@@ -613,6 +613,23 @@ void main() {
     });
   });
 
+  testWidgets('one season has no pill; a second season gives both one', (
+    tester,
+  ) async {
+    final hillHouse = loadFixture().entryById(
+      'shows/the-haunting-of-hill-house-2018',
+    )!;
+    await pumpApp(tester, EntryFormScreen.edit(hillHouse));
+    await scrollTo(tester, find.text('Add season'));
+    Finder pill(int n) => find.bySemanticsLabel(RegExp('^Season $n status: '));
+    expect(find.text('Season 1'), findsOneWidget);
+    expect(pill(1), findsNothing);
+    await tester.tap(find.text('Add season'));
+    await tester.pumpAndSettle();
+    expect(pill(1), findsOneWidget);
+    expect(pill(2), findsOneWidget);
+  });
+
   testWidgets('only a show has the Seasons field', (tester) async {
     await pumpApp(tester, const EntryFormScreen.create(type: MediaType.shows));
     await scrollTo(tester, find.text('Add season'));

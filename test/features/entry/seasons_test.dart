@@ -204,25 +204,36 @@ void main() {
     expect(find.bySemanticsLabel('Status, Done, from seasons'), findsOneWidget);
   });
 
-  testWidgets('one season: the status control is that season, no list', (
+  testWidgets('one season: a list without a pill, the status in a pill row', (
     tester,
   ) async {
     final container = await open(tester, _hillHouse);
-    expect(find.text('SEASONS'), findsNothing);
+    expect(find.byType(StatusSegmentedControl), findsNothing);
     expect(find.byType(ShowStatusRow), findsNothing);
-    await tester.tap(
+    expect(find.text('SEASONS'), findsOneWidget);
+    expect(find.text('1 season'), findsOneWidget);
+    expect(find.text('Oct 12, 2018'), findsOneWidget);
+    // Season 1 has no pill of its own; the Status row's is it.
+    expect(pill(1), findsNothing);
+    await tapIn(tester, find.bySemanticsLabel('Status: done. Change'));
+    // The sheet is titled with the show; no catch-up for season 1.
+    expect(
       find.descendant(
-        of: find.byType(StatusSegmentedControl),
-        matching: find.text('Want'),
+        of: find.byType(SeasonStatusSheet),
+        matching: find.text('The Haunting of Hill House'),
       ),
+      findsOneWidget,
     );
+    expect(find.textContaining('Mark season'), findsNothing);
+    await tester.tap(find.text('Want').last);
     await tester.pumpAndSettle();
     final show = saved(container, _hillHouse);
     expect(show.status, EntryStatus.want);
     expect(show.seasons!.single.status, EntryStatus.want);
+    expect(find.bySemanticsLabel('Status: want. Change'), findsOneWidget);
 
-    // A second season appears (A35): the list replaces the control, and
-    // the show keeps the status Season 1 gives.
+    // A second season appears (A35): the Status row turns read-only, each
+    // season gets its pill, and the show keeps the status Season 1 gives.
     await container
         .read(libraryRepositoryProvider)
         .apply(
@@ -231,9 +242,10 @@ void main() {
           ]),
         );
     await tester.pumpAndSettle();
-    expect(find.byType(StatusSegmentedControl), findsNothing);
     expect(find.bySemanticsLabel('Status, Want, from seasons'), findsOneWidget);
-    expect(find.text('SEASONS'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('^Status: ')), findsNothing);
+    expect(pill(1), findsOneWidget);
+    expect(pill(2), findsOneWidget);
     expect(find.text('Coming 2099'), findsOneWidget);
     // Not out yet: no New label.
     expect(find.text('New'), findsNothing);

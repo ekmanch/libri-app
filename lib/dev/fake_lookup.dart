@@ -209,7 +209,8 @@ const _trackListsBySource = <String, List<TrackInfo>>{
 };
 
 /// Episodes for the fixture's Stranger Things season 1 (all out on one
-/// day, A39) and Severance seasons 1 and 2 (weekly), matched on the device
+/// day, A39), The Haunting of Hill House (one season, A41) and Severance
+/// seasons 1 and 2 (weekly), matched on the device
 /// as `fake:<slug>`.
 final _episodesBySeason = <(String, int), List<EpisodeInfo>>{
   ('fake:stranger-things', 1): _sameDay(Released(2016, 7, 15), const [
@@ -222,6 +223,21 @@ final _episodesBySeason = <(String, int), List<EpisodeInfo>>{
     ('Chapter Seven: The Bathtub', 41),
     ('Chapter Eight: The Upside Down', 54),
   ]),
+  ('fake:the-haunting-of-hill-house', 1): _sameDay(
+    Released(2018, 10, 12),
+    const [
+      ('Steven Sees a Ghost', 59),
+      ('Open Casket', 58),
+      ('The Twin Thing', 50),
+      ('Touch', 50),
+      ('The Bent-Neck Lady', 54),
+      ('Two Storms', 57),
+      ('Eulogy', 54),
+      ('Witness Marks', 50),
+      ('Screaming Meemies', 61),
+      ('Silence Lay Steadily', 71),
+    ],
+  ),
   ('fake:severance', 1): _weekly(DateTime(2022, 2, 18), const [
     ('Good News About Hell', 57),
     ('Half Loop', 53),

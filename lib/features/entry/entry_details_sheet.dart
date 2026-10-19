@@ -38,9 +38,9 @@ Future<void> showEntryDetailsSheet(BuildContext context, String entryId) {
 }
 
 /// Entry details (A6): cover spot, status, rating, note, about, tags,
-/// plans, Edit and Delete. A show with more than one season lists them
-/// and shows the status they give as a row (A29); a show with one season
-/// has the status control, which is that season's status (A34). An album also gets its track list with track
+/// plans, Edit and Delete. A show lists its seasons; with more than one
+/// the status they give is a row (A29), and with one the Status row holds
+/// Season 1's pill, which is the show's status (A34). An album also gets its track list with track
 /// ratings (A22). Watches the library, so a change made here or in the
 /// edit form shows at once. Status and rating apply immediately.
 class EntryDetailsSheet extends ConsumerWidget {
@@ -134,6 +134,9 @@ class EntryDetailsSheet extends ConsumerWidget {
           if (entry.hasSeasonList)
             // The seasons set the status (A29): a row, then Rating.
             ShowStatusRow(status: entry.status)
+          else if (entry.seasons?.length == 1)
+            // One season: its pill is the show's status (A34).
+            SingleSeasonStatusRow(show: entry)
           else ...[
             const SectionHeading('Status', padding: EdgeInsets.zero),
             const SizedBox(height: 6),
@@ -166,7 +169,7 @@ class EntryDetailsSheet extends ConsumerWidget {
               style: theme.textTheme.titleMedium!.copyWith(fontSize: 15),
             ),
           ),
-          if (entry.hasSeasonList) ...[
+          if (entry.seasons?.isNotEmpty ?? false) ...[
             const SizedBox(height: 13),
             SeasonsSection(show: entry),
           ],

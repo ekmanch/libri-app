@@ -351,24 +351,30 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              SeasonStatusPill(
-                season: season,
-                onTap: () => showSeasonStatusSheet(
-                  context,
-                  seasons: _seasons,
-                  season: season.season,
-                  onPick: (status) => _setSeasonStatus(season.season, status),
-                  onCatchUp: () => setState(() {
-                    _seasons = [
-                      for (final s in _seasons)
-                        s.season < season.season
-                            ? s.copyWith(status: EntryStatus.done, fresh: null)
-                            : s,
-                    ];
-                  }),
+              // One season: the Status control sets it (A37).
+              if (_seasons.length > 1) ...[
+                const SizedBox(width: 8),
+                SeasonStatusPill(
+                  season: season,
+                  onTap: () => showSeasonStatusSheet(
+                    context,
+                    seasons: _seasons,
+                    season: season.season,
+                    onPick: (status) => _setSeasonStatus(season.season, status),
+                    onCatchUp: () => setState(() {
+                      _seasons = [
+                        for (final s in _seasons)
+                          s.season < season.season
+                              ? s.copyWith(
+                                  status: EntryStatus.done,
+                                  fresh: null,
+                                )
+                              : s,
+                      ];
+                    }),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ],

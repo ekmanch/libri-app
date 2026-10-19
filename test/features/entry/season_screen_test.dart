@@ -125,6 +125,30 @@ void main() {
     expect(out.opacity, 1);
   });
 
+  testWidgets('a one-season show\'s row opens its season (A41)', (
+    tester,
+  ) async {
+    final container = await pumpApp(
+      tester,
+      const _Opener('shows/the-haunting-of-hill-house-2018'),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await openSeasonRow(tester, 1);
+    expect(find.text('THE HAUNTING OF HILL HOUSE'), findsOneWidget);
+    expect(find.text('Oct 12, 2018 · 10 episodes'), findsOneWidget);
+    // The season screen keeps its own pill, which sets the show's status.
+    await tester.tap(find.bySemanticsLabel(RegExp('^Season 1 status: done')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DNF').last);
+    await tester.pumpAndSettle();
+    final saved =
+        (container.read(libraryRepositoryProvider) as FixtureLibraryRepository)
+            .current!
+            .entryById('shows/the-haunting-of-hill-house-2018')!;
+    expect(saved.status, EntryStatus.dnf);
+  });
+
   testWidgets('the status pill opens the sheet, not the season', (
     tester,
   ) async {
