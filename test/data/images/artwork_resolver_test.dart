@@ -223,42 +223,89 @@ void main() {
     expect(stub.asks.length, 2);
   });
 
-  test('offline, rate limited and not set up are not recorded', () async {
-    final r = resolver();
-    final x = entry('movies/x-2000', title: 'X');
-    for (final failure in [
-      LookupFailure.offline,
-      LookupFailure.rateLimited,
-      LookupFailure.notConfigured,
-    ]) {
-      stub.failure = failure;
+  test('no failure is ever recorded as a miss, for covers or photos, so '
+      'the next session asks again', () async {
+    final failures = <(LookupFailure, int?)>[
+      (LookupFailure.offline, null), // a timeout too
+      (LookupFailure.rateLimited, 429),
+      (LookupFailure.notConfigured, null),
+      (LookupFailure.other, 500),
+      (LookupFailure.other, 503),
+      (LookupFailure.other, 404),
+      (LookupFailure.other, null), // a malformed answer
+    ];
+    for (final (i, (failure, status)) in failures.indexed) {
+      stub
+        ..failure = failure
+        ..failureStatus = status;
+      final r = resolver();
+      final x = entry('movies/x$i', title: 'X$i');
       expect(await r.coverUrl(x), isNull);
-    }
-    stub.failure = null;
-    stub.covers['X'] = 'https://img/x.jpg';
-    expect(await r.coverUrl(x), 'https://img/x.jpg');
-    expect(stub.asks.length, 4);
+      expect(await r.artistPhotoUrl('Artist $i'), isNull);
+      await r.flush();
+      expect(
+        (await file.read())?['entries'] as Map? ?? const {},
+        isNot(contains('movies/x$i')),
+        reason: '$failure $status',
+      );
 
-    // "Other" is an answer: a miss.
-    stub.failure = LookupFailure.other;
+      // The next session: the provider answers now.
+      stub
+        ..failure = null
+        ..failureStatus = null;
+      stub.covers['X$i'] = 'https://img/x$i.jpg';
+      stub.photos['Artist $i'] = 'https://img/a$i.jpg';
+      final next = resolver();
+      expect(await next.coverUrl(x), 'https://img/x$i.jpg');
+      expect(await next.artistPhotoUrl('Artist $i'), 'https://img/a$i.jpg');
+    }
+  });
+
+  test('a real "no cover" is a miss, on disk for the next session', () async {
+    final r = resolver();
     final y = entry('movies/y-2000', title: 'Y');
     expect(await r.coverUrl(y), isNull);
-    stub.failure = null;
+    expect(await r.artistPhotoUrl('Nobody'), isNull);
+    await r.flush();
     stub.covers['Y'] = 'https://img/y.jpg';
-    expect(await r.coverUrl(y), isNull);
-
-    // Unless the provider was down (a 5xx): asked again.
-    stub
-      ..failure = LookupFailure.other
-      ..failureStatus = 503;
-    final z = entry('movies/z-2000', title: 'Z');
-    expect(await r.coverUrl(z), isNull);
-    stub
-      ..failure = null
-      ..failureStatus = null;
-    stub.covers['Z'] = 'https://img/z.jpg';
-    expect(await r.coverUrl(z), 'https://img/z.jpg');
+    stub.photos['Nobody'] = 'https://img/nobody.jpg';
+    final next = resolver();
+    expect(await next.coverUrl(y), isNull);
+    expect(await next.artistPhotoUrl('Nobody'), isNull);
+    expect(stub.asks, ['match:Y:movies:null:null', 'photo:Nobody']);
   });
+
+  test(
+    'the misses of version 1 are looked for again, its covers kept',
+    () async {
+      final resolved = now.toUtc().toIso8601String();
+      final a = entry('movies/a', title: 'A');
+      final b = entry('movies/b', title: 'B');
+      await file.write({
+        'version': 1,
+        'entries': {
+          'movies/a': {
+            'key': ArtworkResolver.keyFor(a),
+            'url': 'https://img/a.jpg',
+            'resolved': resolved,
+          },
+          'movies/b': {'key': ArtworkResolver.keyFor(b), 'resolved': resolved},
+        },
+        'artists': {
+          'kate bush': {'key': 'kate bush', 'resolved': resolved},
+        },
+      });
+      stub.covers['B'] = 'https://img/b.jpg';
+      stub.photos['Kate Bush'] = 'https://img/kate.jpg';
+      final r = resolver();
+      expect(await r.coverUrl(a), 'https://img/a.jpg');
+      expect(await r.coverUrl(b), 'https://img/b.jpg');
+      expect(await r.artistPhotoUrl('Kate Bush'), 'https://img/kate.jpg');
+      expect(stub.asks, ['match:B:movies:null:null', 'photo:Kate Bush']);
+      await r.flush();
+      expect((await file.read())!['version'], 2);
+    },
+  );
 
   test(
     'at most two lookups run at once, and a released one never starts',

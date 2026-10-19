@@ -43,8 +43,9 @@ class ArtworkResolver {
   final _entries = <String, _Record>{};
   final _artists = <String, _Record>{};
 
-  /// Why the last lookup of an entry gave no answer (offline, rate
-  /// limited, not set up); in memory only, cleared by an answer.
+  /// Why the last lookup of an entry did not work out (offline, rate
+  /// limited, a server error, ...); in memory only, cleared by an answer,
+  /// so the next session asks again.
   final _failures = <String, LookupFailure>{};
   Future<void>? _loading;
   bool _dirty = false;
@@ -60,7 +61,18 @@ class ArtworkResolver {
     if (json == null) return;
     _readInto(_entries, json['entries']);
     _readInto(_artists, json['artists']);
+    if (json['version'] != _version) {
+      // Version 1 recorded some failed lookups (a 404, a bad answer, an
+      // artist's 5xx) as misses, indistinguishable from real ones: its
+      // misses are all looked for again, its covers kept.
+      _entries.removeWhere((_, r) => r.url == null);
+      _artists.removeWhere((_, r) => r.url == null);
+      _markDirty();
+    }
   }();
+
+  /// The `artwork.json` format: 2 since misses are only real answers.
+  static const _version = 2;
 
   static void _readInto(Map<String, _Record> into, Object? json) {
     if (json is! Map<String, Object?>) return;
@@ -148,14 +160,10 @@ class ArtworkResolver {
       url = found.$1;
       source = found.$2;
     } on LookupException catch (e) {
-      // Not an answer: ask again next time. A server error (5xx) is the
-      // provider being down for now, not a verdict on the title.
-      if (e.failure != LookupFailure.other || (e.status ?? 0) >= 500) {
-        _failures[entry.id] = e.failure;
-        return null;
-      }
-      _entries[entry.id] = _Record(key: keyFor(entry), resolved: _now());
-      _markDirty();
+      // Not an answer, only a lookup that did not work out (offline, a
+      // timeout, rate limited, a server error, a bad answer): never
+      // recorded, so the next session asks again. Only "no cover" is a miss.
+      _failures[entry.id] = e.failure;
       return null;
     }
     _failures.remove(entry.id);
@@ -227,10 +235,8 @@ class ArtworkResolver {
     final String? url;
     try {
       url = await music.artistPhotoUrl(name);
-    } on LookupException catch (e) {
-      if (e.failure != LookupFailure.other) return null;
-      _artists[key] = _Record(key: key, resolved: _now());
-      _markDirty();
+    } on LookupException {
+      // As for covers: only "no photo" is a miss.
       return null;
     }
     _artists[key] = _Record(key: key, url: url, resolved: _now());
@@ -273,7 +279,7 @@ class ArtworkResolver {
     if (_dirty) {
       _dirty = false;
       await cache.write({
-        'version': 1,
+        'version': _version,
         'entries': {for (final e in _entries.entries) e.key: e.value.toJson()},
         'artists': {for (final a in _artists.entries) a.key: a.value.toJson()},
       });

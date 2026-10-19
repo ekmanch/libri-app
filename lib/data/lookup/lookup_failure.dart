@@ -23,6 +23,12 @@ class LookupException implements Exception {
   final int? status;
   final String message;
 
+  /// The provider gave no verdict for now: offline (a timeout too), rate
+  /// limited, not set up, or its own server error (5xx). Asking again later
+  /// may well answer, so nothing is concluded from it.
+  bool get isTransient =>
+      failure != LookupFailure.other || (status ?? 0) >= 500;
+
   @override
   String toString() =>
       'LookupException(${failure.name}'

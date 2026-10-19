@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
+import 'package:library_app/data/lookup/lookup_source.dart';
 import 'package:library_app/data/lookup/season_check.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -313,6 +314,29 @@ void main() {
     expect(await store.lastRun(), DateTime(2026, 10, 18));
   });
 
+  test('a server error is tried again; a bad answer records the day', () async {
+    final watching = show('want', EntryStatus.done, seasons: two);
+    for (final (status, recorded) in [
+      (503, false),
+      (500, false),
+      (404, true),
+    ]) {
+      final source = _FailingSeasons(status);
+      final memory = MemorySeasonCheckStore();
+      final failing = SeasonCheck(
+        lookups: LookupService([source]),
+        store: memory,
+      );
+      expect((await failing.run(library([watching]), now)).operations, isEmpty);
+      expect(source.asked, 1, reason: '$status');
+      expect(
+        await memory.lastRun(),
+        recorded ? DateTime(2026, 10, 18) : isNull,
+        reason: '$status',
+      );
+    }
+  });
+
   test('the file store keeps the day and the missed seasons', () async {
     final dir = Directory.systemTemp.createTempSync('libri-season-check-');
     addTearDown(() => dir.deleteSync(recursive: true));
@@ -325,4 +349,18 @@ void main() {
     expect(await store.lastRun(), DateTime(2026, 10, 18));
     expect(await store.missing(), {'shows/a#3', 'shows/b#2'});
   });
+}
+
+/// A show source whose seasons fail with [status].
+class _FailingSeasons extends FakeLookupSource {
+  _FailingSeasons(this.status);
+
+  final int status;
+  var asked = 0;
+
+  @override
+  Future<ShowSeasons?> seasons(String source) async {
+    asked++;
+    throw LookupException(LookupFailure.other, status: status);
+  }
 }

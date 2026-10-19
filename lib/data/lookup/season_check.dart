@@ -153,7 +153,9 @@ class SeasonCheck {
             break;
           }
           // Not found or a bad answer: nothing learned, so a season it
-          // missed before stays missed.
+          // missed before stays missed. A server error (5xx) is not an
+          // answer either, and leaves the day's check to run again.
+          if (e.isTransient) complete = false;
           missing.addAll(previous.where((k) => k.startsWith('${show.id}#')));
           continue;
         }
