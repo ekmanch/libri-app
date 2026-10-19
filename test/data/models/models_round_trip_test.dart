@@ -49,9 +49,13 @@ void main() {
         'id': 'books/dracula-1897',
         'type': 'books',
         'formats': ['audiobook', 'physical'],
+        'pages': 160,
       });
       expect(book.formats, [BookFormat.audiobook, BookFormat.physical]);
       expect(book.toJson()['formats'], ['audiobook', 'physical']);
+      expect(book.pages, 160);
+      expect(book.toJson().keys.last, 'pages');
+      expect(plain.containsKey('pages'), isFalse);
 
       expect(dirt.toJson()['kind'], 'album');
       expect(dirt.toJson()['tracks'], [

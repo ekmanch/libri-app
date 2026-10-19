@@ -45,6 +45,9 @@ abstract class Entry with _$Entry {
     @JsonKey(includeIfNull: false) String? platform,
     // Books.
     @JsonKey(includeIfNull: false) List<BookFormat>? formats,
+
+    /// The page count, from the lookup or typed in A8.
+    @JsonKey(includeIfNull: false) int? pages,
     // Music.
     @JsonKey(includeIfNull: false) MusicKind? kind,
     @JsonKey(includeIfNull: false) String? album,

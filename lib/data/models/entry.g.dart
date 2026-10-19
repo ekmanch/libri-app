@@ -29,6 +29,7 @@ _Entry _$EntryFromJson(Map<String, dynamic> json) => _Entry(
   formats: (json['formats'] as List<dynamic>?)
       ?.map((e) => $enumDecode(_$BookFormatEnumMap, e))
       .toList(),
+  pages: (json['pages'] as num?)?.toInt(),
   kind: $enumDecodeNullable(_$MusicKindEnumMap, json['kind']),
   album: json['album'] as String?,
   tracks: (json['tracks'] as List<dynamic>?)
@@ -58,6 +59,7 @@ Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
   'source': instance.source,
   'platform': ?instance.platform,
   'formats': ?instance.formats?.map((e) => _$BookFormatEnumMap[e]!).toList(),
+  'pages': ?instance.pages,
   'kind': ?_$MusicKindEnumMap[instance.kind],
   'album': ?instance.album,
   'tracks': ?instance.tracks?.map((e) => e.toJson()).toList(),

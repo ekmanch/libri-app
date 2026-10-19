@@ -6,8 +6,12 @@ import 'lookup_failure.dart';
 import 'rate_limiter.dart';
 import 'text_clean.dart';
 
+/// What [GoogleBooksFillIn.lookUp] found; null where Google Books has
+/// nothing.
+typedef GoogleBooksFill = ({String? description, String? coverUrl, int? pages});
+
 /// What Google Books knows about a book that Open Library may not: a
-/// description and a cover. Asked only to fill a gap after a match was made
+/// description, a cover and a page count. Asked only to fill a gap after a match was made
 /// elsewhere; it never produces a match or an id of its own. Works without
 /// a key, with a smaller quota.
 class GoogleBooksFillIn with LookupHttp {
@@ -33,15 +37,12 @@ class GoogleBooksFillIn with LookupHttp {
   final String key;
   final Uri _baseUrl;
 
-  /// A description and a cover for [title] (by [author] when known), either
-  /// null when Google Books has none. The search lists up to ten volumes;
+  /// A description, a cover and a page count for [title] (by [author] when
+  /// known), each null when Google Books has none. The search lists up to ten volumes;
   /// their records often leave the description out, so when none has one
   /// the first volume's own record is read too. Throws [LookupException]
   /// on failure.
-  Future<({String? description, String? coverUrl})> lookUp(
-    String title, {
-    String? author,
-  }) async {
+  Future<GoogleBooksFill> lookUp(String title, {String? author}) async {
     final q = [
       'intitle:"$title"',
       if (author != null && author.isNotEmpty) 'inauthor:"$author"',
@@ -63,13 +64,15 @@ class GoogleBooksFillIn with LookupHttp {
     check(response);
     String? description;
     String? cover;
+    int? pages;
     String? firstId;
     for (final item in objectsAt(decodeObject(response), 'items')) {
       firstId ??= stringAt(item, 'id');
       final found = _read(item);
       description ??= found.description;
       cover ??= found.coverUrl;
-      if (description != null && cover != null) break;
+      pages ??= found.pages;
+      if (description != null && cover != null && pages != null) break;
     }
     if (description == null && firstId != null) {
       final record = await send(
@@ -85,8 +88,9 @@ class GoogleBooksFillIn with LookupHttp {
       final found = _read(decodeObject(record));
       description = found.description;
       cover ??= found.coverUrl;
+      pages ??= found.pages;
     }
-    return (description: description, coverUrl: cover);
+    return (description: description, coverUrl: cover, pages: pages);
   }
 
   Map<String, String> get _headers => {
@@ -95,16 +99,16 @@ class GoogleBooksFillIn with LookupHttp {
   };
 
   /// What one volume record carries.
-  static ({String? description, String? coverUrl}) _read(
-    Map<String, Object?> item,
-  ) {
+  static GoogleBooksFill _read(Map<String, Object?> item) {
     final info = item['volumeInfo'] as Map<String, Object?>? ?? const {};
     final text = stringAt(info, 'description');
     final links = info['imageLinks'] as Map<String, Object?>? ?? const {};
     final thumb = stringAt(links, 'thumbnail');
+    final pages = info['pageCount'];
     return (
       description: text == null ? null : stripHtml(text),
       coverUrl: thumb == null ? null : cleanCoverUrl(thumb),
+      pages: pages is num && pages > 0 ? pages.toInt() : null,
     );
   }
 

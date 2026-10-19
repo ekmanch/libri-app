@@ -25,6 +25,7 @@ void main() {
     'author_name': ['Bram Stoker'],
     'first_publish_year': 1897,
     'cover_i': 8739161,
+    'number_of_pages_median': 418,
     'subject': [
       'Vampires',
       'award:bram_stoker_award=1897',
@@ -56,7 +57,7 @@ void main() {
   }
 
   test(
-    'searches and parses docs: work id, first year, cover, subjects',
+    'searches and parses docs: work id, first year, cover, subjects, pages',
     () async {
       final ol = source(
         (_) async => json(200, {
@@ -75,7 +76,10 @@ void main() {
       expect(request.url.queryParameters['limit'], '10');
       expect(
         request.url.queryParameters['fields'],
-        contains('first_publish_year'),
+        allOf(
+          contains('first_publish_year'),
+          contains('number_of_pages_median'),
+        ),
       );
       expect(request.headers['User-Agent'], 'Libri');
 
@@ -96,8 +100,10 @@ void main() {
         'Another',
       ]);
       expect(hits[0].description, '');
+      expect(hits[0].pages, 418);
       expect(hits[1].coverUrl, isNull);
       expect(hits[1].released, isNull);
+      expect(hits[1].pages, isNull);
     },
   );
 
@@ -140,70 +146,82 @@ void main() {
     expect(await ol.match('Carmilla', type: MediaType.books), isNull);
   });
 
-  test(
-    'details take the description from the work, else from Google',
-    () async {
-      final ol = source((request) async {
-        if (request.url.host == 'openlibrary.org') {
-          return json(200, {
-            'title': 'Dracula',
-            'description': {
-              'type': '/type/text',
-              'value': 'The <b>Count</b> comes to England.',
-            },
-            'covers': [-1, 8739161],
-          });
-        }
-        fail('Google Books asked although nothing was missing');
-      });
-      const plain = LookupMatch(
-        type: MediaType.books,
-        title: 'Dracula',
-        source: 'openlibrary:OL45804W',
-        creator: 'Bram Stoker',
-      );
-      final full = await ol.details(plain);
-      expect(sent.single.url.path, '/works/OL45804W.json');
-      expect(full.description, 'The Count comes to England.');
-      expect(
-        full.coverUrl,
-        'https://covers.openlibrary.org/b/id/8739161-M.jpg',
-      );
-
-      final filled = await source((request) async {
-        if (request.url.host == 'openlibrary.org') {
-          return json(200, {'title': 'Dracula'});
-        }
-        expect(request.url.host, 'www.googleapis.com');
-        expect(
-          request.url.queryParameters['q'],
-          'intitle:"Dracula" inauthor:"Bram Stoker"',
-        );
-        expect(request.url.queryParameters['key'], 'g-key');
-        expect(request.url.queryParameters['printType'], 'books');
+  test('details take the description from the work, else from Google, and '
+      'the page count from the search, else from Google', () async {
+    final ol = source((request) async {
+      if (request.url.host == 'openlibrary.org') {
         return json(200, {
-          'items': [
-            {
-              'volumeInfo': {
-                'imageLinks': {
-                  'thumbnail': 'http://books.google.com/books/content?id=x&zoom=1&edge=curl&source=gbs_api',
+          'title': 'Dracula',
+          'description': {
+            'type': '/type/text',
+            'value': 'The <b>Count</b> comes to England.',
+          },
+          'covers': [-1, 8739161],
+        });
+      }
+      fail('Google Books asked although nothing was missing');
+    });
+    const plain = LookupMatch(
+      type: MediaType.books,
+      title: 'Dracula',
+      source: 'openlibrary:OL45804W',
+      creator: 'Bram Stoker',
+      pages: 418,
+    );
+    final full = await ol.details(plain);
+    expect(sent.single.url.path, '/works/OL45804W.json');
+    expect(full.description, 'The Count comes to England.');
+    expect(full.coverUrl, 'https://covers.openlibrary.org/b/id/8739161-M.jpg');
+    expect(full.pages, 418);
+
+    final filled =
+        await source((request) async {
+          if (request.url.host == 'openlibrary.org') {
+            return json(200, {'title': 'Dracula'});
+          }
+          expect(request.url.host, 'www.googleapis.com');
+          expect(
+            request.url.queryParameters['q'],
+            'intitle:"Dracula" inauthor:"Bram Stoker"',
+          );
+          expect(request.url.queryParameters['key'], 'g-key');
+          expect(request.url.queryParameters['printType'], 'books');
+          return json(200, {
+            'items': [
+              {
+                'volumeInfo': {
+                  'imageLinks': {
+                    'thumbnail': 'http://books.google.com/books/content?id=x&zoom=1&edge=curl&source=gbs_api',
+                  },
                 },
               },
-            },
-            {
-              'volumeInfo': {'description': 'Google&#39;s <p>summary</p>'},
-            },
-          ],
-        });
-      }).details(plain);
-      expect(sent.length, 2);
-      expect(filled.description, "Google's summary");
-      expect(
-        filled.coverUrl,
-        'https://books.google.com/books/content?id=x&zoom=1&source=gbs_api',
-      );
-    },
-  );
+              {
+                'volumeInfo': {
+                  'description': 'Google&#39;s <p>summary</p>',
+                  'pageCount': 0,
+                },
+              },
+              {
+                'volumeInfo': {'pageCount': 488},
+              },
+            ],
+          });
+        }).details(
+          LookupMatch(
+            type: plain.type,
+            title: plain.title,
+            source: plain.source,
+            creator: plain.creator,
+          ),
+        );
+    expect(sent.length, 2);
+    expect(filled.description, "Google's summary");
+    expect(filled.pages, 488);
+    expect(
+      filled.coverUrl,
+      'https://books.google.com/books/content?id=x&zoom=1&source=gbs_api',
+    );
+  });
 
   test(
     'the fill-in reads the volume itself when the list has no text',
@@ -272,6 +290,7 @@ void main() {
     );
     expect(full.description, '');
     expect(full.coverUrl, isNull);
+    expect(full.pages, isNull);
     final none =
         await source(
           (_) async => json(200, {'title': 'X'}),

@@ -295,6 +295,7 @@ const fakeCatalog = <LookupMatch>[
         "Stephen King's first novel, told through clippings and "
         'testimony.',
     tags: ['horror', 'stephen-king'],
+    pages: 199,
   ),
   LookupMatch(
     source: 'openlibrary:OL893415W',
@@ -305,6 +306,7 @@ const fakeCatalog = <LookupMatch>[
     creator: 'Frank Herbert',
     description: 'Paul Atreides and the desert planet Arrakis.',
     tags: ['sci-fi', 'epic', 'classic'],
+    pages: 412,
   ),
   LookupMatch(
     source: 'tmdb:movie:841',

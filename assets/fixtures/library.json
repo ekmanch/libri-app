@@ -562,7 +562,8 @@
       "formats": [
         "audiobook",
         "physical"
-      ]
+      ],
+      "pages": 418
     },
     {
       "id": "books/the-shining-1977",
@@ -584,7 +585,8 @@
       "source": null,
       "formats": [
         "physical"
-      ]
+      ],
+      "pages": 447
     },
     {
       "id": "books/a-christmas-carol-1843",

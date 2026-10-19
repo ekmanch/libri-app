@@ -23,6 +23,7 @@ class LookupMatch {
     this.cast = const [],
     this.tags = const [],
     this.seasons = const [],
+    this.pages,
     this.coverUrl,
     this.largeCoverUrl,
   });
@@ -62,6 +63,9 @@ class LookupMatch {
   /// specials left out. The form keeps those [Season.listable] today.
   final List<Season> seasons;
 
+  /// For a book: its page count, when the lookup knows it.
+  final int? pages;
+
   /// A cover or artwork image, sized for a list row.
   final String? coverUrl;
 
@@ -86,6 +90,7 @@ class LookupMatch {
     List<String>? cast,
     List<String>? tags,
     List<Season>? seasons,
+    int? pages,
     String? coverUrl,
     String? largeCoverUrl,
   }) => LookupMatch(
@@ -102,6 +107,7 @@ class LookupMatch {
     cast: cast ?? this.cast,
     tags: tags ?? this.tags,
     seasons: seasons ?? this.seasons,
+    pages: pages ?? this.pages,
     coverUrl: coverUrl ?? this.coverUrl,
     largeCoverUrl: largeCoverUrl ?? this.largeCoverUrl,
   );
@@ -122,6 +128,7 @@ class LookupMatch {
       listEquals(other.cast, cast) &&
       listEquals(other.tags, tags) &&
       listEquals(other.seasons, seasons) &&
+      other.pages == pages &&
       other.coverUrl == coverUrl &&
       other.largeCoverUrl == largeCoverUrl;
 

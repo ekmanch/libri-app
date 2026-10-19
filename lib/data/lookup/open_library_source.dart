@@ -8,8 +8,9 @@ import 'text_clean.dart';
 
 /// Books from Open Library. No key. Ids are the work ids,
 /// "openlibrary:OL45804W", never an edition, and the year is the first
-/// publication year. Open Library has no description for many works and no
-/// cover for some; then [fillIn] (Google Books) is asked for just that.
+/// publication year and the page count the median of its editions'. Open
+/// Library has no description for many works and no cover or page count for
+/// some; then [fillIn] (Google Books) is asked for just that.
 class OpenLibrarySource extends HttpLookupSource {
   OpenLibrarySource(
     super.client, {
@@ -26,7 +27,8 @@ class OpenLibrarySource extends HttpLookupSource {
   final Uri _coversUrl;
 
   static const _fields =
-      'key,title,author_name,first_publish_year,cover_i,subject';
+      'key,title,author_name,first_publish_year,cover_i,subject,'
+      'number_of_pages_median';
 
   /// How many subjects become tag suggestions; the form keeps six at most.
   static const maxSubjects = 6;
@@ -78,6 +80,7 @@ class OpenLibrarySource extends HttpLookupSource {
     ];
     final year = doc['first_publish_year'];
     final coverId = doc['cover_i'];
+    final pages = doc['number_of_pages_median'];
     return LookupMatch(
       type: MediaType.books,
       title: title,
@@ -92,6 +95,7 @@ class OpenLibrarySource extends HttpLookupSource {
                 .take(maxSubjects))
           s,
       ],
+      pages: pages is num && pages > 0 ? pages.toInt() : null,
       coverUrl: coverId is num && coverId > 0
           ? _cover(coverId.toInt(), '-M')
           : null,
@@ -180,16 +184,14 @@ class OpenLibrarySource extends HttpLookupSource {
   }
 
   /// Google Books, when there is one; its failures leave the gap open.
-  Future<({String? description, String? coverUrl})> _fill(
-    String title,
-    String? author,
-  ) async {
+  Future<GoogleBooksFill> _fill(String title, String? author) async {
+    const none = (description: null, coverUrl: null, pages: null);
     final fill = fillIn;
-    if (fill == null) return (description: null, coverUrl: null);
+    if (fill == null) return none;
     try {
       return await fill.lookUp(title, author: author);
     } on LookupException {
-      return (description: null, coverUrl: null);
+      return none;
     }
   }
 
@@ -201,12 +203,18 @@ class OpenLibrarySource extends HttpLookupSource {
     if (cover == null && work.coverId != null) {
       cover = _cover(work.coverId!, '-M');
     }
-    if (description == null || cover == null) {
+    var pages = match.pages;
+    if (description == null || cover == null || pages == null) {
       final filled = await _fill(match.title, match.creator);
       description ??= filled.description;
       cover ??= filled.coverUrl;
+      pages ??= filled.pages;
     }
-    return match.copyWith(description: description, coverUrl: cover);
+    return match.copyWith(
+      description: description,
+      coverUrl: cover,
+      pages: pages,
+    );
   }
 
   @override
