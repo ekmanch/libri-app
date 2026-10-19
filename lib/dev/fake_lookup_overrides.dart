@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/misc.dart';
 import '../data/images/artwork_providers.dart';
 import '../data/images/artwork_resolver.dart';
 import '../data/library_providers.dart';
+import '../data/lookup/episode_service.dart';
+import '../data/lookup/episode_store.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_providers.dart';
 import '../data/lookup/season_check.dart';
@@ -44,7 +46,7 @@ List<Override> fakeLookupOverrides({
   appCacheDirectoryProvider.overrideWithValue(
     cacheDirectory ?? Directory.systemTemp.createTempSync('libri-cache-'),
   ),
-  // The resolver's records and the track lists stay in memory: no file
+  // The resolver's records, the track lists and the episodes stay in memory: no file
   // the widget tests would have to wait for, no write timer pending.
   artworkResolverProvider.overrideWith(
     (ref) => ArtworkResolver(lookups: ref.watch(lookupServiceProvider)),
@@ -60,6 +62,13 @@ List<Override> fakeLookupOverrides({
       lookups: ref.watch(lookupServiceProvider),
       resolver: ref.watch(artworkResolverProvider),
       store: MemoryTrackListStore(),
+    ),
+  ),
+  episodeServiceProvider.overrideWith(
+    (ref) => EpisodeService(
+      lookups: ref.watch(lookupServiceProvider),
+      resolver: ref.watch(artworkResolverProvider),
+      store: MemoryEpisodeStore(),
     ),
   ),
 ];

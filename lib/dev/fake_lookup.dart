@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../data/lookup/episode_info.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_match.dart';
 import '../data/lookup/lookup_source.dart';
@@ -23,6 +24,7 @@ class FakeLookupSource extends LookupSource implements MusicSource {
     this.configured = true,
     this.seasonsBySource = const {},
     this.canceledSources = const {},
+    this.episodesBySeason = const {},
   });
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
@@ -37,6 +39,10 @@ class FakeLookupSource extends LookupSource implements MusicSource {
 
   /// Shows [seasons] calls canceled, by source.
   final Set<String> canceledSources;
+
+  /// Episodes [seasonEpisodes] answers, by show source and season, ahead
+  /// of the built-in ones.
+  final Map<(String, int), List<EpisodeInfo>> episodesBySeason;
 
   /// Every call made, for the tests: "search:carrie:movies",
   /// "match:Dirt:music", "details:deezer:album:91627", "cover:igdb:1009".
@@ -122,6 +128,16 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   }
 
   @override
+  Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async {
+    await _call('episodes:$source:$season');
+    return episodesBySeason[(source, season)] ??
+        _episodesBySeason[(source, season)] ??
+        (source == 'fake:severance' && season == 3
+            ? _airingFromToday()
+            : const []);
+  }
+
+  @override
   Future<String?> coverUrl(String source, {required MediaType type}) async {
     await _call('cover:$source');
     final shape = type == MediaType.music ? 'square' : 'poster';
@@ -191,6 +207,79 @@ const _trackListsBySource = <String, List<TrackInfo>>{
     (id: 'deezer:track:3133710', title: 'Eclipse'),
   ],
 };
+
+/// Episodes for the fixture's Stranger Things season 1 (all out on one
+/// day, A39) and Severance seasons 1 and 2 (weekly), matched on the device
+/// as `fake:<slug>`.
+final _episodesBySeason = <(String, int), List<EpisodeInfo>>{
+  ('fake:stranger-things', 1): _sameDay(Released(2016, 7, 15), const [
+    ('Chapter One: The Vanishing of Will Byers', 47),
+    ('Chapter Two: The Weirdo on Maple Street', 55),
+    ('Chapter Three: Holly, Jolly', 51),
+    ('Chapter Four: The Body', 50),
+    ('Chapter Five: The Flea and the Acrobat', 52),
+    ('Chapter Six: The Monster', 46),
+    ('Chapter Seven: The Bathtub', 41),
+    ('Chapter Eight: The Upside Down', 54),
+  ]),
+  ('fake:severance', 1): _weekly(DateTime(2022, 2, 18), const [
+    ('Good News About Hell', 57),
+    ('Half Loop', 53),
+    ('In Perpetuity', 50),
+    ('The You You Are', 49),
+    ('The Grim Barbarity of Optics and Design', 44),
+    ('Hide and Seek', 53),
+    ('Defiant Jazz', 52),
+    ("What's for Dinner?", 41),
+    ('The We We Are', 40),
+  ]),
+  ('fake:severance', 2): _weekly(DateTime(2025, 1, 17), const [
+    ('Hello, Ms. Cobel', 50),
+    ('Goodbye, Mrs. Selvig', 53),
+    ('Who Is Alive?', 49),
+    ("Woe's Hollow", 48),
+    ("Trojan's Horse", 50),
+    ('Attila', 52),
+    ('Chikhai Bardo', 56),
+    ('Sweet Vitriol', 49),
+    ('The After Hours', 51),
+    ('Cold Harbor', 76),
+  ]),
+};
+
+List<EpisodeInfo> _sameDay(Released day, List<(String, int)> episodes) => [
+  for (final (i, (title, runtime)) in episodes.indexed)
+    (number: i + 1, title: title, aired: day, runtime: runtime),
+];
+
+List<EpisodeInfo> _weekly(DateTime first, List<(String, int)> episodes) => [
+  for (final (i, (title, runtime)) in episodes.indexed)
+    (
+      number: i + 1,
+      title: title,
+      aired: _day(DateTime(first.year, first.month, first.day + 7 * i)),
+      runtime: runtime,
+    ),
+];
+
+Released _day(DateTime d) => Released(d.year, d.month, d.day);
+
+/// Severance season 3, airing weekly from today (A40): the first episode
+/// out, two more titled, the rest "Title TBA" with no runtime yet.
+List<EpisodeInfo> _airingFromToday() {
+  final now = seasonClock();
+  const titles = ['Cold Open', 'Lumon Days', 'The Testing Floor'];
+  return [
+    for (var i = 0; i < 8; i++)
+      (
+        number: i + 1,
+        title: i < titles.length ? titles[i] : null,
+        // Calendar days, so a clock change does not shift the date.
+        aired: _day(DateTime(now.year, now.month, now.day + 7 * i)),
+        runtime: i == 0 ? 54 : null,
+      ),
+  ];
+}
 
 const fakeCatalog = <LookupMatch>[
   LookupMatch(

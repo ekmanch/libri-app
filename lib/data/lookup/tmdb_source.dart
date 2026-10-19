@@ -1,6 +1,7 @@
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
+import 'episode_info.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
@@ -182,6 +183,40 @@ class TmdbSource extends HttpLookupSource {
     if (kind != 'tv') return null;
     final json = await _get('tv/$id');
     return (seasons: _seasons(json), canceled: json['status'] == 'Canceled');
+  }
+
+  /// `/tv/{id}/season/{n}`. TMDB names an episode without a title
+  /// "Episode 5"; that counts as no title. A season TMDB does not know
+  /// (404) has no episodes.
+  @override
+  Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async {
+    final (kind, id) = _parse(source);
+    if (kind != 'tv') return null;
+    final Map<String, Object?> json;
+    try {
+      json = await _get('tv/$id/season/$season');
+    } on LookupException catch (e) {
+      if (e.status == 404) return const [];
+      rethrow;
+    }
+    final episodes = [
+      for (final e in objectsAt(json, 'episodes'))
+        if (e['episode_number'] case final num number)
+          (
+            number: number.toInt(),
+            title: switch (stringAt(e, 'name')?.trim()) {
+              final name? when name.isNotEmpty && name != 'Episode $number' =>
+                name,
+              _ => null,
+            },
+            aired: Released.tryParse(stringAt(e, 'air_date') ?? ''),
+            runtime: switch (e['runtime']) {
+              final num minutes when minutes > 0 => minutes.toInt(),
+              _ => null,
+            },
+          ),
+    ]..sort((a, b) => a.number.compareTo(b.number));
+    return episodes;
   }
 
   @override

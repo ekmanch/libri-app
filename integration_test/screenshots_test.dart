@@ -181,10 +181,11 @@ Future<void> pickView(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-/// A29 to A33 at [scale]: the show rows with a new season, the Seasons
-/// section with few and many seasons, all seasons, and the status sheet
-/// with catch-up. Severance gets a new season 3 (the daily check's work,
-/// applied directly). Captures are prefixed "large-text-" above 1.
+/// A29 to A33, A39 and A40 at [scale]: the show rows with a new season,
+/// the Seasons section with few and many seasons, all seasons, the status
+/// sheet with catch-up, and a season's episodes out and airing. Severance
+/// gets a new season 3 (the daily check's work, applied directly).
+/// Captures are prefixed "large-text-" above 1.
 Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   final prefix = scale == 1 ? '' : 'large-text-';
   await tester.pumpWidget(
@@ -336,6 +337,28 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await capture(tester, '${prefix}a33-season-status-catch-up');
   await closeSheet(tester);
+
+  // A39: a season out on one day; A40: one airing weekly (the fake's
+  // Severance season 3, from today).
+  Future<void> openSeasonRow(int season) async {
+    final row = find.bySemanticsLabel(RegExp('^Season $season, .*Episodes\$'));
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+  }
+
+  await openSeasonRow(1);
+  await capture(tester, '${prefix}a39-season-episodes');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
+  await revealHeader(tester);
+  await openShow('Severance');
+  await openSeasonRow(3);
+  await capture(tester, '${prefix}a40-season-airing');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
   await closeSheet(tester);
 }
 

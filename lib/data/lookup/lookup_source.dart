@@ -1,5 +1,6 @@
 import '../models/media_type.dart';
 import '../models/season.dart';
+import 'episode_info.dart';
 import 'lookup_match.dart';
 
 /// One provider of matches: TMDB, AniList, Open Library, IGDB, Deezer, or
@@ -43,6 +44,13 @@ abstract class LookupSource {
   /// and whether the show is canceled, for the daily check. Null from a
   /// source without shows.
   Future<ShowSeasons?> seasons(String source) async => null;
+
+  /// The episodes of [season] of the show with [source], in number order,
+  /// for the season screen (A39, A40); empty when the show has no such
+  /// season. Null from a source without shows. Never asked by the daily
+  /// check.
+  Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async =>
+      null;
 
   /// A cover image for an entry with [source], sized for the cache, or
   /// null when the provider has none.

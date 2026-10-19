@@ -8,6 +8,8 @@ import '../library_providers.dart';
 import '../storage/json_file.dart';
 import 'anilist_source.dart';
 import 'deezer_source.dart';
+import 'episode_service.dart';
+import 'episode_store.dart';
 import 'google_books_fill_in.dart';
 import 'igdb_source.dart';
 import 'igdb_token_store.dart';
@@ -21,6 +23,7 @@ import 'track_list_service.dart';
 import 'track_list_store.dart';
 import '../images/artwork_providers.dart';
 import '../models/entry.dart';
+import '../models/entry_status.dart';
 
 /// The sources this build looks titles up in. The FIRST_RUN dev switch,
 /// the widget tests and the screenshot walks get the fake instead (see
@@ -92,6 +95,50 @@ final trackListProvider = FutureProvider.autoDispose.family<TrackList?, String>(
   // again asks again.
   retry: (_, _) => null,
 );
+
+/// Season episodes (A39, A40), stored under the app cache folder. The fake
+/// overrides keep them in memory.
+final episodeServiceProvider = Provider<EpisodeService>(
+  (ref) => EpisodeService(
+    lookups: ref.watch(lookupServiceProvider),
+    resolver: ref.watch(artworkResolverProvider),
+    store: FileEpisodeStore(ref.watch(appCacheDirectoryProvider)),
+  ),
+);
+
+/// The episodes of season `season` of the show `showId`: the stored ones,
+/// then the fetched ones; null when none could be found, an error when the
+/// fetch failed with nothing stored. Fetched again when the show's source
+/// or title change, not when a season's status does.
+final seasonEpisodesProvider = StreamProvider.autoDispose
+    .family<SeasonEpisodes?, ({String showId, int season})>(
+      (ref, key) {
+        final show = ref.watch(
+          libraryProvider.select(
+            (l) => _showKey(l.value?.entryById(key.showId)),
+          ),
+        );
+        if (show == null) return Stream.value(null);
+        return ref.watch(episodeServiceProvider).load(show, key.season);
+      },
+      // No automatic retry: offline is said as such, and opening the
+      // season again asks again.
+      retry: (_, _) => null,
+    );
+
+/// The fields the episodes depend on, so a status pick does not refetch.
+Entry? _showKey(Entry? entry) => entry == null
+    ? null
+    : Entry(
+        id: entry.id,
+        type: entry.type,
+        title: entry.title,
+        released: entry.released,
+        creator: entry.creator,
+        status: EntryStatus.want,
+        added: entry.added,
+        source: entry.source,
+      );
 
 /// The fields the track list depends on, so a rating does not refetch.
 Entry? _albumKey(Entry? entry) => entry == null

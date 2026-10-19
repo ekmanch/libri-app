@@ -228,6 +228,67 @@ void main() {
     expect((await tmdb.seasons('tmdb:tv:100088'))!.canceled, isTrue);
   });
 
+  test(
+    'season episodes: titles, dates, runtimes; placeholders are none',
+    () async {
+      final tmdb = source(
+        (_) async => json(200, {
+          'season_number': 2,
+          'episodes': [
+            {
+              'episode_number': 2,
+              'name': 'Episode 2',
+              'air_date': '2026-10-29',
+              'runtime': null,
+            },
+            {
+              'episode_number': 1,
+              'name': 'The Big Return',
+              'air_date': '2026-10-22',
+              'runtime': 22,
+            },
+            {'episode_number': 3, 'name': '', 'air_date': null, 'runtime': 0},
+            {'name': 'No number'},
+          ],
+        }),
+      );
+      final episodes = await tmdb.seasonEpisodes('tmdb:tv:2190', 2);
+      expect(sent.single.url.path, '/3/tv/2190/season/2');
+      expect(episodes, const [
+        (
+          number: 1,
+          title: 'The Big Return',
+          aired: Released(2026, 10, 22),
+          runtime: 22,
+        ),
+        (number: 2, title: null, aired: Released(2026, 10, 29), runtime: null),
+        (number: 3, title: null, aired: null, runtime: null),
+      ]);
+    },
+  );
+
+  test(
+    'a season TMDB does not know has no episodes; a movie has none',
+    () async {
+      final tmdb = source(
+        (_) async => json(404, {'status_message': 'not found'}),
+      );
+      expect(await tmdb.seasonEpisodes('tmdb:tv:2190', 40), isEmpty);
+      expect(await tmdb.seasonEpisodes('tmdb:movie:564', 1), isNull);
+      final offline = source((_) async => throw const SocketException('down'));
+      await expectLater(
+        offline.seasonEpisodes('tmdb:tv:2190', 1),
+        throwsA(
+          isA<LookupException>().having(
+            (e) => e.failure,
+            'failure',
+            LookupFailure.offline,
+          ),
+        ),
+      );
+    },
+  );
+
   test('every season with a date is listable, announced ones too', () {
     expect(
       Season.listable(const [

@@ -19,6 +19,7 @@ import '../../widgets/radio_mark.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/touch_target.dart';
+import 'season_screen.dart';
 
 /// A season's date in its row: "Sep 19, 2025"; "Coming 2027" or "Coming
 /// Oct 30, 2026" while it is not out; "Release date not set".
@@ -197,8 +198,9 @@ class SeasonsSection extends StatelessWidget {
   }
 }
 
-/// One season: its name, "New" while it is, its release date, and the
-/// status pill that opens the status sheet (A33).
+/// One season: its name, "New" while it is, its release date, the status
+/// pill that opens the status sheet (A33) and a chevron. The rest of the
+/// row opens the season's episodes (A39, A40).
 class SeasonRow extends ConsumerWidget {
   const SeasonRow({super.key, required this.show, required this.season});
 
@@ -209,54 +211,78 @@ class SeasonRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 60),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.divider)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+    final today = DateTime.now();
+    final isNew = season.isNewOn(today);
+    final date = seasonDateLabel(season, today);
+    void open() => openSeason(context, show.id, season.season);
+    return InkWell(
+      onTap: open,
+      excludeFromSemantics: true,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 60),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: colors.divider)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                button: true,
+                label:
+                    'Season ${season.season}${isNew ? ', new' : ''}, $date. '
+                    'Episodes',
+                onTap: open,
+                excludeSemantics: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Season ${season.season}',
-                        style: theme.textTheme.titleMedium,
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            'Season ${season.season}',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          if (isNew) const OutlineBadge('New'),
+                        ],
                       ),
-                      if (season.isNewOn(DateTime.now()))
-                        const OutlineBadge('New'),
+                      const SizedBox(height: 2),
+                      Text(
+                        date,
+                        style: theme.textTheme.bodySmall!.copyWith(
+                          fontStyle: FontStyle.normal,
+                          fontSize: 13.5,
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    seasonDateLabel(season, DateTime.now()),
-                    style: theme.textTheme.bodySmall!.copyWith(
-                      fontStyle: FontStyle.normal,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          SeasonStatusPill(
-            season: season,
-            onTap: () => showSavedSeasonStatusSheet(
-              context,
-              ref,
-              show: show,
-              season: season.season,
+            const SizedBox(width: 12),
+            SeasonStatusPill(
+              season: season,
+              onTap: () => showSavedSeasonStatusSheet(
+                context,
+                ref,
+                show: show,
+                season: season.season,
+              ),
             ),
-          ),
-        ],
+            // The chevron runs into the margin, as drawn.
+            const SizedBox(width: 4),
+            ExcludeSemantics(
+              child: StrokeIcon(
+                AppIcons.chevronRight,
+                size: 18,
+                color: colors.muted,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
