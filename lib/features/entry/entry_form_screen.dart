@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/images/artwork_providers.dart';
@@ -138,6 +139,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   final Set<String> _platformsOn = {};
   bool _otherPlatformOpen = false;
   late Set<BookFormat> _formats;
+
+  /// A book's page count, digits only; empty when unknown.
+  late final TextEditingController _pages;
   late bool _seasonalOnly;
   late String _description;
 
@@ -196,6 +200,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _rating = entry?.rating;
     _tags = [...?entry?.tags, ...widget.tags];
     _formats = {...?entry?.formats};
+    _pages = TextEditingController(
+      text: '${entry?.pages ?? match?.pages ?? ''}',
+    );
     _seasonalOnly = entry?.seasonalOnly ?? false;
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
@@ -212,6 +219,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _note.dispose();
     _otherPlatform.dispose();
     _album.dispose();
+    _pages.dispose();
     super.dispose();
   }
 
@@ -533,6 +541,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     _released ??= match.released;
     if (_description.isEmpty) _description = match.description;
+    if (_pages.text.trim().isEmpty && match.pages != null) {
+      _pages.text = '${match.pages}';
+    }
     // Seasons that are all the user's own (a show filled in by hand, or
     // one from before seasons) give way to the lookup's, with the status
     // carried over.
@@ -606,6 +617,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final isMusic = _type == MediaType.music;
     final platform = _platformOptions.where(_platformsOn.contains).join(', ');
     final album = _album.text.trim();
+    final pages = int.tryParse(_pages.text.trim());
     final base = widget.entry;
     final now = DateTime.now();
     return Entry(
@@ -639,6 +651,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
               for (final f in BookFormat.values)
                 if (_formats.contains(f)) f,
             ]
+          : null,
+      pages: _type == MediaType.books && pages != null && pages > 0
+          ? pages
           : null,
       kind: isMusic ? _kind : null,
       album: isMusic && _kind == MusicKind.song && album.isNotEmpty
@@ -968,6 +983,28 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                     ],
                   ],
                   if (_type == MediaType.books) ...[
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: _releasedWidth(context),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const FieldLabel('Pages'),
+                            AppTextField(
+                              controller: _pages,
+                              hintText: 'Optional',
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              maxLength: 5,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     const FieldLabel('Formats'),
                     Row(

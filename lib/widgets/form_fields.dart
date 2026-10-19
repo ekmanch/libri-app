@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
@@ -40,6 +41,7 @@ class AppTextField extends StatelessWidget {
     this.maxLength,
     this.obscureText = false,
     this.keyboardType,
+    this.inputFormatters,
     this.focusNode,
   });
 
@@ -60,6 +62,7 @@ class AppTextField extends StatelessWidget {
   /// Hides the text, for the access token (F3).
   final bool obscureText;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +75,7 @@ class AppTextField extends StatelessWidget {
       maxLength: maxLength,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       textInputAction: textInputAction,
       textCapitalization: textCapitalization,
       onChanged: onChanged,

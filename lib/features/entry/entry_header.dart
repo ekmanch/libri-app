@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models/entry.dart';
+import '../../data/models/media_type.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/cover_image.dart';
 
 /// The top of a details sheet (A6, A22, S7): the cover spot when a photo
-/// view is chosen, the kind and year in the type color, the title and the
-/// creator.
+/// view is chosen, the kind and year in the type color, the title, the
+/// creator and a book's page count.
 class EntryHeader extends StatelessWidget {
   const EntryHeader({super.key, required this.entry, required this.showCover});
 
@@ -21,10 +22,23 @@ class EntryHeader extends StatelessWidget {
     return [entryKindLabel(entry), ?years].join(' · ').toUpperCase();
   }
 
+  /// "160 pages" for a book with a page count (A38), else null.
+  static String? pagesLine(Entry entry) => switch (entry.pages) {
+    final pages? when entry.type == MediaType.books && pages > 0 =>
+      pages == 1 ? '1 page' : '$pages pages',
+    _ => null,
+  };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
+    final muted = theme.textTheme.bodyMedium!.copyWith(
+      fontSize: 14.5,
+      height: 1.2,
+      color: colors.muted,
+    );
+    final pages = pagesLine(entry);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -55,12 +69,12 @@ class EntryHeader extends StatelessWidget {
                     entry.kind != null && entry.album != null
                         ? '$creator · ${entry.album}'
                         : creator,
-                    style: theme.textTheme.bodyMedium!.copyWith(
-                      fontSize: 14.5,
-                      height: 1.2,
-                      color: colors.muted,
-                    ),
+                    style: muted,
                   ),
+                ],
+                if (pages != null) ...[
+                  const SizedBox(height: 6),
+                  Text(pages, style: muted),
                 ],
                 if (entry.hasNewSeasonOn(DateTime.now())) ...[
                   const SizedBox(height: 8),

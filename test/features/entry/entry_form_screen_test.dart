@@ -99,12 +99,14 @@ void main() {
     expect(find.text('Author'), findsOneWidget);
     expect(find.text('Formats'), findsOneWidget);
     expect(find.text('Audiobook'), findsOneWidget);
+    expect(find.text('Pages'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(PillChip, 'Games'));
     await tester.pumpAndSettle();
     expect(find.text('Studio'), findsOneWidget);
     expect(find.text('Platforms'), findsOneWidget);
     expect(find.text('Formats'), findsNothing);
+    expect(find.text('Pages'), findsNothing);
 
     await tester.tap(find.widgetWithText(PillChip, 'Music'));
     await tester.pumpAndSettle();
@@ -195,6 +197,7 @@ void main() {
           description: '',
           tags: [],
           note: 'Keep me',
+          pages: null,
         );
 
     testWidgets('a pick fills only what is empty and sets the source', (
@@ -232,6 +235,7 @@ void main() {
       expect(saved.note, 'Keep me');
       expect(saved.status, EntryStatus.done);
       expect(saved.tags, contains('horror'));
+      expect(saved.pages, 199);
     });
 
     testWidgets('the owner\'s own creator and year stay', (tester) async {
@@ -337,6 +341,79 @@ void main() {
       repo(container).current!.entries.indexOf(saved),
       fixture.entries.indexWhere((e) => e.id == dracula.id),
     );
+  });
+
+  group('a book\'s page count (A38)', () {
+    Finder pagesField() => find.descendant(
+      of: find
+          .ancestor(of: find.text('Pages'), matching: find.byType(Column))
+          .first,
+      matching: find.byType(TextField),
+    );
+
+    testWidgets('comes from the match and is saved', (tester) async {
+      final container = await pumpApp(
+        tester,
+        EntryFormScreen.create(
+          match: FakeLookupSource.catalogSearch(
+            'dune',
+            type: MediaType.books,
+          ).single,
+        ),
+      );
+      await scrollTo(tester, find.text('Pages'));
+      expect(find.widgetWithText(TextField, '412'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      expect(repo(container).current!.entries.last.pages, 412);
+    });
+
+    testWidgets('takes digits only; emptied, the count is dropped', (
+      tester,
+    ) async {
+      final dracula = loadFixture().entryById('books/dracula-1897')!;
+      expect(dracula.pages, 418);
+      final container = await pumpApp(tester, EntryFormScreen.edit(dracula));
+      await scrollTo(tester, find.text('Pages'));
+      expect(find.widgetWithText(TextField, '418'), findsOneWidget);
+
+      await tester.enterText(pagesField(), '4x2-0');
+      await tester.pump();
+      expect(find.widgetWithText(TextField, '420'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(
+        repo(container).current!.entryById('books/dracula-1897')!.pages,
+        420,
+      );
+    });
+
+    testWidgets('an empty field saves no count', (tester) async {
+      final dracula = loadFixture().entryById('books/dracula-1897')!;
+      final container = await pumpApp(tester, EntryFormScreen.edit(dracula));
+      await scrollTo(tester, find.text('Pages'));
+      await tester.enterText(pagesField(), '');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(
+        repo(container).current!.entryById('books/dracula-1897')!.pages,
+        isNull,
+      );
+    });
+
+    testWidgets('another type saves no count', (tester) async {
+      final shining = loadFixture().entryById('books/the-shining-1977')!;
+      final other = await pumpApp(tester, EntryFormScreen.edit(shining));
+      await scrollTo(tester, find.widgetWithText(PillChip, 'Movies'));
+      await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(other).current!.entryById(shining.id)!;
+      expect(saved.type, MediaType.movies);
+      expect(saved.pages, isNull);
+    });
   });
 
   testWidgets('a show from a match gets its seasons with no status', (

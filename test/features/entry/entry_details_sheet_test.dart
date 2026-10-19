@@ -89,6 +89,26 @@ void main() {
     expect(find.text('Not in any plan'), findsOneWidget);
   });
 
+  testWidgets('a book shows its page count under the author (A38)', (
+    tester,
+  ) async {
+    await open(tester, entryId: 'books/dracula-1897');
+    expect(find.text('Bram Stoker'), findsOneWidget);
+    expect(find.text('418 pages'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('418 pages')).dy,
+      greaterThan(tester.getBottomLeft(find.text('Bram Stoker')).dy),
+    );
+  });
+
+  testWidgets('a book without a page count leaves the line out', (
+    tester,
+  ) async {
+    await open(tester, entryId: 'books/a-christmas-carol-1843');
+    expect(find.text('Charles Dickens'), findsOneWidget);
+    expect(find.textContaining('pages'), findsNothing);
+  });
+
   testWidgets('a photo view shows the cover spot', (tester) async {
     final container = await pumpApp(tester, const _Opener(_mummy));
     container

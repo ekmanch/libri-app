@@ -339,8 +339,68 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await closeSheet(tester);
 }
 
+/// A38 at [scale]: a book's details with its page count under the author,
+/// in a photo view as drawn, and the Pages field in A8. Captures are
+/// prefixed "large-text-" above 1.
+Future<void> walkBook(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(FixtureLibraryRepository()),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await pickChip(tester, 'Books');
+  await pickView(tester, 'List with covers');
+  await tester.tap(find.text('The Shining').last);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a38-book-details');
+  await tester.ensureVisible(find.text('Edit'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Edit'));
+  await tester.pumpAndSettle();
+  // Author, Released and Pages at the top, as drawn.
+  await tester.scrollUntilVisible(
+    find.text('Author'),
+    100,
+    scrollable: find
+        .descendant(
+          of: find.byType(EntryFormScreen),
+          matching: find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first,
+  );
+  await Scrollable.ensureVisible(tester.element(find.text('Author')));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a38-edit-book-pages');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('book page count', (tester) async {
+    await walkBook(tester);
+  });
+
+  testWidgets('book page count at a larger text size', (tester) async {
+    await walkBook(tester, scale: 1.3);
+  });
 
   testWidgets('show seasons', (tester) async {
     await walkSeasons(tester);
