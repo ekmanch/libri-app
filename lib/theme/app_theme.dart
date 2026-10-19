@@ -186,6 +186,21 @@ class AppMotion {
   /// chip row returning to All. Quick, but visible, so the move is not a
   /// jump.
   static const slide = Duration(milliseconds: 200);
+
+  /// A pushed screen opening and closing ([QuickPageTransitionsBuilder]).
+  /// Flutter's 450 ms made every tap feel slow.
+  static const page = Duration(milliseconds: 200);
+}
+
+/// Flutter's own Android page transition (the new screen fades and slides
+/// in a little from the right; the back gesture peeks at the screen
+/// below), only quicker: [AppMotion.page] instead of 450 ms. Used on every
+/// platform, so the Linux runs show what the phone does.
+class QuickPageTransitionsBuilder extends PredictiveBackPageTransitionsBuilder {
+  const QuickPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => AppMotion.page;
 }
 
 /// Colors that Material's ColorScheme has no slot for.
@@ -509,6 +524,12 @@ ThemeData buildTheme({
     textTheme: textTheme,
     extensions: [ext],
     splashFactory: InkSparkle.splashFactory,
+    pageTransitionsTheme: PageTransitionsTheme(
+      builders: {
+        for (final platform in TargetPlatform.values)
+          platform: const QuickPageTransitionsBuilder(),
+      },
+    ),
     dividerTheme: DividerThemeData(color: ext.divider, thickness: 1, space: 1),
     appBarTheme: AppBarTheme(
       backgroundColor: background,

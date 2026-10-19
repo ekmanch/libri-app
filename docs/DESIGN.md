@@ -32,6 +32,7 @@ Everything here was decided during the design phase. Screen IDs refer to artboar
 - No tinted header bars.
 - Tapping the current tab's item in the pill returns to that tab's overview one step at a time. A screen above the overview is popped first (Plans to S5, Library to the home). On the Library home the next tap scrolls back to the top, so the title, the search box and the chips are in view again, and the tap after that returns to All: the filter and the type cleared, the status segment reset, the chip row slid back so All is in view (A1). Settled 2026-10-16, after the first week on the phone.
 - Each tab keeps its own stack. A shortcut to something another tab owns switches to that tab with that tab's overview underneath, so back lands there: "Active plan" on the home opens the plan on Plans. Shared detail views (entry details, an artist, an album) stay in the tab they were opened from: an entry opened from a plan stays in Plans, one opened from the library stays in Library. Full-screen forms, search and Settings open above both tabs.
+- A pushed screen opens with Flutter's Android transition (it fades and slides in a little from the right; the back gesture peeks at the screen below), shortened from 450 ms to 200 ms so a tap feels quick. A row that opens a screen has no press highlight: the screen opening is the feedback (tag group rows, season rows). Settled 2026-10-19.
 
 ## 4. Screens
 
