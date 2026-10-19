@@ -32,14 +32,16 @@ class GitHubHttpApi implements GitHubApi {
   final void Function(DateTime expires)? onTokenExpiration;
 
   /// The header GitHub adds to every answer made with a token that
-  /// expires, like "2025-11-10 16:20:42 +0500".
+  /// expires, like "2025-11-10 16:20:42 +0500" or "2025-11-10 11:20:42 UTC".
   static const tokenExpirationHeader = 'github-authentication-token-expiration';
 
   /// The token's expiry from the response, or null without the header
   /// (a token that never expires) or with one that does not parse.
   static DateTime? tokenExpiration(http.Response response) {
-    final value = response.headers[tokenExpirationHeader];
-    return value == null ? null : DateTime.tryParse(value.trim());
+    final value = response.headers[tokenExpirationHeader]?.trim();
+    if (value == null) return null;
+    // DateTime reads an offset or "Z", not the word "UTC".
+    return DateTime.tryParse(value.replaceFirst(RegExp(r'\s*UTC$'), 'Z'));
   }
 
   static const _apiVersion = '2022-11-28';

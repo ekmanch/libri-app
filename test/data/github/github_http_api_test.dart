@@ -363,6 +363,16 @@ void main() {
       expect(seen, [DateTime.utc(2025, 11, 10, 11, 20, 42)]);
     });
 
+    test('is read when GitHub writes it in UTC', () async {
+      await client(
+        200,
+        headers: {
+          'github-authentication-token-expiration': '2025-11-10 11:20:42 UTC',
+        },
+      ).getRepo();
+      expect(seen, [DateTime.utc(2025, 11, 10, 11, 20, 42)]);
+    });
+
     test('is not reported on a refused request', () async {
       await expectLater(
         client(
