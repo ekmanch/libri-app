@@ -116,15 +116,18 @@ const _diacritics = {
 /// common Latin diacritics to ASCII, turns every run of other characters into
 /// one hyphen and trims hyphens from the ends.
 String slugify(String text) {
-  final folded = text
-      .toLowerCase()
-      .replaceAll(_apostrophes, '')
-      .split('')
-      .map((c) => _diacritics[c] ?? c)
-      .join();
-  return folded
+  return foldToAscii(text)
       .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
 }
+
+/// Lowercases, drops apostrophes and folds common Latin diacritics to ASCII;
+/// every other character is kept.
+String foldToAscii(String text) => text
+    .toLowerCase()
+    .replaceAll(_apostrophes, '')
+    .split('')
+    .map((c) => _diacritics[c] ?? c)
+    .join();
 
 final _apostrophes = RegExp("['’`]");

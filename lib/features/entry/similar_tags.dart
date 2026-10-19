@@ -2,16 +2,26 @@
 /// before a new one is created (DESIGN.md section 7).
 library;
 
-/// Lowercases, drops a leading "#", turns spaces and underscores into
-/// hyphens and trims hyphens from the ends.
+import '../../data/models/entry_id.dart';
+
+/// A tag is lowercase ASCII letters, digits and hyphens, plus a dot
+/// between two digits ("2.5d"); the data repo's `library.py` checks the
+/// same rule.
+///
+/// Drops a leading "#", lowercases, folds diacritics, drops apostrophes,
+/// turns every run of other characters into one hyphen and trims hyphens
+/// from the ends.
 String normalizeTag(String raw) {
-  var name = raw.trim().toLowerCase();
+  var name = raw.trim();
   if (name.startsWith('#')) name = name.substring(1);
-  return name
-      .replaceAll(RegExp(r'[\s_]+'), '-')
-      .replaceAll(RegExp(r'-{2,}'), '-')
+  return foldToAscii(name)
+      .replaceAll(_outsideTag, '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
 }
+
+/// A run of characters a tag cannot hold: anything but a letter, a digit
+/// or a dot, and a dot not between two digits.
+final _outsideTag = RegExp(r'(?:[^a-z0-9.]|(?<![0-9])\.|\.(?![0-9]))+');
 
 /// The library's spelling of a genre a lookup names another way:
 /// "science-fiction" is "scifi". Applied to a lookup's suggestions before
@@ -52,7 +62,8 @@ String canonicalTag(String raw) {
 
 /// The existing tag most like [candidate], or null when none is close.
 ///
-/// Two names are similar when they are the same once hyphens are ignored,
+/// Two names are similar when they are the same once hyphens and dots are
+/// ignored,
 /// when one is the plural of the other, or when they are one edit apart
 /// (two for a candidate of six letters or more): a letter changed, added
 /// or dropped, or two neighboring letters swapped. An exact match is not
@@ -75,12 +86,14 @@ String? findSimilarTag(String candidate, Iterable<String> existing) {
 
 /// Lower is closer; null means not similar.
 int? _similarityRank(String a, String b) {
-  if (a.replaceAll('-', '') == b.replaceAll('-', '')) return 0;
+  if (a.replaceAll(_joiners, '') == b.replaceAll(_joiners, '')) return 0;
   if (_isPluralOf(a, b) || _isPluralOf(b, a)) return 1;
   final limit = a.length >= 6 ? 2 : 1;
   final distance = _editDistance(a, b);
   return distance <= limit ? 1 + distance : null;
 }
+
+final _joiners = RegExp('[-.]');
 
 bool _isPluralOf(String plural, String singular) {
   if (plural == '${singular}s' || plural == '${singular}es') return true;

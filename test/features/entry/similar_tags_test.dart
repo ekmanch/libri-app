@@ -9,6 +9,24 @@ void main() {
     expect(normalizeTag('#'), '');
   });
 
+  test('normalizeTag keeps a tag to the data repo\'s rule', () {
+    expect(normalizeTag('2.5D'), '2.5d');
+    expect(normalizeTag('Rock & Roll'), 'rock-roll');
+    expect(normalizeTag('Dr. Who'), 'dr-who');
+    expect(normalizeTag('sci.fi'), 'sci-fi');
+    expect(normalizeTag('2..5d'), '2-5d');
+    expect(normalizeTag('v2.'), 'v2');
+    expect(normalizeTag('Nesbø'), 'nesbo');
+    expect(normalizeTag("Hitchcock's"), 'hitchcocks');
+    expect(normalizeTag('Sci-Fi & Fantasy'), 'sci-fi-fantasy');
+  });
+
+  test('a dot counts like a hyphen in the similar check', () {
+    expect(findSimilarTag('25d', ['2.5d']), '2.5d');
+    expect(findSimilarTag('2-5d', ['2.5d']), '2.5d');
+    expect(findSimilarTag('2.5d', ['2.5d']), isNull);
+  });
+
   group('findSimilarTag', () {
     const tags = ['horror', 'scifi', 'cozy', 'ghibli', 'fantasy', 'rpg'];
 
