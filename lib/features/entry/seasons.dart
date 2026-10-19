@@ -219,7 +219,9 @@ class SeasonsSection extends StatelessWidget {
             button: true,
             label: more,
             excludeSemantics: true,
-            child: InkWell(
+            // No press highlight: the seasons list opening is the feedback.
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => openAllSeasons(context, show.id),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 52),
@@ -275,7 +277,9 @@ class SeasonRow extends ConsumerWidget {
     final isNew = season.isNewOn(today);
     final date = seasonDateLabel(season, today);
     void open() => openSeason(context, show.id, season.season);
-    return InkWell(
+    // No press highlight: the episodes opening is the feedback.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: open,
       excludeFromSemantics: true,
       child: Container(
