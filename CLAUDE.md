@@ -5,7 +5,7 @@ Phone-first Flutter app (Android, Samsung Galaxy S25; a Linux desktop build may 
 ## Read these first
 
 - `docs/DESIGN.md`: every settled product and design decision, the screen list, the data format and the sync rules. This is the source of truth. If code and DESIGN.md disagree, ask me.
-- `design/canvas.html`: the exported design canvas with all mockups. It holds seven screens: Library, Add / edit entry, Show & seasons, Music, Plans, Settings and First run. Sheets, dialogs and menus open on top of their screen, and each mockup is a named state of a screen, picked with "Start at" in Screen settings. DESIGN.md, TODO.md and the code refer to them as "Screen › state" (Library › Filter sheet, Plans › Plan menu), or by the screen name alone for the whole screen. `design/screen-map.md` maps the retired codes (A1, D14, F3…) to these names, for reading old commits.
+- `design/canvas.html`: the exported design canvas with all mockups. It holds seven screens: Library, Add / edit entry, Show & seasons, Music, Plans, Settings and First run. Sheets, dialogs and menus open on top of their screen, and each mockup is a named state of a screen, picked with "Start at" in Screen settings. DESIGN.md, TODO.md and the code refer to them as "Screen › state" (Library › Filter sheet, Plans › Plan menu), or by the screen name alone for the whole screen. Older commits use retired codes (A1, D14, F3…); the map from codes to names is in commit a9d7816 (`git show a9d7816:design/screen-map.md`).
 - `TODO.md`: the build order. Work through it top to bottom unless I say otherwise.
 - `lib/theme/app_theme.dart`: colors, fonts and the theme extension. Never hard-code a color or font in a widget; add it to the theme instead.
 
