@@ -531,8 +531,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   }
 
   /// "Look up again": the match picker (Add / edit entry › New entry: pick a
-  /// match) on this entry's type and title; a pick fills in what the form has
-  /// empty and sets the source. The owner's own text is never overwritten.
+  /// match) on this entry's type and title; a pick sets the source and
+  /// replaces the lookup's fields (creator, released, description, pages,
+  /// album) with the match's where it has them, since a pick means another
+  /// book, or the right one this time. The title, note, status, tags and
+  /// formats are the owner's and stay.
   Future<void> _lookUpAgain() async {
     final match = await openMatchPicker(
       context,
@@ -547,14 +550,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _match = match;
     _source = match.source;
     if (_title.text.trim().isEmpty) _title.text = match.title;
-    if (_creator.text.trim().isEmpty && match.creator != null) {
-      _creator.text = match.creator!;
-    }
-    _released ??= match.released;
-    if (_description.isEmpty) _description = match.description;
-    if (_pages.text.trim().isEmpty && match.pages != null) {
-      _pages.text = '${match.pages}';
-    }
+    if (match.creator case final creator?) _creator.text = creator;
+    if (match.released case final released?) _released = released;
+    if (match.description.isNotEmpty) _description = match.description;
+    if (match.pages case final pages?) _pages.text = '$pages';
     // Seasons that are all the user's own (a show filled in by hand, or
     // one from before seasons) give way to the lookup's, with the status
     // carried over.
@@ -566,9 +565,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     if (_type == MediaType.music) {
       _kind = match.album == null ? MusicKind.album : MusicKind.song;
-      if (_album.text.trim().isEmpty && match.album != null) {
-        _album.text = match.album!;
-      }
+      if (match.album case final album?) _album.text = album;
     }
     for (final platform in match.platforms) {
       _addPlatformOption(platform);

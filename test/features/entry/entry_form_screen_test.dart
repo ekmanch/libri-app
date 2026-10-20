@@ -239,10 +239,9 @@ void main() {
       expect(saved.pages, 199);
     });
 
-    testWidgets('the owner\'s own creator and year stay; the cover is '
-        'forgotten even when the pick is the source the entry had', (
-      tester,
-    ) async {
+    testWidgets('a pick replaces the creator, year and description, keeps '
+        'the title and note, and forgets the cover even when the pick is '
+        'the source the entry had', (tester) async {
       // Already linked to the work the pick will be.
       final dracula = loadFixture()
           .entryById('books/dracula-1897')!
@@ -257,13 +256,19 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('BOOK · 1974'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextField, 'Bram Stoker'), findsOneWidget);
-      expect(find.text('1897'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Stephen King'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Bram Stoker'), findsNothing);
+      expect(find.text('1974'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Carrie'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
       final saved = repo(container).current!.entryById('books/dracula-1897')!;
-      expect(saved.creator, 'Bram Stoker');
-      expect(saved.released, const Released(1897));
+      expect(saved.title, 'Carrie');
+      expect(saved.creator, 'Stephen King');
+      expect(saved.released, const Released(1974));
+      expect(saved.description, isNot(dracula.description));
+      expect(saved.note, dracula.note);
+      expect(saved.status, dracula.status);
       expect(saved.source, 'openlibrary:OL81613W');
       expect(saved.source, dracula.source);
       expect(resolver.cachedCoverUrl(saved), isNull);
