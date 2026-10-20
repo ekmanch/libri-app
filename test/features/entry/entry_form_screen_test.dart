@@ -8,7 +8,7 @@ import 'package:library_app/data/models/book_format.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/tag_category.dart';
@@ -25,12 +25,20 @@ import 'package:library_app/widgets/segmented_control.dart';
 import '../../helpers/pump.dart';
 import '../../helpers/pump_app.dart';
 
+import 'package:library_app/data/models/series.dart';
+
 void main() {
   FixtureLibraryRepository repo(ProviderContainer c) =>
       c.read(libraryRepositoryProvider) as FixtureLibraryRepository;
 
   Finder field(String label) => find.byWidgetPredicate(
     (w) => w is TextField && w.decoration?.hintText == label,
+  );
+
+  /// The "Series" or "Movie" segment of an anime's kind control.
+  Finder animeKind(String label) => find.descendant(
+    of: find.byType(SegmentedControl<EntryKind?>),
+    matching: find.text(label),
   );
   final hintedField = field;
 
@@ -228,7 +236,7 @@ void main() {
     await tester.pumpAndSettle();
     final entry = repo(container).current!.entries.last;
     expect(entry.id, 'music/hounds-of-love-kate-bush');
-    expect(entry.kind, MusicKind.album);
+    expect(entry.kind, EntryKind.album);
     expect(entry.description, "Kate Bush's fifth studio album.");
   });
 
@@ -392,7 +400,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Add'));
     await tester.pumpAndSettle();
     final entry = repo(container).current!.entries.last;
-    expect(entry.kind, MusicKind.song);
+    expect(entry.kind, EntryKind.song);
     expect(entry.album, 'Hounds of Love');
   });
 
@@ -415,7 +423,13 @@ void main() {
     await scrollTo(tester, find.text('#horror'));
     expect(find.text('#horror'), findsOneWidget);
 
-    await scrollTo(tester, find.widgetWithText(PillChip, 'Audiobook'));
+    // Formats sit above the tags, past the Series fields: scroll back up.
+    await tester.scrollUntilVisible(
+      find.widgetWithText(PillChip, 'Audiobook'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(PillChip, 'Audiobook'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
@@ -816,6 +830,7 @@ void main() {
           EntryFormScreen.create(match: match),
         );
         // PC is the default platform in Settings, so it starts picked.
+        await scrollTo(tester, find.widgetWithText(PillChip, 'PC'));
         expect(isSelected(tester, find.widgetWithText(PillChip, 'PC')), isTrue);
         await tester.tap(find.widgetWithText(PillChip, 'PlayStation 5'));
         await scrollTo(tester, find.bySemanticsLabel('Add #stealth'));
@@ -1382,5 +1397,234 @@ void main() {
         expect(find.widgetWithText(PillChip, '#moody'), findsNothing);
       },
     );
+  });
+
+  group('series', () {
+    /// The text field under the label [label].
+    Finder fieldUnder(String label) => find.descendant(
+      of: find
+          .ancestor(of: find.text(label), matching: find.byType(Column))
+          .first,
+      matching: find.byType(TextField),
+    );
+    Finder seriesField() => fieldUnder('Series');
+    Finder numberField() => fieldUnder('Number');
+
+    /// Scrolls back up to [finder], past what [scrollTo] left above.
+    Future<void> scrollUpTo(WidgetTester tester, Finder finder) async {
+      await tester.scrollUntilVisible(
+        finder,
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'movies, books, games and anime movies have Series and Number',
+      (tester) async {
+        await pumpApp(
+          tester,
+          const EntryFormScreen.create(type: MediaType.movies),
+        );
+        // Under the director and the date, on screen from the start.
+        expect(find.text('Series'), findsOneWidget);
+        expect(find.text('Number'), findsOneWidget);
+        for (final type in ['Shows', 'Music']) {
+          await tester.tap(find.widgetWithText(PillChip, type));
+          await tester.pumpAndSettle();
+          expect(find.text('Number'), findsNothing, reason: type);
+        }
+        await tester.tap(find.widgetWithText(PillChip, 'Games'));
+        await tester.pumpAndSettle();
+        expect(find.text('Number'), findsOneWidget);
+        await tester.tap(find.widgetWithText(PillChip, 'Anime'));
+        await tester.pumpAndSettle();
+        // An anime of no kind yet may be in a series; a series uses seasons.
+        expect(find.text('Series or movie'), findsOneWidget);
+        expect(find.text('Number'), findsOneWidget);
+        await tester.tap(animeKind('Series'));
+        await tester.pumpAndSettle();
+        expect(find.text('Number'), findsNothing);
+        await scrollTo(tester, find.text('Seasons'));
+        expect(find.text('Seasons'), findsOneWidget);
+        await scrollUpTo(tester, animeKind('Movie'));
+        await tester.tap(animeKind('Movie'));
+        await tester.pumpAndSettle();
+        expect(find.text('Seasons'), findsNothing);
+        expect(find.text('Number'), findsOneWidget);
+        // Books: after Pages and Formats, as drawn.
+        await scrollUpTo(tester, find.widgetWithText(PillChip, 'Books'));
+        await tester.tap(find.widgetWithText(PillChip, 'Books'));
+        await tester.pumpAndSettle();
+        await scrollTo(tester, find.text('Number'));
+        expect(
+          tester.getTopLeft(find.text('Series')).dy,
+          greaterThan(tester.getTopLeft(find.text('Formats')).dy),
+        );
+      },
+    );
+
+    testWidgets('come from the match and are saved; cleared when emptied', (
+      tester,
+    ) async {
+      const match = LookupMatch(
+        type: MediaType.movies,
+        title: 'The Two Towers',
+        source: 'tmdb:movie:121',
+        released: Released(2002),
+        series: Series(name: 'The Lord of the Rings', number: 2),
+      );
+      final container = await pumpApp(
+        tester,
+        const EntryFormScreen.create(match: match),
+      );
+      await scrollTo(tester, find.text('Number'));
+      expect(
+        find.widgetWithText(TextField, 'The Lord of the Rings'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextField, '2'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entries.last;
+      expect(
+        saved.series,
+        const Series(name: 'The Lord of the Rings', number: 2),
+      );
+    });
+
+    testWidgets('emptied, the series is dropped', (tester) async {
+      final towers = loadFixture().entryById(
+        'movies/the-lord-of-the-rings-the-two-towers-2002',
+      )!;
+      final container = await pumpApp(tester, EntryFormScreen.edit(towers));
+      await scrollTo(tester, find.text('Number'));
+      await tester.enterText(seriesField(), '');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(repo(container).current!.entryById(towers.id)!.series, isNull);
+    });
+
+    testWidgets('typed by hand, the number is digits only and optional', (
+      tester,
+    ) async {
+      final container = await pumpApp(
+        tester,
+        const EntryFormScreen.create(
+          type: MediaType.books,
+          title: 'Dune Messiah',
+        ),
+      );
+      await scrollTo(tester, find.text('Number'));
+      await tester.enterText(seriesField(), 'Dune');
+      await tester.enterText(numberField(), 'two');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      expect(
+        repo(container).current!.entries.last.series,
+        const Series(name: 'Dune'),
+      );
+    });
+  });
+
+  group('anime kind', () {
+    testWidgets('a series match gets seasons and no date; the kind is saved', (
+      tester,
+    ) async {
+      final match = FakeLookupSource.catalogSearch('frieren').single;
+      final container = await pumpApp(
+        tester,
+        EntryFormScreen.create(match: match),
+      );
+      expect(find.text('Series or movie'), findsOneWidget);
+      expect(find.text('Released'), findsNothing);
+      await scrollTo(tester, find.text('Seasons'));
+      expect(find.text('Season 1'), findsOneWidget);
+      expect(find.text('Season 2'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entries.last;
+      expect(saved.kind, EntryKind.series);
+      expect(saved.released, isNull);
+      expect(saved.seasons, hasLength(2));
+      expect(saved.usesSeasons, isTrue);
+      // Named from Season 1's year, like a show (the fixture has it already).
+      expect(saved.id, startsWith('anime/frieren-beyond-journeys-end-2023'));
+    });
+
+    testWidgets('a movie match keeps its date and saves the kind', (
+      tester,
+    ) async {
+      final match = FakeLookupSource.catalogSearch(
+        'akira',
+        type: MediaType.anime,
+      ).single;
+      final container = await pumpApp(
+        tester,
+        EntryFormScreen.create(match: match),
+      );
+      expect(find.text('Released'), findsOneWidget);
+      expect(find.text('Seasons'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      expect(repo(container).current!.entries.last.kind, EntryKind.movie);
+    });
+
+    testWidgets('an anime from before kinds starts unpicked and stays so', (
+      tester,
+    ) async {
+      final old = loadFixture().entryById('anime/spirited-away-2001')!;
+      expect(old.kind, isNull);
+      final container = await pumpApp(tester, EntryFormScreen.edit(old));
+      expect(find.text('Released'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(repo(container).current!.entryById(old.id)!.kind, isNull);
+    });
+
+    testWidgets(
+      'picking Series turns the date into Season 1; Movie turns it back',
+      (tester) async {
+        final old = loadFixture().entryById('anime/spirited-away-2001')!;
+        final container = await pumpApp(tester, EntryFormScreen.edit(old));
+        await tester.tap(animeKind('Series'));
+        await tester.pumpAndSettle();
+        expect(find.text('Released'), findsNothing);
+        await scrollTo(tester, find.text('Seasons'));
+        expect(find.text('Season 1'), findsOneWidget);
+        expect(find.text('2001'), findsOneWidget);
+        await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+        await tester.pumpAndSettle();
+        final series = repo(container).current!.entryById(old.id)!;
+        expect(series.kind, EntryKind.series);
+        expect(series.released, isNull);
+        expect(series.seasons!.single.released, const Released(2001));
+        expect(series.seasons!.single.status, EntryStatus.done);
+        expect(series.status, EntryStatus.done);
+      },
+    );
+
+    testWidgets('back to Movie, the date and status come from Season 1', (
+      tester,
+    ) async {
+      final series = loadFixture().entryById(
+        'anime/frieren-beyond-journeys-end-2023',
+      )!;
+      final container = await pumpApp(tester, EntryFormScreen.edit(series));
+      await tester.tap(animeKind('Movie'));
+      await tester.pumpAndSettle();
+      expect(find.text('Seasons'), findsNothing);
+      expect(find.text('Sep 29, 2023'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final movie = repo(container).current!.entryById(series.id)!;
+      expect(movie.kind, EntryKind.movie);
+      expect(movie.seasons, isNull);
+      expect(movie.released, const Released(2023, 9, 29));
+      expect(movie.status, EntryStatus.inProgress);
+    });
   });
 }

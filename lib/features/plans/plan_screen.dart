@@ -6,7 +6,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/plan.dart';
 import '../../data/models/plan_item.dart';
 import '../../data/operations/operations.dart';
@@ -1274,6 +1274,6 @@ class _ActionChip extends StatelessWidget {
 /// A plan row's subtitle: as in the library, except that a song names its
 /// artist ("Wham! · 1984"), since plans mix every type and artist.
 String planRowSubtitle(Entry entry) =>
-    entry.type == MediaType.music && entry.kind == MusicKind.song
+    entry.type == MediaType.music && entry.kind == EntryKind.song
     ? songSubtitle(entry)
     : entrySubtitle(entry);

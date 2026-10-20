@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/entry.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/track.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
@@ -64,10 +64,10 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
     final view = prefs.viewForMusic(tab);
     final artists = artistIndex(widget.entries);
     final albums = widget.entries
-        .where((e) => e.kind != MusicKind.song)
+        .where((e) => e.kind != EntryKind.song)
         .toList();
     final songs = widget.entries
-        .where((e) => e.kind == MusicKind.song)
+        .where((e) => e.kind == EntryKind.song)
         .toList();
 
     final tabs = SliverToBoxAdapter(

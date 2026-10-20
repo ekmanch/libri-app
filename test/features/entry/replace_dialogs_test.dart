@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/replace_dialogs.dart';
@@ -19,7 +19,7 @@ void main() {
     final would = dirt.copyWith(
       id: 'music/would-alice-in-chains',
       title: 'Would?',
-      kind: MusicKind.song,
+      kind: EntryKind.song,
       album: 'dirt ',
       rating: 8,
       tracks: null,
@@ -94,7 +94,7 @@ void main() {
       );
       await tester.tap(
         find.descendant(
-          of: find.byType(SegmentedControl<MusicKind>),
+          of: find.byType(SegmentedControl<EntryKind>),
           matching: find.text('Song'),
         ),
       );
@@ -123,7 +123,7 @@ void main() {
         expect(library.entryById(dirt.id), isNull);
         final song = library.entries.last;
         expect(song.id, 'music/rooster-alice-in-chains');
-        expect(song.kind, MusicKind.song);
+        expect(song.kind, EntryKind.song);
         expect(song.album, 'Dirt');
         expect(find.byType(EntryFormScreen), findsNothing);
       },

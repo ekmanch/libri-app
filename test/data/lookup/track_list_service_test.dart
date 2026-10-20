@@ -9,7 +9,7 @@ import 'package:library_app/data/lookup/track_list_store.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 
 Entry album(String id, {String? title, String? source}) => Entry(
@@ -19,7 +19,7 @@ Entry album(String id, {String? title, String? source}) => Entry(
   creator: 'Alice in Chains',
   status: EntryStatus.done,
   added: DateTime(2026),
-  kind: MusicKind.album,
+  kind: EntryKind.album,
   source: source,
 );
 

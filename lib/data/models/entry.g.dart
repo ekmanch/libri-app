@@ -30,7 +30,10 @@ _Entry _$EntryFromJson(Map<String, dynamic> json) => _Entry(
       ?.map((e) => $enumDecode(_$BookFormatEnumMap, e))
       .toList(),
   pages: (json['pages'] as num?)?.toInt(),
-  kind: $enumDecodeNullable(_$MusicKindEnumMap, json['kind']),
+  series: json['series'] == null
+      ? null
+      : Series.fromJson(json['series'] as Map<String, dynamic>),
+  kind: $enumDecodeNullable(_$EntryKindEnumMap, json['kind']),
   album: json['album'] as String?,
   tracks: (json['tracks'] as List<dynamic>?)
       ?.map((e) => Track.fromJson(e as Map<String, dynamic>))
@@ -60,7 +63,8 @@ Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
   'platform': ?instance.platform,
   'formats': ?instance.formats?.map((e) => _$BookFormatEnumMap[e]!).toList(),
   'pages': ?instance.pages,
-  'kind': ?_$MusicKindEnumMap[instance.kind],
+  'series': ?instance.series?.toJson(),
+  'kind': ?_$EntryKindEnumMap[instance.kind],
   'album': ?instance.album,
   'tracks': ?instance.tracks?.map((e) => e.toJson()).toList(),
   'seasons': ?instance.seasons?.map((e) => e.toJson()).toList(),
@@ -92,7 +96,12 @@ const _$BookFormatEnumMap = {
   BookFormat.physical: 'physical',
 };
 
-const _$MusicKindEnumMap = {MusicKind.album: 'album', MusicKind.song: 'song'};
+const _$EntryKindEnumMap = {
+  EntryKind.album: 'album',
+  EntryKind.song: 'song',
+  EntryKind.series: 'series',
+  EntryKind.movie: 'movie',
+};
 
 Json? _$JsonConverterToJson<Json, Value>(
   Value? value,

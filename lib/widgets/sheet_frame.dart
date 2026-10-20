@@ -17,6 +17,7 @@ class SheetFrame extends StatefulWidget {
     required this.child,
     this.footer,
     this.scrollable = false,
+    this.controller,
   });
 
   final String? title;
@@ -35,13 +36,20 @@ class SheetFrame extends StatefulWidget {
   /// True when the content may be taller than the screen.
   final bool scrollable;
 
+  /// The scrollable body's controller, when the sheet needs to move it
+  /// (the details sheet jumps to the top when another part of a series
+  /// opens in it); the frame makes its own otherwise.
+  final ScrollController? controller;
+
   @override
   State<SheetFrame> createState() => _SheetFrameState();
 }
 
 class _SheetFrameState extends State<SheetFrame> {
   final _frameKey = GlobalKey();
-  final _scroll = ScrollController();
+  late final ScrollController _own = ScrollController();
+
+  ScrollController get _scroll => widget.controller ?? _own;
 
   /// The finger being followed.
   int? _pointer;
@@ -61,7 +69,7 @@ class _SheetFrameState extends State<SheetFrame> {
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _own.dispose();
     super.dispose();
   }
 

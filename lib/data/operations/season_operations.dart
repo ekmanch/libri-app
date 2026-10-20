@@ -9,10 +9,11 @@ import 'library_operation.dart';
 
 part 'season_operations.g.dart';
 
-/// The show for a season operation, or null when it is gone or not a show.
+/// The show (or anime series) for a season operation, or null when it is
+/// gone or has no seasons to speak of ([Entry.usesSeasons]).
 Entry? _show(Library library, String entryId) {
   final entry = library.entryById(entryId);
-  return entry?.type == MediaType.shows ? entry : null;
+  return entry != null && entry.usesSeasons ? entry : null;
 }
 
 /// The show with [seasons] and the status they give, in its place.

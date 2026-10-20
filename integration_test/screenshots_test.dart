@@ -379,6 +379,108 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
   await closeSheet(tester);
+
+  // Show & seasons › Anime with seasons (Frieren): an anime series, laid out
+  // like a show in the anime color; Anime season episodes: its season 2.
+  await revealHeader(tester);
+  await pickChip(tester, 'Anime');
+  await capture(tester, '${prefix}a1-anime-with-seasons');
+  await openShow("Frieren: Beyond Journey's End");
+  await toSeasons();
+  await capture(tester, '${prefix}a43-anime-seasons');
+  await openSeasonRow(2);
+  await capture(tester, '${prefix}a44-anime-season-episodes');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
+}
+
+/// Library › Movie in a series (The Lord of the Rings), Book in a long series
+/// (Berserk 43) and All volumes in a series at [scale], with the Series and
+/// Number fields of Add / edit entry and an anime's kind control. Captures
+/// are prefixed "large-text-" above 1.
+Future<void> walkSeries(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(FixtureLibraryRepository()),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  Future<void> openRow(String title) async {
+    await tester.scrollUntilVisible(
+      find.text(title),
+      200,
+      scrollable: homeList(),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(title).last);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> toSeries() async {
+    await tester.ensureVisible(find.text('SERIES'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openEdit() async {
+    await tester.ensureVisible(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+  }
+
+  // Library › Movie in a series: three parts, all listed, this one marked.
+  await pickChip(tester, 'Movies');
+  await pickView(tester, 'List with covers');
+  await openRow('The Lord of the Rings: The Fellowship of the Ring');
+  await toSeries();
+  await capture(tester, '${prefix}a45-movie-in-series');
+  // Add / edit entry: the Series and Number fields under the director.
+  await openEdit();
+  await capture(tester, '${prefix}a45-edit-movie-series');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
+
+  // Library › Book in a long series: a window of three and "All 43 volumes";
+  // All volumes in a series: the full list, scrolled to this one.
+  await revealHeader(tester);
+  await pickChip(tester, 'Books');
+  await pickView(tester, 'List with covers');
+  await openRow('Berserk, Vol. 43');
+  await toSeries();
+  await capture(tester, '${prefix}a46-book-long-series');
+  await tester.ensureVisible(find.text('All 43 volumes'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('All 43 volumes'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a47-all-volumes');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
+
+  // Add / edit entry for an anime from before kinds: Series or movie, unpicked.
+  await revealHeader(tester);
+  await pickChip(tester, 'Anime');
+  await openRow('Spirited Away');
+  await openEdit();
+  await capture(tester, '${prefix}a48-edit-anime-kind');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
 }
 
 /// Library › Book details (page count) at [scale]: a book's details with its
@@ -474,6 +576,14 @@ void main() {
 
   testWidgets('show seasons at a larger text size', (tester) async {
     await walkSeasons(tester, scale: 1.3);
+  });
+
+  testWidgets('series', (tester) async {
+    await walkSeries(tester);
+  });
+
+  testWidgets('series at a larger text size', (tester) async {
+    await walkSeries(tester, scale: 1.3);
   });
 
   testWidgets('library screens in dark and light', (tester) async {

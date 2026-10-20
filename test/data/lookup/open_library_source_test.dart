@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,8 @@ import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/lookup/wikidata_series.dart';
+import 'package:library_app/data/models/series.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -1005,5 +1008,159 @@ void main() {
         ),
       ),
     );
+  });
+
+  group('series', () {
+    Map<String, Object?> volume(String id, String title, int year) => {
+      'key': '/works/$id',
+      'title': title,
+      'author_name': ['Kentaro Miura'],
+      'first_publish_year': year,
+      'publish_year': [year],
+    };
+    final berserkIndex = {
+      'docs': [
+        volume('OL2W', 'Berserk, Vol. 2', 1991),
+        volume('OL1W', 'Berserk, Vol. 1', 1990),
+        volume('OL1bW', 'Berserk, Vol. 1', 2003),
+        volume('OL43W', 'Berserk, Vol. 43', 2025),
+        volume('OLxW', 'Berserk Official Guidebook', 2017),
+        volume('OLyW', 'Gigantomakhia, Vol. 1', 2014),
+      ],
+    };
+
+    test('a pick without Wikidata reads the volume from the title', () async {
+      final ol = source((request) async {
+        if (isApple(request)) return json(200, {'results': []});
+        return json(200, {'description': 'Guts.'});
+      });
+      final full = await ol.details(
+        book('openlibrary:OL43W', 'Berserk, Vol. 43', creator: 'Kentaro Miura'),
+      );
+      expect(full.series, const Series(name: 'Berserk', number: 43));
+      expect(
+        (await ol.details(book('openlibrary:OL1W', 'Dracula'))).series,
+        isNull,
+      );
+    });
+
+    test(
+      'a pick asks Wikidata first; its series wins over the title',
+      () async {
+        sent = [];
+        final client = MockClient((request) async {
+          sent.add(request);
+          if (request.url.host == 'www.wikidata.org') {
+            return json(200, {
+              'search': [
+                {'id': 'Q1'},
+              ],
+            });
+          }
+          if (request.url.host == 'query.wikidata.org') {
+            Map<String, Object?> cell(String v, [String t = 'literal']) => {
+              'type': t,
+              'value': v,
+            };
+            return json(200, {
+              'results': {
+                'bindings': [
+                  {
+                    'book': cell('http://www.wikidata.org/entity/Q1', 'uri'),
+                    'authorLabel': cell('Kentaro Miura'),
+                    'series': cell('http://www.wikidata.org/entity/Q9', 'uri'),
+                    'seriesLabel': cell('Berserk (manga)'),
+                    'ordinal': cell('43'),
+                    'part': cell('http://www.wikidata.org/entity/Q1', 'uri'),
+                    'partLabel': cell('Berserk 43'),
+                    'partOrdinal': cell('43'),
+                  },
+                ],
+              },
+            });
+          }
+          if (isApple(request)) return json(200, {'results': []});
+          return json(200, {'description': 'Guts.'});
+        });
+        final ol = OpenLibrarySource(
+          client,
+          apple: ITunesBooks(client, minGap: Duration.zero),
+          wikidata: WikidataSeries(client),
+        );
+        final full = await ol.details(
+          book(
+            'openlibrary:OL43W',
+            'Berserk, Vol. 43',
+            creator: 'Kentaro Miura',
+          ),
+        );
+        expect(full.series, const Series(name: 'Berserk (manga)', number: 43));
+        expect(sent.any((r) => r.url.host == 'www.wikidata.org'), isTrue);
+
+        // Wikidata not answering leaves the series to the title.
+        final down = OpenLibrarySource(
+          MockClient((request) async {
+            if (request.url.host.contains('wikidata')) {
+              throw const SocketException('down');
+            }
+            if (isApple(request)) return json(200, {'results': []});
+            return json(200, {'description': 'Guts.'});
+          }),
+          wikidata: WikidataSeries(
+            MockClient((_) async => throw const SocketException('down')),
+          ),
+        );
+        final fallback = await down.details(
+          book('openlibrary:OL43W', 'Berserk, Vol. 43'),
+        );
+        expect(fallback.series, const Series(name: 'Berserk', number: 43));
+      },
+    );
+
+    test(
+      'seriesParts lists the volumes by name and author, one per number',
+      () async {
+        final ol = source((request) async {
+          if (isApple(request)) return json(200, {'results': []});
+          final q = request.url.queryParameters;
+          if (q['q'] == 'key:/works/OL43W') {
+            return json(200, {
+              'docs': [volume('OL43W', 'Berserk, Vol. 43', 2025)],
+            });
+          }
+          if (q['title'] == 'Berserk') return json(200, berserkIndex);
+          return json(200, {'docs': []});
+        });
+        final parts = await ol.seriesParts('openlibrary:OL43W');
+        expect(parts!.name, 'Berserk');
+        expect(parts.parts.map((p) => (p.number, p.title, p.year, p.source)), [
+          (1, 'Berserk, Vol. 1', 1990, 'openlibrary:OL1W'),
+          (2, 'Berserk, Vol. 2', 1991, 'openlibrary:OL2W'),
+          (43, 'Berserk, Vol. 43', 2025, 'openlibrary:OL43W'),
+        ]);
+        final search = sent.lastWhere(
+          (r) => r.url.queryParameters['title'] == 'Berserk',
+        );
+        expect(search.url.queryParameters['author'], 'Kentaro Miura');
+        expect(search.url.queryParameters['limit'], '100');
+      },
+    );
+
+    test('seriesParts takes the series name the entry carries', () async {
+      final ol = source((request) async {
+        if (isApple(request)) return json(200, {'results': []});
+        final q = request.url.queryParameters;
+        if (q['q'] == 'key:/works/OL5W') {
+          return json(200, {
+            'docs': [volume('OL5W', 'The Golden Age Arc', 2012)],
+          });
+        }
+        if (q['title'] == 'Berserk') return json(200, berserkIndex);
+        return json(200, {'docs': []});
+      });
+      expect(await ol.seriesParts('openlibrary:OL5W'), isNull);
+      final named = await ol.seriesParts('openlibrary:OL5W', name: 'Berserk');
+      expect(named!.parts, hasLength(3));
+    });
   });
 }

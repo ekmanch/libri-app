@@ -11,7 +11,8 @@
       "thriller",
       "crime",
       "mystery",
-      "romance"
+      "romance",
+      "manga"
     ],
     "Game genres": [
       "rpg",
@@ -933,7 +934,7 @@
       "id": "anime/frieren-beyond-journeys-end-2023",
       "type": "anime",
       "title": "Frieren: Beyond Journey's End",
-      "released": "2023",
+      "released": null,
       "creator": "Madhouse",
       "status": "in_progress",
       "rating": null,
@@ -942,11 +943,24 @@
         "fantasy",
         "melancholic"
       ],
-      "note": "Episode 17.",
+      "note": "Saving the last few episodes of season 2 for a quiet weekend.",
       "description": "",
       "seasonal_only": false,
       "added": "2026-09-12",
-      "source": null
+      "source": null,
+      "kind": "series",
+      "seasons": [
+        {
+          "season": 1,
+          "released": "2023-09-29",
+          "status": "done"
+        },
+        {
+          "season": 2,
+          "released": "2026-01-16",
+          "status": "in_progress"
+        }
+      ]
     },
     {
       "id": "anime/chainsaw-man-2022",
@@ -1472,6 +1486,132 @@
       "source": null,
       "kind": "song",
       "album": "Bad Music for Bad People"
+    },
+    {
+      "id": "movies/the-lord-of-the-rings-the-fellowship-of-the-ring-2001",
+      "type": "movies",
+      "title": "The Lord of the Rings: The Fellowship of the Ring",
+      "released": "2001",
+      "creator": "Peter Jackson",
+      "status": "done",
+      "rating": 10,
+      "tags": [
+        "fantasy",
+        "adventure",
+        "epic"
+      ],
+      "note": "Extended editions only. Rewatch every December.",
+      "description": "A hobbit inherits a ring of terrible power and sets out with eight companions to destroy it.",
+      "seasonal_only": false,
+      "added": "2025-12-14",
+      "source": null,
+      "series": {
+        "name": "The Lord of the Rings",
+        "number": 1
+      }
+    },
+    {
+      "id": "movies/the-lord-of-the-rings-the-two-towers-2002",
+      "type": "movies",
+      "title": "The Lord of the Rings: The Two Towers",
+      "released": "2002",
+      "creator": "Peter Jackson",
+      "status": "want",
+      "rating": null,
+      "tags": [
+        "fantasy",
+        "adventure",
+        "epic"
+      ],
+      "note": "",
+      "description": "The fellowship is broken. Frodo and Sam head for Mordor while the others fight for Rohan.",
+      "seasonal_only": false,
+      "added": "2026-01-03",
+      "source": null,
+      "series": {
+        "name": "The Lord of the Rings",
+        "number": 2
+      }
+    },
+    {
+      "id": "books/berserk-vol-1-1990",
+      "type": "books",
+      "title": "Berserk, Vol. 1",
+      "released": "1990",
+      "creator": "Kentaro Miura",
+      "status": "done",
+      "rating": 8,
+      "tags": [
+        "fantasy",
+        "dark",
+        "manga"
+      ],
+      "note": "",
+      "description": "Guts, a lone mercenary with a huge sword, fights his way through a dark medieval world.",
+      "seasonal_only": false,
+      "added": "2025-06-02",
+      "source": null,
+      "formats": [
+        "physical"
+      ],
+      "pages": 224,
+      "series": {
+        "name": "Berserk",
+        "number": 1
+      }
+    },
+    {
+      "id": "books/berserk-vol-42-2021",
+      "type": "books",
+      "title": "Berserk, Vol. 42",
+      "released": "2021",
+      "creator": "Kentaro Miura, Kouji Mori",
+      "status": "in_progress",
+      "rating": null,
+      "tags": [
+        "fantasy",
+        "dark",
+        "manga"
+      ],
+      "note": "",
+      "description": "Guts and his companions face new threats as the story continues after the creator's passing.",
+      "seasonal_only": false,
+      "added": "2026-09-20",
+      "source": null,
+      "formats": [
+        "physical"
+      ],
+      "pages": 240,
+      "series": {
+        "name": "Berserk",
+        "number": 42
+      }
+    },
+    {
+      "id": "books/berserk-vol-43-2025",
+      "type": "books",
+      "title": "Berserk, Vol. 43",
+      "released": "2025",
+      "creator": "Kentaro Miura, Kouji Mori",
+      "status": "want",
+      "rating": null,
+      "tags": [
+        "fantasy",
+        "dark",
+        "manga"
+      ],
+      "note": "Waiting for the English release.",
+      "description": "Guts and his companions face new threats as the story continues after the creator's passing.",
+      "seasonal_only": false,
+      "added": "2026-10-05",
+      "source": null,
+      "formats": [
+        "physical"
+      ],
+      "series": {
+        "name": "Berserk",
+        "number": 43
+      }
     }
   ],
   "plans": [

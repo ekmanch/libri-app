@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/tag_category.dart';
 import 'package:library_app/features/library/library_filter.dart';
@@ -152,10 +152,10 @@ void main() {
   });
 
   group('kind', () {
-    final song = dirt.copyWith(id: 'music/song', kind: MusicKind.song);
+    final song = dirt.copyWith(id: 'music/song', kind: EntryKind.song);
 
     test('narrows music only', () {
-      const songs = LibraryFilter(kinds: {MusicKind.song});
+      const songs = LibraryFilter(kinds: {EntryKind.song});
       expect(songs.matches(song), isTrue);
       expect(songs.matches(dirt), isFalse); // An album.
       expect(songs.matches(mummy), isTrue); // Not music.
@@ -164,22 +164,22 @@ void main() {
     test('is dropped with Music, and counts as a chip', () {
       final filter = LibraryFilter.none
           .toggleType(MediaType.music)
-          .toggleKind(MusicKind.album);
+          .toggleKind(EntryKind.album);
       expect(filter.count, 2);
       expect(filter.chips.map((c) => c.label), ['Music', 'Albums']);
       expect(filter.toggleType(MediaType.music).kinds, isEmpty);
-      expect(filter.toggleType(MediaType.movies).kinds, {MusicKind.album});
+      expect(filter.toggleType(MediaType.movies).kinds, {EntryKind.album});
     });
 
     test('one kind is a music tab; a status or both kinds are results', () {
       const music = LibraryFilter(types: {MediaType.music});
       expect(music.typeView, (type: MediaType.music, status: null, kind: null));
       expect(
-        music.copyWith(kinds: {MusicKind.song}).typeView?.kind,
-        MusicKind.song,
+        music.copyWith(kinds: {EntryKind.song}).typeView?.kind,
+        EntryKind.song,
       );
       expect(
-        music.copyWith(kinds: {MusicKind.song, MusicKind.album}).typeView,
+        music.copyWith(kinds: {EntryKind.song, EntryKind.album}).typeView,
         isNull,
       );
       expect(music.copyWith(statuses: {EntryStatus.done}).typeView, isNull);

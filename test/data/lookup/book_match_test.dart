@@ -83,4 +83,23 @@ void main() {
       expect(firstPublishYear([1975, 2010, 2010]), 1975);
     });
   });
+
+  group('a volume number in a title', () {
+    test('is read from "Vol.", "Volume" and "#"', () {
+      expect(volumeOf('Berserk, Vol. 43'), (name: 'Berserk', number: 43));
+      expect(volumeOf('Berserk Volume 1'), (name: 'Berserk', number: 1));
+      expect(volumeOf('Berserk: vol 2'), (name: 'Berserk', number: 2));
+      expect(volumeOf('Saga #5'), (name: 'Saga', number: 5));
+      expect(volumeOf('Chainsaw Man, Vol. 11'), (
+        name: 'Chainsaw Man',
+        number: 11,
+      ));
+    });
+
+    test('is nothing for other titles', () {
+      expect(volumeOf('Dracula'), isNull);
+      expect(volumeOf('Volume 3'), isNull);
+      expect(volumeOf('The Two Towers'), isNull);
+    });
+  });
 }

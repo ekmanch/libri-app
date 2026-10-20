@@ -7,6 +7,11 @@ import 'package:library_app/data/operations/operations.dart';
 
 import '../../helpers/sample_library.dart';
 
+import 'package:library_app/data/models/entry_kind.dart';
+import 'package:library_app/data/models/library.dart';
+import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
+
 void main() {
   test('SetStatus changes one entry in place', () {
     final result = SetStatus(mummy.id, EntryStatus.want).apply(sampleLibrary());
@@ -183,5 +188,81 @@ void main() {
       ClearTrackRating(dirt.id, trackId: 'mb:1').summary(library),
       'Clear the rating of Rooster on Dirt',
     );
+  });
+
+  group('SetKind', () {
+    final frieren = mummy.copyWith(
+      id: 'anime/frieren-2023',
+      type: MediaType.anime,
+      title: 'Frieren',
+      status: EntryStatus.done,
+    );
+    Library lib() => sampleLibrary().copyWith(entries: [mummy, dirt, frieren]);
+
+    test('marks an anime a series or a movie, nothing else changing', () {
+      final series = SetKind(frieren.id, EntryKind.series).apply(lib());
+      final after = series.entryById(frieren.id)!;
+      expect(after.kind, EntryKind.series);
+      expect(after.released, frieren.released);
+      expect(after.status, EntryStatus.done);
+      expect(
+        SetKind(
+          frieren.id,
+          EntryKind.movie,
+        ).apply(lib()).entryById(frieren.id)!.kind,
+        EntryKind.movie,
+      );
+      expect(
+        SetKind(frieren.id, EntryKind.series).summary(lib()),
+        'Mark Frieren as a series',
+      );
+      expect(
+        SetKind(frieren.id, EntryKind.movie).summary(lib()),
+        'Mark Frieren as a movie',
+      );
+    });
+
+    test('refuses a kind the type cannot have; a missing entry is left', () {
+      expect(
+        () => SetKind(frieren.id, EntryKind.album).apply(lib()),
+        throwsArgumentError,
+      );
+      expect(
+        () => SetKind(mummy.id, EntryKind.movie).apply(lib()),
+        throwsArgumentError,
+      );
+      expect(
+        () => SetKind(dirt.id, EntryKind.series).apply(lib()),
+        throwsArgumentError,
+      );
+      expect(
+        SetKind(dirt.id, EntryKind.song).apply(lib()).entryById(dirt.id)!.kind,
+        EntryKind.song,
+      );
+      expect(const SetKind('nope', EntryKind.movie).apply(lib()), lib());
+    });
+  });
+
+  test('SetStatus on an anime series goes through its seasons', () {
+    final series = mummy.copyWith(
+      id: 'anime/frieren-2023',
+      type: MediaType.anime,
+      title: 'Frieren',
+      released: null,
+      kind: EntryKind.series,
+      status: EntryStatus.want,
+      seasons: const [
+        Season(season: 1, released: Released(2023), status: EntryStatus.want),
+        Season(season: 2, released: Released(2099)),
+      ],
+    );
+    final lib = sampleLibrary().copyWith(entries: [series]);
+    final after = SetStatus(
+      series.id,
+      EntryStatus.done,
+    ).apply(lib).entries.single;
+    expect(after.seasons!.first.status, EntryStatus.done);
+    expect(after.seasons!.last.status, isNull);
+    expect(after.status, EntryStatus.done);
   });
 }

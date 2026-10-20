@@ -7,6 +7,7 @@ import '../data/lookup/lookup_source.dart';
 import '../data/lookup/music_source.dart';
 import '../data/lookup/track_info.dart';
 import '../data/models/entry_id.dart';
+import '../data/models/entry_kind.dart';
 import '../data/models/media_type.dart';
 import '../data/models/released.dart';
 import '../data/models/season.dart';
@@ -24,7 +25,9 @@ class FakeLookupSource extends LookupSource implements MusicSource {
     this.configured = true,
     this.seasonsBySource = const {},
     this.canceledSources = const {},
+    this.kindBySource = const {},
     this.episodesBySeason = const {},
+    this.seriesBySource = const {},
   });
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
@@ -40,6 +43,12 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   /// Shows [seasons] calls canceled, by source.
   final Set<String> canceledSources;
 
+  /// The kind [seasons] reports for an anime, by source (null for a show).
+  final Map<String, EntryKind?> kindBySource;
+
+  /// Series [seriesParts] answers, by source, ahead of the built-in ones.
+  final Map<String, SeriesParts?> seriesBySource;
+
   /// Episodes [seasonEpisodes] answers, by show source and season, ahead
   /// of the built-in ones.
   final Map<(String, int), List<EpisodeInfo>> episodesBySeason;
@@ -50,6 +59,10 @@ class FakeLookupSource extends LookupSource implements MusicSource {
 
   @override
   String get id => 'fake';
+
+  /// The fake stands in for TMDB in the walks and the tests.
+  @override
+  String get name => 'TMDB';
 
   @override
   Set<MediaType> get types => MediaType.values.toSet();
@@ -116,15 +129,23 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   Future<ShowSeasons?> seasons(String source) async {
     await _call('seasons:$source');
     final canceled = canceledSources.contains(source);
+    final kind = kindBySource[source];
     if (seasonsBySource[source] case final seasons?) {
-      return (seasons: seasons, canceled: canceled);
+      return (seasons: seasons, canceled: canceled, kind: kind);
     }
     for (final match in fakeCatalog) {
       if (match.source == source) {
-        return (seasons: match.seasons, canceled: canceled);
+        return (seasons: match.seasons, canceled: canceled, kind: kind);
       }
     }
     return null;
+  }
+
+  @override
+  Future<SeriesParts?> seriesParts(String source, {String? name}) async {
+    await _call('series:$source');
+    if (seriesBySource.containsKey(source)) return seriesBySource[source];
+    return _seriesBySource[source];
   }
 
   @override
@@ -208,11 +229,87 @@ const _trackListsBySource = <String, List<TrackInfo>>{
   ],
 };
 
+/// Series for the fixture's The Lord of the Rings movies (Library › Movie in
+/// a series) and Berserk volumes (Library › Book in a long series; All
+/// volumes in a series), matched on the device as `fake:<slug>`, so each
+/// owned part finds the same list.
+final _seriesBySource = <String, SeriesParts>{
+  for (final slug in [
+    'the-lord-of-the-rings-the-fellowship-of-the-ring',
+    'the-lord-of-the-rings-the-two-towers',
+    'the-lord-of-the-rings-the-return-of-the-king',
+  ])
+    'fake:$slug': _lordOfTheRings,
+  for (final n in [1, 42, 43]) 'fake:berserk-vol-$n': _berserk,
+};
+
+const _lordOfTheRings = (
+  name: 'The Lord of the Rings',
+  parts: <SeriesPart>[
+    (
+      number: 1,
+      title: 'The Lord of the Rings: The Fellowship of the Ring',
+      year: 2001,
+      source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
+    ),
+    (
+      number: 2,
+      title: 'The Lord of the Rings: The Two Towers',
+      year: 2002,
+      source: 'fake:the-lord-of-the-rings-the-two-towers',
+    ),
+    (
+      number: 3,
+      title: 'The Lord of the Rings: The Return of the King',
+      year: 2003,
+      source: 'fake:the-lord-of-the-rings-the-return-of-the-king',
+    ),
+  ],
+);
+
+/// 43 volumes; the years are sample data, like the canvas's.
+final _berserk = (
+  name: 'Berserk',
+  parts: <SeriesPart>[
+    for (var n = 1; n <= 43; n++)
+      (
+        number: n,
+        title: 'Berserk, Vol. $n',
+        year: switch (n) {
+          41 => 2018,
+          42 => 2021,
+          43 => 2025,
+          _ => 1990 + ((n - 1) * 27 / 39).round(),
+        },
+        source: 'fake:berserk-vol-$n',
+      ),
+  ],
+);
+
 /// Episodes for the fixture's Stranger Things season 1 (all out on one day,
 /// Show & seasons › Season episodes (all out)), The Haunting of Hill House (one
-/// season, Show & seasons › Episodes of a one-season show) and Severance
-/// seasons 1 and 2 (weekly), matched on the device as `fake:<slug>`.
+/// season, Show & seasons › Episodes of a one-season show), Severance
+/// seasons 1 and 2 (weekly) and Frieren's two seasons (an anime series, Show &
+/// seasons › Anime season episodes), matched on the device as `fake:<slug>`.
 final _episodesBySeason = <(String, int), List<EpisodeInfo>>{
+  ('fake:frieren-beyond-journeys-end', 1): _weekly(DateTime(2023, 9, 29), const [
+    ("The Journey's End", 24),
+    ("It Didn't Have to Be Magic", 24),
+    ('Killing Magic', 24),
+    ('The Land Where Souls Rest', 24),
+  ]),
+  ('fake:frieren-beyond-journeys-end', 2): _weekly(DateTime(2026, 1, 16), const [
+    ('A New Journey', 24),
+    ('The Northern Road', 24),
+    ('First-Class Mages', 24),
+    ('The Old Bridge', 24),
+    ('Snowfall', 24),
+    ('A Familiar Spell', 24),
+    ('The Village Festival', 24),
+    ('Graves of Heroes', 24),
+    ('Echoes', 24),
+    ('Spring Again', 24),
+  ]),
   ('fake:stranger-things', 1): _sameDay(Released(2016, 7, 15), const [
     ('Chapter One: The Vanishing of Will Byers', 47),
     ('Chapter Two: The Weirdo on Maple Street', 55),
@@ -462,12 +559,31 @@ const fakeCatalog = <LookupMatch>[
     tags: ['animation', 'comedy', 'fantasy'],
   ),
   LookupMatch(
+    source: 'anilist:154587',
+    coverUrl: 'fake://cover/poster/anilist:154587',
+    type: MediaType.anime,
+    title: "Frieren: Beyond Journey's End",
+    released: Released(2023, 9, 29),
+    creator: 'Madhouse',
+    companies: ['Madhouse'],
+    description:
+        'An elf mage outlives the hero\u2019s party she traveled with and '
+        'sets out to understand the people she lost.',
+    tags: ['adventure', 'fantasy', 'drama'],
+    kind: EntryKind.series,
+    seasons: [
+      Season(season: 1, released: Released(2023, 9, 29)),
+      Season(season: 2, released: Released(2026, 1, 16)),
+    ],
+  ),
+  LookupMatch(
     source: 'anilist:199',
     coverUrl: 'fake://cover/poster/anilist:199',
     type: MediaType.anime,
     title: 'Spirited Away',
     released: Released(2001, 7, 20),
     creator: 'Studio Ghibli',
+    kind: EntryKind.movie,
     description:
         'Chihiro works in a bathhouse for spirits to free her parents.',
     companies: ['Studio Ghibli'],
@@ -480,6 +596,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Akira',
     released: Released(1988),
     creator: 'Katsuhiro Otomo',
+    kind: EntryKind.movie,
     description: 'A biker gang, a secret military project and Neo-Tokyo.',
     tags: ['2d', 'scifi', 'cyberpunk', 'classic'],
   ),
@@ -524,6 +641,7 @@ const fakeCatalog = <LookupMatch>[
     title: 'Perfect Blue',
     released: Released(1997),
     creator: 'Satoshi Kon',
+    kind: EntryKind.movie,
     description: 'A pop idol turned actress loses her grip on what is real.',
     tags: ['2d', 'thriller', 'psychological', 'dark'],
   ),

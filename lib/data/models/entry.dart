@@ -4,9 +4,10 @@ import 'book_format.dart';
 import 'date_only_converter.dart';
 import 'entry_status.dart';
 import 'media_type.dart';
-import 'music_kind.dart';
+import 'entry_kind.dart';
 import 'released.dart';
 import 'season.dart';
+import 'series.dart';
 import 'track.dart';
 
 part 'entry.freezed.dart';
@@ -49,11 +50,16 @@ abstract class Entry with _$Entry {
 
     /// The page count, from the lookup or typed in Add / edit entry.
     @JsonKey(includeIfNull: false) int? pages,
-    // Music.
-    @JsonKey(includeIfNull: false) MusicKind? kind,
+
+    /// The series the entry is part of (movies, books, games and anime
+    /// movies), from the lookup or typed in Add / edit entry.
+    @JsonKey(includeIfNull: false) Series? series,
+    // Music (album, song) and anime (series, movie).
+    @JsonKey(includeIfNull: false) EntryKind? kind,
     @JsonKey(includeIfNull: false) String? album,
     @JsonKey(includeIfNull: false) List<Track>? tracks,
-    // Shows: in season number order, omitted when the show has none.
+    // Shows and anime series: in season number order, omitted when the
+    // show has none.
     @JsonKey(includeIfNull: false) List<Season>? seasons,
   }) = _Entry;
 
@@ -70,12 +76,33 @@ abstract class Entry with _$Entry {
   /// and its screens list them. A show with one season looks like a movie.
   bool get hasSeasonList => (seasons?.length ?? 0) > 1;
 
-  /// The entry with [seasons] and, for a show, the status they give.
+  /// A show, or an anime series (`"kind": "series"`): its seasons carry the
+  /// dates and statuses, and the seasons code (Show & seasons) applies to
+  /// it. An anime movie, or an anime whose kind is not known yet, is like a
+  /// movie: one date, no seasons.
+  bool get usesSeasons =>
+      type == MediaType.shows ||
+      (type == MediaType.anime && kind == EntryKind.series);
+
+  /// Whether an entry of [type] and [kind] can belong to a series (Library ›
+  /// Movie in a series): movies, books, games and anime movies. Shows and
+  /// anime series use seasons instead.
+  static bool typeHasSeries(MediaType type, EntryKind? kind) =>
+      switch (type) {
+        MediaType.movies || MediaType.books || MediaType.games => true,
+        MediaType.anime => kind != EntryKind.series,
+        MediaType.shows || MediaType.music => false,
+      };
+
+  bool get canHaveSeries => typeHasSeries(type, kind);
+
+  /// The entry with [seasons] and, when it [usesSeasons], the status they
+  /// give.
   Entry withSeasons(List<Season>? seasons, {DateTime? today}) {
     final list = seasons == null || seasons.isEmpty ? null : seasons;
     return copyWith(
       seasons: list,
-      status: list == null || type != MediaType.shows
+      status: list == null || !usesSeasons
           ? status
           : Season.showStatus(list, today ?? seasonClock()),
     );

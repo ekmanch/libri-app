@@ -7,6 +7,7 @@ import '../../dev/fake_lookup.dart';
 import '../library_providers.dart';
 import '../storage/json_file.dart';
 import 'anilist_source.dart';
+import 'anime_link_store.dart';
 import 'deezer_source.dart';
 import 'episode_service.dart';
 import 'episode_store.dart';
@@ -19,9 +20,12 @@ import 'lookup_service.dart';
 import 'lookup_source.dart';
 import 'open_library_source.dart';
 import 'season_check.dart';
+import 'series_service.dart';
+import 'series_store.dart';
 import 'tmdb_source.dart';
 import 'track_list_service.dart';
 import 'track_list_store.dart';
+import 'wikidata_series.dart';
 import '../images/artwork_providers.dart';
 import '../models/entry.dart';
 import '../models/entry_status.dart';
@@ -36,6 +40,9 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
   }
   final client = ref.watch(httpClientProvider);
   final cache = ref.watch(appCacheDirectoryProvider);
+  // An anime series' seasons and episodes come from TMDB when it has a
+  // match there (Show & seasons › Anime with seasons (Frieren)).
+  final tmdb = TmdbSource(client, token: LookupKeys.tmdbReadToken);
   return [
     IgdbSource(
       client,
@@ -45,12 +52,13 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
         JsonFile(File('${cache.path}${Platform.pathSeparator}igdb_token.json')),
       ),
     ),
-    TmdbSource(client, token: LookupKeys.tmdbReadToken),
-    AniListSource(client),
+    tmdb,
+    AniListSource(client, tmdb: tmdb, links: FileAnimeLinkStore(cache)),
     OpenLibrarySource(
       client,
       apple: ITunesBooks(client),
       google: GoogleBooks(client, key: LookupKeys.googleBooksKey),
+      wikidata: WikidataSeries(client),
     ),
     DeezerSource(client),
   ];
@@ -128,6 +136,50 @@ final seasonEpisodesProvider = StreamProvider.autoDispose
       // season again asks again.
       retry: (_, _) => null,
     );
+
+/// The parts of the series an entry belongs to (Library › Movie in a series;
+/// Book in a long series), stored under the app cache folder. The fake
+/// overrides keep them in memory.
+final seriesServiceProvider = Provider<SeriesService>(
+  (ref) => SeriesService(
+    lookups: ref.watch(lookupServiceProvider),
+    resolver: ref.watch(artworkResolverProvider),
+    store: FileSeriesStore(ref.watch(appCacheDirectoryProvider)),
+  ),
+);
+
+/// The series of the entry `entryId`: the stored parts, then the fetched
+/// ones; null when none could be found, an error when the fetch failed with
+/// nothing stored. Fetched again when the entry's source, title, creator or
+/// series change, not when its status does.
+final seriesPartsProvider = StreamProvider.autoDispose
+    .family<SeriesList?, String>(
+      (ref, entryId) {
+        final entry = ref.watch(
+          libraryProvider.select((l) => _seriesKey(l.value?.entryById(entryId))),
+        );
+        if (entry == null || entry.series == null) return Stream.value(null);
+        return ref.watch(seriesServiceProvider).load(entry);
+      },
+      // No automatic retry: opening the details again asks again.
+      retry: (_, _) => null,
+    );
+
+/// The fields the series depend on, so a status pick does not refetch.
+Entry? _seriesKey(Entry? entry) => entry == null
+    ? null
+    : Entry(
+        id: entry.id,
+        type: entry.type,
+        title: entry.title,
+        released: entry.released,
+        creator: entry.creator,
+        status: EntryStatus.want,
+        added: entry.added,
+        source: entry.source,
+        kind: entry.kind,
+        series: entry.series,
+      );
 
 /// The fields the episodes depend on, so a status pick does not refetch.
 Entry? _showKey(Entry? entry) => entry == null

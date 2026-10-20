@@ -49,3 +49,20 @@ int? firstPublishYear(Iterable<int> years, {int gap = 10}) {
   }
   return null;
 }
+
+/// A manga or comic volume number in a title: "Berserk, Vol. 43", "Berserk
+/// Volume 43", "Berserk #43" give the series "Berserk" and 43. Null when the
+/// title has none.
+({String name, int number})? volumeOf(String title) {
+  final match = _volume.firstMatch(title);
+  if (match == null) return null;
+  final name = match.group(1)!.replaceAll(RegExp(r'[\s,:–-]+$'), '').trim();
+  final number = int.tryParse(match.group(2)!);
+  if (name.isEmpty || number == null) return null;
+  return (name: name, number: number);
+}
+
+final _volume = RegExp(
+  r'^(.+?)[\s,:–-]+(?:vol\.?|volume|#)\s*(\d+)\b',
+  caseSensitive: false,
+);

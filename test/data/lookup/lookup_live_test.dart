@@ -19,6 +19,8 @@ import 'package:library_app/data/lookup/igdb_token_store.dart';
 import 'package:library_app/data/lookup/itunes_books.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
 import 'package:library_app/data/lookup/tmdb_source.dart';
+import 'package:library_app/data/lookup/wikidata_series.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/storage/json_file.dart';
 
@@ -225,7 +227,63 @@ void main() {
     expect(shows.first.source, startsWith('tmdb:tv:'));
     final show = await tmdb.details(shows.first);
     expect(show.creator, contains('Mazin'));
+    // A movie in a collection: its series, and the collection's parts.
+    final fellowship = await tmdb.details(
+      (await tmdb.search(
+        'The Fellowship of the Ring',
+        type: MediaType.movies,
+      )).firstWhere((m) => m.released?.year == 2001),
+    );
+    expect(fellowship.series?.name, 'The Lord of the Rings');
+    expect(fellowship.series?.number, 1);
+    final parts = await tmdb.seriesParts(fellowship.source);
+    expect(parts!.parts.length, greaterThanOrEqualTo(3));
+    expect(parts.parts[1].title, contains('Two Towers'));
   }, skip: tmdbToken.isEmpty ? 'Set TMDB_READ_TOKEN.' : false);
+
+  test(
+    'AniList: an anime series gets seasons, from TMDB when matched',
+    () async {
+      final tmdb = TmdbSource(client, token: tmdbToken);
+      final anilist = AniListSource(
+        client,
+        tmdb: tmdbToken.isEmpty ? null : tmdb,
+      );
+      final hits = await anilist.search('Frieren', type: MediaType.anime);
+      final frieren = hits.firstWhere((m) => m.source == 'anilist:154587');
+      expect(frieren.kind, EntryKind.series);
+      final full = await anilist.details(frieren);
+      expect(full.seasons.length, greaterThanOrEqualTo(2));
+      expect(full.seasons.first.released?.year, 2023);
+      final seasonSource = await anilist.seasonSource(frieren.source);
+      if (tmdbToken.isNotEmpty) {
+        expect(seasonSource, startsWith('tmdb:tv:'));
+        final episodes = await tmdb.seasonEpisodes(seasonSource, 1);
+        expect(episodes, isNotEmpty);
+      } else {
+        expect(seasonSource, frieren.source);
+      }
+      // The chain itself, whatever TMDB says: season 1 is 28 episodes.
+      final chain = await anilist.seasonEpisodes(frieren.source, 1);
+      expect(chain, hasLength(28));
+      expect(chain!.first.aired?.year, 2023);
+      final akira = await anilist.seasons('anilist:47');
+      expect(akira!.kind, EntryKind.movie);
+      expect(akira.seasons, isEmpty);
+    },
+  );
+
+  test('Wikidata: a book\'s series and its parts', () async {
+    final wikidata = WikidataSeries(client);
+    final found = await wikidata.seriesOf(
+      'The Fellowship of the Ring',
+      'J. R. R. Tolkien',
+    );
+    expect(found!.number, 1);
+    expect(found.parts.name, contains('Lord of the Rings'));
+    expect(found.parts.parts.length, greaterThanOrEqualTo(3));
+    expect(await wikidata.seriesOf('Dracula', 'Bram Stoker'), isNull);
+  });
 
   final igdbId = env['IGDB_CLIENT_ID'] ?? '';
   final igdbSecret = env['IGDB_CLIENT_SECRET'] ?? '';
@@ -249,6 +307,16 @@ void main() {
         await igdb.coverUrl(tlou.source, type: MediaType.games),
         contains('t_cover_big'),
       );
+      // A game in a collection: BioShock and its sequels.
+      final bioshock = (await igdb.search(
+        'BioShock',
+        type: MediaType.games,
+      )).firstWhere((m) => m.released?.year == 2007);
+      final full = await igdb.details(bioshock);
+      expect(full.series?.name, 'BioShock');
+      expect(full.series?.number, 1);
+      final parts = await igdb.seriesParts(bioshock.source);
+      expect(parts!.parts.map((p) => p.title), contains('BioShock 2'));
     },
     skip: igdbId.isEmpty || igdbSecret.isEmpty
         ? 'Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.'

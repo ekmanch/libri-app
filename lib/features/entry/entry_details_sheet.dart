@@ -8,7 +8,7 @@ import '../../data/lookup/text_clean.dart';
 import '../../data/lookup/track_info.dart';
 import '../../data/lookup/track_list_service.dart';
 import '../../data/models/entry.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/track.dart';
 import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
@@ -28,6 +28,7 @@ import 'delete_entry_dialog.dart';
 import 'entry_form_screen.dart';
 import 'rating_sheet.dart';
 import 'seasons.dart';
+import 'series.dart';
 
 /// Opens the entry details sheet (Library › Entry details) for the entry with
 /// [entryId].
@@ -39,20 +40,44 @@ Future<void> showEntryDetailsSheet(BuildContext context, String entryId) {
 }
 
 /// Entry details (Library › Entry details): cover spot, status, rating, note,
-/// about, tags, plans, Edit and Delete. A show lists its seasons; with more
-/// than one the status they give is a row (Show & seasons › Show with seasons
-/// (Haunted Hotel)), and with one the Status row holds Season 1's pill, which
-/// is the show's status (Show & seasons › One season (Carrie)). An album also
-/// gets its track list with track ratings (Music › Album with track ratings).
-/// Watches the library, so a change made here or in the edit form shows at
-/// once. Status and rating apply immediately.
-class EntryDetailsSheet extends ConsumerWidget {
+/// about, tags, plans, Edit and Delete. A show (or anime series) lists its
+/// seasons; with more than one the status they give is a row (Show & seasons ›
+/// Show with seasons (Haunted Hotel)), and with one the Status row holds
+/// Season 1's pill, which is the show's status (Show & seasons › One season
+/// (Carrie)). An entry in a series gets a Series section after Rating
+/// (Library › Movie in a series); another part opened from it takes the
+/// sheet over, scrolled back to the top. An album also gets its track list
+/// with track ratings (Music › Album with track ratings). Watches the
+/// library, so a change made here or in the edit form shows at once. Status
+/// and rating apply immediately.
+class EntryDetailsSheet extends ConsumerStatefulWidget {
   const EntryDetailsSheet({super.key, required this.entryId});
 
   final String entryId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EntryDetailsSheet> createState() => _EntryDetailsSheetState();
+}
+
+class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
+  late String entryId = widget.entryId;
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Another part of the series: the sheet shows it, from the top.
+  void _openPart(String id) {
+    if (id == entryId) return;
+    setState(() => entryId = id);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final libraryAsync = ref.watch(libraryProvider);
@@ -78,7 +103,7 @@ class EntryDetailsSheet extends ConsumerWidget {
     final showCover =
         ref.watch(displayPreferencesProvider).viewForEntry(entry) !=
         EntryView.text;
-    final isAlbum = entry.kind == MusicKind.album;
+    final isAlbum = entry.kind == EntryKind.album;
 
     Future<void> pickRating() async {
       final choice = await showRatingSheet(
@@ -129,6 +154,7 @@ class EntryDetailsSheet extends ConsumerWidget {
 
     return SheetFrame(
       scrollable: true,
+      controller: _scroll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -177,6 +203,10 @@ class EntryDetailsSheet extends ConsumerWidget {
           if (entry.seasons?.isNotEmpty ?? false) ...[
             const SizedBox(height: 13),
             SeasonsSection(show: entry),
+          ],
+          if (entry.series != null && entry.canHaveSeries) ...[
+            const SizedBox(height: 13),
+            SeriesSection(entry: entry, onOpen: _openPart),
           ],
           if (isAlbum) ...[
             const SizedBox(height: 13),

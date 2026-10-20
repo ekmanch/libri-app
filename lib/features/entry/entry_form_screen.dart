@@ -13,10 +13,11 @@ import '../../data/models/entry_id.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/platform_names.dart';
 import '../../data/models/released.dart';
 import '../../data/models/season.dart';
+import '../../data/models/series.dart';
 import '../../data/models/tag_category.dart';
 import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
@@ -74,7 +75,9 @@ Future<Entry?> openEditEntryForm(BuildContext context, Entry entry) {
 /// preceded by an [AddTag] for every tag created in the tag picker, and pops
 /// with the saved entry. Saving an album whose songs are saved, or a song whose
 /// album is, asks first (Add / edit entry › Saving an album: songs already
-/// saved; Saving a song: album already saved).
+/// saved; Saving a song: album already saved). A show, and an anime marked a
+/// series, has seasons instead of a date (Add / edit entry › Edit a show);
+/// movies, books, games and anime movies have Series and Number fields.
 class EntryFormScreen extends ConsumerStatefulWidget {
   const EntryFormScreen.edit(Entry this.entry, {super.key})
     : type = null,
@@ -116,7 +119,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   late final TextEditingController _otherPlatform;
   late final TextEditingController _album;
   late MediaType _type;
-  late MusicKind? _kind;
+
+  /// Album or song for music; series or movie for anime, null while not
+  /// known (an anime from before kinds, until picked).
+  late EntryKind? _kind;
   late Released? _released;
 
   /// The date is an Apple Books ebook's year, with no Open Library year to
@@ -150,6 +156,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   /// A book's page count, digits only; empty when unknown.
   late final TextEditingController _pages;
+
+  /// The series the entry is in and its number, for the types that can be
+  /// (Library › Movie in a series); empty when none.
+  late final TextEditingController _seriesName;
+  late final TextEditingController _seriesNumber;
   late bool _seasonalOnly;
   late String _description;
 
@@ -175,9 +186,12 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _type = entry?.type ?? match?.type ?? widget.type ?? MediaType.movies;
     _kind =
         entry?.kind ??
-        (_type == MediaType.music
-            ? (match?.album == null ? MusicKind.album : MusicKind.song)
-            : null);
+        switch (_type) {
+          MediaType.music =>
+            match?.album == null ? EntryKind.album : EntryKind.song,
+          MediaType.anime => match?.kind,
+          _ => null,
+        };
     _title = TextEditingController(
       text: entry?.title ?? match?.title ?? widget.title ?? '',
     );
@@ -212,6 +226,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _pages = TextEditingController(
       text: '${entry?.pages ?? match?.pages ?? ''}',
     );
+    final series = entry?.series ?? match?.series;
+    _seriesName = TextEditingController(text: series?.name ?? '');
+    _seriesNumber = TextEditingController(text: '${series?.number ?? ''}');
     _seasonalOnly = entry?.seasonalOnly ?? false;
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
@@ -229,6 +246,8 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _otherPlatform.dispose();
     _album.dispose();
     _pages.dispose();
+    _seriesName.dispose();
+    _seriesNumber.dispose();
     super.dispose();
   }
 
@@ -274,20 +293,41 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   bool get _canSave => !_saving && _title.text.trim().isNotEmpty;
 
+  /// A show, or an anime marked a series: seasons instead of a date.
+  bool get _usesSeasons =>
+      _type == MediaType.shows ||
+      (_type == MediaType.anime && _kind == EntryKind.series);
+
+  /// Whether the Series and Number fields show (Library › Movie in a
+  /// series): movies, books, games and anime that are not a series.
+  bool get _hasSeries => Entry.typeHasSeries(_type, _kind);
+
   /// A show always has a season: one without (a new show filled in by
   /// hand) starts with Season 1, holding the date and status it had.
   void _seedSeason() {
-    if (_type != MediaType.shows || _seasons.isNotEmpty) return;
+    if (!_usesSeasons || _seasons.isNotEmpty) return;
     _seasons = [
       Season(season: 1, released: _released, status: _status, manual: true),
     ];
   }
 
   /// The status a show's seasons give; [_status] for anything else.
-  EntryStatus get _effectiveStatus =>
-      _type == MediaType.shows && _seasons.isNotEmpty
+  EntryStatus get _effectiveStatus => _usesSeasons && _seasons.isNotEmpty
       ? Season.showStatus(_seasons, DateTime.now())
       : _status;
+
+  /// An anime's kind: a series gets seasons (its first from the date and
+  /// status it had); back to a movie, the date and status come from Season
+  /// 1 and the seasons are left behind.
+  void _pickAnimeKind(EntryKind kind) => setState(() {
+    if (kind == _kind) return;
+    if (kind == EntryKind.movie && _seasons.isNotEmpty) {
+      _released ??= _seasons.first.released;
+      _status = _effectiveStatus;
+    }
+    _kind = kind;
+    _seedSeason();
+  });
 
   /// A new season after the last, with no date or status yet. Added in the
   /// form, so the daily check never removes it.
@@ -580,15 +620,23 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     // Seasons that are all the user's own (a show filled in by hand, or
     // one from before seasons) give way to the lookup's, with the status
     // carried over.
+    if (_type == MediaType.anime && match.kind != null) {
+      _kind = match.kind;
+    }
     final fetched = Season.listable(match.seasons);
-    if (_type == MediaType.shows &&
+    if (_usesSeasons &&
         fetched.isNotEmpty &&
         _seasons.every((s) => s.isManual)) {
       _seasons = carryOverStatus(fetched, _effectiveStatus, DateTime.now());
     }
+    _seedSeason();
     if (_type == MediaType.music) {
-      _kind = match.album == null ? MusicKind.album : MusicKind.song;
+      _kind = match.album == null ? EntryKind.album : EntryKind.song;
       if (match.album case final album?) _album.text = album;
+    }
+    if (match.series case final series?) {
+      _seriesName.text = series.name;
+      _seriesNumber.text = '${series.number ?? ''}';
     }
     for (final platform in match.platforms) {
       _addPlatformOption(platform);
@@ -605,7 +653,12 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     setState(() {
       if (type != _type) _source = null;
       _type = type;
-      _kind = type == MediaType.music ? (_kind ?? MusicKind.album) : null;
+      _kind = switch (type) {
+        MediaType.music =>
+          EntryKind.musicKinds.contains(_kind) ? _kind : EntryKind.album,
+        MediaType.anime => EntryKind.animeKinds.contains(_kind) ? _kind : null,
+        _ => null,
+      };
       if (!_statusOptions.contains(_status)) _status = EntryStatus.want;
       _seedSeason();
     });
@@ -639,10 +692,52 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     });
   }
 
+  /// The Series and Number fields, side by side, the number 96 dp wide.
+  Widget _seriesFields() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const FieldLabel('Series'),
+                AppTextField(
+                  controller: _seriesName,
+                  hintText: 'Optional',
+                  textCapitalization: TextCapitalization.words,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 96,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const FieldLabel('Number'),
+                AppTextField(
+                  controller: _seriesNumber,
+                  hintText: '#',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  maxLength: 3,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Entry _buildEntry(Iterable<String> existingIds) {
     final title = _title.text.trim();
     final creator = _creator.text.trim();
-    final isShow = _type == MediaType.shows;
+    final isShow = _usesSeasons;
     // A show has no date of its own: its seasons do (Add / edit entry › Edit a
     // show).
     final released = isShow ? null : _released;
@@ -650,6 +745,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final platform = _platformOptions.where(_platformsOn.contains).join(', ');
     final album = _album.text.trim();
     final pages = int.tryParse(_pages.text.trim());
+    final seriesName = _seriesName.text.trim();
     final base = widget.entry;
     final now = DateTime.now();
     return Entry(
@@ -687,11 +783,17 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       pages: _type == MediaType.books && pages != null && pages > 0
           ? pages
           : null,
-      kind: isMusic ? _kind : null,
-      album: isMusic && _kind == MusicKind.song && album.isNotEmpty
+      series: _hasSeries && seriesName.isNotEmpty
+          ? Series(
+              name: seriesName,
+              number: int.tryParse(_seriesNumber.text.trim()),
+            )
+          : null,
+      kind: isMusic || _type == MediaType.anime ? _kind : null,
+      album: isMusic && _kind == EntryKind.song && album.isNotEmpty
           ? album
           : null,
-      tracks: isMusic && _kind == MusicKind.album ? base?.tracks : null,
+      tracks: isMusic && _kind == EntryKind.album ? base?.tracks : null,
       seasons: isShow && _seasons.isNotEmpty ? _seasons : null,
     );
   }
@@ -705,7 +807,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final replaced = <Entry>[];
     if (entry.type == MediaType.music && mounted) {
       final ReplaceChoice? choice;
-      if (entry.kind == MusicKind.song) {
+      if (entry.kind == EntryKind.song) {
         final album = albumOfSong(
           library,
           entry,
@@ -865,13 +967,27 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   if (_type == MediaType.music) ...[
                     const SizedBox(height: 14),
                     const FieldLabel('Album or song'),
-                    SegmentedControl<MusicKind>(
+                    SegmentedControl<EntryKind>(
                       segments: const [
-                        SegmentOption(MusicKind.album, 'Album'),
-                        SegmentOption(MusicKind.song, 'Song'),
+                        SegmentOption(EntryKind.album, 'Album'),
+                        SegmentOption(EntryKind.song, 'Song'),
                       ],
-                      selected: _kind ?? MusicKind.album,
+                      selected: _kind ?? EntryKind.album,
                       onChanged: (kind) => setState(() => _kind = kind),
+                    ),
+                  ],
+                  if (_type == MediaType.anime) ...[
+                    const SizedBox(height: 14),
+                    const FieldLabel('Series or movie'),
+                    // Nothing picked for an anime from before kinds, until
+                    // the owner says which it is.
+                    SegmentedControl<EntryKind?>(
+                      segments: const [
+                        SegmentOption(EntryKind.series, 'Series'),
+                        SegmentOption(EntryKind.movie, 'Movie'),
+                      ],
+                      selected: _kind,
+                      onChanged: (kind) => _pickAnimeKind(kind!),
                     ),
                   ],
                   const SizedBox(height: 14),
@@ -923,7 +1039,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                           ],
                         ],
                       );
-                      if (_type == MediaType.shows) return creatorField;
+                      if (_usesSeasons) return creatorField;
                       // The creator keeps at least 140 dp beside the date
                       // field: side by side on a 360 dp phone, stacked at a
                       // larger text size.
@@ -948,7 +1064,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                       );
                     },
                   ),
-                  if (_type == MediaType.shows) ...[
+                  // Series and Number (Library › Movie in a series): under
+                  // the creator, or under a book's Pages and Formats, as drawn.
+                  if (_hasSeries && _type != MediaType.books) _seriesFields(),
+                  if (_usesSeasons) ...[
                     const SizedBox(height: 14),
                     const FieldLabel('Seasons'),
                     for (final season in _seasons)
@@ -963,7 +1082,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                       ),
                     ),
                   ],
-                  if (_type == MediaType.music && _kind == MusicKind.song) ...[
+                  if (_type == MediaType.music && _kind == EntryKind.song) ...[
                     const SizedBox(height: 14),
                     const FieldLabel('Album'),
                     AppTextField(
@@ -1069,9 +1188,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                       ],
                     ),
                   ],
+                  if (_hasSeries && _type == MediaType.books) _seriesFields(),
                   const SizedBox(height: 14),
                   const FieldLabel('Status'),
-                  if (_type == MediaType.shows && _seasons.length > 1)
+                  if (_usesSeasons && _seasons.length > 1)
                     // The seasons set it (Add / edit entry › Edit a show).
                     DerivedStatusField(status: _effectiveStatus)
                   else
@@ -1084,7 +1204,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                         setState(() {
                           _status = status;
                           // A show with one season: that season's status.
-                          if (_type == MediaType.shows && _seasons.isNotEmpty) {
+                          if (_usesSeasons && _seasons.isNotEmpty) {
                             _seasons = [
                               _seasons.single.copyWith(
                                 status: status,

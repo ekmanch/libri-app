@@ -10,6 +10,8 @@ import '../data/lookup/episode_store.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_providers.dart';
 import '../data/lookup/season_check.dart';
+import '../data/lookup/series_service.dart';
+import '../data/lookup/series_store.dart';
 import '../data/lookup/track_list_service.dart';
 import '../data/lookup/track_list_store.dart';
 import 'fake_images.dart';
@@ -46,7 +48,7 @@ List<Override> fakeLookupOverrides({
   appCacheDirectoryProvider.overrideWithValue(
     cacheDirectory ?? Directory.systemTemp.createTempSync('libri-cache-'),
   ),
-  // The resolver's records, the track lists and the episodes stay in memory: no file
+  // The resolver's records, the track lists, the episodes and the series stay in memory: no file
   // the widget tests would have to wait for, no write timer pending.
   artworkResolverProvider.overrideWith(
     (ref) => ArtworkResolver(lookups: ref.watch(lookupServiceProvider)),
@@ -69,6 +71,13 @@ List<Override> fakeLookupOverrides({
       lookups: ref.watch(lookupServiceProvider),
       resolver: ref.watch(artworkResolverProvider),
       store: MemoryEpisodeStore(),
+    ),
+  ),
+  seriesServiceProvider.overrideWith(
+    (ref) => SeriesService(
+      lookups: ref.watch(lookupServiceProvider),
+      resolver: ref.watch(artworkResolverProvider),
+      store: MemorySeriesStore(),
     ),
   ),
 ];

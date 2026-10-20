@@ -1,3 +1,4 @@
+import '../models/entry_kind.dart';
 import '../models/media_type.dart';
 import '../models/season.dart';
 import 'episode_info.dart';
@@ -9,6 +10,9 @@ import 'lookup_match.dart';
 abstract class LookupSource {
   /// The provider part of the ids it issues: "tmdb" for "tmdb:movie:603".
   String get id;
+
+  /// The provider's name for the credit under a season's episodes: "TMDB".
+  String get name => id;
 
   Set<MediaType> get types;
 
@@ -42,9 +46,14 @@ abstract class LookupSource {
   Future<LookupMatch> details(LookupMatch match) async => match;
 
   /// The seasons of the show with [source], as in [LookupMatch.seasons],
-  /// and whether the show is canceled, for the daily check. Null from a
-  /// source without shows.
+  /// whether the show is canceled, and for an anime whether it is a series
+  /// or a movie, for the daily check. Null from a source without shows.
   Future<ShowSeasons?> seasons(String source) async => null;
+
+  /// The id the seasons' episodes are read under: [source] itself, or for an
+  /// anime series the TMDB show it was matched to (Show & seasons › Anime with
+  /// seasons (Frieren)), so the episodes come from there.
+  Future<String> seasonSource(String source) async => source;
 
   /// The episodes of [season] of the show with [source], in number order, for
   /// the season screen (Show & seasons › Season episodes (all out) and Season
@@ -53,10 +62,27 @@ abstract class LookupSource {
   Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async =>
       null;
 
+  /// The series the title with [source] belongs to, with every part in the
+  /// series' own order (Library › Movie in a series; All volumes in a series),
+  /// or null when the provider knows no series for it. [name] is the series
+  /// name the entry carries, for a provider that lists parts by name (Open
+  /// Library's manga volumes).
+  Future<SeriesParts?> seriesParts(String source, {String? name}) async =>
+      null;
+
   /// A cover image for an entry with [source], sized for the cache, or
   /// null when the provider has none.
   Future<String?> coverUrl(String source, {required MediaType type});
 }
 
-/// A show's seasons as the lookup lists them, and whether it is canceled.
-typedef ShowSeasons = ({List<Season> seasons, bool canceled});
+/// A show's seasons as the lookup lists them, whether it is canceled, and
+/// for an anime its kind (null for a show, or when the lookup cannot say).
+typedef ShowSeasons = ({List<Season> seasons, bool canceled, EntryKind? kind});
+
+/// One part of a series as the lookup lists it: its number in the series
+/// (null when the source gives none), its title, its year and its lookup id
+/// (so a part in the library is matched to it, and "+ Add" can look it up).
+typedef SeriesPart = ({int? number, String title, int? year, String? source});
+
+/// A series: its name and its parts in the source's order.
+typedef SeriesParts = ({String name, List<SeriesPart> parts});

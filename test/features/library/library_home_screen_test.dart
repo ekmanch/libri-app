@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/features/music/music_tab.dart';
 import 'package:library_app/features/library/cover_grid_tile.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
@@ -147,16 +147,17 @@ void main() {
     tester,
   ) async {
     final container = await pumpApp(tester, const LibraryHomeScreen());
-    await pickChip(tester, 'Books');
-    final books = visibleOf(MediaType.books);
-    expect(container.read(homeTypeProvider), MediaType.books);
+    // Shows: few enough that every row is on screen at once.
+    await pickChip(tester, 'Shows');
+    final shows = visibleOf(MediaType.shows);
+    expect(container.read(homeTypeProvider), MediaType.shows);
     expect(find.text('MOVIES'), findsNothing);
-    expect(find.text('BOOKS'), findsNothing);
+    expect(find.text('SHOWS'), findsNothing);
     expect(find.text('ACTIVE PLAN'), findsNothing);
     expect(find.byType(StatusSegmentedControl), findsOneWidget);
-    expect(find.text('${books.length} books'), findsOneWidget);
-    expect(find.byType(EntryRow), findsNWidgets(books.length));
-    expect(find.text('Search books'), findsOneWidget);
+    expect(find.text('${shows.length} shows'), findsOneWidget);
+    expect(find.byType(EntryRow), findsNWidgets(shows.length));
+    expect(find.text('Search shows'), findsOneWidget);
     expect(find.text('Newest added'), findsOneWidget);
     expect(find.byTooltip('Change view'), findsOneWidget);
 
@@ -244,10 +245,10 @@ void main() {
 
     testWidgets('a short list leaves the header where it is', (tester) async {
       await pumpApp(tester, const LibraryHomeScreen());
-      await pickChip(tester, 'Books');
+      await pickChip(tester, 'Shows');
       await tester.drag(find.byType(EntryRow).first, const Offset(0, -400));
       await tester.pumpAndSettle();
-      // Three books and the header fit on one screen: nothing to scroll.
+      // Eight shows and the header fit on one screen: nothing to scroll.
       expect(find.text('Library'), findsOneWidget);
       expect(find.byType(StatusSegmentedControl), findsOneWidget);
     });
@@ -273,11 +274,12 @@ void main() {
 
   testWidgets('a type heading opens that type, like its chip', (tester) async {
     final container = await pumpApp(tester, const LibraryHomeScreen());
-    await tester.tap(find.bySemanticsLabel('Show all movies'));
+    await tester.tap(find.bySemanticsLabel('Show all shows'));
     await tester.pumpAndSettle();
-    expect(container.read(homeTypeProvider), MediaType.movies);
-    expect(find.text('${movies.length} movies'), findsOneWidget);
-    expect(find.byType(EntryRow), findsNWidgets(movies.length));
+    expect(container.read(homeTypeProvider), MediaType.shows);
+    final shows = visibleOf(MediaType.shows);
+    expect(find.text('${shows.length} shows'), findsOneWidget);
+    expect(find.byType(EntryRow), findsNWidgets(shows.length));
   });
 
   testWidgets('segments filter by status and reset when the type changes', (
@@ -749,7 +751,7 @@ void main() {
           .set(
             const LibraryFilter(
               types: {MediaType.music},
-              kinds: {MusicKind.album, MusicKind.song},
+              kinds: {EntryKind.album, EntryKind.song},
             ),
           );
       await tester.pumpAndSettle();

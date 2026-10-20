@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
 import 'package:library_app/features/music/artist_screen.dart';
@@ -16,7 +16,7 @@ void main() {
   final would = dirt.copyWith(
     id: 'music/would-alice-in-chains',
     title: 'Would?',
-    kind: MusicKind.song,
+    kind: EntryKind.song,
     album: 'Dirt',
     tracks: null,
   );

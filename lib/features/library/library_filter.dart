@@ -4,7 +4,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/tag_category.dart';
 import '../../widgets/labels.dart';
 
@@ -85,7 +85,7 @@ class LibraryFilter {
 
   final Set<MediaType> types;
   final Set<EntryStatus> statuses;
-  final Set<MusicKind> kinds;
+  final Set<EntryKind> kinds;
   final Set<Decade> decades;
   final Set<String> tags;
   final bool includeSeasonalOnly;
@@ -179,7 +179,7 @@ class LibraryFilter {
   static LibraryFilter ofTypeView(
     MediaType? type, {
     EntryStatus? status,
-    MusicKind? kind,
+    EntryKind? kind,
   }) => LibraryFilter(types: {?type}, statuses: {?status}, kinds: {?kind});
 
   /// The Kind group shows only with music chosen.
@@ -235,7 +235,7 @@ class LibraryFilter {
     if (statuses.isNotEmpty && !statuses.contains(entry.status)) return false;
     if (kinds.isNotEmpty &&
         entry.type == MediaType.music &&
-        !kinds.contains(entry.kind ?? MusicKind.album)) {
+        !kinds.contains(entry.kind ?? EntryKind.album)) {
       return false;
     }
     if (decades.isNotEmpty && !decades.contains(Decade.of(entry.year))) {
@@ -249,7 +249,7 @@ class LibraryFilter {
   LibraryFilter copyWith({
     Set<MediaType>? types,
     Set<EntryStatus>? statuses,
-    Set<MusicKind>? kinds,
+    Set<EntryKind>? kinds,
     Set<Decade>? decades,
     Set<String>? tags,
     bool? includeSeasonalOnly,
@@ -278,7 +278,7 @@ class LibraryFilter {
 
   LibraryFilter toggleStatus(EntryStatus s) =>
       copyWith(statuses: _toggled(statuses, s));
-  LibraryFilter toggleKind(MusicKind k) => copyWith(kinds: _toggled(kinds, k));
+  LibraryFilter toggleKind(EntryKind k) => copyWith(kinds: _toggled(kinds, k));
   LibraryFilter toggleDecade(Decade d) =>
       copyWith(decades: _toggled(decades, d));
   LibraryFilter toggleTag(String tag) => copyWith(tags: _toggled(tags, tag));
@@ -291,7 +291,7 @@ class LibraryFilter {
     for (final s in EntryStatus.values)
       if (statuses.contains(s))
         ActiveFilterChip(s.label, (f) => f.toggleStatus(s)),
-    for (final k in MusicKind.values)
+    for (final k in EntryKind.musicKinds)
       if (kinds.contains(k)) ActiveFilterChip(k.label, (f) => f.toggleKind(k)),
     for (final d in decades.toList()..sort())
       ActiveFilterChip(d.label, (f) => f.toggleDecade(d)),
@@ -326,7 +326,7 @@ class LibraryFilter {
 
 /// The home's type view: the picked type, its status segment and, for
 /// music, the Albums or Songs tab (null kind is the Artists tab).
-typedef TypeView = ({MediaType type, EntryStatus? status, MusicKind? kind});
+typedef TypeView = ({MediaType type, EntryStatus? status, EntryKind? kind});
 
 /// One active filter and how to remove it.
 class ActiveFilterChip {

@@ -10,6 +10,8 @@ import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/storage/json_file.dart';
+import 'package:library_app/data/lookup/lookup_match.dart';
+import 'package:library_app/data/models/series.dart';
 
 void main() {
   late Directory dir;
@@ -273,5 +275,91 @@ void main() {
       ),
     );
     expect(sent, isEmpty);
+  });
+
+  group('collections', () {
+    final bioshock = {
+      'id': 20,
+      'name': 'BioShock',
+      'collection': {
+        'id': 7,
+        'name': 'BioShock',
+        'games': [
+          {
+            'id': 21,
+            'name': 'BioShock 2',
+            'first_release_date': 1265760000,
+            'game_type': 0,
+          },
+          {
+            'id': 20,
+            'name': 'BioShock',
+            'first_release_date': 1187654400,
+            'game_type': 0,
+          },
+          {
+            'id': 22,
+            'name': 'BioShock Infinite',
+            'first_release_date': 1364256000,
+            'game_type': {'id': 0, 'type': 'Main Game'},
+          },
+          {
+            'id': 23,
+            'name': 'BioShock: The Collection',
+            'first_release_date': 1473811200,
+            'game_type': 3,
+          },
+          {
+            'id': 24,
+            'name': 'BioShock Remastered',
+            'first_release_date': 1473811200,
+            'game_type': 9,
+          },
+          {
+            'id': 25,
+            'name': 'BioShock Infinite: Complete Edition',
+            'first_release_date': 1415577600,
+            'version_parent': 22,
+          },
+          {'id': 26, 'name': 'BioShock 4', 'game_type': 0},
+        ],
+      },
+    };
+
+    test('details and seriesParts read the collection: main games and remakes, in date order', () async {
+      final igdb = source((_) async => json(200, [bioshock]));
+      final full = await igdb.details(
+        const LookupMatch(
+          type: MediaType.games,
+          title: 'BioShock',
+          source: 'igdb:20',
+        ),
+      );
+      expect(full.series, const Series(name: 'BioShock', number: 1));
+      expect(
+        sent.last.body,
+        'fields collection.name,collection.games.name,'
+        'collection.games.first_release_date,collection.games.game_type,'
+        'collection.games.version_parent; where id = 20; limit 1;',
+      );
+      final parts = await igdb.seriesParts('igdb:20');
+      expect(parts!.parts.map((p) => (p.number, p.title, p.year, p.source)), [
+        (1, 'BioShock', 2007, 'igdb:20'),
+        (2, 'BioShock 2', 2010, 'igdb:21'),
+        (3, 'BioShock Infinite', 2013, 'igdb:22'),
+        (4, 'BioShock 4', null, 'igdb:26'),
+      ]);
+    });
+
+    test('a game in no collection has none', () async {
+      final igdb = source((_) async => json(200, [tlou]));
+      expect(await igdb.seriesParts('igdb:1009'), isNull);
+      final match = const LookupMatch(
+        type: MediaType.games,
+        title: 'x',
+        source: 'igdb:1009',
+      );
+      expect(await igdb.details(match), match);
+    });
   });
 }

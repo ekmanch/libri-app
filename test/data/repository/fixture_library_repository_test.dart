@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 
@@ -35,15 +35,15 @@ void main() {
 
     final music = library.entriesOfType(MediaType.music);
     expect(
-      music.where((e) => e.kind == MusicKind.album && e.tracks != null),
+      music.where((e) => e.kind == EntryKind.album && e.tracks != null),
       isNotEmpty,
     );
     expect(
-      music.where((e) => e.kind == MusicKind.song && e.album != null),
+      music.where((e) => e.kind == EntryKind.song && e.album != null),
       isNotEmpty,
     );
     expect(
-      music.where((e) => e.kind == MusicKind.song && e.album == null),
+      music.where((e) => e.kind == EntryKind.song && e.album == null),
       isNotEmpty,
     );
     expect(music.where((e) => e.creator == 'Various Artists'), isNotEmpty);

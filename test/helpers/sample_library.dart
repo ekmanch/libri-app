@@ -2,7 +2,7 @@ import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/plan.dart';
 import 'package:library_app/data/models/plan_item.dart';
 import 'package:library_app/data/models/released.dart';
@@ -31,7 +31,7 @@ final dirt = Entry(
   rating: 10,
   tags: const ['grunge'],
   added: DateTime(2026, 1, 15),
-  kind: MusicKind.album,
+  kind: EntryKind.album,
   tracks: const [Track(title: 'Rooster', id: 'mb:1', rating: 10)],
 );
 

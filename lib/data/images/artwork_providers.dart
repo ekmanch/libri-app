@@ -9,9 +9,9 @@ import '../../features/music/artist_index.dart';
 import '../library_providers.dart';
 import '../lookup/lookup_providers.dart';
 import '../models/library.dart';
-import '../models/media_type.dart';
-import '../models/music_kind.dart';
+import '../models/entry_kind.dart';
 import '../lookup/episode_service.dart';
+import '../lookup/series_service.dart';
 import '../lookup/track_list_service.dart';
 import '../storage/json_file.dart';
 import 'artwork_resolver.dart';
@@ -66,6 +66,7 @@ void startArtworkPruner(Ref ref) {
         images: ref.read(imageCacheProvider),
         tracks: ref.read(trackListServiceProvider),
         episodes: ref.read(episodeServiceProvider),
+        series: ref.read(seriesServiceProvider),
       ).run(current);
     });
   }, fireImmediately: true);
@@ -79,12 +80,14 @@ class ArtworkPruner {
     required this.images,
     this.tracks,
     this.episodes,
+    this.series,
   });
 
   final ArtworkResolver resolver;
   final ImageCacheStore images;
   final TrackListService? tracks;
   final EpisodeService? episodes;
+  final SeriesService? series;
 
   static const delay = Duration(seconds: 15);
 
@@ -96,11 +99,15 @@ class ArtworkPruner {
     await images.prune(keep);
     await tracks?.prune([
       for (final e in library.entries)
-        if (e.kind == MusicKind.album) e,
+        if (e.kind == EntryKind.album) e,
     ]);
     await episodes?.prune([
       for (final e in library.entries)
-        if (e.type == MediaType.shows) e,
+        if (e.usesSeasons) e,
+    ]);
+    await series?.prune([
+      for (final e in library.entries)
+        if (e.series != null) e,
     ]);
   }
 }

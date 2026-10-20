@@ -13,6 +13,7 @@ import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/dev/fake_lookup.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 
 void main() {
   final now = DateTime(2026, 10, 18, 9, 30);
@@ -348,6 +349,149 @@ void main() {
     final store = FileSeasonCheckStore(dir);
     expect(await store.lastRun(), DateTime(2026, 10, 18));
     expect(await store.missing(), {'shows/a#3', 'shows/b#2'});
+  });
+
+  group('anime', () {
+    Entry anime(
+      String slug,
+      EntryStatus status, {
+      EntryKind? kind,
+      List<Season>? seasons,
+      Released? released,
+    }) => Entry(
+      id: 'anime/$slug',
+      type: MediaType.anime,
+      title: slug,
+      status: status,
+      released: released,
+      added: DateTime(2026, 1, 1),
+      source: 'anilist:$slug',
+      kind: kind,
+      seasons: seasons,
+    );
+
+    test(
+      'a series linked to AniList is asked like a show; a movie is not',
+      () async {
+        setUpCheck(
+          seasons: {'anilist:series': fetched, 'anilist:unknown': fetched},
+        );
+        await check.run(
+          library([
+            anime(
+              'series',
+              EntryStatus.inProgress,
+              kind: EntryKind.series,
+              seasons: two,
+            ),
+            anime('movie', EntryStatus.done, kind: EntryKind.movie),
+            anime('unknown', EntryStatus.done, released: const Released(2022)),
+            anime('dnf', EntryStatus.dnf, kind: EntryKind.series, seasons: two),
+          ]),
+          now,
+        );
+        expect(fake.calls, [
+          'seasons:anilist:series',
+          'seasons:anilist:unknown',
+        ]);
+      },
+    );
+
+    test(
+      'an anime without a kind learns it: a series gets its seasons',
+      () async {
+        setUpCheck(seasons: {'anilist:frieren': fetched});
+        fake = FakeLookupSource(
+          seasonsBySource: {'anilist:frieren': fetched},
+          kindBySource: {'anilist:frieren': EntryKind.series},
+        );
+        check = SeasonCheck(lookups: LookupService([fake]), store: store);
+        final entry = anime(
+          'frieren',
+          EntryStatus.done,
+          released: const Released(2023),
+        );
+        final result = await check.run(library([entry]), now);
+        expect(result.operations.map((o) => o.runtimeType), [
+          SetKind,
+          AddSeasons,
+        ]);
+        var lib = library([entry]);
+        for (final op in result.operations) {
+          lib = op.apply(lib);
+        }
+        final after = lib.entries.single;
+        expect(after.kind, EntryKind.series);
+        expect(after.usesSeasons, isTrue);
+        expect(after.released, isNull);
+        // Done carried into the seasons out; the show stays Done.
+        expect(after.seasons!.map((s) => s.status), [
+          EntryStatus.done,
+          EntryStatus.done,
+          null,
+        ]);
+        expect(after.status, EntryStatus.done);
+      },
+    );
+
+    test(
+      'an anime without a kind that is a movie is marked so and left alone',
+      () async {
+        fake = FakeLookupSource(
+          seasonsBySource: {'anilist:akira': const []},
+          kindBySource: {'anilist:akira': EntryKind.movie},
+        );
+        store = MemorySeasonCheckStore();
+        check = SeasonCheck(lookups: LookupService([fake]), store: store);
+        final entry = anime(
+          'akira',
+          EntryStatus.done,
+          released: const Released(1988),
+        );
+        final result = await check.run(library([entry]), now);
+        final op = result.operations.single as SetKind;
+        expect(op.kind, EntryKind.movie);
+        final after = op.apply(library([entry])).entries.single;
+        expect(after.released, const Released(1988));
+        expect(after.seasons, isNull);
+        // Known a movie now: never asked again.
+        store = MemorySeasonCheckStore();
+        check = SeasonCheck(lookups: LookupService([fake]), store: store);
+        fake.calls.clear();
+        await check.run(library([after]), now);
+        expect(fake.calls, isEmpty);
+      },
+    );
+
+    test(
+      'a lookup that cannot say the kind leaves the anime as it is',
+      () async {
+        fake = FakeLookupSource(seasonsBySource: {'anilist:x': fetched});
+        store = MemorySeasonCheckStore();
+        check = SeasonCheck(lookups: LookupService([fake]), store: store);
+        final result = await check.run(
+          library([
+            anime('x', EntryStatus.done, released: const Released(2022)),
+          ]),
+          now,
+        );
+        expect(result.operations, isEmpty);
+      },
+    );
+
+    test('a drifted status is written for an anime series too', () async {
+      setUpCheck();
+      final entry = anime(
+        'drift',
+        EntryStatus.want,
+        kind: EntryKind.series,
+        seasons: const [
+          Season(season: 1, released: Released(2022), status: EntryStatus.done),
+        ],
+      ).copyWith(source: null);
+      final result = await check.run(library([entry]), now);
+      expect(result.operations.single, isA<RefreshShowStatus>());
+    });
   });
 }
 

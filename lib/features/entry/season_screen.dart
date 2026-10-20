@@ -270,7 +270,7 @@ class SeasonScreen extends ConsumerWidget {
                       ),
                     const SizedBox(height: 14),
                     Text(
-                      'Episode details from TMDB.',
+                      'Episode details from ${value.value?.provider ?? 'TMDB'}.',
                       style: muted.copyWith(fontSize: 13, height: 1.4),
                     ),
                   ],

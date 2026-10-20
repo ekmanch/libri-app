@@ -1,6 +1,7 @@
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
+import '../models/series.dart';
 import 'episode_info.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
@@ -10,8 +11,9 @@ import 'text_clean.dart';
 
 /// Movies and shows from TMDB. Ids are "tmdb:movie:603" and "tmdb:tv:1399".
 /// The search gives title, date, overview and poster; the director or the
-/// show's creators and the genres come with [details], fetched when a
-/// match is picked.
+/// show's creators, the genres, a show's seasons and a movie's collection
+/// (its series, Library › Movie in a series) come with [details], fetched
+/// when a match is picked.
 class TmdbSource extends HttpLookupSource {
   TmdbSource(super.client, {required this.token, Uri? baseUrl, super.timeout})
     : _baseUrl = baseUrl ?? Uri.https('api.themoviedb.org', '/3/'),
@@ -34,6 +36,9 @@ class TmdbSource extends HttpLookupSource {
 
   @override
   String get id => 'tmdb';
+
+  @override
+  String get name => 'TMDB';
 
   @override
   Set<MediaType> get types => const {MediaType.movies, MediaType.shows};
@@ -151,6 +156,9 @@ class TmdbSource extends HttpLookupSource {
     ];
     final date = stringAt(json, tv ? 'first_air_date' : 'release_date');
     final poster = stringAt(json, 'poster_path');
+    // A movie in a collection: the collection is its series, and its number
+    // is its place among the parts by date.
+    final series = tv ? null : await _seriesOf(json, match.source);
     return match.copyWith(
       creator: creators.isEmpty ? null : creators.join(', '),
       released: date == null ? null : Released.tryParse(date),
@@ -163,8 +171,73 @@ class TmdbSource extends HttpLookupSource {
       cast: cast,
       tags: [for (final g in objectsAt(json, 'genres')) ?stringAt(g, 'name')],
       seasons: tv ? _seasons(json) : const [],
+      series: series,
       coverUrl: poster == null ? null : '$_images$rowPosterWidth$poster',
     );
+  }
+
+  /// The collection a movie record says it belongs to, as a series with the
+  /// movie's number in it; null when it is in none.
+  Future<Series?> _seriesOf(Map<String, Object?> movie, String source) async {
+    final parts = await _collectionOf(movie);
+    if (parts == null) return null;
+    final number = parts.parts.where((p) => p.source == source).firstOrNull;
+    return Series(name: parts.name, number: number?.number);
+  }
+
+  /// `/collection/{id}` for the collection in [movie]'s
+  /// `belongs_to_collection`: the parts in date order, numbered from 1, a
+  /// part without a date last. TMDB names collections "X Collection"; the
+  /// series is "X".
+  Future<SeriesParts?> _collectionOf(Map<String, Object?> movie) async {
+    final collection = movie['belongs_to_collection'];
+    if (collection is! Map<String, Object?>) return null;
+    final id = collection['id'];
+    if (id is! num) return null;
+    final json = await _get('collection/${id.toInt()}');
+    final name = collectionName(
+      stringAt(json, 'name') ?? stringAt(collection, 'name') ?? '',
+    );
+    if (name.isEmpty) return null;
+    final parts = [
+      for (final p in objectsAt(json, 'parts'))
+        if (p['id'] case final num partId)
+          if (stringAt(p, 'title') case final title?)
+            (
+              id: partId.toInt(),
+              title: title,
+              released: Released.tryParse(stringAt(p, 'release_date') ?? ''),
+            ),
+    ]..sort((a, b) {
+      final x = a.released, y = b.released;
+      if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
+      return x.availableFrom.compareTo(y.availableFrom);
+    });
+    return (
+      name: name,
+      parts: [
+        for (final (i, p) in parts.indexed)
+          (
+            number: i + 1,
+            title: p.title,
+            year: p.released?.year,
+            source: 'tmdb:movie:${p.id}',
+          ),
+      ],
+    );
+  }
+
+  /// "The Lord of the Rings" from TMDB's "The Lord of the Rings Collection".
+  static String collectionName(String name) =>
+      name.replaceAll(RegExp(r'\s+collection$', caseSensitive: false), '').trim();
+
+  /// A movie's collection, for the Series section; null for a show or a
+  /// movie in no collection.
+  @override
+  Future<SeriesParts?> seriesParts(String source, {String? name}) async {
+    final (kind, id) = _parse(source);
+    if (kind != 'movie') return null;
+    return _collectionOf(await _get('movie/$id'));
   }
 
   /// A show's seasons with their air dates, and with none for a season not
@@ -183,7 +256,11 @@ class TmdbSource extends HttpLookupSource {
     final (kind, id) = _parse(source);
     if (kind != 'tv') return null;
     final json = await _get('tv/$id');
-    return (seasons: _seasons(json), canceled: json['status'] == 'Canceled');
+    return (
+      seasons: _seasons(json),
+      canceled: json['status'] == 'Canceled',
+      kind: null,
+    );
   }
 
   /// `/tv/{id}/season/{n}`. TMDB names an episode without a title

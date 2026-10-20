@@ -23,6 +23,23 @@ const _$EntryStatusEnumMap = {
   EntryStatus.dnf: 'dnf',
 };
 
+SetKind _$SetKindFromJson(Map<String, dynamic> json) => SetKind(
+  json['entryId'] as String,
+  $enumDecode(_$EntryKindEnumMap, json['kind']),
+);
+
+Map<String, dynamic> _$SetKindToJson(SetKind instance) => <String, dynamic>{
+  'entryId': instance.entryId,
+  'kind': _$EntryKindEnumMap[instance.kind]!,
+};
+
+const _$EntryKindEnumMap = {
+  EntryKind.album: 'album',
+  EntryKind.song: 'song',
+  EntryKind.series: 'series',
+  EntryKind.movie: 'movie',
+};
+
 SetRating _$SetRatingFromJson(Map<String, dynamic> json) =>
     SetRating(json['entryId'] as String, (json['rating'] as num?)?.toInt());
 

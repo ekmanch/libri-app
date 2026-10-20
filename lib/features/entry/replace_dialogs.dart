@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/track.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_dialog.dart';
@@ -25,7 +25,7 @@ List<Entry> songsFromAlbum(Library library, Entry album) => library.entries
     .where(
       (e) =>
           e.type == MediaType.music &&
-          e.kind == MusicKind.song &&
+          e.kind == EntryKind.song &&
           e.id != album.id &&
           _sameArtist(e, album) &&
           _norm(e.album) == _norm(album.title),
@@ -40,7 +40,7 @@ Entry? albumOfSong(Library library, Entry song, {String? albumSource}) {
   if (albumSource != null) {
     for (final e in library.entries) {
       if (e.type == MediaType.music &&
-          e.kind != MusicKind.song &&
+          e.kind != EntryKind.song &&
           e.id != song.id &&
           e.source == albumSource) {
         return e;
@@ -50,7 +50,7 @@ Entry? albumOfSong(Library library, Entry song, {String? albumSource}) {
   if (_norm(song.album).isEmpty) return null;
   for (final e in library.entries) {
     if (e.type == MediaType.music &&
-        e.kind != MusicKind.song &&
+        e.kind != EntryKind.song &&
         e.id != song.id &&
         _sameArtist(e, song) &&
         _norm(e.title) == _norm(song.album)) {

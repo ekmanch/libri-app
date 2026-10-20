@@ -1,0 +1,203 @@
+import 'package:http/http.dart' as http;
+
+import '../net/http_transport.dart';
+import 'http_lookup_source.dart';
+import 'lookup_source.dart';
+import 'rate_limiter.dart';
+
+/// Which series a book belongs to, and its number, from Wikidata (Library ›
+/// Book in a long series). No key. The book is found by its title with the
+/// entity search (case does not matter there, and Open Library titles are
+/// often in sentence case), then one SPARQL query reads its "part of the
+/// series" statement (P179) with the series ordinal (P1545), and every other
+/// part of that series with its ordinal and publication date (P577). The
+/// author (P50) tells the book from a film or a game of the same name.
+class WikidataSeries with LookupHttp {
+  WikidataSeries(
+    this.client, {
+    Uri? apiUrl,
+    Uri? sparqlUrl,
+    this.timeout = defaultHttpTimeout,
+    this.userAgent = 'Libri',
+  }) : _apiUrl = apiUrl ?? Uri.https('www.wikidata.org', '/w/api.php'),
+       _sparqlUrl = sparqlUrl ?? Uri.https('query.wikidata.org', '/sparql'),
+       limiter = RateLimiter(const Duration(seconds: 1));
+
+  @override
+  final http.Client client;
+  @override
+  final Duration timeout;
+  @override
+  final String userAgent;
+  @override
+  final RateLimiter limiter;
+
+  final Uri _apiUrl;
+  final Uri _sparqlUrl;
+
+  /// How many entity-search hits are looked at for a title.
+  static const candidates = 10;
+
+  Map<String, String> get _headers => {
+    'Accept': 'application/json',
+    'User-Agent': userAgent,
+  };
+
+  /// The item ids the entity search finds for [title].
+  Future<List<String>> _search(String title) async {
+    final response = await send(
+      () => client.get(
+        _apiUrl.replace(
+          queryParameters: {
+            'action': 'wbsearchentities',
+            'search': title,
+            'language': 'en',
+            'type': 'item',
+            'limit': '$candidates',
+            'format': 'json',
+          },
+        ),
+        headers: _headers,
+      ),
+    );
+    check(response);
+    final json = decodeObject(response);
+    return [
+      for (final hit in objectsAt(json, 'search'))
+        if (stringAt(hit, 'id') case final id? when RegExp(r'^Q\d+$').hasMatch(id))
+          id,
+    ];
+  }
+
+  /// One query for the candidates: each one's series statement with its
+  /// ordinal and the names of its authors, and every part of the series
+  /// with its ordinal and date.
+  static String query(List<String> ids) =>
+      '''
+SELECT ?book ?authorLabel ?series ?seriesLabel ?ordinal ?part ?partLabel ?partOrdinal ?date WHERE {
+  VALUES ?book { ${ids.map((id) => 'wd:$id').join(' ')} }
+  ?book p:P179 ?statement . ?statement ps:P179 ?series .
+  OPTIONAL { ?statement pq:P1545 ?ordinal }
+  OPTIONAL { ?book wdt:P50 ?author }
+  ?part p:P179 ?partStatement . ?partStatement ps:P179 ?series .
+  OPTIONAL { ?partStatement pq:P1545 ?partOrdinal }
+  OPTIONAL { ?part wdt:P577 ?date }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+LIMIT 2000''';
+
+  Future<List<Map<String, Object?>>> _sparql(String query) async {
+    final response = await send(
+      () => client.get(
+        _sparqlUrl.replace(queryParameters: {'query': query, 'format': 'json'}),
+        headers: _headers,
+      ),
+    );
+    check(response);
+    final json = decodeObject(response);
+    final results = json['results'] as Map<String, Object?>? ?? const {};
+    return objectsAt(results, 'bindings');
+  }
+
+  static String? _value(Map<String, Object?> row, String key) {
+    final cell = row[key];
+    return cell is Map<String, Object?> ? stringAt(cell, 'value') : null;
+  }
+
+  static String? _item(Map<String, Object?> row, String key) =>
+      _value(row, key)?.split('/').last;
+
+  /// Whether a Wikidata author name is the entry's creator: a word of
+  /// three letters or more in common (a surname), case aside.
+  static bool sameAuthor(String? creator, Iterable<String> authors) {
+    if (creator == null || creator.trim().isEmpty) return true;
+    final wanted = {
+      for (final w in creator.toLowerCase().split(RegExp(r'[^\p{L}]+', unicode: true)))
+        if (w.length >= 3) w,
+    };
+    for (final author in authors) {
+      for (final w in author.toLowerCase().split(RegExp(r'[^\p{L}]+', unicode: true))) {
+        if (w.length >= 3 && wanted.contains(w)) return true;
+      }
+    }
+    return false;
+  }
+
+  /// The series the book [title] by [creator] is in, with its parts in
+  /// ordinal order (a part without an ordinal by date, after the rest),
+  /// and the book's own number; null when Wikidata knows no series for it.
+  Future<({SeriesParts parts, int? number})?> seriesOf(
+    String title,
+    String? creator,
+  ) async {
+    final ids = await _search(title);
+    if (ids.isEmpty) return null;
+    final rows = await _sparql(query(ids));
+    // Rows per candidate book: its authors and its series.
+    final authorsOf = <String, Set<String>>{};
+    final seriesOf = <String, String>{};
+    final ordinalOf = <String, String?>{};
+    final seriesName = <String, String>{};
+    final partsOf = <String, Map<String, ({String title, int? number, int? year})>>{};
+    for (final row in rows) {
+      final book = _item(row, 'book');
+      final series = _item(row, 'series');
+      if (book == null || series == null) continue;
+      if (_value(row, 'authorLabel') case final author?) {
+        authorsOf.putIfAbsent(book, () => {}).add(author);
+      }
+      seriesOf[book] = series;
+      ordinalOf[book] = _value(row, 'ordinal');
+      seriesName[series] = _value(row, 'seriesLabel') ?? series;
+      final part = _item(row, 'part');
+      final partTitle = _value(row, 'partLabel');
+      if (part == null || partTitle == null) continue;
+      final parts = partsOf.putIfAbsent(series, () => {});
+      final date = _value(row, 'date') ?? '';
+      final year = date.length >= 4 ? int.tryParse(date.substring(0, 4)) : null;
+      final known = parts[part];
+      parts[part] = (
+        title: partTitle,
+        number: _ordinal(_value(row, 'partOrdinal')) ?? known?.number,
+        year: _earliest(year, known?.year),
+      );
+    }
+    // The first candidate, in search order, that is a book by the author.
+    for (final id in ids) {
+      final series = seriesOf[id];
+      if (series == null) continue;
+      if (!sameAuthor(creator, authorsOf[id] ?? const {})) continue;
+      final parts = (partsOf[series] ?? const {}).entries.toList()
+        ..sort((a, b) {
+          final x = a.value.number, y = b.value.number;
+          if (x != null && y != null) return x.compareTo(y);
+          if (x != null || y != null) return x == null ? 1 : -1;
+          final p = a.value.year, q = b.value.year;
+          if (p != null && q != null) return p.compareTo(q);
+          return p == null ? (q == null ? 0 : 1) : -1;
+        });
+      return (
+        parts: (
+          name: seriesName[series] ?? series,
+          parts: [
+            for (final p in parts)
+              (
+                number: p.value.number,
+                title: p.value.title,
+                year: p.value.year,
+                source: 'wikidata:${p.key}',
+              ),
+          ],
+        ),
+        number: _ordinal(ordinalOf[id]),
+      );
+    }
+    return null;
+  }
+
+  static int? _earliest(int? a, int? b) =>
+      a == null || b == null ? a ?? b : (a < b ? a : b);
+
+  /// "3" as 3; "3.5" or "III" as nothing.
+  static int? _ordinal(String? text) => text == null ? null : int.tryParse(text.trim());
+}

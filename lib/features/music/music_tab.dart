@@ -1,4 +1,4 @@
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 
 /// The three tabs of the music list (Library › Music: artists, text view). The
 /// view is remembered per tab. Albums and Songs match the filter sheet's Kind;
@@ -8,16 +8,16 @@ enum MusicTab {
   albums,
   songs;
 
-  static MusicTab forKind(MusicKind? kind) => switch (kind) {
-    null => artists,
-    MusicKind.album => albums,
-    MusicKind.song => songs,
+  static MusicTab forKind(EntryKind? kind) => switch (kind) {
+    EntryKind.album => albums,
+    EntryKind.song => songs,
+    _ => artists,
   };
 
-  MusicKind? get kind => switch (this) {
+  EntryKind? get kind => switch (this) {
     artists => null,
-    albums => MusicKind.album,
-    songs => MusicKind.song,
+    albums => EntryKind.album,
+    songs => EntryKind.song,
   };
 }
 

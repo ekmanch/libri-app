@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/models/entry.dart';
 import '../data/models/entry_status.dart';
 import '../data/models/media_type.dart';
-import '../data/models/music_kind.dart';
+import '../data/models/entry_kind.dart';
 import '../data/models/season.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
@@ -47,7 +47,7 @@ String entrySubtitle(Entry entry, {DateTime? today}) {
   final year = released?.year.toString();
   final lead = switch (entry.type) {
     MediaType.books => entry.creator,
-    MediaType.music when entry.kind == MusicKind.song =>
+    MediaType.music when entry.kind == EntryKind.song =>
       entry.album ?? entry.creator,
     MediaType.music => entry.creator,
     _ => null,
@@ -58,11 +58,12 @@ String entrySubtitle(Entry entry, {DateTime? today}) {
   ].where((part) => part != null && part.isNotEmpty).join(' · ');
 }
 
-/// "Movie", "Album", "Song" and so on for one entry.
+/// "Movie", "Album", "Song" and so on for one entry. An anime is "Anime"
+/// whether a series or a movie.
 String entryKindLabel(Entry entry) => switch (entry.kind) {
-  MusicKind.album => 'Album',
-  MusicKind.song => 'Song',
-  null => entry.type.singular,
+  EntryKind.album => 'Album',
+  EntryKind.song => 'Song',
+  _ => entry.type.singular,
 };
 
 /// A song's subtitle in the Songs tab (Library › Music: artists, text view):

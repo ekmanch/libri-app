@@ -3,7 +3,7 @@ import '../data/models/entry_id.dart';
 import '../data/models/entry_status.dart';
 import '../data/models/library.dart';
 import '../data/models/media_type.dart';
-import '../data/models/music_kind.dart';
+import '../data/models/entry_kind.dart';
 import '../data/models/released.dart';
 import '../data/models/tag_category.dart';
 
@@ -68,8 +68,8 @@ Library padForLongLists(Library library, {int perType = 120}) {
       final kind = !music
           ? null
           : i % 4 == 3
-          ? MusicKind.song
-          : MusicKind.album;
+          ? EntryKind.song
+          : EntryKind.album;
       final statuses = EntryStatus.optionsFor(type);
       extra.add(
         base.copyWith(
@@ -92,7 +92,7 @@ Library padForLongLists(Library library, {int perType = 120}) {
               ? longListAuthors[i % authorTags.length]
               : base.creator,
           kind: kind ?? base.kind,
-          album: kind == MusicKind.song ? 'Album ${i ~/ 4}' : null,
+          album: kind == EntryKind.song ? 'Album ${i ~/ 4}' : null,
         ),
       );
     }

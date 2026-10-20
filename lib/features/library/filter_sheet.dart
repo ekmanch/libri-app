@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/tag_category.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/chip_grid.dart';
@@ -63,7 +63,7 @@ class _FilterSheetState extends State<FilterSheet> {
     final (one, many) = switch (view) {
       null => ('entry', 'entries'),
       (type: MediaType.music, kind: final kind?, status: _) => (
-        kind == MusicKind.song ? 'song' : 'album',
+        kind == EntryKind.song ? 'song' : 'album',
         kind.plural,
       ),
       (type: MediaType.music, kind: null, status: _) => (
@@ -148,9 +148,9 @@ class _FilterSheetState extends State<FilterSheet> {
             SectionHeading('Kind', padding: EdgeInsets.zero),
             const SizedBox(height: 8),
             FitChipRow(
-              labels: [for (final k in MusicKind.values) k.label],
+              labels: [for (final k in EntryKind.musicKinds) k.label],
               builder: (i) {
-                final kind = MusicKind.values[i];
+                final kind = EntryKind.musicKinds[i];
                 return PillChip(
                   label: kind.label,
                   selected: _draft.kinds.contains(kind),

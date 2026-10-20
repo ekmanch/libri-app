@@ -247,6 +247,33 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.closeSheet();
     await a.pickChip('All');
   });
+  await a.step('series', () async {
+    await a.pickChip('Movies');
+    await a.tapText('The Lord of the Rings: The Fellowship of the Ring');
+    await a.reveal(find.text('SERIES'));
+    await tester.ensureVisible(find.text('SERIES'));
+    await tester.pumpAndSettle();
+    await a.check('Library › Movie in a series');
+    await a.closeSheet();
+    await a.pickChip('Books');
+    await a.tapText('Berserk, Vol. 43');
+    await a.reveal(find.text('All 43 volumes'));
+    await tester.ensureVisible(find.text('All 43 volumes'));
+    await tester.pumpAndSettle();
+    await a.check('Library › Book in a long series');
+    await a.tapText('All 43 volumes');
+    await a.check('Library › All volumes in a series');
+    await a.back();
+    await a.closeSheet();
+    await a.pickChip('Anime');
+    await a.tapText("Frieren: Beyond Journey's End");
+    await a.check('Show & seasons › Anime with seasons');
+    await a.tap(find.bySemanticsLabel(RegExp(r'^Season 2, .*Episodes$')));
+    await a.check('Show & seasons › Anime season episodes');
+    await a.back();
+    await a.closeSheet();
+    await a.pickChip('All');
+  });
   await a.step('new entry', () async {
     await a.tap(find.byType(AddButton));
     await tester.enterText(find.byType(TextField), 'The Last of Us');

@@ -5,8 +5,14 @@ import '../models/released.dart';
 import '../storage/atomic_file.dart';
 import 'episode_info.dart';
 
-/// A season's episodes as stored, with when they were fetched.
-typedef StoredEpisodes = ({DateTime fetched, List<EpisodeInfo> episodes});
+/// A season's episodes as stored, with when they were fetched and the name
+/// of the provider they came from ("TMDB" when a file from before said
+/// nothing).
+typedef StoredEpisodes = ({
+  DateTime fetched,
+  List<EpisodeInfo> episodes,
+  String provider,
+});
 
 /// Where fetched episodes are kept, by the show's lookup id and the season
 /// number. On the phone only, never in `library.json`.
@@ -17,6 +23,7 @@ abstract class EpisodeStore {
     int season,
     List<EpisodeInfo> episodes, {
     required DateTime fetched,
+    String provider = 'TMDB',
   });
 
   /// Drops every show's episodes but those of [keepSources].
@@ -37,10 +44,12 @@ class MemoryEpisodeStore implements EpisodeStore {
     int season,
     List<EpisodeInfo> episodes, {
     required DateTime fetched,
+    String provider = 'TMDB',
   }) async {
     _seasons[(showSource, season)] = (
       fetched: fetched,
       episodes: List.unmodifiable(episodes),
+      provider: provider,
     );
   }
 
@@ -93,6 +102,7 @@ class FileEpisodeStore implements EpisodeStore {
     if (fetched == null) return null;
     return (
       fetched: fetched,
+      provider: stored['provider'] as String? ?? 'TMDB',
       episodes: [
         for (final item in stored['episodes'] as List<Object?>? ?? const [])
           if (item is Map<String, Object?> && item['number'] is int)
@@ -112,10 +122,12 @@ class FileEpisodeStore implements EpisodeStore {
     int season,
     List<EpisodeInfo> episodes, {
     required DateTime fetched,
+    String provider = 'TMDB',
   }) async {
     final seasons = await _seasons(showSource);
     seasons['$season'] = {
       'fetched': fetched.toUtc().toIso8601String(),
+      'provider': provider,
       'episodes': [
         for (final e in episodes)
           {

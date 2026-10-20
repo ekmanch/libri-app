@@ -253,10 +253,10 @@ void main() {
 
     expect(find.text('Pick your file'), findsOneWidget);
     expect(
-      find.text('Libri library · 63 entries · updated 2 days ago'),
+      find.text('Libri library · 68 entries · updated 2 days ago'),
       findsOneWidget,
     );
-    expect(find.textContaining('31 entries · updated Mar 14'), findsOneWidget);
+    expect(find.textContaining('34 entries · updated Mar 14'), findsOneWidget);
     expect(find.text('Not a Libri library file'), findsOneWidget);
     expect(isSelected(tester, find.text('library.json')), isTrue);
     await tester.tap(find.text('data/old-lists.json'));
@@ -268,7 +268,7 @@ void main() {
     await tester.tap(find.text('Use this file'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Loaded 31 entries from backup/library-2025.json.'),
+      find.text('Loaded 34 entries from backup/library-2025.json.'),
       findsOneWidget,
     );
     await tester.tap(find.text('Open Libri'));
@@ -511,7 +511,7 @@ void main() {
         expect(find.text('Which library do you want to keep?'), findsOneWidget);
         expect(find.text('This phone · $n entries'), findsOneWidget);
         expect(
-          find.text('GitHub · backup/library-2025.json · 31 entries'),
+          find.text('GitHub · backup/library-2025.json · 34 entries'),
           findsOneWidget,
         );
         await tester.tap(find.text("This phone's"));
@@ -541,7 +541,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(github.putCount, 0);
       expect(
-        find.text('Loaded 31 entries from backup/library-2025.json.'),
+        find.text('Loaded 34 entries from backup/library-2025.json.'),
         findsOneWidget,
       );
     });
@@ -564,7 +564,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Which library do you want to keep?'), findsNothing);
         expect(
-          find.text('Loaded 63 entries from library.json.'),
+          find.text('Loaded 68 entries from library.json.'),
           findsOneWidget,
         );
       },

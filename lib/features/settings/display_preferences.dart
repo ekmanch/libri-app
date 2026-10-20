@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/entry.dart';
 import '../../data/preferences/preferences_store.dart';
 import '../../data/models/media_type.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../theme/app_theme.dart';
 import '../library/library_sort.dart';
 import '../music/music_tab.dart';
@@ -74,7 +74,7 @@ class DisplayPreferences {
   /// type's view, or for music the Albums or Songs tab's.
   EntryView viewForEntry(Entry entry) => switch (entry.type) {
     MediaType.music => viewForMusic(
-      entry.kind == MusicKind.song ? MusicTab.songs : MusicTab.albums,
+      entry.kind == EntryKind.song ? MusicTab.songs : MusicTab.albums,
     ),
     _ => viewFor(entry.type),
   };

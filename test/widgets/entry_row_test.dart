@@ -4,7 +4,7 @@ import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/widgets/labels.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/widgets/app_icons.dart';
@@ -32,9 +32,9 @@ void main() {
     });
 
     test('is album and year for a song, falling back to the artist', () {
-      final song = dirt.copyWith(kind: MusicKind.song, album: 'Facelift');
+      final song = dirt.copyWith(kind: EntryKind.song, album: 'Facelift');
       expect(entrySubtitle(song, today: today), 'Facelift · 1992');
-      final single = dirt.copyWith(kind: MusicKind.song, album: null);
+      final single = dirt.copyWith(kind: EntryKind.song, album: null);
       expect(entrySubtitle(single, today: today), 'Alice in Chains · 1992');
     });
 

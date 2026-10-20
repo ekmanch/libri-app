@@ -16,6 +16,8 @@ import 'package:library_app/widgets/segmented_control.dart';
 
 import '../../helpers/pump_app.dart';
 
+import 'package:library_app/theme/app_theme.dart';
+
 class _Opener extends StatelessWidget {
   const _Opener(this.entryId);
   final String entryId;
@@ -317,5 +319,27 @@ void main() {
     expect(find.text('Season 29'), findsOneWidget);
     expect(tester.getRect(find.text('Season 29')).bottom, lessThan(780));
     expect(find.text('Season 1').hitTestable(), findsNothing);
+  });
+
+  testWidgets('an anime series is laid out like a show, in the anime color', (
+    tester,
+  ) async {
+    await open(tester, 'anime/frieren-beyond-journeys-end-2023');
+    expect(find.text('ANIME · 2023–2026'), findsOneWidget);
+    expect(find.text('SEASONS'), findsOneWidget);
+    expect(find.text('2 seasons'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Status, In progress, from seasons'),
+      findsOneWidget,
+    );
+    expect(pill(1), findsOneWidget);
+    expect(pill(2), findsOneWidget);
+    final kicker = tester.widget<Text>(find.text('ANIME · 2023–2026'));
+    final colors = LibraryColors.of(
+      tester.element(find.text('ANIME · 2023–2026')),
+    );
+    expect(kicker.style?.color, colors.anime);
+    // No Series section: an anime series uses seasons instead.
+    expect(find.text('SERIES'), findsNothing);
   });
 }

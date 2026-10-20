@@ -96,6 +96,11 @@ const dataSources = [
     description: 'Anime: details and covers.',
     url: 'https://anilist.co',
   ),
+  DataSource(
+    name: 'Wikidata',
+    description: 'Books: which series a book belongs to, and its number.',
+    url: 'https://www.wikidata.org',
+  ),
 ];
 
 /// About (Settings › About Libri): the app icon, the name, the version and

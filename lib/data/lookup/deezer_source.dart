@@ -27,6 +27,9 @@ class DeezerSource extends HttpLookupSource implements MusicSource {
   String get id => 'deezer';
 
   @override
+  String get name => 'Deezer';
+
+  @override
   Set<MediaType> get types => const {MediaType.music};
 
   Map<String, String> get _headers => {

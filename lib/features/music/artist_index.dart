@@ -1,6 +1,6 @@
 import '../../data/models/entry.dart';
 import '../../data/models/media_type.dart';
-import '../../data/models/music_kind.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/track.dart';
 import '../../widgets/labels.dart';
 import '../library/entry_sections.dart';
@@ -80,11 +80,11 @@ List<ArtistSummary> artistIndex(Iterable<Entry> entries) {
       ArtistSummary(
         name: displayName[key]!,
         albums: sortEntries(
-          list.where((e) => e.kind != MusicKind.song),
+          list.where((e) => e.kind != EntryKind.song),
           LibrarySort.yearOldest,
         ),
         songs: sortEntries(
-          list.where((e) => e.kind == MusicKind.song),
+          list.where((e) => e.kind == EntryKind.song),
           LibrarySort.yearOldest,
         ),
       ),

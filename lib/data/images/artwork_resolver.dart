@@ -9,7 +9,7 @@ import '../lookup/lookup_service.dart';
 import '../lookup/music_source.dart';
 import '../models/entry.dart';
 import '../models/media_type.dart';
-import '../models/music_kind.dart';
+import '../models/entry_kind.dart';
 import '../storage/json_file.dart';
 
 /// Finds the cover image of an entry and the photo of an artist, and
@@ -186,7 +186,7 @@ class ArtworkResolver {
       return (await provider.coverUrl(source, type: entry.type), null);
     }
     final isSong =
-        entry.type == MediaType.music && entry.kind == MusicKind.song;
+        entry.type == MediaType.music && entry.kind == EntryKind.song;
     final title = isSong ? (entry.album ?? entry.title) : entry.title;
     for (final provider in lookups.sourcesFor(entry.type)) {
       final match = await provider.match(

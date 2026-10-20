@@ -6,20 +6,29 @@ import 'episode_store.dart';
 import 'lookup_failure.dart';
 import 'lookup_service.dart';
 
-/// A season's episodes, and whether they came from the phone.
+/// A season's episodes, whether they came from the phone, and the name of
+/// the provider they came from, for the credit under them ("TMDB", or
+/// "AniList" for an anime series TMDB has no match for).
 class SeasonEpisodes {
-  const SeasonEpisodes(this.episodes, {required this.fromCache});
+  const SeasonEpisodes(
+    this.episodes, {
+    required this.fromCache,
+    this.provider = 'TMDB',
+  });
 
   final List<EpisodeInfo> episodes;
   final bool fromCache;
+  final String provider;
 }
 
 /// The episodes of a show's season (Show & seasons › Season episodes (all out)
 /// and Season episodes (airing weekly)), fetched when the season screen opens
 /// and kept on the phone. Stored episodes show at once; they are fetched again
 /// behind them unless [isSettled]. The show is known by its `source`, or by the
-/// id the artwork resolver matched it to on the phone. Opening a season writes
-/// nothing to the library, and the daily season check never comes here.
+/// id the artwork resolver matched it to on the phone; an anime series' episodes
+/// are read under the TMDB show it was matched to, when it has one
+/// ([LookupSource.seasonSource]). Opening a season writes nothing to the
+/// library, and the daily season check never comes here.
 class EpisodeService {
   EpisodeService({
     required this.lookups,
@@ -65,14 +74,21 @@ class EpisodeService {
   /// being offline from a season the lookup does not know.
   Stream<SeasonEpisodes?> load(Entry show, int season) async* {
     final now = seasonClock();
-    final source = show.source ?? await resolver.matchedSource(show);
-    if (source == null) {
+    final own = show.source ?? await resolver.matchedSource(show);
+    if (own == null) {
       yield null;
       return;
     }
+    // An anime series matched to a TMDB show reads its episodes there; the
+    // match is kept on the phone, so this costs nothing the second time.
+    final source = await _seasonSource(own);
     final stored = await store.read(source, season);
     if (stored != null) {
-      yield SeasonEpisodes(stored.episodes, fromCache: true);
+      yield SeasonEpisodes(
+        stored.episodes,
+        fromCache: true,
+        provider: stored.provider,
+      );
       if (isSettled(stored.fetched, stored.episodes, now)) return;
     }
     final lookup = lookups.sourceOf(source);
@@ -95,12 +111,38 @@ class EpisodeService {
       if (stored == null) yield null;
       return;
     }
-    await store.write(source, season, episodes, fetched: now);
-    yield SeasonEpisodes(episodes, fromCache: false);
+    await store.write(
+      source,
+      season,
+      episodes,
+      fetched: now,
+      provider: lookup.name,
+    );
+    yield SeasonEpisodes(episodes, fromCache: false, provider: lookup.name);
   }
 
-  /// Drops the episodes of shows that are gone.
-  Future<void> prune(Iterable<Entry> shows) => store.prune({
-    for (final show in shows) ?(show.source ?? resolver.cachedSource(show)),
-  });
+  /// The id the episodes of [source] are read under. A lookup that cannot
+  /// say right now (offline) leaves it as it is.
+  Future<String> _seasonSource(String source) async {
+    final lookup = lookups.sourceOf(source);
+    if (lookup == null || !lookup.isConfigured) return source;
+    try {
+      return await lookup.seasonSource(source);
+    } on LookupException {
+      return source;
+    }
+  }
+
+  /// Drops the episodes of shows that are gone. An anime's episodes may be
+  /// stored under its TMDB match, which is kept too.
+  Future<void> prune(Iterable<Entry> shows) async {
+    final keep = <String>{};
+    for (final show in shows) {
+      final own = show.source ?? resolver.cachedSource(show);
+      if (own == null) continue;
+      keep.add(own);
+      keep.add(await _seasonSource(own));
+    }
+    await store.prune(keep);
+  }
 }

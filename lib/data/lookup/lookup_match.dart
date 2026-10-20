@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/entry_kind.dart';
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
+import '../models/series.dart';
 
 /// One candidate from a title lookup (Add / edit entry › New entry: pick a
 /// match), or the match a cover was resolved from. Filled by the sources in
@@ -26,6 +28,8 @@ class LookupMatch {
     this.tags = const [],
     this.seasons = const [],
     this.pages,
+    this.kind,
+    this.series,
     this.coverUrl,
     this.largeCoverUrl,
   });
@@ -74,6 +78,17 @@ class LookupMatch {
   /// For a book: its page count, when the lookup knows it.
   final int? pages;
 
+  /// For an anime: a series (seasons, like a show) or a movie, as the
+  /// lookup's format says (AniList: TV, TV short, ONA and OVA are series;
+  /// a movie, a special or a music video is a movie); null when it does
+  /// not say. Music tells albums from songs by [album] instead.
+  final EntryKind? kind;
+
+  /// The series the title belongs to and its number in it, when the lookup
+  /// knows (TMDB collections, IGDB collections, Wikidata for books, or a
+  /// "Vol. 43" in a manga's title).
+  final Series? series;
+
   /// A cover or artwork image, sized for a list row.
   final String? coverUrl;
 
@@ -100,6 +115,8 @@ class LookupMatch {
     List<String>? tags,
     List<Season>? seasons,
     int? pages,
+    EntryKind? kind,
+    Series? series,
     String? coverUrl,
     String? largeCoverUrl,
   }) => LookupMatch(
@@ -118,6 +135,8 @@ class LookupMatch {
     tags: tags ?? this.tags,
     seasons: seasons ?? this.seasons,
     pages: pages ?? this.pages,
+    kind: kind ?? this.kind,
+    series: series ?? this.series,
     coverUrl: coverUrl ?? this.coverUrl,
     largeCoverUrl: largeCoverUrl ?? this.largeCoverUrl,
   );
@@ -140,6 +159,8 @@ class LookupMatch {
       listEquals(other.tags, tags) &&
       listEquals(other.seasons, seasons) &&
       other.pages == pages &&
+      other.kind == kind &&
+      other.series == series &&
       other.coverUrl == coverUrl &&
       other.largeCoverUrl == largeCoverUrl;
 

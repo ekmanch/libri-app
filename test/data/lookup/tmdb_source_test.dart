@@ -11,6 +11,7 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/series.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -382,5 +383,111 @@ void main() {
       ),
     );
     expect(sent, isEmpty);
+  });
+
+  group('collections', () {
+    final fellowship = {
+      'id': 120,
+      'title': 'The Lord of the Rings: The Fellowship of the Ring',
+      'release_date': '2001-12-18',
+      'belongs_to_collection': {
+        'id': 119,
+        'name': 'The Lord of the Rings Collection',
+      },
+      'credits': {'crew': [], 'cast': []},
+      'genres': [],
+    };
+    final collection = {
+      'id': 119,
+      'name': 'The Lord of the Rings Collection',
+      'parts': [
+        {
+          'id': 122,
+          'title': 'The Lord of the Rings: The Return of the King',
+          'release_date': '2003-12-17',
+        },
+        {
+          'id': 120,
+          'title': 'The Lord of the Rings: The Fellowship of the Ring',
+          'release_date': '2001-12-18',
+        },
+        {
+          'id': 121,
+          'title': 'The Lord of the Rings: The Two Towers',
+          'release_date': '2002-12-18',
+        },
+        {
+          'id': 999,
+          'title': 'The Lord of the Rings: Untitled',
+          'release_date': '',
+        },
+      ],
+    };
+    Future<http.Response> handler(http.Request request) async {
+      if (request.url.path == '/3/collection/119') return json(200, collection);
+      return json(200, fellowship);
+    }
+
+    test(
+      'details names the collection as the series, numbered by date',
+      () async {
+        final tmdb = source(handler);
+        final full = await tmdb.details(
+          const LookupMatch(
+            type: MediaType.movies,
+            title: 'The Lord of the Rings: The Fellowship of the Ring',
+            source: 'tmdb:movie:120',
+          ),
+        );
+        expect(
+          full.series,
+          const Series(name: 'The Lord of the Rings', number: 1),
+        );
+        expect(sent.map((r) => r.url.path), [
+          '/3/movie/120',
+          '/3/collection/119',
+        ]);
+      },
+    );
+
+    test('seriesParts lists the parts in date order, undated last', () async {
+      final tmdb = source(handler);
+      final parts = await tmdb.seriesParts('tmdb:movie:120');
+      expect(parts!.name, 'The Lord of the Rings');
+      expect(parts.parts.map((p) => (p.number, p.title, p.year, p.source)), [
+        (
+          1,
+          'The Lord of the Rings: The Fellowship of the Ring',
+          2001,
+          'tmdb:movie:120',
+        ),
+        (2, 'The Lord of the Rings: The Two Towers', 2002, 'tmdb:movie:121'),
+        (
+          3,
+          'The Lord of the Rings: The Return of the King',
+          2003,
+          'tmdb:movie:122',
+        ),
+        (4, 'The Lord of the Rings: Untitled', null, 'tmdb:movie:999'),
+      ]);
+    });
+
+    test('a movie in no collection, or a show, has none', () async {
+      final tmdb = source(
+        (_) async => json(200, {...fellowship, 'belongs_to_collection': null}),
+      );
+      expect(await tmdb.seriesParts('tmdb:movie:120'), isNull);
+      expect(
+        (await tmdb.details(
+          const LookupMatch(
+            type: MediaType.movies,
+            title: 'x',
+            source: 'tmdb:movie:120',
+          ),
+        )).series,
+        isNull,
+      );
+      expect(await tmdb.seriesParts('tmdb:tv:100088'), isNull);
+    });
   });
 }

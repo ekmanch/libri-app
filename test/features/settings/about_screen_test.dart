@@ -31,13 +31,19 @@ void main() {
       'Google Books',
       'Deezer',
       'AniList',
+      'Wikidata',
     ]) {
       await tester.scrollUntilVisible(find.text(name), 200);
       expect(find.text(name), findsOneWidget, reason: name);
       expect(find.bySemanticsLabel('$name, opens website'), findsOneWidget);
     }
-    // Wikipedia is not a source, so it is not credited.
+    // Wikipedia is not a source, so it is not credited; Wikidata is, last.
     expect(find.text('Wikipedia'), findsNothing);
+    expect(
+      find.text('Books: which series a book belongs to, and its number.'),
+      findsOneWidget,
+    );
+    expect(dataSources.last.name, 'Wikidata');
     await tester.scrollUntilVisible(find.text('TMDB'), -200);
     expect(
       find.textContaining(

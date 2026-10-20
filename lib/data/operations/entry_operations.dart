@@ -2,6 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 import '../models/entry.dart';
 import '../models/entry_id.dart';
+import '../models/entry_kind.dart';
 import '../models/entry_status.dart';
 import '../models/library.dart';
 import '../models/media_type.dart';
@@ -23,12 +24,12 @@ String _statusWord(EntryStatus status) => switch (status) {
   EntryStatus.dnf => 'DNF',
 };
 
-/// [entry] with [status]. A show's status comes from its seasons: one
-/// season takes the status; with more, every season that is out does, so
-/// ticking a show in a plan marks what has aired Done.
+/// [entry] with [status]. A show's (or anime series') status comes from
+/// its seasons: one season takes the status; with more, every season that
+/// is out does, so ticking a show in a plan marks what has aired Done.
 Entry _withStatus(Entry entry, EntryStatus status) {
   final seasons = entry.seasons;
-  if (entry.type != MediaType.shows || seasons == null || seasons.isEmpty) {
+  if (!entry.usesSeasons || seasons == null || seasons.isEmpty) {
     return entry.copyWith(status: status);
   }
   final today = seasonClock();
@@ -42,7 +43,7 @@ Entry _withStatus(Entry entry, EntryStatus status) {
 
 /// A show's status as its seasons give it; other entries as they are.
 Entry _derived(Entry entry) =>
-    entry.type == MediaType.shows && (entry.seasons?.isNotEmpty ?? false)
+    entry.usesSeasons && (entry.seasons?.isNotEmpty ?? false)
     ? entry.withSeasons(entry.seasons)
     : entry;
 
@@ -84,6 +85,52 @@ class SetStatus extends LibraryOperation {
   @override
   String summary(Library before) =>
       'Mark ${_title(before, entryId)} as ${_statusWord(status)}';
+}
+
+/// Sets an anime's kind, series or movie, when the lookup tells the daily
+/// check which it is (an anime linked to AniList before kinds existed).
+/// Only the kind changes; the seasons of a series come with [AddSeasons].
+@JsonSerializable()
+class SetKind extends LibraryOperation {
+  const SetKind(this.entryId, this.kind);
+
+  factory SetKind.fromJson(Map<String, Object?> json) =>
+      _$SetKindFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetKindToJson(this);
+
+  final String entryId;
+  final EntryKind kind;
+
+  @override
+  Library apply(Library library) {
+    final entry = library.entryById(entryId);
+    if (entry == null) return library;
+    final allowed = switch (entry.type) {
+      MediaType.music => EntryKind.musicKinds,
+      MediaType.anime => EntryKind.animeKinds,
+      _ => const <EntryKind>[],
+    };
+    if (!allowed.contains(kind)) {
+      throw ArgumentError.value(
+        kind,
+        'kind',
+        'not allowed for ${entry.type.name}',
+      );
+    }
+    return _replaceEntry(library, entry.copyWith(kind: kind));
+  }
+
+  @override
+  String summary(Library before) {
+    final word = switch (kind) {
+      EntryKind.album => 'an album',
+      EntryKind.song => 'a song',
+      EntryKind.series => 'a series',
+      EntryKind.movie => 'a movie',
+    };
+    return 'Mark ${_title(before, entryId)} as $word';
+  }
 }
 
 @JsonSerializable()

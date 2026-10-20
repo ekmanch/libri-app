@@ -10,11 +10,14 @@ import 'package:library_app/data/operations/operations.dart';
 
 import '../../helpers/sample_library.dart';
 
+import 'package:library_app/data/models/entry_kind.dart';
+
 void main() {
   final all = <LibraryOperation>[
     SetStatus(mummy.id, EntryStatus.want),
     SetRating(mummy.id, 7),
     SetRating(mummy.id, null),
+    SetKind(dirt.id, EntryKind.song),
     AddEntry(dirt.copyWith(id: 'music/new-dirt-alice-in-chains')),
     UpdateEntry(mummy.copyWith(note: 'Rewatch with the kids')),
     DeleteEntry(dirt.id),

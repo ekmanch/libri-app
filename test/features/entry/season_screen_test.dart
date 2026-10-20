@@ -34,6 +34,12 @@ class _Opener extends StatelessWidget {
 
 const _strangerThings = 'shows/stranger-things-2016';
 
+/// The fake standing in for AniList's chain episodes.
+class _AniListFake extends FakeLookupSource {
+  @override
+  String get name => 'AniList';
+}
+
 void main() {
   final now = DateTime(2026, 10, 19, 12);
 
@@ -260,5 +266,17 @@ void main() {
         'Episode 5',
       );
     });
+  });
+
+  testWidgets('the credit names the provider the episodes came from', (
+    tester,
+  ) async {
+    await openDetails(tester, source: _AniListFake());
+    await openSeasonRow(tester, 1);
+    await tester.scrollUntilVisible(
+      find.text('Episode details from AniList.'),
+      100,
+    );
+    expect(find.text('Episode details from AniList.'), findsOneWidget);
   });
 }

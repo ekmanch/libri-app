@@ -12,6 +12,10 @@ import 'package:library_app/data/models/track.dart';
 
 import '../../helpers/sample_library.dart';
 
+import 'package:library_app/data/models/entry_kind.dart';
+import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/series.dart';
+
 void main() {
   group('Entry', () {
     final json = <String, Object?>{
@@ -205,5 +209,102 @@ void main() {
       mummy.copyWith(status: EntryStatus.inProgress).toJson()['status'],
       'in_progress',
     );
+  });
+
+  group('series and anime kinds', () {
+    final json = <String, Object?>{
+      'id': 'movies/the-two-towers-2002',
+      'type': 'movies',
+      'title': 'The Two Towers',
+      'released': '2002',
+      'creator': 'Peter Jackson',
+      'status': 'want',
+      'rating': null,
+      'tags': <String>[],
+      'note': '',
+      'description': '',
+      'seasonal_only': false,
+      'added': '2026-10-01',
+      'source': null,
+      'series': {'name': 'The Lord of the Rings', 'number': 2},
+    };
+
+    test('series is written after pages, with its number always', () {
+      final entry = Entry.fromJson(json);
+      expect(
+        entry.series,
+        const Series(name: 'The Lord of the Rings', number: 2),
+      );
+      expect(entry.toJson(), json);
+      final unnumbered = entry.copyWith(series: const Series(name: 'Dune'));
+      expect(unnumbered.toJson()['series'], {'name': 'Dune', 'number': null});
+      final book = entry.copyWith(type: MediaType.books, pages: 300);
+      final keys = book.toJson().keys.toList();
+      expect(keys.indexOf('series'), keys.indexOf('pages') + 1);
+      expect(Entry.fromJson(book.toJson()), book);
+      expect(
+        entry.copyWith(series: null).toJson().containsKey('series'),
+        isFalse,
+      );
+    });
+
+    test('an anime series has a kind and seasons, and uses them', () {
+      final anime = Entry.fromJson({
+        ...json,
+        'id': 'anime/frieren-2023',
+        'type': 'anime',
+        'title': 'Frieren',
+        'released': null,
+        'kind': 'series',
+        'seasons': [
+          {'season': 1, 'released': '2023-09-29', 'status': 'done'},
+        ],
+      });
+      expect(anime.kind, EntryKind.series);
+      expect(anime.usesSeasons, isTrue);
+      expect(anime.canHaveSeries, isFalse);
+      expect(anime.year, 2023);
+      final keys = anime.toJson().keys.toList();
+      expect(keys.sublist(keys.length - 2), ['kind', 'seasons']);
+      expect(Entry.fromJson(anime.toJson()), anime);
+
+      final movie = anime.copyWith(kind: EntryKind.movie, seasons: null);
+      expect(movie.usesSeasons, isFalse);
+      expect(movie.canHaveSeries, isTrue);
+      expect(movie.toJson()['kind'], 'movie');
+      // An anime from before kinds: like a movie, and may be in a series.
+      final old = anime.copyWith(kind: null, seasons: null);
+      expect(old.usesSeasons, isFalse);
+      expect(old.canHaveSeries, isTrue);
+      // Shows and music never have a series.
+      expect(Entry.typeHasSeries(MediaType.shows, null), isFalse);
+      expect(Entry.typeHasSeries(MediaType.music, EntryKind.album), isFalse);
+      expect(Entry.typeHasSeries(MediaType.games, null), isTrue);
+    });
+
+    test('withSeasons derives the status of an anime series only', () {
+      const seasons = [
+        Season(season: 1, released: Released(2023), status: EntryStatus.done),
+        Season(
+          season: 2,
+          released: Released(2026, 1, 16),
+          status: EntryStatus.want,
+        ),
+      ];
+      final series = Entry.fromJson({
+        ...json,
+        'type': 'anime',
+        'kind': 'series',
+      });
+      expect(
+        series.withSeasons(seasons, today: DateTime(2026, 10)).status,
+        EntryStatus.inProgress,
+      );
+      final movie = Entry.fromJson({...json, 'type': 'anime', 'kind': 'movie'});
+      expect(
+        movie.withSeasons(seasons, today: DateTime(2026, 10)).status,
+        EntryStatus.want,
+      );
+    });
   });
 }

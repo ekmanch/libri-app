@@ -1,12 +1,15 @@
 import '../models/media_type.dart';
 import '../models/released.dart';
+import '../models/series.dart';
 import 'book_match.dart';
 import 'google_books.dart';
 import 'http_lookup_source.dart';
 import 'itunes_books.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
+import 'lookup_source.dart';
 import 'text_clean.dart';
+import 'wikidata_series.dart';
 
 /// Books, from Open Library and Apple Books together. Open Library issues
 /// the ids, "openlibrary:OL45804W" (the work, never an edition), and gives
@@ -19,12 +22,16 @@ import 'text_clean.dart';
 /// other source ([withApple], [withOpenLibrary]). Google Books ([google])
 /// is read by id only, for the "googlebooks:" ids stored while it was a
 /// search source. One source failing never fails a lookup the other
-/// answered.
+/// answered. A book's series (Library › Book in a long series) comes from
+/// Wikidata ([wikidata]) by title and author, else from a volume number in
+/// the title ("Berserk, Vol. 43"); the volumes of such a series are then
+/// Open Library's works of that name by that author.
 class OpenLibrarySource extends HttpLookupSource {
   OpenLibrarySource(
     super.client, {
     this.apple,
     this.google,
+    this.wikidata,
     Uri? baseUrl,
     Uri? coversUrl,
     super.timeout,
@@ -34,6 +41,10 @@ class OpenLibrarySource extends HttpLookupSource {
 
   final ITunesBooks? apple;
   final GoogleBooks? google;
+  final WikidataSeries? wikidata;
+
+  /// How many works are read when listing a series' volumes by name.
+  static const volumesLimit = 100;
   final Uri _baseUrl;
   final Uri _coversUrl;
 
@@ -47,6 +58,9 @@ class OpenLibrarySource extends HttpLookupSource {
 
   @override
   String get id => 'openlibrary';
+
+  @override
+  String get name => 'Open Library';
 
   @override
   Set<MediaType> get types => const {MediaType.books};
@@ -454,9 +468,15 @@ class OpenLibrarySource extends HttpLookupSource {
 
   /// An Open Library pick takes Apple's description and cover (the work's
   /// where Apple has none); an Apple pick takes Open Library's year, author
-  /// and page count; a Google pick reads its volume, then both.
+  /// and page count; a Google pick reads its volume, then both. Every pick
+  /// then gets its series ([_seriesOf]).
   @override
   Future<LookupMatch> details(LookupMatch match) async {
+    final full = await _details(match);
+    return full.copyWith(series: await _seriesOf(full.title, full.creator));
+  }
+
+  Future<LookupMatch> _details(LookupMatch match) async {
     if (_isApple(match.source)) {
       return withOpenLibrary(
         match,
@@ -493,6 +513,85 @@ class OpenLibrarySource extends HttpLookupSource {
       full = await _withWork(full);
     }
     return full;
+  }
+
+  /// The series of the book [title] by [author]: Wikidata's, else the one a
+  /// volume number in the title names. Wikidata not answering is not a
+  /// failure of the pick: the series is then left to the title.
+  Future<Series?> _seriesOf(String title, String? author) async {
+    if (wikidata case final wikidata?) {
+      try {
+        final found = await wikidata.seriesOf(title, author);
+        if (found != null) {
+          return Series(name: found.parts.name, number: found.number);
+        }
+      } on LookupException {
+        // Left to the title.
+      }
+    }
+    final volume = volumeOf(title);
+    return volume == null
+        ? null
+        : Series(name: volume.name, number: volume.number);
+  }
+
+  /// A book's series with its parts: Wikidata's for the book's title and
+  /// author, else the volumes of the manga the title (or [name], the
+  /// series the entry carries) names, read from Open Library by that name
+  /// and the author. Null when neither knows a series.
+  @override
+  Future<SeriesParts?> seriesParts(String source, {String? name}) async {
+    final LookupMatch? book;
+    if (_isApple(source)) {
+      book = await _apple.book(source);
+    } else if (_isGoogle(source)) {
+      book = await _google.volume(source);
+    } else {
+      book = await _byKey(source);
+    }
+    if (book == null) return null;
+    if (wikidata case final wikidata?) {
+      final found = await wikidata.seriesOf(book.title, book.creator);
+      if (found != null) return found.parts;
+    }
+    final volume = volumeOf(book.title);
+    final seriesName = name ?? volume?.name;
+    if (seriesName == null) return null;
+    return _volumes(seriesName, book.creator);
+  }
+
+  /// The works titled `<name>, Vol. N` (or "Volume N", "#N") by [author] in
+  /// Open Library's index, one per number, in number order.
+  Future<SeriesParts?> _volumes(String name, String? author) async {
+    final hits = await _search({
+      'title': name,
+      'author': ?author,
+    }, volumesLimit);
+    final byNumber = <int, SeriesPart>{};
+    for (final hit in hits) {
+      final volume = volumeOf(hit.title);
+      if (volume == null || !sameTitle(volume.name, name)) continue;
+      final known = byNumber[volume.number];
+      final year = hit.released?.year;
+      if (known == null) {
+        byNumber[volume.number] = (
+          number: volume.number,
+          title: hit.title,
+          year: year,
+          source: hit.source,
+        );
+      } else if (year != null && (known.year == null || year < known.year!)) {
+        byNumber[volume.number] = (
+          number: volume.number,
+          title: known.title,
+          year: year,
+          source: known.source,
+        );
+      }
+    }
+    if (byNumber.isEmpty) return null;
+    final numbers = byNumber.keys.toList()..sort();
+    return (name: name, parts: [for (final n in numbers) byNumber[n]!]);
   }
 
   /// An Open Library id: Apple's artwork for the work, found by its title

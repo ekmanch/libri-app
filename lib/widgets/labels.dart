@@ -1,6 +1,6 @@
 import '../data/models/entry_status.dart';
 import '../data/models/media_type.dart';
-import '../data/models/music_kind.dart';
+import '../data/models/entry_kind.dart';
 import '../data/models/released.dart';
 import '../data/models/tag_category.dart';
 
@@ -58,11 +58,14 @@ String countNoun(MediaType type, int count) {
   return count == 1 ? one : many;
 }
 
-extension MusicKindLabel on MusicKind {
-  /// For the filter sheet's Kind chips: "Albums", "Songs".
+extension EntryKindLabel on EntryKind {
+  /// For the filter sheet's Kind chips: "Albums", "Songs"; an anime's kind
+  /// in Add / edit entry: "Series", "Movies".
   String get label => switch (this) {
-    MusicKind.album => 'Albums',
-    MusicKind.song => 'Songs',
+    EntryKind.album => 'Albums',
+    EntryKind.song => 'Songs',
+    EntryKind.series => 'Series',
+    EntryKind.movie => 'Movies',
   };
 
   /// Mid-sentence: "albums", "songs".

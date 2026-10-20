@@ -16,7 +16,7 @@ import 'package:library_app/data/lookup/track_info.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/storage/json_file.dart';
 
@@ -103,7 +103,7 @@ Entry entry(
   int? year,
   String? creator,
   String? source,
-  MusicKind? kind,
+  EntryKind? kind,
   String? album,
 }) => Entry(
   id: id,
@@ -189,7 +189,7 @@ void main() {
         title: 'Rooster',
         year: 1992,
         creator: 'Alice in Chains',
-        kind: MusicKind.song,
+        kind: EntryKind.song,
         album: 'Dirt',
       );
       expect(await r.coverUrl(rooster), 'https://img/dirt.jpg');

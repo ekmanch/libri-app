@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/media_type.dart';
-import 'package:library_app/data/models/music_kind.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/features/library/cover_grid_tile.dart';
 import 'package:library_app/features/library/entry_list_body.dart';
@@ -24,8 +24,8 @@ void main() {
       .entriesOfType(MediaType.music)
       .where((e) => !e.seasonalOnly)
       .toList();
-  final albums = visible.where((e) => e.kind != MusicKind.song).toList();
-  final songs = visible.where((e) => e.kind == MusicKind.song).toList();
+  final albums = visible.where((e) => e.kind != EntryKind.song).toList();
+  final songs = visible.where((e) => e.kind == EntryKind.song).toList();
   final artists = visible.map((e) => e.creator).toSet().length;
   final ratedTracks = albums.fold(0, (n, a) => n + (a.tracks?.length ?? 0));
 

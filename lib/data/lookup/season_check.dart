@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import '../models/entry.dart';
+import '../models/entry_kind.dart';
 import '../models/entry_status.dart';
 import '../models/library.dart';
 import '../models/media_type.dart';
 import '../models/season.dart';
+import '../operations/entry_operations.dart';
 import '../operations/library_operation.dart';
 import '../operations/season_operations.dart';
 import '../storage/json_file.dart';
@@ -90,9 +92,13 @@ typedef SeasonCheckResult = ({
 });
 
 /// The daily check (DESIGN.md 10c). Once a day it asks the lookup about
-/// every show linked to TMDB that is not DNF, and once about any show
-/// without seasons whatever its status:
+/// every show linked to TMDB, and every anime linked to AniList that is not
+/// a movie, that is not DNF, and once about any such entry without seasons
+/// whatever its status:
 ///
+/// - An anime stored without a kind learns it from the lookup: a movie is
+///   marked so and left alone from then on; a series is marked so and gets
+///   its seasons like a show.
 /// - Seasons numbered above the show's highest that have a date are added,
 ///   marked New on a show that had seasons; a show that had none gets them
 ///   quietly, its own date dropped and its status carried over.
@@ -119,11 +125,20 @@ class SeasonCheck {
     dropped: <DroppedSeason>[],
   );
 
-  /// Whether the check asks the lookup about [entry].
-  static bool isAsked(Entry entry) =>
-      entry.type == MediaType.shows &&
-      (entry.source?.startsWith('tmdb:tv:') ?? false) &&
-      (entry.status != EntryStatus.dnf || (entry.seasons?.isEmpty ?? true));
+  /// Whether the check asks the lookup about [entry]: a show linked to
+  /// TMDB, or an anime linked to AniList that is not a movie (a series, or
+  /// one whose kind is not known yet).
+  static bool isAsked(Entry entry) {
+    final source = entry.source ?? '';
+    final linked = switch (entry.type) {
+      MediaType.shows => source.startsWith('tmdb:tv:'),
+      MediaType.anime =>
+        entry.kind != EntryKind.movie && source.startsWith('anilist:'),
+      _ => false,
+    };
+    return linked &&
+        (entry.status != EntryStatus.dnf || (entry.seasons?.isEmpty ?? true));
+  }
 
   static String _key(String entryId, int season) => '$entryId#$season';
 
@@ -160,6 +175,14 @@ class SeasonCheck {
           continue;
         }
         if (fetched == null) continue;
+        // An anime stored without a kind: the lookup's. A movie has no
+        // seasons to add; a series goes on like a show.
+        if (show.type == MediaType.anime && show.kind == null) {
+          final kind = fetched.kind;
+          if (kind == null) continue;
+          operations.add(SetKind(show.id, kind));
+          if (kind == EntryKind.movie) continue;
+        }
         final existing = show.seasons ?? const <Season>[];
         final highest = existing.isEmpty ? 0 : existing.last.season;
         final listed = {for (final s in fetched.seasons) s.season: s};
@@ -202,7 +225,7 @@ class SeasonCheck {
         // out. The operations above write it already for their shows.
         for (final show in library.entries) {
           final seasons = show.seasons;
-          if (show.type != MediaType.shows ||
+          if (!show.usesSeasons ||
               seasons == null ||
               seasons.isEmpty ||
               touched.contains(show.id)) {
