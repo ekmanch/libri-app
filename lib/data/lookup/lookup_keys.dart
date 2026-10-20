@@ -10,6 +10,7 @@ abstract final class LookupKeys {
   static const igdbClientId = String.fromEnvironment('IGDB_CLIENT_ID');
   static const igdbClientSecret = String.fromEnvironment('IGDB_CLIENT_SECRET');
 
-  /// Optional: Google Books works without one, with a smaller quota.
+  /// Optional: Google Books, read by id only for the books it found while
+  /// it was a search source, works without one, with a smaller quota.
   static const googleBooksKey = String.fromEnvironment('GOOGLE_BOOKS_KEY');
 }

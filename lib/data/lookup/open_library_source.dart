@@ -1,24 +1,29 @@
 import '../models/media_type.dart';
 import '../models/released.dart';
+import 'book_match.dart';
 import 'google_books.dart';
 import 'http_lookup_source.dart';
+import 'itunes_books.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'text_clean.dart';
 
-/// Books, from Open Library and Google Books together. Open Library is
-/// asked first for ids, "openlibrary:OL45804W" (the work, never an
-/// edition), its year being the first publication year and its page count
-/// the median of its editions'. Google Books ([google]) is asked in parallel
-/// for the books Open Library does not have yet, which keep Google's id,
-/// "googlebooks:eOTEEQAAQBAJ"; a book both have is one row with Open
-/// Library's id. Whichever a pick came from, the other fills in what it
-/// leaves out (a description, a cover, a year, an author, a page count).
-/// Google's failures never fail a lookup Open Library answered, nor the
-/// other way round.
+/// Books, from Open Library and Apple Books together. Open Library issues
+/// the ids, "openlibrary:OL45804W" (the work, never an edition), and gives
+/// the year (the first publication's, see [firstPublishYear]), the author,
+/// the subjects and the page count (the median of the editions'). Apple
+/// ([apple]) is asked in parallel: it finds the books Open Library does not
+/// have yet, which keep its id, "itunes:6756269989", and gives every book
+/// its description and cover, preferred to Open Library's. A book both
+/// have is one row with Open Library's id. Each field falls back to the
+/// other source ([withApple], [withOpenLibrary]). Google Books ([google])
+/// is read by id only, for the "googlebooks:" ids stored while it was a
+/// search source. One source failing never fails a lookup the other
+/// answered.
 class OpenLibrarySource extends HttpLookupSource {
   OpenLibrarySource(
     super.client, {
+    this.apple,
     this.google,
     Uri? baseUrl,
     Uri? coversUrl,
@@ -27,12 +32,13 @@ class OpenLibrarySource extends HttpLookupSource {
        _coversUrl = coversUrl ?? Uri.https('covers.openlibrary.org'),
        super(minGap: const Duration(milliseconds: 500));
 
+  final ITunesBooks? apple;
   final GoogleBooks? google;
   final Uri _baseUrl;
   final Uri _coversUrl;
 
   static const _fields =
-      'key,title,author_name,first_publish_year,cover_i,subject,'
+      'key,title,author_name,first_publish_year,publish_year,cover_i,subject,'
       'number_of_pages_median';
 
   @override
@@ -43,7 +49,7 @@ class OpenLibrarySource extends HttpLookupSource {
 
   @override
   bool issued(String source) =>
-      super.issued(source) || LookupMatch.providerOf(source) == GoogleBooks.id;
+      super.issued(source) || _isApple(source) || _isGoogle(source);
 
   Map<String, String> get _headers => {
     'Accept': 'application/json',
@@ -76,14 +82,20 @@ class OpenLibrarySource extends HttpLookupSource {
     final authors = [
       for (final a in doc['author_name'] as List? ?? const []) '$a',
     ];
-    final year = doc['first_publish_year'];
+    final first = doc['first_publish_year'];
+    final year =
+        firstPublishYear([
+          for (final y in doc['publish_year'] as List? ?? const [])
+            if (y is num) y.toInt(),
+        ]) ??
+        (first is num ? first.toInt() : null);
     final coverId = doc['cover_i'];
     final pages = doc['number_of_pages_median'];
     return LookupMatch(
       type: MediaType.books,
       title: title,
       source: 'openlibrary:$workId',
-      released: year is num ? Released(year.toInt()) : null,
+      released: year == null ? null : Released(year),
       creator: authors.isEmpty ? null : authors.join(', '),
       tags: [
         for (final s
@@ -126,7 +138,7 @@ class OpenLibrarySource extends HttpLookupSource {
   }) async {
     final (:hits, :failure) = await _both(
       _search({'q': query}, limit),
-      google?.search(query, limit: limit),
+      apple?.search(query, limit: limit),
       limit,
     );
     if (failure != null) {
@@ -152,7 +164,7 @@ class OpenLibrarySource extends HttpLookupSource {
     final author = creator != null && creator.isNotEmpty ? creator : null;
     final (:hits, :failure) = await _both(
       _search({'title': title, 'author': ?author}, 5),
-      google?.searchTitle(title, author: author, limit: 5),
+      apple?.searchTitle(title, author: author, limit: 5),
       10,
     );
     final hit = _pick(hits, title, year: year, author: author);
@@ -180,25 +192,25 @@ class OpenLibrarySource extends HttpLookupSource {
 
   /// Both searches at once, merged by [mergeBookHits], with the failure of
   /// the one that did not answer. Throws when neither answered (Open
-  /// Library's failure; without Google, whenever Open Library fails).
+  /// Library's failure; without Apple, whenever Open Library fails).
   Future<({List<LookupMatch> hits, LookupException? failure})> _both(
     Future<List<LookupMatch>> openLibrary,
-    Future<List<LookupMatch>>? google,
+    Future<List<LookupMatch>>? apple,
     int limit,
   ) async {
-    final [ol, gb] = await Future.wait([
+    final [ol, ab] = await Future.wait([
       _settle(openLibrary),
-      google == null
+      apple == null
           ? Future<Object>.value(const <LookupMatch>[])
-          : _settle(google),
+          : _settle(apple),
     ]);
-    switch ((ol, gb)) {
-      case (List<LookupMatch> ol, List<LookupMatch> gb):
-        return (hits: mergeBookHits(ol, gb, limit: limit), failure: null);
-      case (List<LookupMatch> ol, LookupException gb):
-        return (hits: mergeBookHits(ol, const [], limit: limit), failure: gb);
-      case (LookupException ol, List<LookupMatch> gb) when google != null:
-        return (hits: mergeBookHits(const [], gb, limit: limit), failure: ol);
+    switch ((ol, ab)) {
+      case (List<LookupMatch> ol, List<LookupMatch> ab):
+        return (hits: mergeBookHits(ol, ab, limit: limit), failure: null);
+      case (List<LookupMatch> ol, LookupException ab):
+        return (hits: mergeBookHits(ol, const [], limit: limit), failure: ab);
+      case (LookupException ol, List<LookupMatch> ab) when apple != null:
+        return (hits: mergeBookHits(const [], ab, limit: limit), failure: ol);
       case (LookupException ol, _):
         throw ol;
     }
@@ -216,31 +228,69 @@ class OpenLibrarySource extends HttpLookupSource {
       );
 
   /// One list from both sources' hits: each Open Library hit keeps its place
-  /// and takes what it lacks (a cover, a year, a page count) from Google's
-  /// hit for the same book ([sameBook]); Google's other hits take turns
-  /// with Open Library's, so a long Open Library list cannot push out the
-  /// book only Google has. At most [limit].
+  /// and takes Apple's record of the same book ([sameBook], [withApple]);
+  /// Apple's other hits take turns with Open Library's, so a long Open
+  /// Library list cannot push out the book only Apple has. At most [limit].
   static List<LookupMatch> mergeBookHits(
     List<LookupMatch> openLibrary,
-    List<LookupMatch> google, {
+    List<LookupMatch> apple, {
     int? limit,
   }) {
     final ol = [...openLibrary];
-    final onlyGoogle = <LookupMatch>[];
-    for (final hit in google) {
+    final onlyApple = <LookupMatch>[];
+    for (final hit in apple) {
       final i = ol.indexWhere((o) => sameBook(o, hit));
       if (i >= 0) {
-        ol[i] = _fillGaps(ol[i], hit);
-      } else if (!onlyGoogle.any((o) => sameBook(o, hit))) {
-        onlyGoogle.add(hit);
+        ol[i] = withApple(ol[i], hit);
+      } else if (!onlyApple.any((o) => sameBook(o, hit))) {
+        onlyApple.add(hit);
       }
     }
     final out = <LookupMatch>[];
-    for (var i = 0; i < ol.length || i < onlyGoogle.length; i++) {
+    for (var i = 0; i < ol.length || i < onlyApple.length; i++) {
       if (i < ol.length) out.add(ol[i]);
-      if (i < onlyGoogle.length) out.add(onlyGoogle[i]);
+      if (i < onlyApple.length) out.add(onlyApple[i]);
     }
     return limit == null ? out : out.take(limit).toList();
+  }
+
+  /// [match] with Apple's record of the same book: Apple's description and
+  /// cover, when it has them, replace what [match] has; its year, author
+  /// and genres fill gaps only.
+  static LookupMatch withApple(LookupMatch match, LookupMatch? apple) {
+    if (apple == null) return match;
+    return match.copyWith(
+      released: match.released ?? apple.released,
+      creator: match.creator ?? apple.creator,
+      description: apple.description.isNotEmpty ? apple.description : null,
+      tags: match.tags.isEmpty && apple.tags.isNotEmpty ? apple.tags : null,
+      pages: match.pages ?? apple.pages,
+      coverUrl: apple.coverUrl,
+      largeCoverUrl: apple.coverUrl == null
+          ? null
+          : apple.largeCoverUrl ?? apple.coverUrl,
+    );
+  }
+
+  /// [match] (an Apple or Google hit) with Open Library's record of the
+  /// same book: Open Library's year, author and page count, when it has
+  /// them, replace what [match] has; its description, cover and subjects
+  /// fill gaps only.
+  static LookupMatch withOpenLibrary(LookupMatch match, LookupMatch? ol) {
+    if (ol == null) return match;
+    return match.copyWith(
+      released: ol.released,
+      creator: ol.creator,
+      pages: ol.pages,
+      description: match.description.isEmpty && ol.description.isNotEmpty
+          ? ol.description
+          : null,
+      tags: match.tags.isEmpty && ol.tags.isNotEmpty ? ol.tags : null,
+      coverUrl: match.coverUrl == null ? ol.coverUrl : null,
+      largeCoverUrl: match.coverUrl == null && match.largeCoverUrl == null
+          ? ol.largeCoverUrl
+          : null,
+    );
   }
 
   /// [match] with the fields it lacks taken from [other]; nothing it has is
@@ -271,8 +321,18 @@ class OpenLibrarySource extends HttpLookupSource {
     return parts[1];
   }
 
-  bool _isGoogle(String source) =>
+  static bool _isApple(String source) =>
+      LookupMatch.providerOf(source) == ITunesBooks.id;
+
+  static bool _isGoogle(String source) =>
       LookupMatch.providerOf(source) == GoogleBooks.id;
+
+  ITunesBooks get _apple =>
+      apple ??
+      (throw const LookupException(
+        LookupFailure.notConfigured,
+        message: 'no Apple Books',
+      ));
 
   GoogleBooks get _google =>
       google ??
@@ -304,111 +364,164 @@ class OpenLibrarySource extends HttpLookupSource {
     );
   }
 
-  /// Google Books' fill-in for an Open Library pick, when there is one; its
-  /// failures leave the gaps open.
-  Future<GoogleBooksFill> _googleFill(String title, String? author) async {
-    const none = (
-      description: null,
-      coverUrl: null,
-      pages: null,
-      released: null,
-      creator: null,
+  /// [hit] with its work's description and cover where it lacks them.
+  Future<LookupMatch> _withWork(LookupMatch hit) async {
+    final work = await _work(hit.source);
+    final coverId = work.coverId;
+    return hit.copyWith(
+      description: hit.description.isEmpty ? work.description : null,
+      coverUrl: hit.coverUrl == null && coverId != null
+          ? _cover(coverId, '-M')
+          : null,
+      largeCoverUrl: hit.largeCoverUrl == null && coverId != null
+          ? _cover(coverId, '-L')
+          : null,
     );
-    final books = google;
-    if (books == null) return none;
-    try {
-      return await books.lookUp(title, author: author);
-    } on LookupException {
-      return none;
-    }
   }
 
-  /// Open Library's record of a Google pick: the same title (by the same
-  /// author, when known) with its work's description; null when it has no
-  /// such book or does not answer.
-  Future<LookupMatch?> _openLibraryFill(String title, String? author) async {
+  /// The first of [hits] that is the book [title] by [author] (the same
+  /// title alone when no author is known).
+  static LookupMatch? _theBook(
+    List<LookupMatch> hits,
+    String title,
+    String? author,
+  ) {
+    final probe = LookupMatch(
+      type: MediaType.books,
+      title: title,
+      source: '',
+      creator: author,
+    );
+    return hits
+        .where(
+          (h) =>
+              author == null ? sameTitle(h.title, title) : sameBook(h, probe),
+        )
+        .firstOrNull;
+  }
+
+  /// Apple's record of the book [title] (by [author], when known); null
+  /// when Apple has none, is not set up, or does not answer.
+  Future<LookupMatch?> _appleFill(String title, String? author) async {
+    final books = apple;
+    if (books == null) return null;
     try {
-      final hits = await _search({'title': title, 'author': ?author}, 5);
-      final probe = LookupMatch(
-        type: MediaType.books,
-        title: title,
-        source: '',
-        creator: author,
-      );
-      final hit = hits
-          .where(
-            (h) =>
-                author == null ? sameTitle(h.title, title) : sameBook(h, probe),
-          )
-          .firstOrNull;
-      if (hit == null) return null;
-      final work = await _work(hit.source);
-      return hit.copyWith(
-        description: work.description,
-        coverUrl: hit.coverUrl == null && work.coverId != null
-            ? _cover(work.coverId!, '-M')
-            : null,
-        largeCoverUrl: hit.largeCoverUrl == null && work.coverId != null
-            ? _cover(work.coverId!, '-L')
-            : null,
-      );
+      final hits = await books.searchTitle(title, author: author, limit: 5);
+      return _theBook(hits, title, author);
     } on LookupException {
       return null;
     }
   }
 
-  bool _complete(LookupMatch match) =>
-      match.description.isNotEmpty &&
-      match.coverUrl != null &&
-      match.released != null &&
-      match.creator != null &&
-      match.pages != null;
-
-  @override
-  Future<LookupMatch> details(LookupMatch match) async {
-    if (_isGoogle(match.source)) {
-      final full = _fillGaps(match, await _google.volume(match.source));
-      if (_complete(full)) return full;
-      return _fillGaps(full, await _openLibraryFill(full.title, full.creator));
+  /// Open Library's record of the book [title] (by [author], when known),
+  /// with its work's description and cover when [withWork]; null when it
+  /// has none or does not answer.
+  Future<LookupMatch?> _openLibraryFill(
+    String title,
+    String? author, {
+    bool withWork = false,
+  }) async {
+    try {
+      final hits = await _search({'title': title, 'author': ?author}, 5);
+      final hit = _theBook(hits, title, author);
+      if (hit == null || !withWork) return hit;
+      return await _withWork(hit);
+    } on LookupException {
+      return null;
     }
-    final work = await _work(match.source);
-    final full = match.copyWith(
-      description: work.description,
-      coverUrl: match.coverUrl == null && work.coverId != null
-          ? _cover(work.coverId!, '-M')
-          : null,
-    );
-    if (_complete(full)) return full;
-    final filled = await _googleFill(match.title, match.creator);
-    return _fillGaps(
-      full,
-      LookupMatch(
-        type: MediaType.books,
-        title: match.title,
-        source: '',
-        released: filled.released,
-        creator: filled.creator,
-        description: filled.description ?? '',
-        pages: filled.pages,
-        coverUrl: filled.coverUrl,
-      ),
-    );
   }
 
+  /// The search index's own record of the work [source]: its title, author
+  /// and cover in one request; null when the index lacks it.
+  Future<LookupMatch?> _byKey(String source) async {
+    final hits = await _search({'q': 'key:/works/${_workId(source)}'}, 1);
+    return hits.where((h) => h.source == source).firstOrNull;
+  }
+
+  /// An Open Library pick takes Apple's description and cover (the work's
+  /// where Apple has none); an Apple pick takes Open Library's year, author
+  /// and page count; a Google pick reads its volume, then both.
+  @override
+  Future<LookupMatch> details(LookupMatch match) async {
+    if (_isApple(match.source)) {
+      return withOpenLibrary(
+        match,
+        await _openLibraryFill(
+          match.title,
+          match.creator,
+          withWork: match.description.isEmpty,
+        ),
+      );
+    }
+    if (_isGoogle(match.source)) {
+      final full = _fillGaps(match, await _google.volume(match.source));
+      final withBoth = withApple(
+        full,
+        await _appleFill(full.title, full.creator),
+      );
+      return withOpenLibrary(
+        withBoth,
+        await _openLibraryFill(
+          withBoth.title,
+          withBoth.creator,
+          withWork: withBoth.description.isEmpty,
+        ),
+      );
+    }
+    var full = match;
+    if (full.description.isEmpty ||
+        full.coverUrl == null ||
+        full.released == null ||
+        full.creator == null) {
+      full = withApple(full, await _appleFill(full.title, full.creator));
+    }
+    if (full.description.isEmpty || full.coverUrl == null) {
+      full = await _withWork(full);
+    }
+    return full;
+  }
+
+  /// An Open Library id: Apple's artwork for the work, found by its title
+  /// and author, else Open Library's own cover. An Apple id: its record's
+  /// artwork, else Open Library's cover by title. A Google id: its volume's
+  /// cover, else the others' by title.
   @override
   Future<String?> coverUrl(String source, {required MediaType type}) async {
+    if (_isApple(source)) {
+      final book = await _apple.book(source);
+      if (book == null) return null;
+      if (book.cacheCoverUrl case final url?) return url;
+      final ol = await _openLibraryFill(
+        book.title,
+        book.creator,
+        withWork: true,
+      );
+      return ol?.cacheCoverUrl;
+    }
     if (_isGoogle(source)) {
       final volume = await _google.volume(source);
       if (volume == null) return null;
       if (volume.cacheCoverUrl case final url?) return url;
-      return (await _openLibraryFill(
+      final fromApple = await _appleFill(volume.title, volume.creator);
+      if (fromApple?.cacheCoverUrl case final url?) return url;
+      final ol = await _openLibraryFill(
         volume.title,
         volume.creator,
-      ))?.cacheCoverUrl;
+        withWork: true,
+      );
+      return ol?.cacheCoverUrl;
+    }
+    final doc = await _byKey(source);
+    if (doc != null) {
+      final fromApple = await _appleFill(doc.title, doc.creator);
+      if (fromApple?.cacheCoverUrl case final url?) return url;
+      if (doc.cacheCoverUrl case final url?) return url;
     }
     final work = await _work(source);
     if (work.coverId != null) return _cover(work.coverId!, '-L');
-    if (work.title == null) return null;
-    return (await _googleFill(work.title!, null)).coverUrl;
+    if (doc == null && work.title != null) {
+      return (await _appleFill(work.title!, null))?.cacheCoverUrl;
+    }
+    return null;
   }
 }

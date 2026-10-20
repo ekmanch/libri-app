@@ -26,8 +26,9 @@ void main() {
     for (final name in [
       'TMDB',
       'IGDB',
-      'Google Books',
+      'Apple Books',
       'Open Library',
+      'Google Books',
       'Deezer',
       'AniList',
     ]) {

@@ -2,10 +2,11 @@
 //
 //   LIBRI_LIVE_LOOKUPS=1 flutter test test/data/lookup/lookup_live_test.dart
 //
-// AniList, Open Library and Deezer need no key and always run then. TMDB
+// AniList, Open Library, Apple Books and Deezer need no key and always run
+// then. TMDB
 // and IGDB run when their keys are in the environment too:
 // TMDB_READ_TOKEN, IGDB_CLIENT_ID and IGDB_CLIENT_SECRET (and optionally
-// GOOGLE_BOOKS_KEY). Nothing is written anywhere but a temporary folder.
+// GOOGLE_BOOKS_KEY, for the volume read). Nothing is written anywhere but a temporary folder.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,7 @@ import 'package:library_app/data/lookup/deezer_source.dart';
 import 'package:library_app/data/lookup/google_books.dart';
 import 'package:library_app/data/lookup/igdb_source.dart';
 import 'package:library_app/data/lookup/igdb_token_store.dart';
+import 'package:library_app/data/lookup/itunes_books.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
 import 'package:library_app/data/lookup/tmdb_source.dart';
 import 'package:library_app/data/models/media_type.dart';
@@ -71,10 +73,11 @@ void main() {
   });
 
   test(
-    'Open Library: search, details, cover, and the Google fill-in',
+    'Books: Open Library and Apple Books, search, details and covers',
     () async {
       final books = OpenLibrarySource(
         client,
+        apple: ITunesBooks(client),
         google: GoogleBooks(client, key: env['GOOGLE_BOOKS_KEY'] ?? ''),
       );
       final hits = await books.search(
@@ -100,24 +103,58 @@ void main() {
         creator: 'Bram Stoker',
       );
       expect(matched?.released?.year, 1897);
-      // Without a key Google Books shares one small daily quota with
-      // everyone, so only a key makes the fill-in worth asserting on.
+
+      // Both have it: Open Library's id and year (its 1950 edition is a
+      // mis-dated one), Apple's description and cover.
+      final rats = await books.search(
+        'King Rat James Clavell',
+        type: MediaType.books,
+      );
+      final rat = rats.firstWhere((m) => m.title.toLowerCase() == 'king rat');
+      expect(rat.source, 'openlibrary:OL2918736W');
+      expect(rat.released?.year, 1962);
+      expect(rat.creator, 'James Clavell');
+      expect(rat.pages, greaterThan(0));
+      expect(rat.description, contains('Changi'));
+      expect(rat.coverUrl, contains('mzstatic.com'));
+      expect(rat.largeCoverUrl, endsWith('/600x600bb.jpg'));
+      final ratFull = await books.details(rat);
+      expect(ratFull.released?.year, 1962);
+      expect(ratFull.description, contains('Changi'));
+      expect(
+        await books.coverUrl(rat.source, type: MediaType.books),
+        endsWith('/600x600bb.jpg'),
+      );
+
+      // Only Apple has it (2026-10-20).
+      final angels = await books.search(
+        'The Weight of Angels John Boyne',
+        type: MediaType.books,
+      );
+      final angel = angels.firstWhere(
+        (m) => m.title.toLowerCase() == 'the weight of angels',
+      );
+      expect(angel.source, 'itunes:6756269989');
+      expect(angel.creator, 'John Boyne');
+      expect(angel.released?.year, 2026);
+      expect(angel.description, isNotEmpty);
+      expect(angel.description, isNot(contains('<')));
+      expect(angel.largeCoverUrl, endsWith('/600x600bb.jpg'));
+      expect((await books.details(angel)).source, angel.source);
+      expect(
+        await books.coverUrl(angel.source, type: MediaType.books),
+        endsWith('/600x600bb.jpg'),
+      );
+
+      // Google Books is read by id only, for the ids stored before. Without
+      // a key it shares one small daily quota with everyone, spent by midday
+      // on 2026-10-20, so only a key makes the read worth asserting on.
       if ((env['GOOGLE_BOOKS_KEY'] ?? '').isNotEmpty) {
-        final filled = await GoogleBooks(
+        final volume = await GoogleBooks(
           client,
           key: env['GOOGLE_BOOKS_KEY']!,
-        ).lookUp('Dracula', author: 'Bram Stoker');
-        expect(filled.description, isNotEmpty);
-        // Only Google Books has it (2026-10-19), and its search answered
-        // 503 to most requests then: the retry elsewhere must reach it.
-        final angels = await books.search(
-          'The Weight of Angels John Boyne',
-          type: MediaType.books,
-        );
-        expect(
-          angels.map((m) => m.source),
-          contains('googlebooks:eOTEEQAAQBAJ'),
-        );
+        ).volume('googlebooks:eOTEEQAAQBAJ');
+        expect(volume?.title, 'The Weight of Angels');
       }
     },
   );

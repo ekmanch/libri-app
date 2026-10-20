@@ -13,6 +13,7 @@ import 'episode_store.dart';
 import 'google_books.dart';
 import 'igdb_source.dart';
 import 'igdb_token_store.dart';
+import 'itunes_books.dart';
 import 'lookup_keys.dart';
 import 'lookup_service.dart';
 import 'lookup_source.dart';
@@ -48,6 +49,7 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
     AniListSource(client),
     OpenLibrarySource(
       client,
+      apple: ITunesBooks(client),
       google: GoogleBooks(client, key: LookupKeys.googleBooksKey),
     ),
     DeezerSource(client),

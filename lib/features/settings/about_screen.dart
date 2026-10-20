@@ -68,14 +68,20 @@ const dataSources = [
     url: 'https://www.igdb.com',
   ),
   DataSource(
-    name: 'Google Books',
-    description: 'Books: those Open Library lacks, and missing details.',
-    url: 'https://books.google.com',
+    name: 'Apple Books',
+    description:
+        'Books: descriptions and covers, and those Open Library lacks.',
+    url: 'https://books.apple.com',
   ),
   DataSource(
     name: 'Open Library',
     description: 'Books: details and covers from the Internet Archive.',
     url: 'https://openlibrary.org',
+  ),
+  DataSource(
+    name: 'Google Books',
+    description: 'Books: details of those it found before Apple Books.',
+    url: 'https://books.google.com',
   ),
   DataSource(
     name: 'Deezer',

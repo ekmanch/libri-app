@@ -14,6 +14,11 @@ void main() {
     expect(stripHtml('  plain   text  '), 'plain text');
     expect(stripHtml('a<br/><br/><br/>b'), 'a\n\nb');
     expect(stripHtml('&#233;t&eacute;'), 'ét&eacute;');
+    // Apple Books writes a hex entity for its non-breaking spaces.
+    expect(
+      stripHtml('<i>Shogun</i>&#xa0;and <i>King Rat</i>'),
+      'Shogun and King Rat',
+    );
   });
 
   test('sameTitle ignores case, punctuation, diacritics and a leading The', () {

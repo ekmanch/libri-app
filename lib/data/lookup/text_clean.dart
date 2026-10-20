@@ -1,5 +1,5 @@
-/// Plain text from the HTML-ish descriptions AniList and Google Books
-/// return: tags dropped, `<br>` and paragraph ends become line breaks,
+/// Plain text from the HTML-ish descriptions AniList, Apple Books and
+/// Google Books return: tags dropped, `<br>` and paragraph ends become line breaks,
 /// common entities decoded, whitespace collapsed.
 String stripHtml(String html) {
   var text = html
@@ -18,6 +18,11 @@ String stripHtml(String html) {
         RegExp(r'&#(\d+);'),
         (m) => String.fromCharCode(int.parse(m.group(1)!)),
       )
+      .replaceAllMapped(
+        RegExp(r'&#x([0-9a-fA-F]+);'),
+        (m) => String.fromCharCode(int.parse(m.group(1)!, radix: 16)),
+      )
+      .replaceAll('\u00a0', ' ')
       .replaceAll('&amp;', '&');
   text = text
       .replaceAll(RegExp(r'[ \t]+'), ' ')
