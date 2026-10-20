@@ -196,8 +196,9 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
         if (_sectionTops[i] <= offset) next = i;
       }
     }
-    final thumbMoves = _thumbShown || _dragging;
-    if (next != _current || thumbMoves) setState(() => _current = next);
+    // Only a section change rebuilds; the thumb follows the controller on
+    // its own, so a scroll frame leaves the list and its rows alone.
+    if (next != _current) setState(() => _current = next);
   }
 
   /// Called from the list's layout with the header's extent. A change
@@ -214,7 +215,7 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
     if (n is ScrollStartNotification && n.dragDetails != null) {
       _pinned = false;
     }
-    if (n is ScrollUpdateNotification && n.dragDetails != null) {
+    if (widget.grid && n is ScrollUpdateNotification && n.dragDetails != null) {
       _showThumbBriefly();
     }
     return false;
@@ -514,9 +515,6 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final trackHeight = constraints.maxHeight;
-        final max = _listMaxExtent;
-        final ratio = max > 0 ? (_listOffset / max).clamp(0.0, 1.0) : 0.0;
-        final thumbTop = ratio * (trackHeight - SectionedListBody.thumbHeight);
         final visible = _dragging || _thumbShown;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -532,57 +530,68 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
               _dragThumbTo(d.localPosition.dy, trackHeight),
           onVerticalDragEnd: (_) => _endDrag(),
           onVerticalDragCancel: _endDrag,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                top: thumbTop,
-                right: 8,
-                child: AnimatedOpacity(
-                  opacity: visible ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    key: SectionedListBody.thumbKey,
-                    width: 5,
-                    height: SectionedListBody.thumbHeight,
-                    decoration: BoxDecoration(
-                      color: _dragging
-                          ? theme.colorScheme.onSurface
-                          : colors.muted,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-              ),
-              // The bubble names the section at the top of the screen
-              // whenever the thumb is out, not only while dragging.
-              Positioned(
-                top: thumbTop + SectionedListBody.thumbHeight / 2 - 18,
-                right: 30,
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: visible ? 1 : 0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: colors.surfaceHigh,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: colors.navBorder),
-                        boxShadow: colors.navShadow,
-                      ),
-                      child: Text(
-                        label,
-                        softWrap: false,
-                        style: theme.textTheme.labelLarge,
+          // The thumb's place comes from the scroll position each frame,
+          // without rebuilding the list behind it.
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final max = _listMaxExtent;
+              final ratio = max > 0 ? (_listOffset / max).clamp(0.0, 1.0) : 0.0;
+              final thumbTop =
+                  ratio * (trackHeight - SectionedListBody.thumbHeight);
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    top: thumbTop,
+                    right: 8,
+                    child: AnimatedOpacity(
+                      opacity: visible ? 1 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Container(
+                        key: SectionedListBody.thumbKey,
+                        width: 5,
+                        height: SectionedListBody.thumbHeight,
+                        decoration: BoxDecoration(
+                          color: _dragging
+                              ? theme.colorScheme.onSurface
+                              : colors.muted,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ],
+                  // The bubble names the section at the top of the screen
+                  // whenever the thumb is out, not only while dragging.
+                  Positioned(
+                    top: thumbTop + SectionedListBody.thumbHeight / 2 - 18,
+                    right: 30,
+                    child: IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: visible ? 1 : 0,
+                        duration: const Duration(milliseconds: 150),
+                        child: Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: colors.surfaceHigh,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: colors.navBorder),
+                            boxShadow: colors.navShadow,
+                          ),
+                          child: Text(
+                            label,
+                            softWrap: false,
+                            style: theme.textTheme.labelLarge,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
