@@ -136,11 +136,13 @@ class ITunesBooks with LookupHttp {
       for (final g in item['genres'] as List? ?? const [])
         if (g is String && g != 'Books' && isTagLike(g)) g,
     ];
+    final released = date == null ? null : Released.tryParse(date);
     return LookupMatch(
       type: MediaType.books,
       title: title,
       source: '$id:${trackId.toInt()}',
-      released: date == null ? null : Released.tryParse(date),
+      released: released,
+      releasedFromEbook: released != null,
       creator: stringAt(item, 'artistName'),
       description: text == null ? '' : stripHtml(text),
       tags: genres.take(maxBookTags).toList(),

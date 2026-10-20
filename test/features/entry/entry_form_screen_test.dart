@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/images/artwork_providers.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/models/book_format.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -54,6 +55,78 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
   }
+
+  group('Book: year from the ebook edition', () {
+    const hint = "Year from the ebook edition. Check if it's a reprint.";
+    const ebook = LookupMatch(
+      type: MediaType.books,
+      title: 'Leave the Lights On',
+      source: 'itunes:6756269989',
+      released: Released(2026, 9, 29),
+      releasedFromEbook: true,
+    );
+
+    testWidgets('shows while adding and goes once the picker has been open', (
+      tester,
+    ) async {
+      await pumpApp(tester, const EntryFormScreen.create(match: ebook));
+      expect(find.text(hint), findsOneWidget);
+
+      // Opened and closed with nothing changed.
+      await tester.tap(find.bySemanticsLabel(RegExp('Released, ')));
+      await tester.pumpAndSettle();
+      expect(find.text(hint), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.pumpAndSettle();
+      expect(find.text(hint), findsNothing);
+      expect(
+        find.bySemanticsLabel(RegExp('Released, Sep 29, 2026')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('goes when the date is cleared', (tester) async {
+      await pumpApp(tester, const EntryFormScreen.create(match: ebook));
+      await tester.tap(find.bySemanticsLabel(RegExp('Released, ')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Clear'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.pumpAndSettle();
+      expect(find.text(hint), findsNothing);
+      expect(
+        find.bySemanticsLabel(RegExp('Released, Not set')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('not for a year from Open Library', (tester) async {
+      await pumpApp(
+        tester,
+        EntryFormScreen.create(match: ebook.copyWith(releasedFromEbook: false)),
+      );
+      expect(find.text(hint), findsNothing);
+    });
+
+    testWidgets('not once the type is no longer a book', (tester) async {
+      await pumpApp(tester, const EntryFormScreen.create(match: ebook));
+      await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+      await tester.pumpAndSettle();
+      expect(find.text(hint), findsNothing);
+    });
+
+    testWidgets('never in Edit', (tester) async {
+      await pumpApp(
+        tester,
+        EntryFormScreen.edit(
+          loadFixture()
+              .entryById('books/dracula-1897')!
+              .copyWith(released: const Released(2026, 9, 29)),
+        ),
+      );
+      expect(find.text(hint), findsNothing);
+    });
+  });
 
   testWidgets('Add needs a title; Released is picked on the wheels', (
     tester,

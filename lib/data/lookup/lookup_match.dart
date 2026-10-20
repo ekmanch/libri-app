@@ -15,6 +15,7 @@ class LookupMatch {
     required this.title,
     required this.source,
     this.released,
+    this.releasedFromEbook = false,
     this.creator,
     this.description = '',
     this.album,
@@ -37,6 +38,12 @@ class LookupMatch {
   final String source;
 
   final Released? released;
+
+  /// For a book: [released] is the year of the Apple Books ebook, with no
+  /// Open Library year to go by, so it may be a reprint's. The add form
+  /// says so under the date; it is never stored.
+  final bool releasedFromEbook;
+
   final String? creator;
   final String description;
 
@@ -82,6 +89,7 @@ class LookupMatch {
 
   LookupMatch copyWith({
     Released? released,
+    bool? releasedFromEbook,
     String? creator,
     String? description,
     String? album,
@@ -99,6 +107,7 @@ class LookupMatch {
     title: title,
     source: source,
     released: released ?? this.released,
+    releasedFromEbook: releasedFromEbook ?? this.releasedFromEbook,
     creator: creator ?? this.creator,
     description: description ?? this.description,
     album: album ?? this.album,
@@ -120,6 +129,7 @@ class LookupMatch {
       other.title == title &&
       other.source == source &&
       other.released == released &&
+      other.releasedFromEbook == releasedFromEbook &&
       other.creator == creator &&
       other.description == description &&
       other.album == album &&

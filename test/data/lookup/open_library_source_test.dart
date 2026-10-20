@@ -429,6 +429,31 @@ void main() {
     expect(merged.description, '');
   });
 
+  test('the year is marked as the ebook\'s only while Open Library has '
+      'none', () {
+    final ebook = book(
+      'itunes:1',
+      'X',
+      released: const Released(2015, 7, 28),
+    ).copyWith(releasedFromEbook: true);
+    final dated = book('openlibrary:OL1W', 'X', released: const Released(1974));
+    final undated = book('openlibrary:OL1W', 'X');
+
+    expect(OpenLibrarySource.withApple(dated, ebook).releasedFromEbook, false);
+    expect(OpenLibrarySource.withApple(undated, ebook).releasedFromEbook, true);
+    final picked = OpenLibrarySource.withOpenLibrary(ebook, dated);
+    expect(picked.released, const Released(1974));
+    expect(picked.releasedFromEbook, false);
+    expect(
+      OpenLibrarySource.withOpenLibrary(ebook, undated).releasedFromEbook,
+      true,
+    );
+    expect(
+      OpenLibrarySource.withOpenLibrary(ebook, null).releasedFromEbook,
+      true,
+    );
+  });
+
   group('details of an Open Library pick', () {
     const complete = LookupMatch(
       type: MediaType.books,

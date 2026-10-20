@@ -268,6 +268,9 @@ class OpenLibrarySource extends HttpLookupSource {
     if (apple == null) return match;
     return match.copyWith(
       released: match.released ?? apple.released,
+      releasedFromEbook: match.released == null
+          ? apple.releasedFromEbook
+          : match.releasedFromEbook,
       creator: match.creator ?? apple.creator,
       description: apple.description.isNotEmpty ? apple.description : null,
       tags: match.tags.isEmpty && apple.tags.isNotEmpty ? apple.tags : null,
@@ -287,6 +290,7 @@ class OpenLibrarySource extends HttpLookupSource {
     if (ol == null) return match;
     return match.copyWith(
       released: ol.released,
+      releasedFromEbook: ol.released == null ? null : false,
       creator: ol.creator,
       pages: ol.pages,
       description: match.description.isEmpty && ol.description.isNotEmpty
@@ -306,6 +310,9 @@ class OpenLibrarySource extends HttpLookupSource {
     if (other == null) return match;
     return match.copyWith(
       released: match.released == null ? other.released : null,
+      releasedFromEbook: match.released == null
+          ? other.releasedFromEbook
+          : null,
       creator: match.creator == null ? other.creator : null,
       description: match.description.isEmpty ? other.description : null,
       tags: match.tags.isEmpty ? other.tags : null,

@@ -118,6 +118,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   late MediaType _type;
   late MusicKind? _kind;
   late Released? _released;
+
+  /// The date is an Apple Books ebook's year, with no Open Library year to
+  /// go by (Add / edit entry › Book: year from the ebook edition). Held
+  /// here only, never saved; cleared once the owner touches the date.
+  bool _releasedFromEbook = false;
   late EntryStatus _status;
   late int? _rating;
   late List<String> _tags;
@@ -180,6 +185,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       text: entry?.creator ?? match?.creator ?? '',
     );
     _released = entry?.released ?? match?.released;
+    _releasedFromEbook = entry == null && (match?.releasedFromEbook ?? false);
     _note = TextEditingController(text: entry?.note ?? '');
     _otherPlatform = TextEditingController();
     for (final platform in [
@@ -246,11 +252,25 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     return math.max(150.0, width + 14 + 8 + 18 + 12 + 2 + 8);
   }
 
-  Future<void> _pickReleased() => showReleasedSheet(
-    context,
-    initial: _released,
-    onChanged: (released) => setState(() => _released = released),
-  );
+  /// Opening the picker, whatever it ends with, settles the ebook hint.
+  Future<void> _pickReleased() async {
+    await showReleasedSheet(
+      context,
+      initial: _released,
+      onChanged: (released) => setState(() {
+        _released = released;
+        _releasedFromEbook = false;
+      }),
+    );
+    if (mounted) setState(() => _releasedFromEbook = false);
+  }
+
+  /// Books only, and only while adding.
+  bool get _showsEbookHint =>
+      _releasedFromEbook &&
+      _released != null &&
+      _type == MediaType.books &&
+      !widget.isEditing;
 
   bool get _canSave => !_saving && _title.text.trim().isNotEmpty;
 
@@ -551,7 +571,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _source = match.source;
     if (_title.text.trim().isEmpty) _title.text = match.title;
     if (match.creator case final creator?) _creator.text = creator;
-    if (match.released case final released?) _released = released;
+    if (match.released case final released?) {
+      _released = released;
+      _releasedFromEbook = !widget.isEditing && match.releasedFromEbook;
+    }
     if (match.description.isNotEmpty) _description = match.description;
     if (match.pages case final pages?) _pages.text = '$pages';
     // Seasons that are all the user's own (a show filled in by hand, or
@@ -889,6 +912,15 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (_showsEbookHint) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              "Year from the ebook edition. Check if it's "
+                              'a reprint.',
+                              style: Theme.of(context).textTheme.bodySmall!
+                                  .copyWith(fontSize: 12.5, height: 1.35),
+                            ),
+                          ],
                         ],
                       );
                       if (_type == MediaType.shows) return creatorField;

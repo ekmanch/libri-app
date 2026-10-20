@@ -74,6 +74,7 @@ void main() {
     expect(hit.title, 'The Weight of Angels');
     expect(hit.creator, 'John Boyne');
     expect(hit.released, const Released(2026, 9, 29));
+    expect(hit.releasedFromEbook, isTrue);
     expect(hit.description, 'Can one rash decision\n\nprove it?');
     expect(hit.tags, ['Fiction & Literature', 'LGBTQIA+ Fiction']);
     expect(hit.pages, isNull);

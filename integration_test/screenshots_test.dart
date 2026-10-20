@@ -17,6 +17,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
+import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
@@ -430,6 +431,30 @@ Future<void> walkBook(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
   await closeSheet(tester);
+  // Add / edit entry › Book: year from the ebook edition: an Apple Books
+  // pick with no Open Library year.
+  unawaited(
+    tester
+        .state<NavigatorState>(find.byType(Navigator).first)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => const EntryFormScreen.create(
+              match: LookupMatch(
+                type: MediaType.books,
+                title: 'Leave the Lights On',
+                source: 'itunes:6756269989',
+                released: Released(2026, 9, 29),
+                releasedFromEbook: true,
+                creator: 'Riley Sager',
+              ),
+            ),
+          ),
+        ),
+  );
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a42-add-book-ebook-year');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
 }
 
 void main() {
