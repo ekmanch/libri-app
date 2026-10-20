@@ -74,7 +74,7 @@ Phase 1 builds the whole UI on fixture data, with nothing saved and no network. 
 ### 1f. Settings and states
 - [x] Settings: theme, accent color (Vivid and Pastel groups), timeline default, seasonal theme default, About row (name and version); also the default game platform from the canvas, used by Add / edit entry
 - [x] Settings › Library connection (UI only)
-- [x] First run (UI only): splash, welcome, connect GitHub, new or existing library file, create, pick, all set (replaces the old first-time setup artboard; the branch step, First run › Pick a branch, was added in phase 6)
+- [x] First run (UI only): splash, welcome, connect GitHub, new or existing library file, create, pick, all set (replaces the old first-time setup artboard; the branch step, First run › Pick a branch, was added later, during the ongoing polish)
 - [x] Library › Sync and errors (the banners) and First run › First load (driven by fake states)
 - [x] Library › Home, light theme: a light theme pass over every screen (every screen is captured in light by `screenshots_test.dart`; a reviewer compared them and the banners, the inset status segments and the type-chip dots were fixed)
 
@@ -155,9 +155,9 @@ Built on 2026-10-15; the decisions are in DESIGN.md section 10 and 10c.
 - [x] "Look up again" from Add / edit entry: New entry: pick a match as a picker on the entry's type and title; a pick sets `source`, fills only the empty fields and replaces the device-matched cover
 - [x] Opt-in live test against the real providers (`LIBRI_LIVE_LOOKUPS=1`)
 
-## Phase 6: After the first week on the phone
+## Ongoing: Polish and improvements
 
-Owner feedback of 2026-10-16 and the canvas revision of the same day (Library › Filter sheet, Library › Filter: all Authors, Add / edit entry › New tag: confirm and pick a category, Add / edit entry › Tag picker).
+Features found missing and bugs found while using the app day to day, in the order they came up; not a phase with an end. Its earlier commits label it phase 6. It started with the owner's feedback of 2026-10-16 and the canvas revision of the same day (Library › Filter sheet, Library › Filter: all Authors, Add / edit entry › New tag: confirm and pick a category, Add / edit entry › Tag picker).
 
 - [x] Library › Home: the home's header scrolls with the list, like an Android list with a header; the pill and the "+" button stay; a list shorter than the screen does not scroll
 - [x] Library › Home: the count row (count, sort, view) pins at the top; the chips, the status segments, the music tabs and a filter's removable chips scroll away (owner's second and third look, 2026-10-17)
@@ -211,7 +211,8 @@ Owner feedback of 2026-10-16 and the canvas revision of the same day (Library �
 - [ ] Data repo follow-up for the dot in tags: `scripts/library.py` (`TAG` allows a dot between two digits) and the README's tag rules are edited in the working tree of `ekmanch/library` and wait for a commit and push
 - [ ] `test/data/repository/github_library_repository_test.dart` "watching alone loads the queue and checks, like the UI" fails now and then under the full suite (one request seen, two expected: the check has not finished after `pumpEventQueue`); it passes alone. Seen 2026-10-18
 - [ ] The accessibility audit's "filter" step fails in dark and light ("Bad state: No element" tapping the `#horror` chip in the filter sheet, `test/accessibility/a11y_audit_test.dart` line 180), so Library › Filter sheet and Library › Filtered results, one type are not audited; seen on 2026-10-18, present before the branch step too
-- [ ] The accessibility audit's text scale 1.3 walk stops at its "details" step ("Bad state: No element", `test/accessibility/a11y_audit_test.dart`) and skips the five steps after it; it did so before phase 6 too. Make the walk reach every screen at 1.3 again.
+- [ ] The accessibility audit's text scale 1.3 walk stops at its "details" step ("Bad state: No element", `test/accessibility/a11y_audit_test.dart`) and skips the five steps after it; it did so before the ongoing polish began too. Make the walk reach every screen at 1.3 again.
+- [ ] Scrolling screenshots: Samsung's scroll capture on the S25 moves a Flutter list only a little per step, and stock Android (a Pixel's "Capture more") never offers it, since Flutter does not implement Android 12's scroll capture interface (`ScrollCaptureCallback`; flutter/flutter#187981, open as of 2026-06). First find out what Samsung does: a scroll capture with Developer options › Pointer location on shows whether it injects drags or scroll events and how far, and a test build that logs when the system asks the app for scroll capture shows whether One UI uses the interface at all. Then build whichever fix that calls for: the interface in the Android side (report the main list, scroll it on request, copy that part of the frame), or a longer step for the injected input that leaves ordinary swipes alone (owner's report, 2026-10-20)
 
 ## Later
 
