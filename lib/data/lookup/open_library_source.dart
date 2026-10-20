@@ -37,9 +37,13 @@ class OpenLibrarySource extends HttpLookupSource {
   final Uri _baseUrl;
   final Uri _coversUrl;
 
+  /// `editions.cover_i` is the cover of the edition that best matches the
+  /// query, an English one when there is one (`lang=en` below); the work's
+  /// own `cover_i` can be any edition's, a Spanish "Rey de las ratas" for
+  /// "King Rat".
   static const _fields =
       'key,title,author_name,first_publish_year,publish_year,cover_i,subject,'
-      'number_of_pages_median';
+      'number_of_pages_median,editions,editions.cover_i';
 
   @override
   String get id => 'openlibrary';
@@ -89,7 +93,9 @@ class OpenLibrarySource extends HttpLookupSource {
             if (y is num) y.toInt(),
         ]) ??
         (first is num ? first.toInt() : null);
-    final coverId = doc['cover_i'];
+    final editions = doc['editions'] as Map<String, Object?>? ?? const {};
+    final edition = objectsAt(editions, 'docs').firstOrNull?['cover_i'];
+    final coverId = edition is num && edition > 0 ? edition : doc['cover_i'];
     final pages = doc['number_of_pages_median'];
     return LookupMatch(
       type: MediaType.books,
@@ -122,6 +128,7 @@ class OpenLibrarySource extends HttpLookupSource {
     final json = await _get('/search.json', {
       ...query,
       'fields': _fields,
+      'lang': 'en',
       'limit': '$limit',
     });
     return [for (final doc in objectsAt(json, 'docs')) ?_match(doc)];

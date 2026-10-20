@@ -126,6 +126,15 @@ void main() {
         endsWith('/600x600bb.jpg'),
       );
 
+      // Open Library alone gives the English edition's cover, not the work's
+      // Spanish one (13268339, "Rey de las ratas").
+      final olRats = await OpenLibrarySource(client)
+          .search('King Rat James Clavell', type: MediaType.books);
+      expect(
+        olRats.first.coverUrl,
+        allOf(contains('covers.openlibrary.org'), isNot(contains('13268339'))),
+      );
+
       // Only Apple has it (2026-10-20).
       final angels = await books.search(
         'The Weight of Angels John Boyne',

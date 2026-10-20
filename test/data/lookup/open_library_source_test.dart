@@ -51,7 +51,15 @@ void main() {
     'author_name': ['James Clavell'],
     'first_publish_year': 1950,
     'publish_year': [1950, 1962, 1963, 1965, 2013],
+    // The work's cover is a Spanish edition's; the best English edition
+    // has its own.
     'cover_i': 13268339,
+    'editions': {
+      'numFound': 32,
+      'docs': [
+        {'key': '/books/OL23256803M', 'cover_i': 9524340},
+      ],
+    },
     'number_of_pages_median': 391,
     'subject': ['Prisoners of war', 'War stories'],
   };
@@ -172,12 +180,14 @@ void main() {
       expect(request.url.path, '/search.json');
       expect(request.url.queryParameters['q'], 'dracula');
       expect(request.url.queryParameters['limit'], '10');
+      expect(request.url.queryParameters['lang'], 'en');
       expect(
         request.url.queryParameters['fields'],
         allOf(
           contains('first_publish_year'),
           contains('publish_year'),
           contains('number_of_pages_median'),
+          contains('editions.cover_i'),
         ),
       );
       expect(request.headers['User-Agent'], 'Libri');
@@ -206,6 +216,15 @@ void main() {
       expect(hits[0].pages, 418);
       // The lone 1950 edition is skipped: 1962 is the first publication.
       expect(hits[1].released, const Released(1962));
+      // The English edition's cover, not the work's Spanish one.
+      expect(
+        hits[1].coverUrl,
+        'https://covers.openlibrary.org/b/id/9524340-M.jpg',
+      );
+      expect(
+        hits[1].largeCoverUrl,
+        'https://covers.openlibrary.org/b/id/9524340-L.jpg',
+      );
       expect(hits[2].coverUrl, isNull);
       expect(hits[2].released, isNull);
       expect(hits[2].pages, isNull);
