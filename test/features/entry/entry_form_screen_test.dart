@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/images/artwork_providers.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/book_format.dart';
 import 'package:library_app/data/models/entry.dart';
@@ -238,11 +239,18 @@ void main() {
       expect(saved.pages, 199);
     });
 
-    testWidgets('the owner\'s own creator and year stay', (tester) async {
+    testWidgets('the owner\'s own creator and year stay; the cover is '
+        'forgotten even when the pick is the source the entry had', (
+      tester,
+    ) async {
+      // Already linked to the work the pick will be.
       final dracula = loadFixture()
           .entryById('books/dracula-1897')!
-          .copyWith(title: 'Carrie');
+          .copyWith(title: 'Carrie', source: 'openlibrary:OL81613W');
       final container = await pumpApp(tester, EntryFormScreen.edit(dracula));
+      final resolver = container.read(artworkResolverProvider);
+      expect(await resolver.coverUrl(dracula), isNotNull);
+      expect(resolver.cachedCoverUrl(dracula), isNotNull);
       await tester.tap(find.text('Look up again'));
       await tester.pumpAndSettle();
       await tester.pump(NewEntryScreen.debounce);
@@ -257,6 +265,8 @@ void main() {
       expect(saved.creator, 'Bram Stoker');
       expect(saved.released, const Released(1897));
       expect(saved.source, 'openlibrary:OL81613W');
+      expect(saved.source, dracula.source);
+      expect(resolver.cachedCoverUrl(saved), isNull);
     });
 
     testWidgets('back without a pick changes nothing', (tester) async {

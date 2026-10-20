@@ -722,8 +722,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     if (widget.isEditing) {
       await repository.apply(UpdateEntry(entry));
       saved = entry;
-      // A new source replaces the cover that was matched on the device.
-      if (entry.source != widget.entry!.source) {
+      // A pick replaces the cover, whether it brought a new source or the
+      // one the entry had (the same book, whose cover may come from
+      // elsewhere now), as does a source edited by hand.
+      if (_match != null || entry.source != widget.entry!.source) {
         ref.read(artworkResolverProvider).forget(entry.id);
       }
     } else {
