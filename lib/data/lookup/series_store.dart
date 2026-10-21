@@ -110,13 +110,7 @@ class FileSeriesStore implements SeriesStore {
       'fetched': fetched.toUtc().toIso8601String(),
       'name': series.name,
       'parts': [
-        for (final p in series.parts)
-          {
-            'number': p.number,
-            'title': p.title,
-            'year': p.year,
-            'source': p.source,
-          },
+        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'source': p.source},
       ],
     })}\n',
   );

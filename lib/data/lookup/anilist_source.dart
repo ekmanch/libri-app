@@ -118,8 +118,7 @@ $_node
   }
 }''';
 
-  static const _scheduleQuery =
-      '''
+  static const _scheduleQuery = '''
 query (\$id: Int, \$page: Int, \$perPage: Int) {
   Media(id: \$id, type: ANIME) {
     airingSchedule(page: \$page, perPage: \$perPage) {
@@ -279,7 +278,10 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
   /// Parses an entry and, when its relations came with it, the entries
   /// they point at, into [nodes]. An entry seen with its relations is kept
   /// over the same one seen without.
-  static AniNode _parseNode(Map<String, Object?> media, Map<int, AniNode> nodes) {
+  static AniNode _parseNode(
+    Map<String, Object?> media,
+    Map<int, AniNode> nodes,
+  ) {
     final id = (media['id'] as num).toInt();
     final titles = media['title'] as Map<String, Object?>? ?? const {};
     List<int>? prequels, sequels;
@@ -393,7 +395,10 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
       return (kind: stored.kind, tmdb: stored.tmdb);
     }
     final chain = await _chain(id);
-    final entry = chain.firstWhere((n) => n.id == id, orElse: () => chain.first);
+    final entry = chain.firstWhere(
+      (n) => n.id == id,
+      orElse: () => chain.first,
+    );
     final kind = kindOf(entry.format);
     String? linked;
     if (kind == EntryKind.series && _tmdbReady) {
@@ -426,7 +431,11 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     if (link.tmdb case final linked? when _tmdbReady) {
       final found = await tmdb!.seasons(linked);
       if (found != null) {
-        return (seasons: found.seasons, canceled: found.canceled, kind: link.kind);
+        return (
+          seasons: found.seasons,
+          canceled: found.canceled,
+          kind: link.kind,
+        );
       }
     }
     final chain = await _chain(id);
@@ -467,7 +476,10 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
       final airing =
           media['airingSchedule'] as Map<String, Object?>? ?? const {};
       for (final item in objectsAt(airing, 'nodes')) {
-        if (item case {'episode': final num episode, 'airingAt': final num at}) {
+        if (item case {
+          'episode': final num episode,
+          'airingAt': final num at,
+        }) {
           final day = DateTime.fromMillisecondsSinceEpoch(
             at.toInt() * 1000,
             isUtc: true,

@@ -87,12 +87,11 @@ abstract class Entry with _$Entry {
   /// Whether an entry of [type] and [kind] can belong to a series (Library ›
   /// Movie in a series): movies, books, games and anime movies. Shows and
   /// anime series use seasons instead.
-  static bool typeHasSeries(MediaType type, EntryKind? kind) =>
-      switch (type) {
-        MediaType.movies || MediaType.books || MediaType.games => true,
-        MediaType.anime => kind != EntryKind.series,
-        MediaType.shows || MediaType.music => false,
-      };
+  static bool typeHasSeries(MediaType type, EntryKind? kind) => switch (type) {
+    MediaType.movies || MediaType.books || MediaType.games => true,
+    MediaType.anime => kind != EntryKind.series,
+    MediaType.shows || MediaType.music => false,
+  };
 
   bool get canHaveSeries => typeHasSeries(type, kind);
 

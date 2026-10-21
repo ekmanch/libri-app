@@ -67,8 +67,7 @@ abstract class LookupSource {
   /// or null when the provider knows no series for it. [name] is the series
   /// name the entry carries, for a provider that lists parts by name (Open
   /// Library's manga volumes).
-  Future<SeriesParts?> seriesParts(String source, {String? name}) async =>
-      null;
+  Future<SeriesParts?> seriesParts(String source, {String? name}) async => null;
 
   /// A cover image for an entry with [source], sized for the cache, or
   /// null when the provider has none.

@@ -292,24 +292,30 @@ final _berserk = (
 /// seasons 1 and 2 (weekly) and Frieren's two seasons (an anime series, Show &
 /// seasons › Anime season episodes), matched on the device as `fake:<slug>`.
 final _episodesBySeason = <(String, int), List<EpisodeInfo>>{
-  ('fake:frieren-beyond-journeys-end', 1): _weekly(DateTime(2023, 9, 29), const [
-    ("The Journey's End", 24),
-    ("It Didn't Have to Be Magic", 24),
-    ('Killing Magic', 24),
-    ('The Land Where Souls Rest', 24),
-  ]),
-  ('fake:frieren-beyond-journeys-end', 2): _weekly(DateTime(2026, 1, 16), const [
-    ('A New Journey', 24),
-    ('The Northern Road', 24),
-    ('First-Class Mages', 24),
-    ('The Old Bridge', 24),
-    ('Snowfall', 24),
-    ('A Familiar Spell', 24),
-    ('The Village Festival', 24),
-    ('Graves of Heroes', 24),
-    ('Echoes', 24),
-    ('Spring Again', 24),
-  ]),
+  ('fake:frieren-beyond-journeys-end', 1): _weekly(
+    DateTime(2023, 9, 29),
+    const [
+      ("The Journey's End", 24),
+      ("It Didn't Have to Be Magic", 24),
+      ('Killing Magic', 24),
+      ('The Land Where Souls Rest', 24),
+    ],
+  ),
+  ('fake:frieren-beyond-journeys-end', 2): _weekly(
+    DateTime(2026, 1, 16),
+    const [
+      ('A New Journey', 24),
+      ('The Northern Road', 24),
+      ('First-Class Mages', 24),
+      ('The Old Bridge', 24),
+      ('Snowfall', 24),
+      ('A Familiar Spell', 24),
+      ('The Village Festival', 24),
+      ('Graves of Heroes', 24),
+      ('Echoes', 24),
+      ('Spring Again', 24),
+    ],
+  ),
   ('fake:stranger-things', 1): _sameDay(Released(2016, 7, 15), const [
     ('Chapter One: The Vanishing of Will Byers', 47),
     ('Chapter Two: The Weirdo on Maple Street', 55),

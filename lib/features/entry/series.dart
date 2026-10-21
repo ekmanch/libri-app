@@ -342,7 +342,8 @@ class SeriesPartRow extends StatelessWidget {
             label: 'Add',
             height: 32,
             semanticsLabel: 'Add $title',
-            onTap: () => openNewEntryScreen(context, type: type, title: row.title),
+            onTap: () =>
+                openNewEntryScreen(context, type: type, title: row.title),
           ),
       ],
     );
@@ -382,7 +383,9 @@ class SeriesPartRow extends StatelessWidget {
       ),
       child: body,
     );
-    if (entry == null) return Semantics(label: '$title, $yearLine', child: content);
+    if (entry == null) {
+      return Semantics(label: '$title, $yearLine', child: content);
+    }
     // No press highlight: the other part's details opening is the feedback.
     return Semantics(
       button: true,

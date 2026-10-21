@@ -156,7 +156,9 @@ final seriesPartsProvider = StreamProvider.autoDispose
     .family<SeriesList?, String>(
       (ref, entryId) {
         final entry = ref.watch(
-          libraryProvider.select((l) => _seriesKey(l.value?.entryById(entryId))),
+          libraryProvider.select(
+            (l) => _seriesKey(l.value?.entryById(entryId)),
+          ),
         );
         if (entry == null || entry.series == null) return Stream.value(null);
         return ref.watch(seriesServiceProvider).load(entry);

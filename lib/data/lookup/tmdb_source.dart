@@ -199,20 +199,25 @@ class TmdbSource extends HttpLookupSource {
       stringAt(json, 'name') ?? stringAt(collection, 'name') ?? '',
     );
     if (name.isEmpty) return null;
-    final parts = [
-      for (final p in objectsAt(json, 'parts'))
-        if (p['id'] case final num partId)
-          if (stringAt(p, 'title') case final title?)
-            (
-              id: partId.toInt(),
-              title: title,
-              released: Released.tryParse(stringAt(p, 'release_date') ?? ''),
-            ),
-    ]..sort((a, b) {
-      final x = a.released, y = b.released;
-      if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
-      return x.availableFrom.compareTo(y.availableFrom);
-    });
+    final parts =
+        [
+          for (final p in objectsAt(json, 'parts'))
+            if (p['id'] case final num partId)
+              if (stringAt(p, 'title') case final title?)
+                (
+                  id: partId.toInt(),
+                  title: title,
+                  released: Released.tryParse(
+                    stringAt(p, 'release_date') ?? '',
+                  ),
+                ),
+        ]..sort((a, b) {
+          final x = a.released, y = b.released;
+          if (x == null || y == null) {
+            return x == null ? (y == null ? 0 : 1) : -1;
+          }
+          return x.availableFrom.compareTo(y.availableFrom);
+        });
     return (
       name: name,
       parts: [
@@ -228,8 +233,9 @@ class TmdbSource extends HttpLookupSource {
   }
 
   /// "The Lord of the Rings" from TMDB's "The Lord of the Rings Collection".
-  static String collectionName(String name) =>
-      name.replaceAll(RegExp(r'\s+collection$', caseSensitive: false), '').trim();
+  static String collectionName(String name) => name
+      .replaceAll(RegExp(r'\s+collection$', caseSensitive: false), '')
+      .trim();
 
   /// A movie's collection, for the Series section; null for a show or a
   /// movie in no collection.
