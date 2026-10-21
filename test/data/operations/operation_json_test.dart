@@ -33,7 +33,11 @@ void main() {
     ),
     RemovePlanItem(halloweenPlan.id, mummy.id),
     SetPlanStarted(halloweenPlan.id, true),
-    const AddTag('grunge', TagCategory.musicGenre),
+    const AddTag('grunge', [TagCategory.musicGenre]),
+    const SetTagCategories('grunge', [
+      TagCategory.genre,
+      TagCategory.musicGenre,
+    ]),
   ];
 
   test('every operation survives a JSON round trip', () {
@@ -63,9 +67,18 @@ void main() {
       'in_progress',
     );
     expect(
-      encodeOperation(const AddTag('rpg', TagCategory.gameGenre))['category'],
-      'Game genres',
+      encodeOperation(
+        const AddTag('rpg', [TagCategory.gameGenre]),
+      )['categories'],
+      ['Game genres'],
     );
+    // A queue written before tags could be in several categories.
+    final old = decodeOperation({
+      'op': 'addTag',
+      'name': 'rpg',
+      'category': 'Game genres',
+    });
+    expect((old as AddTag).categories, [TagCategory.gameGenre]);
   });
 
   test('an unknown op is a FormatException', () {

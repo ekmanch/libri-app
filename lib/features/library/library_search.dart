@@ -1,13 +1,26 @@
 import '../../data/models/entry.dart';
 import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
+import '../../data/models/tag_category.dart';
+import '../../widgets/labels.dart';
 import 'library_sort.dart';
 
-/// A tag whose name matches the query, with how many entries use it.
+/// A tag whose name matches the query, with how many entries use it. A tag
+/// in more than one category is one match per category ("#clint-eastwood ·
+/// Director", "#clint-eastwood · Actor"), each counting the entries that
+/// carry it as that; [category] is null for a tag in one category.
 class TagMatch {
-  const TagMatch(this.name, this.count);
+  const TagMatch(this.name, this.count, {this.category});
   final String name;
   final int count;
+  final TagCategory? category;
+
+  /// "#horror", or "#clint-eastwood · Director".
+  String get label => tagLabel(name, [?category]);
+
+  /// The key of [SearchResults.tagged]: the name, with the category after a
+  /// slash for a per-category match ("clint-eastwood/directors").
+  String get key => category == null ? name : '$name/${category!.name}';
 }
 
 /// What Library › Search shows for a query: matching titles, matching tags, and
@@ -24,7 +37,7 @@ class SearchResults {
   final List<Entry> titles;
   final List<TagMatch> tags;
 
-  /// Keyed by tag, in the order of [tags].
+  /// Keyed by [TagMatch.key], in the order of [tags].
   final Map<String, List<Entry>> tagged;
 
   bool get isEmpty => titles.isEmpty && tags.isEmpty;
@@ -46,26 +59,31 @@ SearchResults searchLibrary(Library library, String query, {MediaType? type}) {
     LibrarySort.titleAz,
   );
 
-  final counts = <String, int>{};
-  for (final entry in pool) {
-    for (final tag in entry.tags) {
-      counts[tag] = (counts[tag] ?? 0) + 1;
+  final tags = <TagMatch>[];
+  final tagged = <String, List<Entry>>{};
+  for (final name in library.allTags) {
+    if (!name.toLowerCase().contains(q)) continue;
+    final categories = library.categoriesOf(name);
+    for (final category in categories.length > 1 ? categories : [null]) {
+      final entries = category == null
+          ? pool.where((e) => e.tags.contains(name))
+          : pool.where((e) => e.hasTagAs(name, category));
+      final hits = homeOrder(entries);
+      if (type != null && hits.isEmpty) continue;
+      final match = TagMatch(name, hits.length, category: category);
+      tags.add(match);
+      tagged[match.key] = hits;
     }
   }
-  final tags =
-      [
-        for (final name in library.allTags)
-          if (name.toLowerCase().contains(q) &&
-              (type == null || counts.containsKey(name)))
-            TagMatch(name, counts[name] ?? 0),
-      ]..sort((a, b) {
-        final c = b.count.compareTo(a.count);
-        return c != 0 ? c : a.name.compareTo(b.name);
-      });
-
-  final tagged = {
-    for (final tag in tags)
-      tag.name: homeOrder(pool.where((e) => e.tags.contains(tag.name))),
-  };
-  return SearchResults(titles: titles, tags: tags, tagged: tagged);
+  tags.sort((a, b) {
+    final c = b.count.compareTo(a.count);
+    if (c != 0) return c;
+    final n = a.name.compareTo(b.name);
+    return n != 0 ? n : (a.category?.index ?? -1) - (b.category?.index ?? -1);
+  });
+  return SearchResults(
+    titles: titles,
+    tags: tags,
+    tagged: {for (final match in tags) match.key: tagged[match.key]!},
+  );
 }

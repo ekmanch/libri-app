@@ -43,6 +43,7 @@ import 'package:library_app/data/sync/sync_status.dart';
 import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/main.dart';
 import 'package:library_app/widgets/segmented_control.dart';
+import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/widgets/tag_group.dart';
@@ -175,6 +176,22 @@ Future<void> waitForImages(WidgetTester tester, {int count = 1}) async {
   }
   await tester.pumpAndSettle();
 }
+
+/// A tag chip inside one group of the tag picker or the filter sheet.
+Finder pickerChip(String group, String tag) => find.descendant(
+  of: find.widgetWithText(TagGroup, group),
+  matching: find.widgetWithText(PillChip, tag),
+);
+
+/// A category chip in a dialog (Add / edit entry › New tag: confirm and
+/// pick a category; the tag categories dialog).
+Finder dialogChip(String label) => find.descendant(
+  of: find.byType(AppDialog),
+  matching: find.widgetWithText(PillChip, label),
+);
+
+Finder dialogText(String text) =>
+    find.descendant(of: find.byType(AppDialog), matching: find.text(text));
 
 Future<void> pickView(WidgetTester tester, String label) async {
   await tester.tap(find.byTooltip('Change view'));
@@ -664,7 +681,12 @@ void main() {
     await tester.pumpAndSettle();
     // Movies is still in the grid view, so the sheet shows the cover spot.
     // A tile carries the title twice: on the placeholder and as the caption.
-    await tester.ensureVisible(find.text('The Mummy').last);
+    // Lazy grid: scroll until the tile is built, then tap its caption.
+    await tester.scrollUntilVisible(
+      find.text('The Mummy'),
+      200,
+      scrollable: homeList(),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('The Mummy').last);
     await tester.pumpAndSettle();
@@ -692,6 +714,7 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'a8-edit-entry');
     await tester.ensureVisible(find.text('#adventure'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('#adventure'));
     await tester.pumpAndSettle();
     await capture(tester, 'a8-tag-picker');
@@ -704,6 +727,62 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'd10-new-tag');
     await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await closeSheet(tester);
+
+    // Library › Entry details: tag in two categories, Add / edit entry › Tag
+    // in two categories: entry form and tag picker, the categories dialog
+    // (a long press), the "Add to" rows of a search, and New tag with two
+    // categories.
+    await tester.scrollUntilVisible(
+      find.text('Million Dollar Baby'),
+      200,
+      scrollable: homeList(),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Million Dollar Baby').last);
+    await tester.pumpAndSettle();
+    await capture(tester, 'a6-entry-details-two-cat');
+    await tester.ensureVisible(find.text('Edit'));
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    // The form's list is lazy: scroll until the Tags box is built.
+    await tester.scrollUntilVisible(
+      find.text('#clint-eastwood · Director'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await capture(tester, 'a8-edit-entry-two-cat');
+    await tester.tap(find.text('#clint-eastwood · Director'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a8-tag-picker-two-cat');
+    await tester.ensureVisible(pickerChip('Directors', '#clint-eastwood'));
+    await tester.pumpAndSettle();
+    await tester.longPress(pickerChip('Directors', '#clint-eastwood'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'd16-tag-categories');
+    await tester.tap(dialogText('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'hilary');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Add to Directors'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a8-tag-picker-add-to');
+    await tester.enterText(find.byType(TextField).last, 'sergio-leone');
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Create #sergio-leone'));
+    await tester.pumpAndSettle();
+    await tester.tap(dialogChip('Directors'));
+    await tester.pumpAndSettle();
+    await tester.tap(dialogChip('Actors'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'd10-new-tag-two-cat');
+    await tester.tap(dialogText('Cancel'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
@@ -1064,6 +1143,43 @@ void main() {
     await tester.tap(find.text('The Mummy').last);
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a6-details');
+    await closeSheet(tester);
+    // Tag in two categories at the larger size: details, the form, the
+    // picker and the categories dialog.
+    await tester.scrollUntilVisible(
+      find.text('Million Dollar Baby'),
+      200,
+      scrollable: homeList(),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Million Dollar Baby').last);
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a6-details-two-cat');
+    await tester.ensureVisible(find.text('Edit'));
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    // The form's list is lazy: scroll until the Tags box is built.
+    await tester.scrollUntilVisible(
+      find.text('#clint-eastwood · Director'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a8-edit-entry-two-cat');
+    await tester.tap(find.text('#clint-eastwood · Director'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a8-tag-picker-two-cat');
+    await tester.ensureVisible(pickerChip('Directors', '#clint-eastwood'));
+    await tester.pumpAndSettle();
+    await tester.longPress(pickerChip('Directors', '#clint-eastwood'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-d16-tag-categories');
+    await tester.tap(dialogText('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
     await closeSheet(tester);
     await pickChip(tester, 'All');
     await tester.tap(find.text('Plans'));
@@ -1619,7 +1735,11 @@ void main() {
     await tapText('Cancel');
     await tester.tap(find.widgetWithText(PillChip, 'Movies'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('The Mummy').last);
+    await tester.scrollUntilVisible(
+      find.text('The Mummy'),
+      200,
+      scrollable: homeList(),
+    );
     await tester.pumpAndSettle();
     await tapText('The Mummy');
     await shot('a6-entry-details');
@@ -1638,8 +1758,41 @@ void main() {
     await tapText('Edit');
     await shot('a8-edit-entry');
     await tester.ensureVisible(find.text('#adventure'));
+    await tester.pumpAndSettle();
     await tapText('#adventure');
     await shot('d14-tag-picker');
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+    await back();
+    await closeSheet(tester);
+    // Tag in two categories in the light theme.
+    await tester.scrollUntilVisible(
+      find.text('Million Dollar Baby'),
+      200,
+      scrollable: homeList(),
+    );
+    await tester.pumpAndSettle();
+    await tapText('Million Dollar Baby');
+    await shot('a6-entry-details-two-cat');
+    await tester.ensureVisible(find.text('Edit'));
+    await tapText('Edit');
+    // The form's list is lazy: scroll until the Tags box is built.
+    await tester.scrollUntilVisible(
+      find.text('#clint-eastwood · Director'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await shot('a8-edit-entry-two-cat');
+    await tapText('#clint-eastwood · Director');
+    await shot('a8-tag-picker-two-cat');
+    await tester.ensureVisible(pickerChip('Directors', '#clint-eastwood'));
+    await tester.pumpAndSettle();
+    await tester.longPress(pickerChip('Directors', '#clint-eastwood'));
+    await tester.pumpAndSettle();
+    await shot('d16-tag-categories');
+    await tester.tap(dialogText('Cancel'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
     await back();

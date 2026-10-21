@@ -8,6 +8,7 @@ import 'entry_kind.dart';
 import 'released.dart';
 import 'season.dart';
 import 'series.dart';
+import 'tag_category.dart';
 import 'track.dart';
 
 part 'entry.freezed.dart';
@@ -31,6 +32,16 @@ abstract class Entry with _$Entry {
     required EntryStatus status,
     int? rating,
     @Default([]) List<String> tags,
+
+    /// Which of a tag's categories apply here, for a tag that is in more
+    /// than one category of the tag list: "#clint-eastwood" as a director,
+    /// an actor, or both. Keyed by tag, each a non-empty list in category
+    /// order; only such tags have an entry, so the key is left out when the
+    /// entry has none. A tag in one category never has an entry here. A tag
+    /// in several that has none (a file edited by hand) counts in all of
+    /// them.
+    @JsonKey(name: 'tag_categories', includeIfNull: false)
+    Map<String, List<TagCategory>>? tagCategories,
     @Default('') String note,
     @Default('') String description,
     @JsonKey(name: 'seasonal_only') @Default(false) bool seasonalOnly,
@@ -110,6 +121,28 @@ abstract class Entry with _$Entry {
   /// A season added by the daily check, out and with no status yet.
   bool hasNewSeasonOn(DateTime today) =>
       seasons?.any((s) => s.isNewOn(today)) ?? false;
+
+  /// The categories [tag] is picked in here, for a tag in more than one
+  /// category: the entry's own pick, else [all], the tag's categories, which
+  /// is also the answer for a tag in one category.
+  List<TagCategory> categoriesOf(String tag, List<TagCategory> all) {
+    if (all.length < 2) return all;
+    final picked = tagCategories?[tag];
+    if (picked == null || picked.isEmpty) return all;
+    return [
+      for (final c in all)
+        if (picked.contains(c)) c,
+    ];
+  }
+
+  /// Whether [tag] is on this entry as [category]: on it at all, and, for a
+  /// tag with a pick, picked in that category. Used by the filter, which
+  /// has no tag list at hand: an entry without a pick matches any category.
+  bool hasTagAs(String tag, TagCategory category) {
+    if (!tags.contains(tag)) return false;
+    final picked = tagCategories?[tag];
+    return picked == null || picked.isEmpty || picked.contains(category);
+  }
 
   /// False only when a release date is known and still in the future.
   bool isReleasedOn(DateTime today) => released?.isReleasedOn(today) ?? true;

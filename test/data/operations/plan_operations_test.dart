@@ -72,21 +72,21 @@ void main() {
 
   test('AddTag adds under a category and ignores duplicates', () {
     final library = sampleLibrary();
-    final added = const AddTag('cozy', TagCategory.mood).apply(library);
+    final added = const AddTag('cozy', [TagCategory.mood]).apply(library);
     expect(added.tags[TagCategory.mood], ['lighthearted', 'cozy']);
-    final newCategory = const AddTag(
-      'studio-ghibli',
+    final newCategory = const AddTag('studio-ghibli', [
       TagCategory.studios,
-    ).apply(library);
+    ]).apply(library);
     expect(newCategory.tags[TagCategory.studios], ['studio-ghibli']);
     // A new category sits in declaration order, not at the end of the
     // map where a Dart map would put it: Studios lands before Other even
     // when Other was added first.
-    final withOther = const AddTag('rewatch', TagCategory.other).apply(library);
-    final studiosLast = const AddTag(
-      'pixar',
+    final withOther = const AddTag('rewatch', [
+      TagCategory.other,
+    ]).apply(library);
+    final studiosLast = const AddTag('pixar', [
       TagCategory.studios,
-    ).apply(withOther);
+    ]).apply(withOther);
     expect(studiosLast.tags.keys.toList(), [
       TagCategory.genre,
       TagCategory.mood,
@@ -95,7 +95,7 @@ void main() {
       TagCategory.other,
     ]);
     expect(
-      const AddTag('halloween', TagCategory.other).apply(library),
+      const AddTag('halloween', [TagCategory.other]).apply(library),
       library,
     );
   });
@@ -149,7 +149,7 @@ void main() {
       'Start Christmas',
     );
     expect(
-      const AddTag('cozy', TagCategory.mood).summary(library),
+      const AddTag('cozy', [TagCategory.mood]).summary(library),
       'Add the tag #cozy',
     );
   });

@@ -43,6 +43,27 @@ abstract class Library with _$Library {
   /// Every tag name in the map, in any category.
   Set<String> get allTags => {for (final names in tags.values) ...names};
 
+  /// The categories [tag] is in, in category order: one for most tags,
+  /// several for a person or a genre listed in more than one category of
+  /// its kind (#clint-eastwood under Directors and Actors). Empty for a tag
+  /// the map does not have.
+  List<TagCategory> categoriesOf(String tag) => [
+    for (final MapEntry(key: category, value: names) in tags.entries)
+      if (names.contains(tag)) category,
+  ];
+
+  /// Whether [tag] is in more than one category.
+  bool isMultiCategory(String tag) => categoriesOf(tag).length > 1;
+
+  /// The categories [tag] has on [entry]: the entry's own pick for a tag in
+  /// several categories, else every category the tag is in.
+  List<TagCategory> categoriesOn(Entry entry, String tag) =>
+      entry.categoriesOf(tag, categoriesOf(tag));
+
+  /// How many entries carry [tag] as [category].
+  int countTagAs(String tag, TagCategory category) =>
+      entries.where((e) => e.hasTagAs(tag, category)).length;
+
   /// Tags used by at least one entry or one plan.
   Set<String> get usedTags => {
     for (final entry in entries) ...entry.tags,

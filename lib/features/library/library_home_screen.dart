@@ -39,6 +39,7 @@ import 'home_type_provider.dart';
 import 'library_filter.dart';
 import 'library_filter_provider.dart';
 import 'library_sort.dart';
+import 'library_search.dart';
 import 'search_screen.dart';
 import 'sort_sheet.dart';
 import 'view_menu.dart';
@@ -156,7 +157,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         ? null
         : ref.read(homeTypeProvider);
     // Full screen, above the floating navigation (Library › Search has none).
-    final tag = await Navigator.of(context, rootNavigator: true).push<String>(
+    final tag = await Navigator.of(context, rootNavigator: true).push<TagMatch>(
       MaterialPageRoute(
         builder: (searchContext) => SearchScreen(
           type: type,
@@ -171,7 +172,15 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     if (tag != null && mounted) {
       ref
           .read(libraryFilterProvider.notifier)
-          .set(LibraryFilter(types: {?type}, tags: {tag}));
+          .set(
+            LibraryFilter(
+              types: {?type},
+              tags: {tag.name},
+              tagCategories: {
+                if (tag.category case final category?) tag.name: {category},
+              },
+            ),
+          );
     }
   }
 

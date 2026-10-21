@@ -43,6 +43,24 @@ void main() {
     expect(results.tagged['christmas']!.any((e) => e.seasonalOnly), isTrue);
   });
 
+  test('a tag in several categories is one match per category', () {
+    final results = searchLibrary(fixture, 'clint');
+    expect(results.tags.map((t) => t.label), [
+      '#clint-eastwood · Actor',
+      '#clint-eastwood · Director',
+    ]);
+    expect(results.tags.map((t) => t.count), [2, 1]);
+    expect(results.tagged['clint-eastwood/directors']!.map((e) => e.title), [
+      'Million Dollar Baby',
+    ]);
+    expect(results.tagged['clint-eastwood/actors']!.length, 2);
+    // Scoped to shows, neither role has an entry, so the tag is left out.
+    expect(
+      searchLibrary(fixture, 'clint', type: MediaType.shows).tags,
+      isEmpty,
+    );
+  });
+
   test('reports no results for nonsense', () {
     expect(searchLibrary(fixture, 'zzzz').isEmpty, isTrue);
   });

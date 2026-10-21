@@ -20,6 +20,14 @@ _Entry _$EntryFromJson(Map<String, dynamic> json) => _Entry(
   tags:
       (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ??
       const [],
+  tagCategories: (json['tag_categories'] as Map<String, dynamic>?)?.map(
+    (k, e) => MapEntry(
+      k,
+      (e as List<dynamic>)
+          .map((e) => $enumDecode(_$TagCategoryEnumMap, e))
+          .toList(),
+    ),
+  ),
   note: json['note'] as String? ?? '',
   description: json['description'] as String? ?? '',
   seasonalOnly: json['seasonal_only'] as bool? ?? false,
@@ -55,6 +63,9 @@ Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
   'status': _$EntryStatusEnumMap[instance.status]!,
   'rating': instance.rating,
   'tags': instance.tags,
+  'tag_categories': ?instance.tagCategories?.map(
+    (k, e) => MapEntry(k, e.map((e) => _$TagCategoryEnumMap[e]!).toList()),
+  ),
   'note': instance.note,
   'description': instance.description,
   'seasonal_only': instance.seasonalOnly,
@@ -89,6 +100,20 @@ const _$EntryStatusEnumMap = {
   EntryStatus.inProgress: 'in_progress',
   EntryStatus.done: 'done',
   EntryStatus.dnf: 'dnf',
+};
+
+const _$TagCategoryEnumMap = {
+  TagCategory.genre: 'Genres',
+  TagCategory.gameGenre: 'Game genres',
+  TagCategory.musicGenre: 'Music genres',
+  TagCategory.mood: 'Mood',
+  TagCategory.season: 'Season',
+  TagCategory.authors: 'Authors',
+  TagCategory.directors: 'Directors',
+  TagCategory.actors: 'Actors',
+  TagCategory.studios: 'Studios',
+  TagCategory.animationStyle: 'Animation style',
+  TagCategory.other: 'Other',
 };
 
 const _$BookFormatEnumMap = {

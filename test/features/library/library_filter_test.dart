@@ -215,6 +215,76 @@ void main() {
       expect(music.tags, {'jazz'});
     });
 
+    test('a tag in several categories matches per category', () {
+      // #clint-eastwood directs Million Dollar Baby and acts in both it and
+      // The Good, the Bad and the Ugly.
+      final byName = const LibraryFilter(tags: {'clint-eastwood'})
+          .apply(fixture.entries);
+      expect(byName.map((e) => e.title), [
+        'Million Dollar Baby',
+        'The Good, the Bad and the Ugly',
+      ]);
+      final directed = const LibraryFilter(
+        tags: {'clint-eastwood'},
+        tagCategories: {
+          'clint-eastwood': {TagCategory.directors},
+        },
+      );
+      expect(directed.apply(fixture.entries).map((e) => e.title), [
+        'Million Dollar Baby',
+      ]);
+      expect(directed.chips.map((c) => c.label), [
+        '#clint-eastwood · Director',
+      ]);
+      expect(directed.count, 1);
+      expect(directed.hasTag('clint-eastwood', TagCategory.directors), isTrue);
+      expect(directed.hasTag('clint-eastwood', TagCategory.actors), isFalse);
+      expect(directed.hasTag('clint-eastwood'), isTrue);
+      expect(
+        directed.noMatchesText,
+        'No entries are tagged #clint-eastwood · Director. '
+        'Remove a filter to see more.',
+      );
+      // Both roles: only entries where he is both.
+      final both = directed.toggleTag(
+        'clint-eastwood',
+        category: TagCategory.actors,
+      );
+      expect(both.apply(fixture.entries).map((e) => e.title), [
+        'Million Dollar Baby',
+      ]);
+      expect(both.chips.map((c) => c.label), [
+        '#clint-eastwood · Director',
+        '#clint-eastwood · Actor',
+      ]);
+      expect(both.count, 2);
+      // The last category taken away drops the tag; removing a chip too.
+      final none = both
+          .toggleTag('clint-eastwood', category: TagCategory.directors)
+          .toggleTag('clint-eastwood', category: TagCategory.actors);
+      expect(none.tags, isEmpty);
+      expect(none.tagCategories, isEmpty);
+      expect(both.chips[1].remove(both), directed);
+      // Toggled by name, the categories go too.
+      expect(both.toggleTag('clint-eastwood').tags, isEmpty);
+      // Chosen by name, a tag counts in every category; a category toggle
+      // then keeps only that category.
+      expect(
+        byName.length,
+        const LibraryFilter(tags: {'clint-eastwood'})
+            .apply(fixture.entries)
+            .length,
+      );
+      expect(
+        const LibraryFilter(tags: {'clint-eastwood'})
+            .toggleTag('clint-eastwood', category: TagCategory.actors)
+            .tagCategories,
+        {
+          'clint-eastwood': {TagCategory.actors},
+        },
+      );
+    });
+
     test('a new tag starts in the genre category of its type', () {
       expect(TagCategory.defaultFor(MediaType.games), TagCategory.gameGenre);
       expect(TagCategory.defaultFor(MediaType.music), TagCategory.musicGenre);

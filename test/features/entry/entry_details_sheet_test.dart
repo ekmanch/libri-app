@@ -80,6 +80,21 @@ void main() {
     expect(find.byType(CoverPlaceholder), findsNothing);
   });
 
+  testWidgets('a tag in more than one category shows its roles here', (
+    tester,
+  ) async {
+    await open(tester, entryId: 'movies/million-dollar-baby-2004');
+    expect(find.text('#clint-eastwood · Director, Actor'), findsOneWidget);
+    expect(find.text('#hilary-swank'), findsOneWidget);
+  });
+
+  testWidgets('a tag picked in one of its categories shows that one', (
+    tester,
+  ) async {
+    await open(tester, entryId: 'movies/the-good-the-bad-and-the-ugly-1966');
+    expect(find.text('#clint-eastwood · Actor'), findsOneWidget);
+  });
+
   testWidgets('empty note and about are left out; no plans says so', (
     tester,
   ) async {

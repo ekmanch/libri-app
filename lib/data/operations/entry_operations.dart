@@ -7,6 +7,7 @@ import '../models/entry_status.dart';
 import '../models/library.dart';
 import '../models/media_type.dart';
 import '../models/season.dart';
+import '../models/tag_category.dart';
 import '../models/track.dart';
 import 'library_operation.dart';
 
@@ -46,6 +47,27 @@ Entry _derived(Entry entry) =>
     entry.usesSeasons && (entry.seasons?.isNotEmpty ?? false)
     ? entry.withSeasons(entry.seasons)
     : entry;
+
+/// [entry] with its category picks tidied against [library]'s tag map: a
+/// pick only for a tag on the entry that is in more than one category,
+/// each in category order, and no key at all when none is left.
+Entry _withTidyTagPicks(Library library, Entry entry) {
+  final picks = entry.tagCategories;
+  final tidy = <String, List<TagCategory>>{};
+  for (final tag in entry.tags) {
+    final all = library.categoriesOf(tag);
+    if (all.length < 2) continue;
+    final picked = picks?[tag];
+    tidy[tag] = picked == null || picked.isEmpty
+        ? all
+        : [
+            for (final c in all)
+              if (picked.contains(c)) c,
+          ];
+    if (tidy[tag]!.isEmpty) tidy[tag] = all;
+  }
+  return entry.copyWith(tagCategories: tidy.isEmpty ? null : tidy);
+}
 
 /// Replaces the entry with the same id in place. Missing: unchanged.
 Library _replaceEntry(Library library, Entry entry) {
@@ -182,7 +204,7 @@ class AddEntry extends LibraryOperation {
     return library.copyWith(
       entries: [
         ...library.entries,
-        _derived(entry).copyWith(id: id),
+        _withTidyTagPicks(library, _derived(entry)).copyWith(id: id),
       ],
     );
   }
@@ -206,7 +228,10 @@ class UpdateEntry extends LibraryOperation {
   @override
   Library apply(Library library) {
     if (library.entryById(entry.id) == null) return library;
-    return _replaceEntry(library, _derived(entry)).withUnusedTagsRemoved();
+    return _replaceEntry(
+      library,
+      _withTidyTagPicks(library, _derived(entry)),
+    ).withUnusedTagsRemoved();
   }
 
   @override

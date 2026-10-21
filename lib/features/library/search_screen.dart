@@ -13,7 +13,7 @@ import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import 'library_search.dart';
 
-/// Search over titles and tags (Library › Search). Pops with a tag name when a
+/// Search over titles and tags (Library › Search). Pops with a [TagMatch] when a
 /// tag row is tapped, so the home can show that tag's results. With [type] set
 /// the search covers only that type, as the hint says ("Search movies").
 class SearchScreen extends ConsumerStatefulWidget {
@@ -107,16 +107,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           for (final tag in results.tags)
                             _TagRow(
                               tag: tag,
-                              onTap: () => Navigator.pop(context, tag.name),
+                              onTap: () => Navigator.pop(context, tag),
                             ),
                         ],
-                        for (final MapEntry(key: tag, value: entries)
-                            in results.tagged.entries) ...[
+                        for (final tag in results.tags) ...[
                           SectionHeading(
-                            'Tagged #$tag',
+                            'Tagged ${tag.label}',
                             padding: const EdgeInsets.fromLTRB(0, 16, 0, 2),
                           ),
-                          for (final entry in entries)
+                          for (final entry in results.tagged[tag.key]!)
                             EntryRow.forEntry(
                               entry,
                               showType: widget.type == null,
@@ -154,7 +153,7 @@ class _TagRow extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Text('#${tag.name}', style: theme.textTheme.titleMedium),
+              child: Text(tag.label, style: theme.textTheme.titleMedium),
             ),
             Text(
               '${tag.count} ${tag.count == 1 ? 'entry' : 'entries'}',

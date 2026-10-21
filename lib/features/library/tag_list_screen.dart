@@ -25,6 +25,7 @@ Future<void> showTagListScreen(
   required Set<String> selected,
   required Library library,
   required ValueChanged<String> onToggle,
+  ValueChanged<String>? onLongPress,
 }) {
   return Navigator.of(context, rootNavigator: true).push<void>(
     MaterialPageRoute(
@@ -34,6 +35,7 @@ Future<void> showTagListScreen(
         selected: selected,
         library: library,
         onToggle: onToggle,
+        onLongPress: onLongPress,
       ),
     ),
   );
@@ -47,6 +49,7 @@ class TagListScreen extends StatefulWidget {
     required this.selected,
     required this.library,
     required this.onToggle,
+    this.onLongPress,
   });
 
   final TagCategory category;
@@ -56,6 +59,10 @@ class TagListScreen extends StatefulWidget {
   final Set<String> selected;
   final Library library;
   final ValueChanged<String> onToggle;
+
+  /// A long press on a row, where it does something: the tag picker opens
+  /// the tag's categories (Add / edit entry › Tag picker).
+  final ValueChanged<String>? onLongPress;
 
   @override
   State<TagListScreen> createState() => _TagListScreenState();
@@ -67,9 +74,12 @@ class _TagListScreenState extends State<TagListScreen> {
   late final Map<String, String> _names = {
     for (final tag in _sorted) tag: tagDisplayName(tag, widget.library),
   };
+
+  /// Entries carrying the tag as this category: a person in Directors and
+  /// Actors counts their directing here, their acting there.
   late final Map<String, int> _counts = {
     for (final tag in _sorted)
-      tag: widget.library.entries.where((e) => e.tags.contains(tag)).length,
+      tag: widget.library.countTagAs(tag, widget.category),
   };
   String _query = '';
 
@@ -165,6 +175,9 @@ class _TagListScreenState extends State<TagListScreen> {
                             '${_counts[tag] == 1 ? 'entry' : 'entries'}',
                         selected: _selected.contains(tag),
                         onTap: () => _toggle(tag),
+                        onLongPress: widget.onLongPress == null
+                            ? null
+                            : () => widget.onLongPress!(tag),
                       ),
                       flatSlivers: const [],
                     ),
@@ -184,12 +197,14 @@ class _TagRow extends StatelessWidget {
     required this.detail,
     required this.selected,
     required this.onTap,
+    this.onLongPress,
   });
 
   final String name;
   final String detail;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +218,7 @@ class _TagRow extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: colors.divider)),

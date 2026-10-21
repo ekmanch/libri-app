@@ -71,6 +71,9 @@ Future<Entry?> openEditEntryForm(BuildContext context, Entry entry) {
   ).push<Entry>(MaterialPageRoute(builder: (_) => EntryFormScreen.edit(entry)));
 }
 
+/// A tag the lookup matched, with the role it is for (null for a genre).
+typedef _Suggestion = ({String tag, TagCategory? category});
+
 /// The add / edit entry form. Saving applies [AddEntry] or [UpdateEntry],
 /// preceded by an [AddTag] for every tag created in the tag picker, and pops
 /// with the saved entry. Saving an album whose songs are saved, or a song whose
@@ -132,18 +135,32 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   late EntryStatus _status;
   late int? _rating;
   late List<String> _tags;
-  final Map<String, TagCategory> _newTags = {};
+
+  /// Tags to create when the entry is saved, with their categories.
+  final Map<String, List<TagCategory>> _newTags = {};
+
+  /// Existing tags whose categories change when the entry is saved (a long
+  /// press or "+ Add to Actors" in the picker, or a lookup that found a
+  /// person under another people category), with their new categories.
+  final Map<String, List<TagCategory>> _recategorized = {};
+
+  /// For each tag in more than one category, the categories it is picked
+  /// in on this entry (Add / edit entry › Tag in two categories: entry
+  /// form); a tag missing here is picked in all of them.
+  late Map<String, List<TagCategory>> _tagCategories;
 
   /// Tags the lookup suggested that are not in the library, in order.
   /// Matches to existing tags were put straight into [_tags].
   List<String> _suggestedNew = const [];
 
-  /// Existing tags the lookup matched; they start selected and come back
-  /// as suggestions when removed.
-  List<String> _suggestedExisting = const [];
+  /// Existing tags the lookup matched, each with the role it is for (null
+  /// for a genre); they start selected and come back as suggestions when
+  /// removed. A person the library has only under another category of the
+  /// same kind is offered with the new role instead of going on at once.
+  List<_Suggestion> _suggestedExisting = const [];
 
-  /// The group a new suggestion is created in when it is not the type's
-  /// default: the Actors group for the cast.
+  /// The category a new suggestion starts in when it is not the type's
+  /// default: Directors for the director, Actors for the cast.
   final Map<String, TagCategory> _suggestedCategories = {};
   bool _suggestionsPrepared = false;
 
@@ -222,6 +239,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _status = entry?.status ?? EntryStatus.want;
     _rating = entry?.rating;
     _tags = [...?entry?.tags, ...widget.tags];
+    _tagCategories = {...?entry?.tagCategories};
     _formats = {...?entry?.formats};
     _pages = TextEditingController(
       text: '${entry?.pages ?? match?.pages ?? ''}',
@@ -483,7 +501,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final match = _match;
     if (match == null) return;
     final existing = library.allTags;
-    final matched = <String>[];
+    final matched = <_Suggestion>[];
     final fresh = <String>[];
     for (final raw in match.tags) {
       final name = canonicalTag(raw);
@@ -492,35 +510,118 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           ? name
           : findSimilarTag(name, existing);
       if (hit != null) {
-        if (!matched.contains(hit)) matched.add(hit);
+        if (!matched.any((s) => s.tag == hit)) {
+          matched.add((tag: hit, category: null));
+        }
       } else if (!fresh.contains(name)) {
         fresh.add(name);
       }
       if (matched.length + fresh.length == 6) break;
     }
-    // The creator's tag, when the library has it, goes on like a matched
-    // genre; a new one is offered under the field (see _creatorSuggestions).
-    for (final t in _creatorTags) {
-      if (existing.contains(t.tag) && !matched.contains(t.tag)) {
-        matched.add(t.tag);
-      }
+    for (final s in matched) {
+      if (!_tags.contains(s.tag)) _tags.add(s.tag);
     }
-    // The top-billed cast of a movie or show, at most three, outside the
-    // six: an actor the library has goes on at once, the rest are offered
-    // as new tags in the Actors group. People match by exact slug only.
-    for (final t in _actorTags) {
-      if (existing.contains(t.tag)) {
-        if (!matched.contains(t.tag)) matched.add(t.tag);
-      } else if (!fresh.contains(t.tag)) {
-        fresh.add(t.tag);
-        _suggestedCategories[t.tag] = t.category;
+    // The creator's tag, when the library has it in its group, goes on
+    // like a matched genre; a new one is offered under the field (see
+    // _creatorSuggestions). The top-billed cast of a movie or show, at most
+    // three, outside the six: an actor the library has goes on at once, the
+    // rest are offered as new tags in the Actors group. People match by
+    // exact slug only, and per category: a person the library has only
+    // under another people category is offered with the new role
+    // ("#clint-eastwood · Actor"), and a tap adds the category.
+    for (final t in [..._creatorTags, ..._actorTags]) {
+      final categories = library.categoriesOf(t.tag);
+      if (categories.isEmpty) {
+        if (!fresh.contains(t.tag)) {
+          fresh.add(t.tag);
+          _suggestedCategories[t.tag] = t.category;
+        }
+        continue;
+      }
+      final suggestion = (tag: t.tag, category: t.category);
+      if (matched.contains(suggestion)) continue;
+      matched.add(suggestion);
+      if (categories.contains(t.category) ||
+          !categories.first.sharesKindWith(t.category)) {
+        _tick(t.tag, t.category, library);
       }
     }
     _suggestedExisting = matched;
     _suggestedNew = fresh;
-    for (final tag in matched) {
-      if (!_tags.contains(tag)) _tags.add(tag);
+  }
+
+  /// The categories of [tag] as they will be once the entry is saved.
+  List<TagCategory> _categoriesOf(String tag, Library library) =>
+      _newTags[tag] ?? _recategorized[tag] ?? library.categoriesOf(tag);
+
+  /// Whether [tag] is on the entry as [category] (null: at all).
+  bool _hasTagAs(String tag, TagCategory? category, Library library) {
+    if (!_tags.contains(tag)) return false;
+    if (category == null) return true;
+    final categories = _categoriesOf(tag, library);
+    if (!categories.contains(category)) return false;
+    return categories.length < 2 ||
+        (_tagCategories[tag]?.contains(category) ?? true);
+  }
+
+  /// Puts [tag] on the entry, as [category] when one is given: a tag in
+  /// more than one category is ticked in that one; a tag the library has
+  /// only under other categories of the same kind gets this one too, as
+  /// "+ Add to Actors" in the picker does; any other tag goes on as it is.
+  void _tick(String tag, TagCategory? category, Library library) {
+    var categories = _categoriesOf(tag, library);
+    if (category != null &&
+        categories.isNotEmpty &&
+        !categories.contains(category) &&
+        categories.first.sharesKindWith(category)) {
+      // On the entry already: it keeps the categories it had here.
+      if (_tags.contains(tag) && !_tagCategories.containsKey(tag)) {
+        _tagCategories[tag] = categories;
+      }
+      categories = [
+        for (final c in TagCategory.values)
+          if (c == category || categories.contains(c)) c,
+      ];
+      if (_newTags.containsKey(tag)) {
+        _newTags[tag] = categories;
+      } else {
+        _recategorized[tag] = categories;
+      }
     }
+    if (!_tags.contains(tag)) _tags.add(tag);
+    if (categories.length < 2) {
+      _tagCategories.remove(tag);
+      return;
+    }
+    final picked = _tagCategories[tag] ?? (category == null ? categories : []);
+    _tagCategories[tag] = [
+      for (final c in categories)
+        if (c == category || picked.contains(c)) c,
+    ];
+  }
+
+  /// The categories [tag] is picked in on this entry, for the chips.
+  List<TagCategory> _categoriesOn(String tag, Library library) {
+    final categories = _categoriesOf(tag, library);
+    if (categories.length < 2) return const [];
+    final picked = _tagCategories[tag];
+    if (picked == null) return categories;
+    return [
+      for (final c in categories)
+        if (picked.contains(c)) c,
+    ];
+  }
+
+  /// "#clint-eastwood · Actor" for a suggestion whose tag the library has
+  /// in more than one category, or under another one; "#tag" otherwise.
+  String _suggestionLabel(_Suggestion s, Library library) {
+    final (:tag, :category) = s;
+    final categories = _categoriesOf(tag, library);
+    if (category == null || categories.isEmpty) return '#$tag';
+    if (categories.length > 1 || !categories.contains(category)) {
+      return tagLabel(tag, [category]);
+    }
+    return '#$tag';
   }
 
   /// The tags for the creator field as it reads now: #stephen-king for an
@@ -540,53 +641,60 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   /// The creator tags not on the entry, offered under the field once the
   /// field is left. Ones the lookup already matched come back through
   /// [_suggestions] when removed.
-  List<CreatorTag> _creatorSuggestions() => _creatorFocus.hasFocus
+  List<CreatorTag> _creatorSuggestions(Library library) =>
+      _creatorFocus.hasFocus
       ? const []
       : [
           for (final t in _creatorTags)
-            if (!_tags.contains(t.tag) &&
-                !_suggestedExisting.contains(t.tag) &&
+            if (!_hasTagAs(t.tag, t.category, library) &&
+                !_suggestedExisting.contains((
+                  tag: t.tag,
+                  category: t.category,
+                )) &&
                 !_suggestedNew.contains(t.tag))
               t,
         ];
 
   Future<void> _addCreatorSuggestion(CreatorTag t, Library library) async {
     if (library.allTags.contains(t.tag) || _newTags.containsKey(t.tag)) {
-      setState(() => _tags.add(t.tag));
+      setState(() => _tick(t.tag, t.category, library));
       return;
     }
-    final category = await showNewTagDialog(
+    final categories = await showNewTagDialog(
       context,
       name: t.tag,
       initial: t.category,
     );
-    if (category == null || !mounted) return;
+    if (categories == null || !mounted) return;
     setState(() {
-      _newTags[t.tag] = category;
-      _tags.add(t.tag);
+      _newTags[t.tag] = categories;
+      _tick(t.tag, null, library);
     });
   }
 
-  /// The suggestions not on the entry right now.
-  List<String> get _suggestions => [
-    for (final tag in [..._suggestedExisting, ..._suggestedNew])
-      if (!_tags.contains(tag)) tag,
+  /// The suggestions not on the entry right now (not as their role, for a
+  /// person).
+  List<_Suggestion> _suggestions(Library library) => [
+    for (final s in _suggestedExisting)
+      if (!_hasTagAs(s.tag, s.category, library)) s,
+    for (final tag in _suggestedNew)
+      if (!_tags.contains(tag)) (tag: tag, category: _suggestedCategories[tag]),
   ];
 
-  Future<void> _addSuggestion(String tag) async {
-    if (_suggestedExisting.contains(tag)) {
-      setState(() => _tags.add(tag));
+  Future<void> _addSuggestion(_Suggestion s, Library library) async {
+    if (!_suggestedNew.contains(s.tag)) {
+      setState(() => _tick(s.tag, s.category, library));
       return;
     }
-    final category = await showNewTagDialog(
+    final categories = await showNewTagDialog(
       context,
-      name: tag,
-      initial: _suggestedCategories[tag] ?? TagCategory.defaultFor(_type),
+      name: s.tag,
+      initial: s.category ?? TagCategory.defaultFor(_type),
     );
-    if (category == null || !mounted) return;
+    if (categories == null || !mounted) return;
     setState(() {
-      _newTags[tag] = category;
-      _tags.add(tag);
+      _newTags[s.tag] = categories;
+      _tick(s.tag, null, library);
     });
   }
 
@@ -680,15 +788,21 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       context,
       library: library,
       selected: _tags,
+      categories: _tagCategories,
       created: _newTags,
+      recategorized: _recategorized,
       type: _type,
     );
     if (pick == null || !mounted) return;
     setState(() {
       _tags = pick.selected;
+      _tagCategories = {...pick.categories};
       _newTags
         ..clear()
         ..addAll(pick.created);
+      _recategorized
+        ..clear()
+        ..addAll(pick.recategorized);
     });
   }
 
@@ -766,6 +880,13 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       status: _effectiveStatus,
       rating: _rating,
       tags: _tags,
+      tagCategories: _tags.any(_tagCategories.containsKey)
+          ? {
+              for (final MapEntry(key: tag, value: categories)
+                  in _tagCategories.entries)
+                if (_tags.contains(tag)) tag: categories,
+            }
+          : null,
       note: _note.text.trim(),
       description: _description,
       seasonalOnly: _seasonalOnly,
@@ -837,8 +958,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         return;
       }
     }
-    for (final MapEntry(key: name, value: category) in _newTags.entries) {
-      if (_tags.contains(name)) await repository.apply(AddTag(name, category));
+    for (final MapEntry(key: name, value: categories) in _newTags.entries) {
+      if (_tags.contains(name)) {
+        await repository.apply(AddTag(name, categories));
+      }
+    }
+    for (final MapEntry(key: name, value: categories)
+        in _recategorized.entries) {
+      await repository.apply(SetTagCategories(name, categories));
     }
     final Entry saved;
     if (widget.isEditing) {
@@ -875,10 +1002,12 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       // Plain field writes, no setState.
       _prepareSuggestions(library);
     }
-    final suggestions = _suggestions;
+    final suggestions = library == null
+        ? const <_Suggestion>[]
+        : _suggestions(library);
     final creatorSuggestions = library == null
         ? const <CreatorTag>[]
-        : _creatorSuggestions();
+        : _creatorSuggestions(library);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -1232,7 +1361,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                         : const EdgeInsets.fromLTRB(8, 8, 12, 8),
                     semanticsLabel: _tags.isEmpty
                         ? 'Tags, none chosen'
-                        : 'Tags, ${_tags.map((t) => '#$t').join(', ')}',
+                        : 'Tags, ${_tags.map((t) => tagLabel(t, library == null ? const [] : _categoriesOn(t, library))).join(', ')}',
                     onTap: _pickTags,
                     child: _tags.isEmpty
                         ? const Text('Choose from your tags')
@@ -1240,8 +1369,23 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
+                              // A tag in more than one category is one chip
+                              // per category it is picked in here
+                              // ("#clint-eastwood · Actor").
                               for (final tag in _tags)
-                                TagChip(tag, isNew: _newTags.containsKey(tag)),
+                                if (library != null &&
+                                    _categoriesOf(tag, library).length > 1)
+                                  for (final c in _categoriesOn(tag, library))
+                                    TagChip(
+                                      tag,
+                                      detail: c.roleLabel,
+                                      isNew: _newTags.containsKey(tag),
+                                    )
+                                else
+                                  TagChip(
+                                    tag,
+                                    isNew: _newTags.containsKey(tag),
+                                  ),
                             ],
                           ),
                   ),
@@ -1262,21 +1406,25 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                       children: [
                         for (final t in creatorSuggestions)
                           DashedChip(
-                            label: '#${t.tag}',
+                            label: _suggestionLabel((
+                              tag: t.tag,
+                              category: t.category,
+                            ), library!),
                             badge:
-                                library!.allTags.contains(t.tag) ||
+                                library.allTags.contains(t.tag) ||
                                     _newTags.containsKey(t.tag)
                                 ? null
                                 : 'new',
                             semanticsLabel: 'Add #${t.tag}',
                             onTap: () => _addCreatorSuggestion(t, library),
                           ),
-                        for (final tag in suggestions)
+                        for (final s in suggestions)
                           DashedChip(
-                            label: '#$tag',
-                            badge: _suggestedNew.contains(tag) ? 'new' : null,
-                            semanticsLabel: 'Add #$tag',
-                            onTap: () => _addSuggestion(tag),
+                            label: _suggestionLabel(s, library!),
+                            badge: _suggestedNew.contains(s.tag) ? 'new' : null,
+                            semanticsLabel:
+                                'Add ${_suggestionLabel(s, library)}',
+                            onTap: () => _addSuggestion(s, library),
                           ),
                       ],
                     ),

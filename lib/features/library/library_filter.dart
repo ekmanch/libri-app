@@ -72,6 +72,12 @@ class Decade implements Comparable<Decade> {
 /// kind and released any choice matches; every chosen tag must be on the entry.
 /// Kind (albums, songs) only narrows music. Seasonal-only entries are hidden
 /// unless [includeSeasonalOnly] is on.
+///
+/// A tag in more than one category is chosen per category: Directors ›
+/// #clint-eastwood matches only entries where he is picked as a director.
+/// Such a choice is the tag in [tags] plus its categories in [tagCategories];
+/// a tag there with no categories (one in a single category, or chosen by
+/// name) matches whatever category it has on the entry.
 @immutable
 class LibraryFilter {
   const LibraryFilter({
@@ -80,6 +86,7 @@ class LibraryFilter {
     this.kinds = const {},
     this.decades = const {},
     this.tags = const {},
+    this.tagCategories = const {},
     this.includeSeasonalOnly = false,
   });
 
@@ -88,6 +95,10 @@ class LibraryFilter {
   final Set<EntryKind> kinds;
   final Set<Decade> decades;
   final Set<String> tags;
+
+  /// The categories a tag in [tags] is chosen as, for tags chosen per
+  /// category. Never an empty set: a tag with none is not in the map.
+  final Map<String, Set<TagCategory>> tagCategories;
   final bool includeSeasonalOnly;
 
   static const none = LibraryFilter();
@@ -141,7 +152,7 @@ class LibraryFilter {
                 : 'from the ${d.label}',
         ], 'or'),
       if (tags.isNotEmpty)
-        'tagged ${join([for (final tag in tags) '#$tag'], 'and')}',
+        'tagged ${join([for (final chip in tagChips) chip.label], 'and')}',
     ];
     const tail = 'Remove a filter to see more.';
     if (conditions.isEmpty) return tail;
@@ -217,7 +228,45 @@ class LibraryFilter {
   /// Drops chosen tags whose group the chosen types no longer show.
   LibraryFilter keepTagsShownIn(Library library) {
     final shown = {for (final (_, names) in tagGroupsIn(library)) ...names};
-    return copyWith(tags: tags.where(shown.contains).toSet());
+    return copyWith(
+      tags: tags.where(shown.contains).toSet(),
+      tagCategories: {
+        for (final MapEntry(key: tag, value: categories)
+            in tagCategories.entries)
+          if (shown.contains(tag)) tag: categories,
+      },
+    );
+  }
+
+  /// Whether [tag] is chosen, as [category] when one is given: chosen in
+  /// that category, or chosen by name alone (which counts in every one).
+  bool hasTag(String tag, [TagCategory? category]) {
+    if (!tags.contains(tag)) return false;
+    final categories = tagCategories[tag];
+    return category == null ||
+        categories == null ||
+        categories.contains(category);
+  }
+
+  /// The removable chips for the chosen tags: "#horror", and for a tag
+  /// chosen per category one per category, "#clint-eastwood · Director".
+  List<ActiveFilterChip> get tagChips => [
+    for (final tag in tags) ..._chipsFor(tag),
+  ];
+
+  List<ActiveFilterChip> _chipsFor(String tag) {
+    final categories = tagCategories[tag];
+    if (categories == null) {
+      return [ActiveFilterChip('#$tag', (f) => f.toggleTag(tag))];
+    }
+    return [
+      for (final c in TagCategory.values)
+        if (categories.contains(c))
+          ActiveFilterChip(
+            tagLabel(tag, [c]),
+            (f) => f.toggleTag(tag, category: c),
+          ),
+    ];
   }
 
   /// Number shown on the filter button badge.
@@ -226,7 +275,7 @@ class LibraryFilter {
       statuses.length +
       kinds.length +
       decades.length +
-      tags.length +
+      tagChips.length +
       (includeSeasonalOnly ? 1 : 0);
 
   bool matches(Entry entry) {
@@ -241,7 +290,13 @@ class LibraryFilter {
     if (decades.isNotEmpty && !decades.contains(Decade.of(entry.year))) {
       return false;
     }
-    return tags.every(entry.tags.contains);
+    for (final tag in tags) {
+      if (!entry.tags.contains(tag)) return false;
+      for (final category in tagCategories[tag] ?? const <TagCategory>{}) {
+        if (!entry.hasTagAs(tag, category)) return false;
+      }
+    }
+    return true;
   }
 
   List<Entry> apply(Iterable<Entry> entries) => entries.where(matches).toList();
@@ -252,6 +307,7 @@ class LibraryFilter {
     Set<EntryKind>? kinds,
     Set<Decade>? decades,
     Set<String>? tags,
+    Map<String, Set<TagCategory>>? tagCategories,
     bool? includeSeasonalOnly,
   }) => LibraryFilter(
     types: types ?? this.types,
@@ -259,6 +315,7 @@ class LibraryFilter {
     kinds: kinds ?? this.kinds,
     decades: decades ?? this.decades,
     tags: tags ?? this.tags,
+    tagCategories: tagCategories ?? this.tagCategories,
     includeSeasonalOnly: includeSeasonalOnly ?? this.includeSeasonalOnly,
   );
 
@@ -281,7 +338,29 @@ class LibraryFilter {
   LibraryFilter toggleKind(EntryKind k) => copyWith(kinds: _toggled(kinds, k));
   LibraryFilter toggleDecade(Decade d) =>
       copyWith(decades: _toggled(decades, d));
-  LibraryFilter toggleTag(String tag) => copyWith(tags: _toggled(tags, tag));
+
+  /// Toggles a tag, as [category] for a tag chosen per category: the first
+  /// category chooses the tag, the last one taken away drops it. With no
+  /// category the tag is toggled by name, which also clears its categories.
+  /// A tag chosen by name and then toggled as a category keeps only that
+  /// category (the sheet never shows such a tag, see [hasTag]).
+  LibraryFilter toggleTag(String tag, {TagCategory? category}) {
+    final others = {...tagCategories}..remove(tag);
+    if (category == null) {
+      return copyWith(tags: _toggled(tags, tag), tagCategories: others);
+    }
+    final Set<TagCategory> chosen =
+        tagCategories[tag] == null && tags.contains(tag)
+        ? {category}
+        : _toggled(tagCategories[tag] ?? const {}, category);
+    if (chosen.isEmpty) {
+      return copyWith(tags: {...tags}..remove(tag), tagCategories: others);
+    }
+    return copyWith(
+      tags: {...tags, tag},
+      tagCategories: {...others, tag: chosen},
+    );
+  }
 
   /// The removable chips of Library › Filtered results, one type and several
   /// types, in sheet order.
@@ -295,7 +374,7 @@ class LibraryFilter {
       if (kinds.contains(k)) ActiveFilterChip(k.label, (f) => f.toggleKind(k)),
     for (final d in decades.toList()..sort())
       ActiveFilterChip(d.label, (f) => f.toggleDecade(d)),
-    for (final tag in tags) ActiveFilterChip('#$tag', (f) => f.toggleTag(tag)),
+    ...tagChips,
     if (includeSeasonalOnly)
       ActiveFilterChip(
         'Seasonal-only included',
@@ -311,7 +390,15 @@ class LibraryFilter {
       setEquals(other.kinds, kinds) &&
       setEquals(other.decades, decades) &&
       setEquals(other.tags, tags) &&
+      _sameCategories(other.tagCategories, tagCategories) &&
       other.includeSeasonalOnly == includeSeasonalOnly;
+
+  static bool _sameCategories(
+    Map<String, Set<TagCategory>> a,
+    Map<String, Set<TagCategory>> b,
+  ) =>
+      a.length == b.length &&
+      a.entries.every((e) => b[e.key] != null && setEquals(b[e.key], e.value));
 
   @override
   int get hashCode => Object.hash(
@@ -320,6 +407,10 @@ class LibraryFilter {
     Object.hashAllUnordered(kinds),
     Object.hashAllUnordered(decades),
     Object.hashAllUnordered(tags),
+    Object.hashAllUnordered([
+      for (final MapEntry(key: tag, value: categories) in tagCategories.entries)
+        Object.hash(tag, Object.hashAllUnordered(categories)),
+    ]),
     includeSeasonalOnly,
   );
 }

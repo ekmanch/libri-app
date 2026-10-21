@@ -44,6 +44,14 @@
       "halloween",
       "christmas"
     ],
+    "Directors": [
+      "clint-eastwood"
+    ],
+    "Actors": [
+      "clint-eastwood",
+      "hilary-swank",
+      "morgan-freeman"
+    ],
     "Studios": [
       "studio-ghibli",
       "fromsoftware"
@@ -1612,6 +1620,56 @@
         "name": "Berserk",
         "number": 43
       }
+    },
+    {
+      "id": "movies/million-dollar-baby-2004",
+      "type": "movies",
+      "title": "Million Dollar Baby",
+      "released": "2004-12-15",
+      "creator": "Clint Eastwood",
+      "status": "done",
+      "rating": 9,
+      "tags": [
+        "drama",
+        "clint-eastwood",
+        "hilary-swank",
+        "morgan-freeman"
+      ],
+      "tag_categories": {
+        "clint-eastwood": [
+          "Directors",
+          "Actors"
+        ]
+      },
+      "note": "Rewatch with the commentary on.",
+      "description": "A hardened boxing trainer reluctantly takes on a determined young fighter.",
+      "seasonal_only": false,
+      "added": "2025-12-05",
+      "source": null
+    },
+    {
+      "id": "movies/the-good-the-bad-and-the-ugly-1966",
+      "type": "movies",
+      "title": "The Good, the Bad and the Ugly",
+      "released": "1966",
+      "creator": "Sergio Leone",
+      "status": "want",
+      "rating": null,
+      "tags": [
+        "adventure",
+        "classic",
+        "clint-eastwood"
+      ],
+      "tag_categories": {
+        "clint-eastwood": [
+          "Actors"
+        ]
+      },
+      "note": "",
+      "description": "Three gunslingers race to find a buried fortune during the Civil War.",
+      "seasonal_only": false,
+      "added": "2025-06-14",
+      "source": null
     }
   ],
   "plans": [

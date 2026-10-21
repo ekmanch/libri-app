@@ -24,6 +24,7 @@ import 'package:library_app/features/shell/floating_nav_bar.dart';
 import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/features/sync/token_expiry_dialog.dart';
 import 'package:library_app/main.dart';
+import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/tag_group.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
@@ -215,6 +216,57 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await tester.ensureVisible(find.text('#adventure'));
     await a.tapText('#adventure');
     await a.check('Add / edit entry › Tag picker');
+    await a.tap(find.widgetWithText(FilledButton, 'Done'));
+    await a.back();
+    await a.closeSheet();
+    await a.pickChip('All');
+  });
+  await a.step('two categories', () async {
+    await a.pickChip('Movies');
+    await a.tapText('Million Dollar Baby');
+    await a.check('Library › Entry details: tag in two categories');
+    await a.tapText('Edit');
+    await a.check('Add / edit entry › Tag in two categories: entry form');
+    await a.tapText('#clint-eastwood · Director');
+    await a.check('Add / edit entry › Tag in two categories: tag picker');
+    final chip = find.descendant(
+      of: find.widgetWithText(TagGroup, 'Directors'),
+      matching: find.widgetWithText(PillChip, '#clint-eastwood'),
+    );
+    await a.reveal(chip);
+    await tester.ensureVisible(chip);
+    await tester.pumpAndSettle();
+    await tester.longPress(chip);
+    await tester.pumpAndSettle();
+    await a.check('Add / edit entry › Tag categories (long press)');
+    await a.tap(
+      find.descendant(
+        of: find.byType(AppDialog),
+        matching: find.text('Cancel'),
+      ),
+    );
+    await tester.enterText(find.byType(TextField).last, 'sergio-leone');
+    await tester.pumpAndSettle();
+    await a.tap(find.bySemanticsLabel('Create #sergio-leone'));
+    await a.tap(
+      find.descendant(
+        of: find.byType(AppDialog),
+        matching: find.widgetWithText(PillChip, 'Directors'),
+      ),
+    );
+    await a.tap(
+      find.descendant(
+        of: find.byType(AppDialog),
+        matching: find.widgetWithText(PillChip, 'Actors'),
+      ),
+    );
+    await a.check('Add / edit entry › New tag: two categories');
+    await a.tap(
+      find.descendant(
+        of: find.byType(AppDialog),
+        matching: find.text('Cancel'),
+      ),
+    );
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
     await a.back();
     await a.closeSheet();

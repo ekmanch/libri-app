@@ -84,6 +84,12 @@ class _FilterSheetState extends State<FilterSheet> {
     final count = _matching.length;
     final query = _tagQuery.trim().toLowerCase();
     final groups = _draft.tagGroupsIn(widget.library);
+    // A tag in more than one category is chosen per category (Directors ›
+    // #clint-eastwood); any other by name.
+    LibraryFilter toggle(String tag, TagCategory category) => _draft.toggleTag(
+      tag,
+      category: widget.library.isMultiCategory(tag) ? category : null,
+    );
     // When the open group goes away with a type, the first one opens.
     final openGroup =
         _openGroup == null || groups.any((g) => g.$1 == _openGroup)
@@ -216,16 +222,19 @@ class _FilterSheetState extends State<FilterSheet> {
                 detail: tagGroupCountLabel(
                   category,
                   names.length,
-                  names.where(_draft.tags.contains).length,
+                  names.where((n) => _draft.hasTag(n, category)).length,
                 ),
                 onTap: () => showTagListScreen(
                   context,
                   category: category,
                   tags: names,
-                  selected: _draft.tags,
+                  selected: {
+                    for (final n in names)
+                      if (_draft.hasTag(n, category)) n,
+                  },
                   library: widget.library,
                   onToggle: (tag) =>
-                      setState(() => _draft = _draft.toggleTag(tag)),
+                      setState(() => _draft = toggle(tag, category)),
                 ),
               )
             else
@@ -236,13 +245,16 @@ class _FilterSheetState extends State<FilterSheet> {
                       ? names
                       : names.where((n) => n.toLowerCase().contains(query)),
                 ),
-                selected: _draft.tags,
+                selected: [
+                  for (final n in names)
+                    if (_draft.hasTag(n, category)) n,
+                ],
                 open: query.isNotEmpty || openGroup == category,
                 onToggleOpen: () => setState(
                   () => _openGroup = openGroup == category ? null : category,
                 ),
                 onToggleTag: (tag) =>
-                    setState(() => _draft = _draft.toggleTag(tag)),
+                    setState(() => _draft = toggle(tag, category)),
               ),
         ],
       ),

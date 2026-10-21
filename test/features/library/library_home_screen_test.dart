@@ -21,6 +21,7 @@ import 'package:library_app/data/models/tag_category.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/tag_group.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/widgets/labels.dart';
 import 'package:library_app/widgets/section_heading.dart';
@@ -614,6 +615,53 @@ void main() {
         expect(selected(tester, type.label), isFalse);
       }
       expect(sheetChip('In progress'), findsOneWidget);
+    });
+
+    testWidgets('a tag in several categories is chosen per category', (
+      tester,
+    ) async {
+      await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Movies');
+      await openSheet(tester);
+      Finder inGroup(String group, String tag) => find.descendant(
+        of: find.widgetWithText(TagGroup, group),
+        matching: find.widgetWithText(PillChip, tag),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Directors'),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(FilterSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.tap(find.text('Directors'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(inGroup('Directors', '#clint-eastwood'));
+      await tester.pumpAndSettle();
+      await tester.tap(inGroup('Directors', '#clint-eastwood'));
+      await tester.pumpAndSettle();
+      expect(find.text('Show 1 entry'), findsOneWidget); // Not a type view.
+      // Ticked as the director only: the Actors group does not show it.
+      await tester.ensureVisible(find.text('Actors'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Actors'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(inGroup('Actors', '#clint-eastwood'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<PillChip>(inGroup('Actors', '#clint-eastwood')).selected,
+        isFalse,
+      );
+      await show(tester);
+      expect(find.text('Million Dollar Baby'), findsOneWidget);
+      expect(find.text('The Good, the Bad and the Ugly'), findsNothing);
+      expect(
+        find.bySemanticsLabel('Remove #clint-eastwood · Director'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('it opens with the picked status segment chosen too', (

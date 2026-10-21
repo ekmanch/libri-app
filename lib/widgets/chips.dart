@@ -26,11 +26,16 @@ class PillChip extends StatelessWidget {
     this.checked = false,
     this.height = 44,
     this.badge,
+    this.onLongPress,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+
+  /// A long press, where the chip has one: a tag in the picker opens its
+  /// categories (Add / edit entry › Tag picker).
+  final VoidCallback? onLongPress;
   final PillChipStyle style;
   final Color? dotColor;
 
@@ -73,6 +78,7 @@ class PillChip extends StatelessWidget {
           shape: StadiumBorder(side: BorderSide(color: border)),
           child: InkWell(
             onTap: onTap,
+            onLongPress: onLongPress,
             customBorder: const StadiumBorder(),
             child: Container(
               height: height,
@@ -150,10 +156,25 @@ class ChipBadge extends StatelessWidget {
 
 /// A small read-only tag, shown as "#name". [isNew] adds the "new" badge.
 class TagChip extends StatelessWidget {
-  const TagChip(this.name, {super.key, this.isNew = false});
+  const TagChip(
+    this.name, {
+    super.key,
+    this.isNew = false,
+    this.detail,
+    this.mutedDetail = false,
+  });
 
   final String name;
   final bool isNew;
+
+  /// The role after the name for a tag in more than one category:
+  /// "#clint-eastwood · Actor" ("Director, Actor" in details).
+  final String? detail;
+
+  /// Whether the role is in the muted color, as in details (Library ›
+  /// Entry details: tag in two categories); the form's Tags box keeps it
+  /// in the text color.
+  final bool mutedDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -170,8 +191,19 @@ class TagChip extends StatelessWidget {
           // A long name (#the-brothers-grimm) is cut rather than pushed
           // past the chip's edge.
           Flexible(
-            child: Text(
-              '#$name',
+            child: Text.rich(
+              TextSpan(
+                text: '#$name',
+                children: [
+                  if (detail != null)
+                    TextSpan(
+                      text: ' · $detail',
+                      style: mutedDetail
+                          ? TextStyle(color: LibraryColors.of(context).muted)
+                          : null,
+                    ),
+                ],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall!.copyWith(

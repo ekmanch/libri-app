@@ -86,6 +86,29 @@ extension TagCategoryLabel on TagCategory {
     TagCategory.animationStyle => 'Animation style',
     TagCategory.other => 'Other',
   };
+
+  /// The category as a role after a tag that is in more than one category:
+  /// "#clint-eastwood · Actor", "#sports · Game genre".
+  String get roleLabel => switch (this) {
+    TagCategory.genre => 'Genre',
+    TagCategory.gameGenre => 'Game genre',
+    TagCategory.musicGenre => 'Music genre',
+    TagCategory.mood => 'Mood',
+    TagCategory.season => 'Season',
+    TagCategory.authors => 'Author',
+    TagCategory.directors => 'Director',
+    TagCategory.actors => 'Actor',
+    TagCategory.studios => 'Studio',
+    TagCategory.animationStyle => 'Animation style',
+    TagCategory.other => 'Other',
+  };
+}
+
+/// "#clint-eastwood · Director, Actor": a tag with the roles it has here.
+/// With no [categories] (a tag in one category) just "#tag".
+String tagLabel(String tag, [Iterable<TagCategory> categories = const []]) {
+  final roles = categories.map((c) => c.roleLabel).join(', ');
+  return roles.isEmpty ? '#$tag' : '#$tag · $roles';
 }
 
 /// The label of the one `creator` field, by type (DESIGN.md section 8).

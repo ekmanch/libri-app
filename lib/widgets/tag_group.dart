@@ -24,6 +24,7 @@ class TagGroup extends StatefulWidget {
     required this.open,
     required this.onToggleOpen,
     required this.onToggleTag,
+    this.onLongPressTag,
     this.chipStyle = PillChipStyle.accent,
     this.checked = false,
     this.chipHeight = 44,
@@ -36,6 +37,10 @@ class TagGroup extends StatefulWidget {
   final bool open;
   final VoidCallback? onToggleOpen;
   final ValueChanged<String> onToggleTag;
+
+  /// A long press on a tag, where it does something: the tag picker opens
+  /// the tag's categories (Add / edit entry › Tag picker).
+  final ValueChanged<String>? onLongPressTag;
 
   /// How the chips look: accent fills in the filter sheet, neutral fills
   /// with a check mark in the tag picker.
@@ -105,6 +110,7 @@ class _TagGroupState extends State<TagGroup> {
       :open,
       :onToggleOpen,
       :onToggleTag,
+      :onLongPressTag,
       :chipStyle,
       :checked,
       :chipHeight,
@@ -175,6 +181,9 @@ class _TagGroupState extends State<TagGroup> {
                       height: chipHeight,
                       horizontalPadding: chipPadding,
                       onTap: () => onToggleTag(tag),
+                      onLongPress: onLongPressTag == null
+                          ? null
+                          : () => onLongPressTag(tag),
                     ),
                 ],
               ),

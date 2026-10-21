@@ -838,7 +838,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Create a new tag?'), findsOneWidget);
         expect(
-          find.text('It will be added to your tag list under Game genres.'),
+          find.textContaining(
+            'It will be added to your tag list under Game genres.',
+          ),
           findsOneWidget,
         );
         await tester.ensureVisible(find.text('Create tag'));
@@ -962,7 +964,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Create a new tag?'), findsOneWidget);
       expect(
-        find.text('It will be added to your tag list under Authors.'),
+        find.textContaining('It will be added to your tag list under Authors.'),
         findsOneWidget,
       );
       await tester.ensureVisible(find.text('Create tag'));
@@ -1001,7 +1003,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Add #tina-fey'));
       await tester.pumpAndSettle();
       expect(
-        find.text('It will be added to your tag list under Actors.'),
+        find.textContaining('It will be added to your tag list under Actors.'),
         findsOneWidget,
       );
       await tester.ensureVisible(find.text('Create tag'));
@@ -1322,14 +1324,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Create a new tag?'), findsOneWidget);
       expect(
-        find.text('It will be added to your tag list under Genres.'),
+        find.textContaining('It will be added to your tag list under Genres.'),
         findsOneWidget,
       );
       await tester.ensureVisible(find.widgetWithText(PillChip, 'Mood'));
       await tester.tap(find.widgetWithText(PillChip, 'Mood'));
       await tester.pumpAndSettle();
       expect(
-        find.text('It will be added to your tag list under Mood.'),
+        find.textContaining('It will be added to your tag list under Mood.'),
         findsOneWidget,
       );
       await tester.ensureVisible(find.text('Create tag'));

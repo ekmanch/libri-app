@@ -8,12 +8,16 @@ part of 'tag_operations.dart';
 
 AddTag _$AddTagFromJson(Map<String, dynamic> json) => AddTag(
   json['name'] as String,
-  $enumDecode(_$TagCategoryEnumMap, json['category']),
+  (json['categories'] as List<dynamic>)
+      .map((e) => $enumDecode(_$TagCategoryEnumMap, e))
+      .toList(),
 );
 
 Map<String, dynamic> _$AddTagToJson(AddTag instance) => <String, dynamic>{
   'name': instance.name,
-  'category': _$TagCategoryEnumMap[instance.category]!,
+  'categories': instance.categories
+      .map((e) => _$TagCategoryEnumMap[e]!)
+      .toList(),
 };
 
 const _$TagCategoryEnumMap = {
@@ -29,3 +33,19 @@ const _$TagCategoryEnumMap = {
   TagCategory.animationStyle: 'Animation style',
   TagCategory.other: 'Other',
 };
+
+SetTagCategories _$SetTagCategoriesFromJson(Map<String, dynamic> json) =>
+    SetTagCategories(
+      json['name'] as String,
+      (json['categories'] as List<dynamic>)
+          .map((e) => $enumDecode(_$TagCategoryEnumMap, e))
+          .toList(),
+    );
+
+Map<String, dynamic> _$SetTagCategoriesToJson(SetTagCategories instance) =>
+    <String, dynamic>{
+      'name': instance.name,
+      'categories': instance.categories
+          .map((e) => _$TagCategoryEnumMap[e]!)
+          .toList(),
+    };

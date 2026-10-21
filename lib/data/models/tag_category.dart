@@ -73,4 +73,29 @@ enum TagCategory {
   /// Whether the tags are people, named first name first (#kate-siegel).
   bool get isPeopleGroup =>
       this == authors || this == directors || this == actors;
+
+  /// The kind of tag the category holds, when a tag of that kind can sit in
+  /// more than one category: people (Authors, Directors, Actors) or genres
+  /// (Genres, Game genres, Music genres). Null for the rest, whose tags
+  /// have one category each.
+  TagKind? get kind => switch (this) {
+    authors || directors || actors => TagKind.people,
+    genre || gameGenre || musicGenre => TagKind.genres,
+    _ => null,
+  };
+
+  /// Whether a tag of this category can also be in [other]: both hold
+  /// people, or both hold genres. A category is never "shared" with itself.
+  bool sharesKindWith(TagCategory other) =>
+      other != this && kind != null && kind == other.kind;
+
+  /// The categories a tag of this category can be in, this one included:
+  /// the three people groups, the three genre groups, or just this one.
+  List<TagCategory> get family => [
+    for (final c in values)
+      if (c == this || sharesKindWith(c)) c,
+  ];
 }
+
+/// The two kinds of tag that may be in more than one category.
+enum TagKind { people, genres }

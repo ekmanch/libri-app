@@ -239,7 +239,21 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [for (final tag in entry.tags) TagChip(tag)],
+              children: [
+                // A tag in more than one category says which it has here:
+                // "#clint-eastwood · Director, Actor".
+                for (final tag in entry.tags)
+                  TagChip(
+                    tag,
+                    mutedDetail: true,
+                    detail: library.isMultiCategory(tag)
+                        ? library
+                              .categoriesOn(entry, tag)
+                              .map((c) => c.roleLabel)
+                              .join(', ')
+                        : null,
+                  ),
+              ],
             ),
           ],
           const SizedBox(height: 13),
