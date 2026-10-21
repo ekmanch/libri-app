@@ -281,49 +281,83 @@ void main() {
     final bioshock = {
       'id': 20,
       'name': 'BioShock',
-      'collection': {
-        'id': 7,
-        'name': 'BioShock',
-        'games': [
-          {
-            'id': 21,
-            'name': 'BioShock 2',
-            'first_release_date': 1265760000,
-            'game_type': 0,
-          },
-          {
-            'id': 20,
-            'name': 'BioShock',
-            'first_release_date': 1187654400,
-            'game_type': 0,
-          },
-          {
-            'id': 22,
-            'name': 'BioShock Infinite',
-            'first_release_date': 1364256000,
-            'game_type': {'id': 0, 'type': 'Main Game'},
-          },
-          {
-            'id': 23,
-            'name': 'BioShock: The Collection',
-            'first_release_date': 1473811200,
-            'game_type': 3,
-          },
-          {
-            'id': 24,
-            'name': 'BioShock Remastered',
-            'first_release_date': 1473811200,
-            'game_type': 9,
-          },
-          {
-            'id': 25,
-            'name': 'BioShock Infinite: Complete Edition',
-            'first_release_date': 1415577600,
-            'version_parent': 22,
-          },
-          {'id': 26, 'name': 'BioShock 4', 'game_type': 0},
-        ],
-      },
+      'collections': [
+        {
+          'id': 7,
+          'name': 'BioShock',
+          'games': [
+            {
+              'id': 21,
+              'name': 'BioShock 2',
+              'first_release_date': 1265760000,
+              'game_type': 0,
+            },
+            {
+              'id': 20,
+              'name': 'BioShock',
+              'first_release_date': 1187654400,
+              'game_type': 0,
+            },
+            {
+              'id': 22,
+              'name': 'BioShock Infinite',
+              'first_release_date': 1364256000,
+              'game_type': {'id': 0, 'type': 'Main Game'},
+            },
+            {
+              'id': 23,
+              'name': 'BioShock: The Collection',
+              'first_release_date': 1473811200,
+              'game_type': 3,
+            },
+            {
+              'id': 24,
+              'name': 'BioShock Remastered',
+              'first_release_date': 1473811200,
+              'game_type': 9,
+            },
+            {
+              'id': 25,
+              'name': 'BioShock Infinite: Complete Edition',
+              'first_release_date': 1415577600,
+              'version_parent': 22,
+            },
+            {'id': 26, 'name': 'BioShock 4', 'game_type': 0},
+          ],
+        },
+      ],
+    };
+
+    final dkc = {
+      'id': 1090,
+      'name': 'Donkey Kong Country',
+      'collections': [
+        {
+          'id': 242,
+          'name': 'Donkey Kong',
+          'games': [
+            {'id': 1, 'name': 'Donkey Kong', 'game_type': 0},
+          ],
+        },
+        {
+          'id': 6066,
+          'name': 'Donkey Kong Country',
+          'games': [
+            {
+              'id': 1090,
+              'name': 'Donkey Kong Country',
+              'first_release_date': 785116800,
+              'game_type': 0,
+            },
+            {
+              'id': 1091,
+              'name': "Donkey Kong Country 2: Diddy's Kong Quest",
+              'first_release_date': 816912000,
+              'game_type': 0,
+            },
+          ],
+        },
+      ],
     };
 
     test('details and seriesParts read the collection: main games and remakes, in date order', () async {
@@ -338,9 +372,9 @@ void main() {
       expect(full.series, const Series(name: 'BioShock', number: 1));
       expect(
         sent.last.body,
-        'fields collection.name,collection.games.name,'
-        'collection.games.first_release_date,collection.games.game_type,'
-        'collection.games.version_parent; where id = 20; limit 1;',
+        'fields name,collections.name,collections.games.name,'
+        'collections.games.first_release_date,collections.games.game_type,'
+        'collections.games.version_parent; where id = 20; limit 1;',
       );
       final parts = await igdb.seriesParts('igdb:20');
       expect(parts!.parts.map((p) => (p.number, p.title, p.year, p.source)), [
@@ -350,6 +384,36 @@ void main() {
         (4, 'BioShock 4', null, 'igdb:26'),
       ]);
     });
+
+    test(
+      'a game in several collections takes the one its title names',
+      () async {
+        final igdb = source((_) async => json(200, [dkc]));
+        final full = await igdb.details(
+          const LookupMatch(
+            type: MediaType.games,
+            title: 'Donkey Kong Country',
+            source: 'igdb:1090',
+          ),
+        );
+        expect(
+          full.series,
+          const Series(name: 'Donkey Kong Country', number: 1),
+        );
+        final parts = await igdb.seriesParts('igdb:1090');
+        expect(parts!.parts.map((p) => p.title), [
+          'Donkey Kong Country',
+          "Donkey Kong Country 2: Diddy's Kong Quest",
+        ]);
+        // A title that names none of them takes the first listed.
+        final other = source(
+          (_) async => json(200, [
+            {...dkc, 'name': 'Diddy Kong Racing'},
+          ]),
+        );
+        expect((await other.seriesParts('igdb:1090'))!.name, 'Donkey Kong');
+      },
+    );
 
     test('a game in no collection has none', () async {
       final igdb = source((_) async => json(200, [tlou]));

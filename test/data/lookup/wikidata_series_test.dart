@@ -171,6 +171,74 @@ void main() {
     );
   });
 
+  test(
+    'a title that names nothing is asked again without its tacked-on note',
+    () async {
+      var calls = 0;
+      sent = [];
+      final wikidata = WikidataSeries(
+        MockClient((request) async {
+          sent.add(request);
+          if (request.url.host == 'www.wikidata.org') {
+            calls++;
+            final query = request.url.queryParameters['search'];
+            return json(200, {
+              'search': query == 'Tai-Pan'
+                  ? [
+                      {'id': 'Q2734297', 'label': 'Tai-Pan'},
+                    ]
+                  : [],
+            });
+          }
+          return json(200, {
+            'results': {
+              'bindings': [
+                row(
+                  book: 'Q2734297',
+                  author: 'James Clavell',
+                  series: 'Q2866449',
+                  seriesLabel: 'The Asian Saga',
+                  part: 'Q2734297',
+                  partLabel: 'Tai-Pan',
+                  date: '1966-01-01',
+                ),
+              ],
+            },
+          });
+        }),
+      );
+      final found = await wikidata.seriesOf(
+        'Tai-Pan (Asian Saga',
+        'James Clavell',
+      );
+      expect(calls, 2);
+      expect(sent.last.url.queryParameters['query'], contains('wd:Q2734297'));
+      expect(found!.parts.name, 'The Asian Saga');
+      expect(found.number, isNull);
+      // A title with nothing tacked on is asked once.
+      expect(await source().seriesOf('Dracula', 'Bram Stoker'), isNull);
+      expect(sent.length, 1);
+    },
+  );
+
+  test('coreTitle cuts a parenthesis, a colon or a part before it', () {
+    expect(WikidataSeries.coreTitle('Tai-Pan (Asian Saga'), 'Tai-Pan');
+    expect(
+      WikidataSeries.coreTitle('Shōgun, Part One (The Asian Saga)'),
+      'Shōgun',
+    );
+    expect(
+      WikidataSeries.coreTitle(
+        'The Fellowship of the Ring: Being the First Part of The Lord of the Rings',
+      ),
+      'The Fellowship of the Ring',
+    );
+    expect(WikidataSeries.coreTitle('Berserk, Vol. 43'), 'Berserk');
+    expect(WikidataSeries.coreTitle('Dune [Deluxe Edition]'), 'Dune');
+    expect(WikidataSeries.coreTitle('Dracula'), 'Dracula');
+    expect(WikidataSeries.coreTitle('(untitled)'), '(untitled)');
+  });
+
   test('parts without an ordinal come after the rest, by date', () async {
     final wikidata = source(
       search: [

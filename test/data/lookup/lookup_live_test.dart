@@ -313,7 +313,8 @@ void main() {
         type: MediaType.games,
       )).firstWhere((m) => m.released?.year == 2007);
       final full = await igdb.details(bioshock);
-      expect(full.series?.name, 'BioShock');
+      // IGDB spells the collection "Bioshock".
+      expect(full.series?.name.toLowerCase(), 'bioshock');
       expect(full.series?.number, 1);
       final parts = await igdb.seriesParts(bioshock.source);
       expect(parts!.parts.map((p) => p.title), contains('BioShock 2'));

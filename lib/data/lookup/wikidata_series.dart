@@ -64,7 +64,8 @@ class WikidataSeries with LookupHttp {
     final json = decodeObject(response);
     return [
       for (final hit in objectsAt(json, 'search'))
-        if (stringAt(hit, 'id') case final id? when RegExp(r'^Q\d+$').hasMatch(id))
+        if (stringAt(hit, 'id') case final id?
+            when RegExp(r'^Q\d+$').hasMatch(id))
           id,
     ];
   }
@@ -112,11 +113,15 @@ LIMIT 2000''';
   static bool sameAuthor(String? creator, Iterable<String> authors) {
     if (creator == null || creator.trim().isEmpty) return true;
     final wanted = {
-      for (final w in creator.toLowerCase().split(RegExp(r'[^\p{L}]+', unicode: true)))
+      for (final w in creator.toLowerCase().split(
+        RegExp(r'[^\p{L}]+', unicode: true),
+      ))
         if (w.length >= 3) w,
     };
     for (final author in authors) {
-      for (final w in author.toLowerCase().split(RegExp(r'[^\p{L}]+', unicode: true))) {
+      for (final w in author.toLowerCase().split(
+        RegExp(r'[^\p{L}]+', unicode: true),
+      )) {
         if (w.length >= 3 && wanted.contains(w)) return true;
       }
     }
@@ -126,7 +131,33 @@ LIMIT 2000''';
   /// The series the book [title] by [creator] is in, with its parts in
   /// ordinal order (a part without an ordinal by date, after the rest),
   /// and the book's own number; null when Wikidata knows no series for it.
+  /// A title that names nothing is asked again without what an edition
+  /// tacks on after it ([coreTitle]): Open Library has "Tai-Pan (Asian
+  /// Saga" and Apple Books "Shōgun, Part One (The Asian Saga)".
   Future<({SeriesParts parts, int? number})?> seriesOf(
+    String title,
+    String? creator,
+  ) async {
+    final found = await _seriesOf(title, creator);
+    if (found != null) return found;
+    final core = coreTitle(title);
+    return core == title ? null : _seriesOf(core, creator);
+  }
+
+  /// A title cut before a parenthesis, a colon, or ", Part", ", Book" or
+  /// ", Vol": "Tai-Pan (Asian Saga" and "Shōgun, Part One" give "Tai-Pan"
+  /// and "Shōgun". A title that would lose everything stays as it is.
+  static String coreTitle(String title) {
+    final core = title.split(_tackedOn).first.trim();
+    return core.isEmpty ? title : core;
+  }
+
+  static final _tackedOn = RegExp(
+    r'\s*(?:[(\[:]|,\s*(?:part|book|vol)\b)',
+    caseSensitive: false,
+  );
+
+  Future<({SeriesParts parts, int? number})?> _seriesOf(
     String title,
     String? creator,
   ) async {
@@ -138,7 +169,8 @@ LIMIT 2000''';
     final seriesOf = <String, String>{};
     final ordinalOf = <String, String?>{};
     final seriesName = <String, String>{};
-    final partsOf = <String, Map<String, ({String title, int? number, int? year})>>{};
+    final partsOf =
+        <String, Map<String, ({String title, int? number, int? year})>>{};
     for (final row in rows) {
       final book = _item(row, 'book');
       final series = _item(row, 'series');
@@ -199,5 +231,6 @@ LIMIT 2000''';
       a == null || b == null ? a ?? b : (a < b ? a : b);
 
   /// "3" as 3; "3.5" or "III" as nothing.
-  static int? _ordinal(String? text) => text == null ? null : int.tryParse(text.trim());
+  static int? _ordinal(String? text) =>
+      text == null ? null : int.tryParse(text.trim());
 }

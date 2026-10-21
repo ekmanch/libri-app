@@ -49,13 +49,15 @@ class IgdbSource extends HttpLookupSource {
   @override
   String get name => 'IGDB';
 
-  /// The collection a game is in, with its games: the series and its
-  /// parts. `game_type` tells main games and remakes from bundles, DLC,
-  /// remasters and ports, which are left out of the parts.
+  /// The collections a game is in, with their games: the series and its
+  /// parts. IGDB retired the single `collection` field and leaves it
+  /// empty; `collections` holds them now. `game_type` tells main games and
+  /// remakes from bundles, DLC, remasters and ports, which are left out
+  /// of the parts.
   static const _collectionFields =
-      'collection.name,collection.games.name,'
-      'collection.games.first_release_date,collection.games.game_type,'
-      'collection.games.version_parent';
+      'name,collections.name,collections.games.name,'
+      'collections.games.first_release_date,collections.games.game_type,'
+      'collections.games.version_parent';
 
   /// IGDB's game types that count as a part of a series: 0 is a main game,
   /// 8 a remake.
@@ -216,33 +218,41 @@ class IgdbSource extends HttpLookupSource {
     );
   }
 
-  /// The collection in a game record (`collection`, expanded with its
+  /// The collection in a game record (`collections`, expanded with their
   /// games), as a series: the games that are main games or remakes and no
-  /// edition of another, in date order, numbered from 1. Null when the
-  /// game is in no collection.
+  /// edition of another, in date order, numbered from 1. A game in several
+  /// collections ("Donkey Kong Country" is in "Donkey Kong Country" and in
+  /// "Donkey Kong") takes the one its title starts with, the longest such
+  /// name first, else the first listed. Null when the game is in no
+  /// collection.
   static SeriesParts? _collectionOf(Map<String, Object?> game) {
-    final collection = game['collection'];
-    if (collection is! Map<String, Object?>) return null;
-    final name = stringAt(collection, 'name');
-    if (name == null) return null;
-    final parts = [
-      for (final g in objectsAt(collection, 'games'))
-        if (g['id'] case final num id)
-          if (stringAt(g, 'name') case final title?)
-            if (g['version_parent'] == null && _isPart(g['game_type']))
-              (
-                id: id.toInt(),
-                title: title,
-                date: switch (g['first_release_date']) {
-                  final num epoch => epoch.toInt(),
-                  _ => null,
-                },
-              ),
-    ]..sort((a, b) {
-      final x = a.date, y = b.date;
-      if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
-      return x.compareTo(y);
-    });
+    final collection = _seriesCollection(
+      objectsAt(game, 'collections'),
+      stringAt(game, 'name') ?? '',
+    );
+    if (collection == null) return null;
+    final name = stringAt(collection, 'name')!;
+    final parts =
+        [
+          for (final g in objectsAt(collection, 'games'))
+            if (g['id'] case final num id)
+              if (stringAt(g, 'name') case final title?)
+                if (g['version_parent'] == null && _isPart(g['game_type']))
+                  (
+                    id: id.toInt(),
+                    title: title,
+                    date: switch (g['first_release_date']) {
+                      final num epoch => epoch.toInt(),
+                      _ => null,
+                    },
+                  ),
+        ]..sort((a, b) {
+          final x = a.date, y = b.date;
+          if (x == null || y == null) {
+            return x == null ? (y == null ? 0 : 1) : -1;
+          }
+          return x.compareTo(y);
+        });
     return (
       name: name,
       parts: [
@@ -260,6 +270,24 @@ class IgdbSource extends HttpLookupSource {
           ),
       ],
     );
+  }
+
+  /// The named collection among [collections] whose name [title] starts
+  /// with (case aside), the longest first; else the first named one.
+  static Map<String, Object?>? _seriesCollection(
+    List<Map<String, Object?>> collections,
+    String title,
+  ) {
+    final named = [
+      for (final c in collections)
+        if (stringAt(c, 'name') case final name? when name.trim().isNotEmpty)
+          (collection: c, name: name.trim().toLowerCase()),
+    ];
+    if (named.isEmpty) return null;
+    final lower = title.trim().toLowerCase();
+    final prefixes = named.where((c) => lower.startsWith(c.name)).toList()
+      ..sort((a, b) => b.name.length.compareTo(a.name.length));
+    return (prefixes.firstOrNull ?? named.first).collection;
   }
 
   /// A game type IGDB gives as a number or an expanded object; a record
