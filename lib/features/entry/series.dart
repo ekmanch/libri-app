@@ -86,8 +86,10 @@ List<Entry> entriesInSeries(
 /// series' own order, each matched to the entry in [library] that is it (by
 /// lookup id, else by number, else by title), then the library's other
 /// entries of the series, every row placed by its number (rows without one
-/// after the rest, in the order they came). Without fetched parts the rows
-/// are the library's entries alone.
+/// after the rest, in the order they came). A matched part takes its
+/// entry's number, since Number is the owner's to edit; the source's
+/// number only counts where the entry has none. Without fetched parts the
+/// rows are the library's entries alone.
 List<SeriesRow> seriesRows({
   required Entry current,
   required Iterable<Entry> library,
@@ -124,7 +126,7 @@ List<SeriesRow> seriesRows({
         );
     rows.add(
       SeriesRow(
-        number: part.number,
+        number: entry?.series?.number ?? part.number,
         title: part.title,
         year: part.year,
         entry: entry,

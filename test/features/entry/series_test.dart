@@ -139,8 +139,45 @@ void main() {
         library: [byId, byNumber, byTitle],
         parts: parts,
       );
-      expect(rows.map((r) => r.entry?.id), ['a', 'b', 'c']);
-      expect(rows.map((r) => r.title), parts.parts.map((p) => p.title));
+      expect(
+        {for (final r in rows) r.title: r.entry?.id},
+        {
+          'The Fellowship of the Ring': 'a',
+          'The Two Towers': 'b',
+          'The Return of the King': 'c',
+        },
+      );
+    });
+
+    test('a part takes the number of the entry that is it', () {
+      // The Asian Saga: Wikidata numbers only Whirlwind, the owner put
+      // Shōgun first; the lookup lists the rest by date.
+      const SeriesParts saga = (
+        name: 'The Lord of the Rings',
+        parts: [
+          (number: 6, title: 'Whirlwind', year: 1986, source: null),
+          (number: null, title: 'King Rat', year: 1962, source: null),
+          (number: null, title: 'Tai-Pan', year: 1966, source: null),
+          (number: null, title: 'Shōgun', year: 1975, source: null),
+          (number: 2, title: 'Noble House', year: 1981, source: null),
+        ],
+      );
+      final shogun = _entry('s', 'Shōgun', number: 1);
+      final noble = _entry('n', 'Noble House', number: 5);
+      final rows = seriesRows(
+        current: shogun,
+        library: [shogun, noble],
+        parts: saga,
+      );
+      expect(rows.map((r) => (r.number, r.title)), [
+        (1, 'Shōgun'),
+        (5, 'Noble House'),
+        (6, 'Whirlwind'),
+        (null, 'King Rat'),
+        (null, 'Tai-Pan'),
+      ]);
+      expect(rows[0].entry?.id, 's');
+      expect(rows[1].entry?.id, 'n');
     });
 
     test('entries the lookup does not list are placed by number', () {
