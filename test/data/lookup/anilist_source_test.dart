@@ -92,6 +92,27 @@ void main() {
     expect(sent.length, 1);
   });
 
+  test('the country of origin gives the language', () async {
+    final anilist = source(
+      (_) async => json(200, {
+        'data': {
+          'Page': {
+            'media': [
+              {...akira, 'countryOfOrigin': 'JP'},
+              {...akira, 'id': 2, 'countryOfOrigin': 'KR'},
+              {...akira, 'id': 3, 'countryOfOrigin': 'US'},
+              {...akira, 'id': 4},
+            ],
+          },
+        },
+      }),
+    );
+    final hits = await anilist.search('akira', type: MediaType.anime);
+    final body = jsonDecode(sent.single.body) as Map<String, Object?>;
+    expect(body['query'], contains('countryOfOrigin'));
+    expect(hits.map((h) => h.language), ['ja', 'ko', null, null]);
+  });
+
   test('match wants the same title and prefers the year', () async {
     final anilist = source(
       (_) async => json(200, {

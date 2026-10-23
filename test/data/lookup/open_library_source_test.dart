@@ -236,6 +236,35 @@ void main() {
     },
   );
 
+  test(
+    'a work in one language says which; one with translations does not',
+    () async {
+      final ol = source(
+        (_) async => json(200, {
+          'docs': [
+            {
+              'key': '/works/OL1W',
+              'title': 'Akira',
+              'language': ['jpn'],
+            },
+            {
+              'key': '/works/OL2W',
+              'title': 'Berserk',
+              'language': ['jpn', 'eng', 'fre'],
+            },
+            {'key': '/works/OL3W', 'title': 'Nothing'},
+          ],
+        }),
+        withApple: false,
+      );
+      final hits = await ol.search('x', type: MediaType.books);
+      expect(sent.single.url.queryParameters['fields'], contains('language'));
+      expect(hits[0].language, 'jpn');
+      expect(hits[1].language, isNull);
+      expect(hits[2].language, isNull);
+    },
+  );
+
   test('match searches by title and author and checks the year', () async {
     final ol = source(
       (_) async => json(200, {

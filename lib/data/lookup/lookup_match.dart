@@ -30,6 +30,7 @@ class LookupMatch {
     this.pages,
     this.kind,
     this.series,
+    this.language,
     this.coverUrl,
     this.largeCoverUrl,
   });
@@ -89,6 +90,12 @@ class LookupMatch {
   /// "Vol. 43" in a manga's title).
   final Series? series;
 
+  /// The language the work is in, as a code ("ja", "jpn", "ja-JP"), when the
+  /// lookup says: TMDB's original language, the one language of an Open
+  /// Library work, a game's only audio language on IGDB, an anime's country
+  /// of origin on AniList. The form suggests its tag (see `languages.dart`).
+  final String? language;
+
   /// A cover or artwork image, sized for a list row.
   final String? coverUrl;
 
@@ -117,6 +124,7 @@ class LookupMatch {
     int? pages,
     EntryKind? kind,
     Series? series,
+    String? language,
     String? coverUrl,
     String? largeCoverUrl,
   }) => LookupMatch(
@@ -137,6 +145,7 @@ class LookupMatch {
     pages: pages ?? this.pages,
     kind: kind ?? this.kind,
     series: series ?? this.series,
+    language: language ?? this.language,
     coverUrl: coverUrl ?? this.coverUrl,
     largeCoverUrl: largeCoverUrl ?? this.largeCoverUrl,
   );
@@ -161,6 +170,7 @@ class LookupMatch {
       other.pages == pages &&
       other.kind == kind &&
       other.series == series &&
+      other.language == language &&
       other.coverUrl == coverUrl &&
       other.largeCoverUrl == largeCoverUrl;
 

@@ -194,6 +194,57 @@ void main() {
     expect(library.entryById(westernId)!.tags, ['adventure', 'classic']);
   });
 
+  testWidgets('a long press on a one-category tag moves it to another '
+      'one-category group, and it stays on all its entries', (tester) async {
+    final container = await openPicker(tester);
+    // Other is folded: nothing of it is on this entry.
+    await press(tester, find.text('Other'));
+    await press(tester, chipIn('Other', '#favorite'), long: true);
+    expect(find.text('CATEGORY'), findsOneWidget);
+    expect(
+      find.text(
+        'This kind of tag is in one category. Moving it keeps it on all its '
+        'entries.',
+      ),
+      findsOneWidget,
+    );
+    Finder dialogChip(String label) => find.descendant(
+      of: find.byType(AppDialog),
+      matching: find.widgetWithText(PillChip, label),
+    );
+    expect(dialogChip('Languages'), findsOneWidget);
+    expect(dialogChip('Mood'), findsOneWidget);
+    expect(dialogChip('Genres'), findsNothing);
+    expect(dialogChip('Directors'), findsNothing);
+    expect(tester.widget<PillChip>(dialogChip('Other')).selected, isTrue);
+    await tester.tap(dialogChip('Languages'));
+    await tester.pumpAndSettle();
+    // Exactly one: picking Languages unpicks Other.
+    expect(tester.widget<PillChip>(dialogChip('Other')).selected, isFalse);
+    expect(tester.widget<PillChip>(dialogChip('Languages')).selected, isTrue);
+    await tester.tap(
+      find.descendant(of: find.byType(AppDialog), matching: find.text('Save')),
+    );
+    await tester.pumpAndSettle();
+    expect(chipIn('Other', '#favorite'), findsNothing);
+    await press(tester, find.text('Languages'));
+    expect(chipIn('Languages', '#favorite'), findsOneWidget);
+    await done(tester);
+    await save(tester, 'Save');
+    final before = loadFixture();
+    final library = repo(container).current!;
+    expect(library.categoriesOf('favorite'), [TagCategory.languages]);
+    expect(library.tags[TagCategory.other], ['classic']);
+    // Every entry that had it still has it.
+    for (final entry in before.entries) {
+      expect(
+        library.entryById(entry.id)!.tags.contains('favorite'),
+        entry.tags.contains('favorite'),
+        reason: entry.id,
+      );
+    }
+  });
+
   testWidgets('a search offers "Add to" another category of the kind', (
     tester,
   ) async {

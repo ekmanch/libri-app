@@ -49,10 +49,11 @@ class TagPick {
 ///
 /// A tag in more than one category (Add / edit entry › Tag in two
 /// categories: tag picker) appears in each of its groups and is ticked per
-/// group. A long press on a tag opens its categories; a search for a person
-/// or genre that another category of the same kind has offers "+ Add to
-/// Actors", which adds the category and ticks it. Resolves with null when
-/// dismissed.
+/// group. A long press on a tag opens its categories (for a tag of a kind
+/// that has one category, the group to move it to: Other to Languages); a
+/// search for a person or genre that another category of the same kind has
+/// offers "+ Add to Actors", which adds the category and ticks it. Resolves
+/// with null when dismissed.
 Future<TagPick?> showTagPickerSheet(
   BuildContext context, {
   required Library library,
@@ -204,7 +205,8 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
   /// The entry's ticks follow: a tag just turned several-category keeps the
   /// category it had; one back to a single category stays ticked only if
   /// it was ticked in the category that remains; one that loses every
-  /// category it was ticked in comes off the entry.
+  /// category it was ticked in comes off the entry. A move from one
+  /// category to one other (Other to Languages) leaves the tick as it is.
   void _recategorize(String tag, List<TagCategory> categories) {
     final before = _categoriesOf(tag);
     final after = [
@@ -216,7 +218,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
     } else {
       _recategorized[tag] = after;
     }
-    if (!_selected.contains(tag)) {
+    if (!_selected.contains(tag) || (before.length == 1 && after.length == 1)) {
       _picks.remove(tag);
       return;
     }
@@ -237,7 +239,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
 
   Future<void> _editCategories(String tag) async {
     final current = _categoriesOf(tag);
-    if (current.isEmpty || current.first.kind == null) return;
+    if (current.isEmpty) return;
     final usage = _created.containsKey(tag)
         ? 'New on this entry.'
         : tagUsageLabel(tag, widget.library);
@@ -478,7 +480,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
                     ? null
                     : () => _toggleOpen(category),
                 onToggleTag: (tag) => _toggle(tag, category),
-                onLongPressTag: category?.kind == null ? null : _editCategories,
+                onLongPressTag: category == null ? null : _editCategories,
                 chipStyle: PillChipStyle.neutral,
                 checked: true,
                 chipHeight: 40,

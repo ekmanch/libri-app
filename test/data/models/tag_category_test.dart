@@ -46,4 +46,41 @@ void main() {
     expect(TagCategory.actors.isCreatorGroup, isFalse);
     expect(TagCategory.studios.isPeopleGroup, isFalse);
   });
+
+  test('Languages sits after Season, written as "Languages"', () {
+    final order = TagCategory.values;
+    expect(
+      order.indexOf(TagCategory.languages),
+      order.indexOf(TagCategory.season) + 1,
+    );
+    expect(
+      order.indexOf(TagCategory.authors),
+      order.indexOf(TagCategory.languages) + 1,
+    );
+    final fixture = loadFixture();
+    final text = encodeLibrary(fixture);
+    expect(text, contains('"Languages": [\n'));
+    expect(text.indexOf('"Languages"'), greaterThan(text.indexOf('"Season"')));
+    expect(text.indexOf('"Languages"'), lessThan(text.indexOf('"Directors"')));
+    expect(decodeLibrary(text).tags[TagCategory.languages], [
+      'japanese',
+      'french',
+    ]);
+    for (final type in MediaType.values) {
+      expect(TagCategory.languages.offeredFor(type), isTrue);
+    }
+  });
+
+  test('the one-category groups are the ones with no kind', () {
+    expect(TagCategory.singleCategoryGroups, [
+      TagCategory.mood,
+      TagCategory.season,
+      TagCategory.languages,
+      TagCategory.studios,
+      TagCategory.animationStyle,
+      TagCategory.other,
+    ]);
+    expect(TagCategory.languages.kind, isNull);
+    expect(TagCategory.languages.family, [TagCategory.languages]);
+  });
 }

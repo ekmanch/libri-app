@@ -149,4 +149,21 @@ void main() {
       }
     });
   });
+
+  test('the lookup\'s language suggests its tag, in Languages', () {
+    expect(languageTags(type: MediaType.movies, language: 'ja'), [
+      (tag: 'japanese', category: TagCategory.languages),
+    ]);
+    expect(languageTags(type: MediaType.books, language: 'swe'), [
+      (tag: 'swedish', category: TagCategory.languages),
+    ]);
+    // English nearly everything is in; Japanese nearly every anime is in.
+    expect(languageTags(type: MediaType.movies, language: 'en'), isEmpty);
+    expect(languageTags(type: MediaType.anime, language: 'ja'), isEmpty);
+    expect(languageTags(type: MediaType.anime, language: 'ko'), [
+      (tag: 'korean', category: TagCategory.languages),
+    ]);
+    expect(languageTags(type: MediaType.games, language: null), isEmpty);
+    expect(languageTags(type: MediaType.games, language: 'xx'), isEmpty);
+  });
 }

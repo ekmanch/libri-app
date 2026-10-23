@@ -8,6 +8,7 @@
 /// nothing, since an artist is not a tag.
 library;
 
+import '../../data/lookup/languages.dart';
 import '../../data/models/entry_id.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/tag_category.dart';
@@ -90,4 +91,16 @@ List<CreatorTag> actorTags({
     if (tags.length == maxActorTags) break;
   }
   return tags;
+}
+
+/// The language tag for an entry of [type] whose lookup says it is in
+/// [language] (a code: "ja", "jpn"): one tag in the Languages group, or
+/// none for English, for Japanese on an anime, and for a language the app
+/// has no tag for (Add / edit entry › Tag picker note "Languages").
+List<CreatorTag> languageTags({
+  required MediaType type,
+  required String? language,
+}) {
+  final tag = languageSuggestion(type, language);
+  return tag == null ? const [] : [(tag: tag, category: TagCategory.languages)];
 }

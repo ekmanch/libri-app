@@ -60,9 +60,10 @@ class AddTag extends LibraryOperation {
 /// picker: a long-press on a tag, or "+ Add to Actors" on a search hit from
 /// another category of the same kind). Every entry carrying the tag keeps
 /// the categories it had that remain; an entry that had the tag only in a
-/// category taken away loses the tag. Picks are written only while the tag
-/// is in more than one category. An unknown tag, or no category, changes
-/// nothing.
+/// category taken away loses the tag. A move from one category to one
+/// other (Other to Languages: a tag of a kind that has one category) keeps
+/// the tag on every entry. Picks are written only while the tag is in more
+/// than one category. An unknown tag, or no category, changes nothing.
 @JsonSerializable()
 class SetTagCategories extends LibraryOperation {
   const SetTagCategories(this.name, this.categories);
@@ -110,6 +111,11 @@ class SetTagCategories extends LibraryOperation {
 
   Entry _retag(Entry entry, List<TagCategory> before, List<TagCategory> after) {
     if (!entry.tags.contains(name)) return entry;
+    if (before.length == 1 && after.length == 1) {
+      // A move: the tag is on the entry as its one category, whatever it was.
+      final picks = {...?entry.tagCategories}..remove(name);
+      return entry.copyWith(tagCategories: picks.isEmpty ? null : picks);
+    }
     final had = entry.categoriesOf(name, before);
     final kept = [
       for (final c in after)

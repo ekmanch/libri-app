@@ -19,6 +19,7 @@ import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/seasons.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/dev/fake_lookup.dart';
+import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/segmented_control.dart';
 
@@ -791,6 +792,60 @@ void main() {
       // The studio from the creator field is suggested too, as new.
       expect(find.bySemanticsLabel('Add #naughty-dog'), findsOneWidget);
       expect(find.text('new'), findsNWidgets(5));
+    });
+
+    testWidgets("the lookup's language ticks the library's tag, in Languages", (
+      tester,
+    ) async {
+      // The Akira manga is in Japanese; the library has #japanese already.
+      final manga = FakeLookupSource.catalogSearch(
+        'akira',
+        type: MediaType.books,
+      ).single;
+      await pumpApp(tester, EntryFormScreen.create(match: manga));
+      await scrollTo(tester, find.text('Tags'));
+      expect(find.widgetWithText(TagChip, '#japanese'), findsOneWidget);
+    });
+
+    testWidgets('a language the library has no tag for is offered as new, '
+        'in Languages', (tester) async {
+      final korean = FakeLookupSource.catalogSearch(
+        'akira',
+        type: MediaType.books,
+      ).single.copyWith(language: 'ko');
+      await pumpApp(tester, EntryFormScreen.create(match: korean));
+      await scrollTo(tester, find.text('Suggested · tap to add'));
+      expect(find.bySemanticsLabel('Add #korean'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Add #korean'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<PillChip>(
+              find.descendant(
+                of: find.byType(AppDialog),
+                matching: find.widgetWithText(PillChip, 'Languages'),
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+      await tester.ensureVisible(find.text('Create tag'));
+      await tester.tap(find.text('Create tag'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TagChip, '#korean'), findsOneWidget);
+      expect(find.bySemanticsLabel('Add #korean'), findsNothing);
+    });
+
+    testWidgets('an anime in Japanese, like nearly every anime, gets no '
+        'language tag', (tester) async {
+      final anime = FakeLookupSource.catalogSearch(
+        'spirited away',
+        type: MediaType.anime,
+      ).single;
+      await pumpApp(tester, EntryFormScreen.create(match: anime));
+      await scrollTo(tester, find.text('Tags'));
+      expect(find.widgetWithText(TagChip, '#japanese'), findsNothing);
+      expect(find.bySemanticsLabel('Add #japanese'), findsNothing);
     });
 
     testWidgets('a near miss counts as the existing tag', (tester) async {

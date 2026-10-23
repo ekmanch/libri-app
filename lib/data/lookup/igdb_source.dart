@@ -41,7 +41,26 @@ class IgdbSource extends HttpLookupSource {
   static const _fields =
       'name,first_release_date,summary,cover.image_id,platforms.name,'
       'involved_companies.company.name,involved_companies.developer,'
-      'genres.name';
+      'genres.name,language_supports.language.locale,'
+      'language_supports.support_type';
+
+  /// IGDB's `language_support_type` id for spoken audio (2 is subtitles, 3
+  /// the interface).
+  static const _audioSupport = 1;
+
+  /// The language a game was made in, as far as IGDB tells: its one audio
+  /// language. A game dubbed into several says nothing.
+  static String? _language(Map<String, Object?> game) {
+    final audio = {
+      for (final l in objectsAt(game, 'language_supports'))
+        if (l['support_type'] == _audioSupport)
+          ?stringAt(
+            l['language'] as Map<String, Object?>? ?? const {},
+            'locale',
+          ),
+    };
+    return audio.length == 1 ? audio.single : null;
+  }
 
   @override
   String get id => 'igdb';
@@ -178,6 +197,7 @@ class IgdbSource extends HttpLookupSource {
           if (stringAt(p, 'name') case final n?) _platform(n),
       ],
       tags: [for (final g in objectsAt(game, 'genres')) ?stringAt(g, 'name')],
+      language: _language(game),
       coverUrl: imageId == null ? null : coverUrlFor(imageId),
     );
   }

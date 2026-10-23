@@ -200,8 +200,11 @@ class _NewTagDialogState extends State<_NewTagDialog> {
 
 /// Edits the categories of an existing tag (Add / edit entry › Tag picker, a
 /// long press on a tag): the categories of its kind as chips, at least one
-/// picked. [usage] says where the tag is used ("Used on 6 entries: as an
-/// actor on 4, as a director on 2."). Null means cancel.
+/// picked. A tag of a kind that has one category (Mood, Season, Languages,
+/// Studios, Animation style, Other) picks exactly one of those groups
+/// instead, to move it (Other to Languages); it stays on all its entries.
+/// [usage] says where the tag is used ("Used on 6 entries: as an actor on
+/// 4, as a director on 2."). Null means cancel.
 Future<List<TagCategory>?> showTagCategoriesDialog(
   BuildContext context, {
   required String name,
@@ -233,11 +236,28 @@ class _TagCategoriesDialog extends StatefulWidget {
 class _TagCategoriesDialogState extends State<_TagCategoriesDialog> {
   late final Set<TagCategory> _picked = {...widget.current};
 
+  void _tap(TagCategory category, {required bool single}) {
+    setState(() {
+      if (single) {
+        _picked
+          ..clear()
+          ..add(category);
+      } else if (!_picked.contains(category)) {
+        _picked.add(category);
+      } else if (_picked.length > 1) {
+        _picked.remove(category);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final family = widget.current.first.family;
     final kind = widget.current.first.kind;
+    final single = kind == null;
+    final family = single
+        ? TagCategory.singleCategoryGroups
+        : widget.current.first.family;
     final picked = [
       for (final c in family)
         if (_picked.contains(c)) c,
@@ -248,7 +268,10 @@ class _TagCategoriesDialogState extends State<_TagCategoriesDialog> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CATEGORIES', style: theme.textTheme.labelSmall),
+          Text(
+            single ? 'CATEGORY' : 'CATEGORIES',
+            style: theme.textTheme.labelSmall,
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -260,13 +283,7 @@ class _TagCategoriesDialogState extends State<_TagCategoriesDialog> {
                   selected: _picked.contains(category),
                   style: PillChipStyle.accent,
                   horizontalPadding: 13,
-                  onTap: () => setState(() {
-                    if (!_picked.contains(category)) {
-                      _picked.add(category);
-                    } else if (_picked.length > 1) {
-                      _picked.remove(category);
-                    }
-                  }),
+                  onTap: () => _tap(category, single: single),
                 ),
             ],
           ),
@@ -279,7 +296,9 @@ class _TagCategoriesDialogState extends State<_TagCategoriesDialog> {
         TagKind.genres =>
           'Genres can be in Genres, Game genres and Music genres. At least '
               'one stays picked.',
-        null => 'This kind of tag has one category.',
+        null =>
+          'This kind of tag is in one category. Moving it keeps it on all '
+              'its entries.',
       },
       actions: [
         AppButton(

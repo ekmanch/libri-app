@@ -172,6 +172,39 @@ void main() {
     );
   });
 
+  group('SetTagCategories: a move between one-category groups', () {
+    test('keeps the tag on every entry and relists it', () {
+      final library = sampleLibrary();
+      // #halloween is on The Mummy and on a plan, under Season.
+      final result = const SetTagCategories('halloween', [
+        TagCategory.languages,
+      ]).apply(library);
+      expect(result.tags[TagCategory.season], ['christmas']);
+      expect(result.tags[TagCategory.languages], ['halloween']);
+      expect(result.entryById(mummy.id)!.tags, mummy.tags);
+      expect(result.entryById(mummy.id)!.tagCategories, isNull);
+      expect(result.plans.first.tags, ['halloween']);
+    });
+
+    test('drops a stale pick for the tag', () {
+      final library = sampleLibrary().copyWith(
+        entries: [
+          mummy.copyWith(
+            tagCategories: {
+              'halloween': [TagCategory.season],
+            },
+          ),
+          dirt,
+        ],
+      );
+      final result = const SetTagCategories('halloween', [
+        TagCategory.other,
+      ]).apply(library);
+      expect(result.entryById(mummy.id)!.tags, contains('halloween'));
+      expect(result.entryById(mummy.id)!.tagCategories, isNull);
+    });
+  });
+
   group('saving an entry tidies its picks', () {
     test('a pick for a tag in one category is dropped; none means all', () {
       final library = eastwood();

@@ -54,7 +54,7 @@ class OpenLibrarySource extends HttpLookupSource {
   /// "King Rat".
   static const _fields =
       'key,title,author_name,first_publish_year,publish_year,cover_i,subject,'
-      'number_of_pages_median,editions,editions.cover_i';
+      'number_of_pages_median,language,editions,editions.cover_i';
 
   @override
   String get id => 'openlibrary';
@@ -107,6 +107,11 @@ class OpenLibrarySource extends HttpLookupSource {
             if (y is num) y.toInt(),
         ]) ??
         (first is num ? first.toInt() : null);
+    // A work's languages are its editions' (translations included), so only
+    // a work in one language says which it was written in.
+    final languages = {
+      for (final l in doc['language'] as List? ?? const []) '$l',
+    };
     final editions = doc['editions'] as Map<String, Object?>? ?? const {};
     final edition = objectsAt(editions, 'docs').firstOrNull?['cover_i'];
     final coverId = edition is num && edition > 0 ? edition : doc['cover_i'];
@@ -126,6 +131,7 @@ class OpenLibrarySource extends HttpLookupSource {
           s,
       ],
       pages: pages is num && pages > 0 ? pages.toInt() : null,
+      language: languages.length == 1 ? languages.single : null,
       coverUrl: coverId is num && coverId > 0
           ? _cover(coverId.toInt(), '-M')
           : null,

@@ -8,6 +8,7 @@ import 'anime_link_store.dart';
 import 'episode_info.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
+import 'languages.dart';
 import 'lookup_match.dart';
 import 'lookup_source.dart';
 import 'text_clean.dart';
@@ -71,6 +72,7 @@ class AniListSource extends HttpLookupSource {
       description(asHtml: false)
       coverImage { large extraLarge }
       studios(isMain: true) { nodes { name } }
+      countryOfOrigin
       genres''';
 
   static const _searchQuery =
@@ -213,6 +215,7 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
       description: stripHtml(stringAt(media, 'description') ?? ''),
       tags: [for (final g in media['genres'] as List? ?? const []) '$g'],
       kind: kindOf(stringAt(media, 'format')),
+      language: languageOfCountry(stringAt(media, 'countryOfOrigin')),
       coverUrl: stringAt(cover, 'large'),
       largeCoverUrl: stringAt(cover, 'extraLarge'),
     );

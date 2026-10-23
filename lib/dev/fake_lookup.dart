@@ -594,6 +594,7 @@ const fakeCatalog = <LookupMatch>[
         'Chihiro works in a bathhouse for spirits to free her parents.',
     companies: ['Studio Ghibli'],
     tags: ['adventure', 'fantasy', 'supernatural'],
+    language: 'ja',
   ),
   LookupMatch(
     source: 'anilist:47',
@@ -615,6 +616,7 @@ const fakeCatalog = <LookupMatch>[
     creator: 'Katsuhiro Otomo',
     description: 'The manga the film was drawn from.',
     tags: ['manga', 'scifi', 'cyberpunk'],
+    language: 'jpn',
   ),
   LookupMatch(
     source: 'tmdb:movie:78',

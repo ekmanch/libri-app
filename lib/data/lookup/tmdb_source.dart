@@ -92,6 +92,7 @@ class TmdbSource extends HttpLookupSource {
       source: 'tmdb:${_kind(type)}:${id.toInt()}',
       released: date == null ? null : Released.tryParse(date),
       description: stringAt(item, 'overview') ?? '',
+      language: stringAt(item, 'original_language'),
       coverUrl: poster == null ? null : '$_images$rowPosterWidth$poster',
       largeCoverUrl: poster == null ? null : '$_images$coverPosterWidth$poster',
     );
@@ -172,6 +173,7 @@ class TmdbSource extends HttpLookupSource {
       tags: [for (final g in objectsAt(json, 'genres')) ?stringAt(g, 'name')],
       seasons: tv ? _seasons(json) : const [],
       series: series,
+      language: stringAt(json, 'original_language'),
       coverUrl: poster == null ? null : '$_images$rowPosterWidth$poster',
     );
   }

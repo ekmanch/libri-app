@@ -41,6 +41,7 @@ const _$TagCategoryEnumMap = {
   TagCategory.musicGenre: 'Music genres',
   TagCategory.mood: 'Mood',
   TagCategory.season: 'Season',
+  TagCategory.languages: 'Languages',
   TagCategory.authors: 'Authors',
   TagCategory.directors: 'Directors',
   TagCategory.actors: 'Actors',

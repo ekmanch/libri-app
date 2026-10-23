@@ -17,6 +17,12 @@ enum TagCategory {
   @JsonValue('Season')
   season,
 
+  /// The language the work is in (#japanese, #swedish). The lookup suggests
+  /// one from the original language, except English, and except Japanese
+  /// for anime.
+  @JsonValue('Languages')
+  languages,
+
   /// The three creator groups. A tag's group is the person's or studio's
   /// main role, not the entry's type: #stephen-king is an author even on a
   /// movie, and Directors also holds showrunners and anime directors.
@@ -94,6 +100,15 @@ enum TagCategory {
   List<TagCategory> get family => [
     for (final c in values)
       if (c == this || sharesKindWith(c)) c,
+  ];
+
+  /// The categories whose tags have exactly one category (Mood, Season,
+  /// Languages, Studios, Animation style, Other): a tag in one of them can
+  /// be moved to another of them (Add / edit entry › Tag picker, a long
+  /// press), and keeps every entry it is on.
+  static List<TagCategory> get singleCategoryGroups => [
+    for (final c in values)
+      if (c.kind == null) c,
   ];
 }
 

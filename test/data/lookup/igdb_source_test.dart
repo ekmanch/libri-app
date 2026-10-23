@@ -109,7 +109,8 @@ void main() {
       games.body,
       'search "last of us"; fields name,first_release_date,summary,'
       'cover.image_id,platforms.name,involved_companies.company.name,'
-      'involved_companies.developer,genres.name; '
+      'involved_companies.developer,genres.name,'
+      'language_supports.language.locale,language_supports.support_type; '
       'where version_parent = null; limit 5;',
     );
 
@@ -165,6 +166,36 @@ void main() {
       throwsA(isA<LookupException>().having((e) => e.status, 'status', 401)),
     );
   });
+
+  test(
+    'the one audio language is the game\'s language; several say nothing',
+    () async {
+      Map<String, Object?> game(int id, List<(String, int)> supports) => {
+        ...tlou,
+        'id': id,
+        'language_supports': [
+          for (final (locale, type) in supports)
+            {
+              'language': {'locale': locale},
+              'support_type': type,
+            },
+        ],
+      };
+      final igdb = source(
+        (_) async => json(200, [
+          game(1, [('ja-JP', 1), ('en-US', 2), ('en-US', 3)]),
+          game(2, [('ja-JP', 1), ('en-US', 1)]),
+          game(3, [('en-US', 2)]),
+          game(4, []),
+        ]),
+      );
+      final hits = await igdb.search('x', type: MediaType.games);
+      expect(hits[0].language, 'ja-JP');
+      expect(hits[1].language, isNull);
+      expect(hits[2].language, isNull);
+      expect(hits[3].language, isNull);
+    },
+  );
 
   test('match wants the same name and prefers the year', () async {
     final igdb = source(

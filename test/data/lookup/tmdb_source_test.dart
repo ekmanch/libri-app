@@ -82,6 +82,33 @@ void main() {
     expect(hits[2].description, '');
   });
 
+  test('the original language comes with a hit and with the details', () async {
+    final tmdb = source(
+      (request) async => request.url.path.startsWith('/3/search')
+          ? json(200, {
+              'results': [
+                {
+                  'id': 129,
+                  'title': 'Spirited Away',
+                  'original_language': 'ja',
+                },
+                {'id': 2, 'title': 'Nameless'},
+              ],
+            })
+          : json(200, {
+              'id': 129,
+              'title': 'Spirited Away',
+              'original_language': 'ja',
+              'genres': [],
+              'credits': {'cast': [], 'crew': []},
+            }),
+    );
+    final hits = await tmdb.search('spirited', type: MediaType.movies);
+    expect(hits[0].language, 'ja');
+    expect(hits[1].language, isNull);
+    expect((await tmdb.details(hits[0])).language, 'ja');
+  });
+
   test('searches shows by name and first air date', () async {
     final tmdb = source(
       (_) async => json(200, {

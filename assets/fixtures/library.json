@@ -44,6 +44,10 @@
       "halloween",
       "christmas"
     ],
+    "Languages": [
+      "japanese",
+      "french"
+    ],
     "Directors": [
       "clint-eastwood"
     ],
@@ -270,7 +274,8 @@
       "tags": [
         "romance",
         "comedy",
-        "lighthearted"
+        "lighthearted",
+        "french"
       ],
       "note": "",
       "description": "",
@@ -910,7 +915,8 @@
         "fantasy",
         "studio-ghibli",
         "favorite",
-        "classic"
+        "classic",
+        "japanese"
       ],
       "note": "",
       "description": "",

@@ -528,8 +528,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     // rest are offered as new tags in the Actors group. People match by
     // exact slug only, and per category: a person the library has only
     // under another people category is offered with the new role
-    // ("#clint-eastwood · Actor"), and a tap adds the category.
-    for (final t in [..._creatorTags, ..._actorTags]) {
+    // ("#clint-eastwood · Actor"), and a tap adds the category. The
+    // language the lookup names goes the same way, in Languages.
+    for (final t in [..._creatorTags, ..._actorTags, ..._languageTags]) {
       final categories = library.categoriesOf(t.tag);
       if (categories.isEmpty) {
         if (!fresh.contains(t.tag)) {
@@ -637,6 +638,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   /// #kate-siegel, at most three, for movies and shows.
   List<CreatorTag> get _actorTags =>
       actorTags(type: _type, cast: _match?.cast ?? const []);
+
+  /// The language tag for the lookup's original language (#japanese), in
+  /// Languages; none for English, or Japanese on an anime.
+  List<CreatorTag> get _languageTags =>
+      languageTags(type: _type, language: _match?.language);
 
   /// The creator tags not on the entry, offered under the field once the
   /// field is left. Ones the lookup already matched come back through
