@@ -84,6 +84,7 @@ extension TagCategoryLabel on TagCategory {
     TagCategory.directors => 'Directors',
     TagCategory.actors => 'Actors',
     TagCategory.studios => 'Studios',
+    TagCategory.streaming => 'Streaming',
     TagCategory.animationStyle => 'Animation style',
     TagCategory.other => 'Other',
   };
@@ -101,6 +102,7 @@ extension TagCategoryLabel on TagCategory {
     TagCategory.directors => 'Director',
     TagCategory.actors => 'Actor',
     TagCategory.studios => 'Studio',
+    TagCategory.streaming => 'Streaming',
     TagCategory.animationStyle => 'Animation style',
     TagCategory.other => 'Other',
   };

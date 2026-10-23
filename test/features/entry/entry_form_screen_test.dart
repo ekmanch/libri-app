@@ -848,6 +848,81 @@ void main() {
       expect(find.bySemanticsLabel('Add #japanese'), findsNothing);
     });
 
+    LookupMatch showMatch() => FakeLookupSource.catalogSearch(
+      'the last of us',
+      type: MediaType.shows,
+    ).single;
+
+    LookupMatch movieMatch() =>
+        FakeLookupSource.catalogSearch('carrie', type: MediaType.movies).first;
+
+    testWidgets("a show's network the library has no tag for suggests "
+        'nothing', (tester) async {
+      // HBO: the library has no #hbo, and a network is never offered as new.
+      expect(showMatch().network, 'HBO');
+      await pumpApp(tester, EntryFormScreen.create(match: showMatch()));
+      await scrollTo(tester, find.text('Tags'));
+      expect(find.widgetWithText(TagChip, '#hbo'), findsNothing);
+      expect(find.bySemanticsLabel('Add #hbo'), findsNothing);
+    });
+
+    testWidgets("a show's first network ticks the library's Streaming tag", (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        EntryFormScreen.create(match: showMatch().copyWith(network: 'Netflix')),
+      );
+      await scrollTo(tester, find.text('Tags'));
+      expect(find.widgetWithText(TagChip, '#netflix'), findsOneWidget);
+    });
+
+    testWidgets('a movie no platform made gets no Streaming tag', (
+      tester,
+    ) async {
+      expect(movieMatch().companies, isEmpty);
+      await pumpApp(tester, EntryFormScreen.create(match: movieMatch()));
+      await scrollTo(tester, find.text('Tags'));
+      expect(find.widgetWithText(TagChip, '#netflix'), findsNothing);
+    });
+
+    testWidgets("a platform original movie ticks the library's Streaming tag", (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        EntryFormScreen.create(
+          match: movieMatch().copyWith(companies: ['Netflix']),
+        ),
+      );
+      await scrollTo(tester, find.text('Tags'));
+      expect(find.widgetWithText(TagChip, '#netflix'), findsOneWidget);
+    });
+
+    testWidgets('a platform original movie offers a platform the library has '
+        'no tag for as new, in Streaming', (tester) async {
+      await pumpApp(
+        tester,
+        EntryFormScreen.create(
+          match: movieMatch().copyWith(companies: ['Disney+']),
+        ),
+      );
+      await scrollTo(tester, find.text('Suggested · tap to add'));
+      await tester.tap(find.bySemanticsLabel('Add #disney-plus'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<PillChip>(
+              find.descendant(
+                of: find.byType(AppDialog),
+                matching: find.widgetWithText(PillChip, 'Streaming'),
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+    });
+
     testWidgets('a near miss counts as the existing tag', (tester) async {
       final match = FakeLookupSource.catalogSearch(
         'dune',

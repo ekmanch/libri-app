@@ -77,10 +77,41 @@ void main() {
       TagCategory.season,
       TagCategory.languages,
       TagCategory.studios,
+      TagCategory.streaming,
       TagCategory.animationStyle,
       TagCategory.other,
     ]);
     expect(TagCategory.languages.kind, isNull);
     expect(TagCategory.languages.family, [TagCategory.languages]);
+  });
+
+  test('Streaming sits after Studios, written as "Streaming"', () {
+    final order = TagCategory.values;
+    expect(
+      order.indexOf(TagCategory.streaming),
+      order.indexOf(TagCategory.studios) + 1,
+    );
+    final text = encodeLibrary(loadFixture());
+    expect(text, contains('"Streaming": [\n'));
+    expect(text.indexOf('"Streaming"'), greaterThan(text.indexOf('"Studios"')));
+    expect(
+      text.indexOf('"Streaming"'),
+      lessThan(text.indexOf('"Animation style"')),
+    );
+    expect(decodeLibrary(text).tags[TagCategory.streaming], [
+      'netflix',
+      'apple-tv',
+    ]);
+    expect(TagCategory.streaming.kind, isNull);
+  });
+
+  test('Streaming is for movies and shows only', () {
+    for (final type in MediaType.values) {
+      final video = type == MediaType.movies || type == MediaType.shows;
+      expect(TagCategory.streaming.offeredFor(type), video, reason: type.name);
+      expect(TagCategory.streaming.usedFor(type), video, reason: type.name);
+      // Every other category is for every type.
+      expect(TagCategory.actors.usedFor(type), isTrue, reason: type.name);
+    }
   });
 }

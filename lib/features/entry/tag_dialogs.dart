@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../data/models/media_type.dart';
 import '../../data/models/library.dart';
 import '../../data/models/tag_category.dart';
 import '../../theme/app_theme.dart';
@@ -67,9 +68,13 @@ Future<SimilarTagChoice?> showSimilarTagDialog(
   );
 }
 
-/// The order of the category chips in Add / edit entry › New tag: confirm and
-/// pick a category.
-const newTagCategories = TagCategory.values;
+/// The category chips in Add / edit entry › New tag: confirm and pick a
+/// category, in order, for an entry of [type]: Streaming only for movies and
+/// shows.
+List<TagCategory> newTagCategories(MediaType type) => [
+  for (final c in TagCategory.values)
+    if (c.usedFor(type)) c,
+];
 
 /// "Genres", "Directors and Actors", "Genres, Game genres and Music genres".
 String _categoryList(Iterable<TagCategory> categories) {
@@ -81,23 +86,30 @@ String _categoryList(Iterable<TagCategory> categories) {
 /// Confirms a new tag and picks its categories (Add / edit entry › New tag:
 /// confirm and pick a category): one, or several of one kind (people:
 /// Authors, Directors, Actors; genres: Genres, Game genres, Music genres);
-/// tapping a category of another kind starts over with it. Null means
-/// cancel.
+/// tapping a category of another kind starts over with it. The chips are
+/// the categories an entry of [type] can use. Null means cancel.
 Future<List<TagCategory>?> showNewTagDialog(
   BuildContext context, {
   required String name,
+  required MediaType type,
   TagCategory initial = TagCategory.genre,
 }) {
   return showAppDialog<List<TagCategory>>(
     context,
-    builder: (context) => _NewTagDialog(name: name, initial: initial),
+    builder: (context) =>
+        _NewTagDialog(name: name, type: type, initial: initial),
   );
 }
 
 class _NewTagDialog extends StatefulWidget {
-  const _NewTagDialog({required this.name, required this.initial});
+  const _NewTagDialog({
+    required this.name,
+    required this.type,
+    required this.initial,
+  });
 
   final String name;
+  final MediaType type;
   final TagCategory initial;
 
   @override
@@ -154,7 +166,7 @@ class _NewTagDialogState extends State<_NewTagDialog> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final category in newTagCategories)
+              for (final category in newTagCategories(widget.type))
                 // A category of another kind than the picked ones is dimmed:
                 // tapping it starts over.
                 Opacity(

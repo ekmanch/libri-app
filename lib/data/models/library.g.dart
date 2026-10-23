@@ -46,6 +46,7 @@ const _$TagCategoryEnumMap = {
   TagCategory.directors: 'Directors',
   TagCategory.actors: 'Actors',
   TagCategory.studios: 'Studios',
+  TagCategory.streaming: 'Streaming',
   TagCategory.animationStyle: 'Animation style',
   TagCategory.other: 'Other',
 };

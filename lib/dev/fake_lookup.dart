@@ -440,6 +440,7 @@ const fakeCatalog = <LookupMatch>[
     creator: 'Craig Mazin, Neil Druckmann',
     cast: ['Pedro Pascal', 'Bella Ramsey', 'Gabriel Luna'],
     description: 'The HBO adaptation of the game.',
+    network: 'HBO',
     tags: ['drama', 'horror', 'post-apocalyptic'],
     seasons: [
       Season(season: 1, released: Released(2023, 1, 15)),
@@ -466,6 +467,7 @@ const fakeCatalog = <LookupMatch>[
     creator: 'Mike Flanagan',
     cast: ['Summer H. Howell', 'Samantha Sloyan', 'Siena Agudong'],
     description: 'A limited series take on the Stephen King novel.',
+    network: 'Prime Video',
     tags: ['horror', 'drama'],
     seasons: [Season(season: 1, released: Released(2026))],
   ),

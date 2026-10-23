@@ -104,3 +104,59 @@ List<CreatorTag> languageTags({
   final tag = languageSuggestion(type, language);
   return tag == null ? const [] : [(tag: tag, category: TagCategory.languages)];
 }
+
+/// Streaming platforms (as TMDB names the network or the production
+/// company, lowercased) and their tag in Streaming, for names that do not
+/// slug to it: "Disney+" is #disney-plus, "Apple TV+" #apple-tv, "Prime
+/// Video" #amazon-prime, and the platforms' film arms ("Apple Original
+/// Films", "HBO Films") are the platform. A movie is a platform original only when one of these, or a
+/// company that slugs to a Streaming tag the library has, is among its
+/// production companies.
+const streamingPlatforms = <String, String>{
+  'netflix': 'netflix',
+  'hbo': 'hbo',
+  'hbo max': 'hbo',
+  'max': 'hbo',
+  'hbo films': 'hbo',
+  'apple tv+': 'apple-tv',
+  'apple tv': 'apple-tv',
+  'apple original films': 'apple-tv',
+  'apple studios': 'apple-tv',
+  'disney+': 'disney-plus',
+  'hulu': 'hulu',
+  'prime video': 'amazon-prime',
+  'amazon prime video': 'amazon-prime',
+  'amazon prime': 'amazon-prime',
+  'paramount+': 'paramount-plus',
+  'peacock': 'peacock',
+};
+
+/// The Streaming tag for an entry of [type] (Add / edit entry › Tag picker
+/// note "Streaming"): for a show, its first [network], only when it is one
+/// of the library's [streaming] tags (a show that first aired on ABC gets
+/// nothing); for a movie, a platform among its production [companies] (a
+/// Netflix original), as a tag the library has or a new one. Nothing for
+/// the other types.
+List<CreatorTag> streamingTags({
+  required MediaType type,
+  String? network,
+  Iterable<String> companies = const [],
+  Iterable<String> streaming = const [],
+}) {
+  String? tagOf(String name) =>
+      streamingPlatforms[name.trim().toLowerCase()] ??
+      switch (slugify(name)) {
+        final slug when streaming.contains(slug) => slug,
+        _ => null,
+      };
+  final String? tag;
+  if (type == MediaType.shows) {
+    final found = network == null ? null : tagOf(network);
+    tag = found != null && streaming.contains(found) ? found : null;
+  } else if (type == MediaType.movies) {
+    tag = companies.map(tagOf).nonNulls.firstOrNull;
+  } else {
+    tag = null;
+  }
+  return tag == null ? const [] : [(tag: tag, category: TagCategory.streaming)];
+}

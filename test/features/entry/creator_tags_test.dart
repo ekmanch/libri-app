@@ -166,4 +166,114 @@ void main() {
     expect(languageTags(type: MediaType.games, language: null), isEmpty);
     expect(languageTags(type: MediaType.games, language: 'xx'), isEmpty);
   });
+
+  group('Streaming', () {
+    const library = ['netflix', 'hbo', 'disney-plus'];
+
+    test("a show's first network, only when the library has its tag", () {
+      expect(
+        streamingTags(
+          type: MediaType.shows,
+          network: 'Netflix',
+          streaming: library,
+        ),
+        [(tag: 'netflix', category: TagCategory.streaming)],
+      );
+      expect(
+        streamingTags(
+          type: MediaType.shows,
+          network: 'Disney+',
+          streaming: library,
+        ),
+        [(tag: 'disney-plus', category: TagCategory.streaming)],
+      );
+      expect(
+        streamingTags(
+          type: MediaType.shows,
+          network: 'Prime Video',
+          streaming: ['amazon-prime'],
+        ),
+        [(tag: 'amazon-prime', category: TagCategory.streaming)],
+      );
+      // An old show that first aired on ABC; a platform the library has no
+      // tag for.
+      for (final network in ['ABC', 'Apple TV+', null]) {
+        expect(
+          streamingTags(
+            type: MediaType.shows,
+            network: network,
+            streaming: library,
+          ),
+          isEmpty,
+          reason: network,
+        );
+      }
+    });
+
+    test('a movie only when the platform made it', () {
+      expect(
+        streamingTags(
+          type: MediaType.movies,
+          companies: ['Rideback', 'Netflix'],
+          streaming: library,
+        ),
+        [(tag: 'netflix', category: TagCategory.streaming)],
+      );
+      // A platform the library has no tag for yet is offered as new.
+      expect(
+        streamingTags(
+          type: MediaType.movies,
+          companies: ['Apple Original Films', 'Skydance'],
+          streaming: library,
+        ),
+        [(tag: 'apple-tv', category: TagCategory.streaming)],
+      );
+      // A company that slugs to the library's own Streaming tag.
+      expect(
+        streamingTags(
+          type: MediaType.movies,
+          companies: ['MUBI'],
+          streaming: ['mubi'],
+        ),
+        [(tag: 'mubi', category: TagCategory.streaming)],
+      );
+      expect(
+        streamingTags(
+          type: MediaType.movies,
+          companies: ['Warner Bros. Pictures'],
+          streaming: library,
+        ),
+        isEmpty,
+      );
+      // A movie has no network to go by.
+      expect(
+        streamingTags(
+          type: MediaType.movies,
+          network: 'Netflix',
+          streaming: library,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('nothing for the other types', () {
+      for (final type in [
+        MediaType.anime,
+        MediaType.books,
+        MediaType.games,
+        MediaType.music,
+      ]) {
+        expect(
+          streamingTags(
+            type: type,
+            network: 'Netflix',
+            companies: ['Netflix'],
+            streaming: library,
+          ),
+          isEmpty,
+          reason: type.name,
+        );
+      }
+    });
+  });
 }

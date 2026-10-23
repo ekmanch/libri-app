@@ -291,6 +291,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
     final categories = await showNewTagDialog(
       context,
       name: name,
+      type: widget.type,
       initial: TagCategory.defaultFor(widget.type),
     );
     if (!mounted || categories == null) return;

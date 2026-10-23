@@ -174,6 +174,12 @@ class TmdbSource extends HttpLookupSource {
       seasons: tv ? _seasons(json) : const [],
       series: series,
       language: stringAt(json, 'original_language'),
+      // A show's first network is its Streaming tag (#netflix), when the
+      // library has one; see creator_tags.dart.
+      network: tv
+          ? [for (final n in objectsAt(json, 'networks')) ?stringAt(n, 'name')]
+                .firstOrNull
+          : null,
       coverUrl: poster == null ? null : '$_images$rowPosterWidth$poster',
     );
   }

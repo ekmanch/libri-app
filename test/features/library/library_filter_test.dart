@@ -209,6 +209,39 @@ void main() {
       expect(games, isNot(contains(TagCategory.musicGenre)));
     });
 
+    test('Streaming shows for movies and shows only', () {
+      expect(
+        groups(const LibraryFilter(types: {MediaType.shows})),
+        contains(TagCategory.streaming),
+      );
+      expect(
+        groups(const LibraryFilter(types: {MediaType.movies})),
+        contains(TagCategory.streaming),
+      );
+      expect(groups(LibraryFilter.none), contains(TagCategory.streaming));
+      // Not for anime, even with an anime tagged #netflix.
+      final anime = fixture.entries.firstWhere(
+        (e) => e.type == MediaType.anime,
+      );
+      final tagged = fixture.copyWith(
+        entries: [
+          for (final e in fixture.entries)
+            e.id == anime.id ? e.copyWith(tags: [...e.tags, 'netflix']) : e,
+        ],
+      );
+      List<TagCategory> taggedGroups(Set<MediaType> types) => [
+        for (final (c, _) in LibraryFilter(types: types).tagGroupsIn(tagged)) c,
+      ];
+      expect(
+        taggedGroups({MediaType.anime}),
+        isNot(contains(TagCategory.streaming)),
+      );
+      expect(
+        taggedGroups({MediaType.anime, MediaType.shows}),
+        contains(TagCategory.streaming),
+      );
+    });
+
     test('a chosen tag whose group goes away is dropped', () {
       const filter = LibraryFilter(tags: {'horror', 'jazz'});
       final music = filter.toggleType(MediaType.music).keepTagsShownIn(fixture);

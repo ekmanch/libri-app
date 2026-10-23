@@ -280,6 +280,34 @@ void main() {
     ]);
   });
 
+  for (final (type, shown) in [
+    (MediaType.shows, true),
+    (MediaType.books, false),
+    (MediaType.anime, false),
+  ]) {
+    testWidgets('Streaming is in the picker and the new-tag dialog for movies '
+        'and shows only: ${type.name}', (tester) async {
+      Finder dialogChip(String label) => find.descendant(
+        of: find.byType(AppDialog),
+        matching: find.widgetWithText(PillChip, label),
+      );
+      await pumpApp(tester, EntryFormScreen.create(type: type));
+      await scrollTo(tester, find.text('Choose from your tags'));
+      await tester.tap(find.text('Choose from your tags'));
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(TagGroup, 'Streaming'),
+        shown ? findsOneWidget : findsNothing,
+      );
+      await tester.enterText(pickerField(), 'mubi');
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Create #mubi'));
+      await tester.pumpAndSettle();
+      expect(dialogChip('Studios'), findsOneWidget);
+      expect(dialogChip('Streaming'), shown ? findsOneWidget : findsNothing);
+    });
+  }
+
   testWidgets('a new tag takes several categories of one kind; another kind '
       'starts over', (tester) async {
     final container = await pumpApp(

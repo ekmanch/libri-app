@@ -60,6 +60,10 @@
       "studio-ghibli",
       "fromsoftware"
     ],
+    "Streaming": [
+      "netflix",
+      "apple-tv"
+    ],
     "Animation style": [
       "2d",
       "3d",
@@ -182,7 +186,8 @@
       "tags": [
         "2d",
         "christmas",
-        "cozy"
+        "cozy",
+        "netflix"
       ],
       "note": "",
       "description": "",
@@ -294,7 +299,8 @@
       "tags": [
         "scifi",
         "thriller",
-        "mystery"
+        "mystery",
+        "apple-tv"
       ],
       "note": "Season 2, episode 4.",
       "description": "",
@@ -442,7 +448,8 @@
       "rating": null,
       "tags": [
         "scifi",
-        "horror"
+        "horror",
+        "netflix"
       ],
       "note": "",
       "description": "",

@@ -31,6 +31,7 @@ class LookupMatch {
     this.kind,
     this.series,
     this.language,
+    this.network,
     this.coverUrl,
     this.largeCoverUrl,
   });
@@ -96,6 +97,11 @@ class LookupMatch {
   /// of origin on AniList. The form suggests its tag (see `languages.dart`).
   final String? language;
 
+  /// The network a show first aired on, as TMDB names it ("Netflix",
+  /// "HBO"): the first of its networks. The form suggests its Streaming tag
+  /// when the library has one (see `streamingTags`).
+  final String? network;
+
   /// A cover or artwork image, sized for a list row.
   final String? coverUrl;
 
@@ -125,6 +131,7 @@ class LookupMatch {
     EntryKind? kind,
     Series? series,
     String? language,
+    String? network,
     String? coverUrl,
     String? largeCoverUrl,
   }) => LookupMatch(
@@ -146,6 +153,7 @@ class LookupMatch {
     kind: kind ?? this.kind,
     series: series ?? this.series,
     language: language ?? this.language,
+    network: network ?? this.network,
     coverUrl: coverUrl ?? this.coverUrl,
     largeCoverUrl: largeCoverUrl ?? this.largeCoverUrl,
   );
@@ -171,6 +179,7 @@ class LookupMatch {
       other.kind == kind &&
       other.series == series &&
       other.language == language &&
+      other.network == network &&
       other.coverUrl == coverUrl &&
       other.largeCoverUrl == largeCoverUrl;
 

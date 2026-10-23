@@ -109,6 +109,51 @@ void main() {
     expect((await tmdb.details(hits[0])).language, 'ja');
   });
 
+  test(
+    "a show's first network comes with the details; a movie has none",
+    () async {
+      final tmdb = source(
+        (request) async => request.url.path.startsWith('/3/tv')
+            ? json(200, {
+                'id': 66732,
+                'name': 'Stranger Things',
+                'networks': [
+                  {'id': 213, 'name': 'Netflix'},
+                  {'id': 1, 'name': 'Other'},
+                ],
+                'genres': [],
+                'seasons': [],
+                'credits': {'cast': [], 'crew': []},
+              })
+            : json(200, {
+                'id': 1,
+                'title': 'A Movie',
+                'networks': [
+                  {'id': 213, 'name': 'Netflix'},
+                ],
+                'genres': [],
+                'credits': {'cast': [], 'crew': []},
+              }),
+      );
+      final show = await tmdb.details(
+        const LookupMatch(
+          source: 'tmdb:tv:66732',
+          type: MediaType.shows,
+          title: 'Stranger Things',
+        ),
+      );
+      expect(show.network, 'Netflix');
+      final movie = await tmdb.details(
+        const LookupMatch(
+          source: 'tmdb:movie:1',
+          type: MediaType.movies,
+          title: 'A Movie',
+        ),
+      );
+      expect(movie.network, isNull);
+    },
+  );
+
   test('searches shows by name and first air date', () async {
     final tmdb = source(
       (_) async => json(200, {

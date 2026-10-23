@@ -208,7 +208,8 @@ class LibraryFilter {
 
   /// The tag groups the sheet shows (Library › Filter sheet), in category
   /// order: a group shows when an entry of a chosen type uses one of its tags,
-  /// so Games shows Genres too once a game is tagged #horror. With no type,
+  /// so Games shows Genres too once a game is tagged #horror. Streaming shows
+  /// only when movies or shows are among the chosen types. With no type,
   /// every group.
   List<(TagCategory, List<String>)> tagGroupsIn(Library library) {
     final used = types.isEmpty
@@ -220,7 +221,9 @@ class LibraryFilter {
     return [
       for (final category in TagCategory.values)
         if (library.tags[category] case final names?
-            when names.isNotEmpty && (used == null || names.any(used.contains)))
+            when names.isNotEmpty &&
+                (used == null ||
+                    (types.any(category.usedFor) && names.any(used.contains))))
           (category, names),
     ];
   }

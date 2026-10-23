@@ -37,6 +37,13 @@ enum TagCategory {
   actors,
   @JsonValue('Studios')
   studios,
+
+  /// Where a movie or show first came out (#netflix, #hbo), whether the
+  /// platform made it or bought it. Movies and shows only; the lookup
+  /// suggests a show's first network when the library has its tag, and a
+  /// movie's platform when it is among the production companies.
+  @JsonValue('Streaming')
+  streaming,
   @JsonValue('Animation style')
   animationStyle,
   @JsonValue('Other')
@@ -44,14 +51,21 @@ enum TagCategory {
 
   /// Whether the tag picker (Add / edit entry › Tag picker) lists this category
   /// for an entry of [type] before anything is typed: game genres only for
-  /// games, music genres only for music, actors only for movies and shows. A
-  /// search finds every tag.
+  /// games, music genres only for music, actors and streaming only for movies
+  /// and shows. A search finds every tag.
   bool offeredFor(MediaType type) => switch (this) {
     gameGenre => type == MediaType.games,
     musicGenre => type == MediaType.music,
     actors => type == MediaType.movies || type == MediaType.shows,
-    _ => true,
+    _ => usedFor(type),
   };
+
+  /// Whether an entry of [type] can have tags of this category at all:
+  /// Streaming is for movies and shows only, so Add / edit entry › New tag:
+  /// confirm and pick a category and Library › Filter sheet leave it out for
+  /// the other types. Every other category is for every type.
+  bool usedFor(MediaType type) =>
+      this != streaming || type == MediaType.movies || type == MediaType.shows;
 
   /// The category a new tag starts on in Add / edit entry › New tag: confirm
   /// and pick a category.
@@ -103,7 +117,7 @@ enum TagCategory {
   ];
 
   /// The categories whose tags have exactly one category (Mood, Season,
-  /// Languages, Studios, Animation style, Other): a tag in one of them can
+  /// Languages, Studios, Streaming, Animation style, Other): a tag in one of them can
   /// be moved to another of them (Add / edit entry › Tag picker, a long
   /// press), and keeps every entry it is on.
   static List<TagCategory> get singleCategoryGroups => [

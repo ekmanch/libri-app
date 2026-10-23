@@ -529,8 +529,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     // exact slug only, and per category: a person the library has only
     // under another people category is offered with the new role
     // ("#clint-eastwood · Actor"), and a tap adds the category. The
-    // language the lookup names goes the same way, in Languages.
-    for (final t in [..._creatorTags, ..._actorTags, ..._languageTags]) {
+    // language the lookup names goes the same way, in Languages, and the
+    // platform a movie or show came out on, in Streaming.
+    for (final t in [
+      ..._creatorTags,
+      ..._actorTags,
+      ..._languageTags,
+      ..._streamingTags(library),
+    ]) {
       final categories = library.categoriesOf(t.tag);
       if (categories.isEmpty) {
         if (!fresh.contains(t.tag)) {
@@ -644,6 +650,15 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   List<CreatorTag> get _languageTags =>
       languageTags(type: _type, language: _match?.language);
 
+  /// The Streaming tag (#netflix): a show's first network when the library
+  /// has its tag, a movie's platform when it made the movie.
+  List<CreatorTag> _streamingTags(Library library) => streamingTags(
+    type: _type,
+    network: _match?.network,
+    companies: _match?.companies ?? const [],
+    streaming: library.tags[TagCategory.streaming] ?? const [],
+  );
+
   /// The creator tags not on the entry, offered under the field once the
   /// field is left. Ones the lookup already matched come back through
   /// [_suggestions] when removed.
@@ -668,6 +683,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     final categories = await showNewTagDialog(
       context,
+      type: _type,
       name: t.tag,
       initial: t.category,
     );
@@ -694,6 +710,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     final categories = await showNewTagDialog(
       context,
+      type: _type,
       name: s.tag,
       initial: s.category ?? TagCategory.defaultFor(_type),
     );
