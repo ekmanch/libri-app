@@ -125,6 +125,50 @@ class LookupService {
     return result;
   }
 
+  /// Covers to pick from for an entry titled [title] (Add / edit entry ›
+  /// Pick a cover): each configured source for [type] in turn, in its own
+  /// order, only matches with a cover and one of each image. Failures come
+  /// back in the result, as for [search]; nothing is remembered, since the
+  /// picker is opened rarely.
+  Future<LookupResult> coverChoices(
+    String title, {
+    required MediaType type,
+    String? creator,
+  }) async {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return LookupResult.empty;
+    final asked = sourcesFor(type);
+    final failures = <LookupFailure>[];
+    var partial = 0;
+    final seen = <String>{};
+    final matches = <LookupMatch>[];
+    void add(List<LookupMatch> hits) {
+      for (final hit in hits) {
+        final url = hit.cacheCoverUrl;
+        if (url != null && seen.add(url)) matches.add(hit);
+      }
+    }
+
+    for (final source in asked) {
+      try {
+        add(await source.coverChoices(trimmed, type: type, creator: creator));
+      } on PartialLookupException catch (e) {
+        add(e.matches);
+        failures.add(e.failure);
+        partial++;
+      } on LookupException catch (e) {
+        failures.add(e.failure);
+      } on Object {
+        failures.add(LookupFailure.other);
+      }
+    }
+    return LookupResult(
+      matches: matches,
+      failures: failures,
+      asked: asked.length + partial,
+    );
+  }
+
   /// A list of matches, the failure, or for a partial answer both.
   Future<Object> _ask(
     LookupSource source,

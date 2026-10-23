@@ -211,6 +211,41 @@ void main() {
     expect(stub.asks.length, 2);
   });
 
+  test('a cover from another match is asked by that id, and only it', () async {
+    stub.bySource['openlibrary:OL2918756W'] = 'https://img/own.jpg';
+    stub.bySource['itunes:123456'] = 'https://img/picked.jpg';
+    final r = resolver();
+    final shogun = entry(
+      'books/shogun-1975',
+      type: MediaType.books,
+      title: 'Shōgun',
+      source: 'openlibrary:OL2918756W',
+    );
+    expect(await r.coverUrl(shogun), 'https://img/own.jpg');
+    final picked = shogun.copyWith(coverFrom: 'itunes:123456');
+    // A new cover_from means a new lookup, of the picked id alone.
+    expect(r.cachedCoverUrl(picked), isNull);
+    expect(await r.coverUrl(picked), 'https://img/picked.jpg');
+    expect(stub.asks.last, 'cover:itunes:123456');
+    // The match's own cover, for the picker, leaves the record alone.
+    expect(await r.ownCoverUrl(picked), 'https://img/own.jpg');
+    expect(r.cachedCoverUrl(picked), 'https://img/picked.jpg');
+  });
+
+  test('an entry without a source and a picked cover is still matched for '
+      'its id', () async {
+    stub.covers['Dracula'] = 'https://img/dracula.jpg';
+    stub.bySource['itunes:9'] = 'https://img/picked.jpg';
+    final r = resolver();
+    final dracula = entry(
+      'books/dracula-1897',
+      type: MediaType.books,
+      title: 'Dracula',
+    ).copyWith(coverFrom: 'itunes:9');
+    expect(await r.coverUrl(dracula), 'https://img/picked.jpg');
+    expect(r.cachedSource(dracula), 'stub:Dracula');
+  });
+
   test('a miss is remembered and tried again after a fortnight', () async {
     final r = resolver();
     final nothing = entry('movies/nothing-2000', title: 'Nothing', year: 2000);

@@ -72,6 +72,22 @@ abstract class LookupSource {
   /// A cover image for an entry with [source], sized for the cache, or
   /// null when the provider has none.
   Future<String?> coverUrl(String source, {required MediaType type});
+
+  /// Matches to take a cover from for an entry titled [title] (Add / edit
+  /// entry › Pick a cover), each with a cover, the id its image is found by
+  /// ([LookupMatch.coverFrom]) and the edition when the provider says.
+  /// Defaults to [search] for the title.
+  Future<List<LookupMatch>> coverChoices(
+    String title, {
+    required MediaType type,
+    String? creator,
+  }) => search(title, type: type, limit: 20);
+
+  /// The image of a cover picked in [coverChoices], by its
+  /// [LookupMatch.coverFrom] id, sized for the cache. Defaults to
+  /// [coverUrl], for a provider whose id stands for one image.
+  Future<String?> pickedCoverUrl(String id, {required MediaType type}) =>
+      coverUrl(id, type: type);
 }
 
 /// A show's seasons as the lookup lists them, whether it is canceled, and

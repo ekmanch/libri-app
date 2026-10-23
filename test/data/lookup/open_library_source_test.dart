@@ -1192,4 +1192,153 @@ void main() {
       expect(named!.parts, hasLength(3));
     });
   });
+
+  group('cover choices (Add / edit entry › Pick a cover)', () {
+    /// Shōgun as Open Library lists it: the best edition's cover, format and
+    /// date; a second work whose cover is the work's own.
+    final shogun = {
+      'key': '/works/OL2918756W',
+      'title': 'Shōgun',
+      'author_name': ['James Clavell'],
+      'first_publish_year': 1975,
+      'cover_i': 2394441,
+      'editions': {
+        'docs': [
+          {
+            'key': '/books/OL25881240M',
+            'cover_i': 7386793,
+            'format': ['Hardcover'],
+            'publish_date': ['1980'],
+          },
+        ],
+      },
+    };
+    final shogunOther = {
+      'key': '/works/OL2918755W',
+      'title': 'Shōgun',
+      'author_name': ['James Clavell'],
+      'first_publish_year': 1975,
+      'cover_i': 5335340,
+      'editions': {
+        'docs': [
+          {
+            'key': '/books/OL22363633M',
+            'publish_date': ['1976'],
+          },
+        ],
+      },
+    };
+
+    test('every edition with a cover, each with the id of its image', () async {
+      final ol = source((request) async {
+        if (isApple(request)) {
+          return json(200, {
+            'results': [
+              ebook(
+                1,
+                'Shōgun, Part One',
+                author: 'James Clavell',
+                date: '2019-01-01T00:00:00Z',
+                art: '$artwork?a',
+              ),
+              ebook(
+                2,
+                'Shōgun (TV Tie-in)',
+                author: 'James Clavell',
+                date: '2024-02-01T00:00:00Z',
+                art: '$artwork?b',
+              ),
+              // Another book by him, and the same title by someone else.
+              ebook(3, 'Tai-Pan', author: 'James Clavell', art: '$artwork?c'),
+              ebook(4, 'Shōgun', author: 'Someone Else', art: '$artwork?d'),
+              ebook(5, 'Shōgun', author: 'James Clavell'),
+            ],
+          });
+        }
+        return json(200, {
+          'docs': [shogun, shogunOther],
+        });
+      });
+      final choices = await ol.coverChoices(
+        'Shōgun, Part One',
+        type: MediaType.books,
+        creator: 'James Clavell',
+      );
+      final olRequest = sent.firstWhere(isOpenLibrary);
+      expect(olRequest.url.queryParameters['title'], 'Shōgun');
+      expect(olRequest.url.queryParameters['author'], 'James Clavell');
+      expect(
+        olRequest.url.queryParameters['fields'],
+        allOf(contains('editions.key'), contains('editions.format')),
+      );
+      expect(
+        [
+          for (final c in choices)
+            (c.coverFrom, c.editionYear ?? c.released?.year, c.edition),
+        ],
+        [
+          ('openlibrary:OL25881240M', 1980, 'Hardcover'),
+          ('itunes:1', 2019, 'Ebook'),
+          ('openlibrary:OL2918755W', 1975, null),
+          ('itunes:2', 2024, 'TV tie-in'),
+        ],
+      );
+      expect(
+        choices.first.cacheCoverUrl,
+        'https://covers.openlibrary.org/b/id/7386793-L.jpg',
+      );
+    });
+
+    test('one source not answering still gives the other\'s covers', () async {
+      final ol = source((request) async {
+        if (isApple(request)) return json(503, {});
+        return json(200, {
+          'docs': [shogun],
+        });
+      });
+      await expectLater(
+        ol.coverChoices('Shōgun', type: MediaType.books),
+        throwsA(
+          isA<PartialLookupException>().having(
+            (e) => e.matches.single.coverFrom,
+            'cover',
+            'openlibrary:OL25881240M',
+          ),
+        ),
+      );
+    });
+
+    test('a picked cover is that image, never another source\'s', () async {
+      final ol = source((request) async {
+        if (isApple(request)) {
+          return json(200, {
+            'results': [ebook(1, 'Shōgun', art: artwork)],
+          });
+        }
+        return json(200, {
+          'covers': [5335340],
+        });
+      });
+      expect(
+        await ol.pickedCoverUrl(
+          'openlibrary:OL25881240M',
+          type: MediaType.books,
+        ),
+        'https://covers.openlibrary.org/b/olid/OL25881240M-L.jpg?default=false',
+      );
+      expect(sent, isEmpty);
+      expect(
+        await ol.pickedCoverUrl(
+          'openlibrary:OL2918755W',
+          type: MediaType.books,
+        ),
+        'https://covers.openlibrary.org/b/id/5335340-L.jpg',
+      );
+      expect(sent.single.url.path, '/works/OL2918755W.json');
+      expect(
+        await ol.pickedCoverUrl('itunes:1', type: MediaType.books),
+        artwork600,
+      );
+    });
+  });
 }

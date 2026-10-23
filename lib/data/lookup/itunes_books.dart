@@ -73,6 +73,19 @@ class ITunesBooks with LookupHttp {
     limit: limit,
   );
 
+  /// Every ebook for [title] (by [author] when known), editions and
+  /// languages each on their own, for Add / edit entry › Pick a cover.
+  Future<List<LookupMatch>> editions(
+    String title, {
+    String? author,
+    int limit = 25,
+  }) => _results('/search', {
+    'term': [title, if (author != null && author.isNotEmpty) author].join(' '),
+    'entity': 'ebook',
+    'media': 'ebook',
+    'limit': '${limit.clamp(1, 200)}',
+  });
+
   /// The book's own record, or null when Apple has no book with that id.
   Future<LookupMatch?> book(String source) async {
     final hits = await _results('/lookup', {

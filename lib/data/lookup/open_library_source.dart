@@ -54,7 +54,8 @@ class OpenLibrarySource extends HttpLookupSource {
   /// "King Rat".
   static const _fields =
       'key,title,author_name,first_publish_year,publish_year,cover_i,subject,'
-      'number_of_pages_median,language,editions,editions.cover_i';
+      'number_of_pages_median,language,editions,editions.cover_i,'
+      'editions.key,editions.format,editions.publish_date';
 
   @override
   String get id => 'openlibrary';
@@ -113,8 +114,22 @@ class OpenLibrarySource extends HttpLookupSource {
       for (final l in doc['language'] as List? ?? const []) '$l',
     };
     final editions = doc['editions'] as Map<String, Object?>? ?? const {};
-    final edition = objectsAt(editions, 'docs').firstOrNull?['cover_i'];
-    final coverId = edition is num && edition > 0 ? edition : doc['cover_i'];
+    final editionDoc = objectsAt(editions, 'docs').firstOrNull;
+    final editionCover = editionDoc?['cover_i'];
+    // The cover is the edition's when it has one; then the edition's own id
+    // finds that image again (Add / edit entry › Pick a cover).
+    final fromEdition = editionCover is num && editionCover > 0;
+    final coverId = fromEdition ? editionCover : doc['cover_i'];
+    final editionId = fromEdition
+        ? stringAt(editionDoc!, 'key')?.split('/').last
+        : null;
+    final editionDate = fromEdition
+        ? (editionDoc!['publish_date'] as List?)?.firstOrNull
+        : null;
+    final editionYear = RegExp(r'\d{4}').firstMatch('${editionDate ?? ''}');
+    final format = fromEdition
+        ? (editionDoc!['format'] as List?)?.firstOrNull
+        : null;
     final pages = doc['number_of_pages_median'];
     return LookupMatch(
       type: MediaType.books,
@@ -138,6 +153,13 @@ class OpenLibrarySource extends HttpLookupSource {
       largeCoverUrl: coverId is num && coverId > 0
           ? _cover(coverId.toInt(), '-L')
           : null,
+      coverSource: editionId == null ? null : 'openlibrary:$editionId',
+      edition: fromEdition
+          ? editionLabel(title, format: format is String ? format : null)
+          : null,
+      editionYear: editionYear == null
+          ? null
+          : int.parse(editionYear.group(0)!),
     );
   }
 
@@ -299,6 +321,8 @@ class OpenLibrarySource extends HttpLookupSource {
       largeCoverUrl: apple.coverUrl == null
           ? null
           : apple.largeCoverUrl ?? apple.coverUrl,
+      coverSource: apple.coverUrl == null ? null : apple.source,
+      edition: apple.coverUrl == null ? null : apple.edition,
     );
   }
 
@@ -321,6 +345,9 @@ class OpenLibrarySource extends HttpLookupSource {
       largeCoverUrl: match.coverUrl == null && match.largeCoverUrl == null
           ? ol.largeCoverUrl
           : null,
+      coverSource: match.coverUrl == null && ol.coverUrl != null
+          ? ol.coverFrom
+          : null,
     );
   }
 
@@ -340,6 +367,9 @@ class OpenLibrarySource extends HttpLookupSource {
       coverUrl: match.coverUrl == null ? other.coverUrl : null,
       largeCoverUrl: match.coverUrl == null && match.largeCoverUrl == null
           ? other.largeCoverUrl
+          : null,
+      coverSource: match.coverUrl == null && other.coverUrl != null
+          ? other.coverFrom
           : null,
     );
   }
@@ -642,5 +672,90 @@ class OpenLibrarySource extends HttpLookupSource {
       return (await _appleFill(work.title!, null))?.cacheCoverUrl;
     }
     return null;
+  }
+
+  /// Covers for the book [title] by [creator], unmerged so every edition
+  /// with a cover of its own is offered: Open Library's works with their
+  /// best edition's cover, taking turns with Apple's ebooks (each edition
+  /// on its own); the title compared without what follows it ("Shōgun,
+  /// Part One" is "Shōgun"), the author where both know one, and one of
+  /// each image. Throws [PartialLookupException] with the covers of the
+  /// source that answered when the other did not.
+  @override
+  Future<List<LookupMatch>> coverChoices(
+    String title, {
+    required MediaType type,
+    String? creator,
+  }) async {
+    final author = creator != null && creator.isNotEmpty ? creator : null;
+    final core = WikidataSeries.coreTitle(title);
+    final [ol, ab] = await Future.wait([
+      _settle(_search({'title': core, 'author': ?author}, 20)),
+      apple == null
+          ? Future<Object>.value(const <LookupMatch>[])
+          : _settle(apple!.editions(core, author: author, limit: 25)),
+    ]);
+    if (ol is LookupException && (ab is LookupException || apple == null)) {
+      throw ol;
+    }
+    final lists = [
+      if (ol case List<LookupMatch> hits) hits,
+      if (ab case List<LookupMatch> hits)
+        [
+          for (final hit in hits)
+            hit.copyWith(edition: editionLabel(hit.title, fallback: 'Ebook')),
+        ],
+    ];
+    final key = titleKey(core);
+    final seen = <String>{};
+    final out = <LookupMatch>[];
+    final longest = lists.fold(0, (n, l) => l.length > n ? l.length : n);
+    for (var i = 0; i < longest; i++) {
+      for (final list in lists) {
+        if (i >= list.length) continue;
+        final hit = list[i];
+        final url = hit.cacheCoverUrl;
+        if (url == null || !seen.add(url)) continue;
+        if (titleKey(WikidataSeries.coreTitle(hit.title)) != key) continue;
+        if (author != null &&
+            hit.creator != null &&
+            !shareAuthor(author, hit.creator)) {
+          continue;
+        }
+        out.add(hit);
+      }
+    }
+    final failure = ol is LookupException
+        ? ol
+        : ab is LookupException
+        ? ab
+        : null;
+    if (failure != null) {
+      throw PartialLookupException(
+        out,
+        failure.failure,
+        status: failure.status,
+        message: failure.message,
+      );
+    }
+    return out;
+  }
+
+  /// A cover picked in [coverChoices]: an Open Library edition's own cover
+  /// ("openlibrary:OL7518154M"), a work's own cover, an Apple ebook's
+  /// artwork, a Google volume's; never another source's cover of the same
+  /// book, which is what [coverUrl] may give.
+  @override
+  Future<String?> pickedCoverUrl(String id, {required MediaType type}) async {
+    if (_isApple(id)) return (await _apple.book(id))?.cacheCoverUrl;
+    if (_isGoogle(id)) return (await _google.volume(id))?.cacheCoverUrl;
+    final olid = _workId(id);
+    if (olid.endsWith('M')) {
+      return _coversUrl
+          .replace(path: '/b/olid/$olid-L.jpg', query: 'default=false')
+          .toString();
+    }
+    final work = await _work(id);
+    return work.coverId == null ? null : _cover(work.coverId!, '-L');
   }
 }

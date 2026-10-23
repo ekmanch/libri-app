@@ -80,6 +80,24 @@ Finder segment(String label) => find.descendant(
   matching: find.text(label),
 );
 
+/// Scrolls Add / edit entry down until [finder] is built and in view: the
+/// form is a lazy list, so a row far down is not there to ensureVisible.
+Future<void> scrollFormTo(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    200,
+    scrollable: find
+        .descendant(
+          of: find.byType(EntryFormScreen),
+          matching: find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> capture(WidgetTester tester, String name) async {
   final boundary =
       _root.currentContext!.findRenderObject() as RenderRepaintBoundary;
@@ -634,6 +652,29 @@ Future<void> walkBook(WidgetTester tester, {double scale = 1}) async {
   await Scrollable.ensureVisible(tester.element(find.text('Author')));
   await tester.pumpAndSettle();
   await capture(tester, '${prefix}a38-edit-book-pages');
+  // Add / edit entry › Pick a cover, then Cover from another match.
+  await tester.scrollUntilVisible(
+    find.text('From the match · tap to change'),
+    -100,
+    scrollable: find
+        .descendant(
+          of: find.byType(EntryFormScreen),
+          matching: find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first,
+  );
+  await tester.ensureVisible(find.bySemanticsLabel('Cover. Tap to change'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.bySemanticsLabel('Cover. Tap to change'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.bySemanticsLabel('The Shining, 2009 ·\u00a0Paperback'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a49-pick-a-cover');
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a49-edit-cover-from-another-match');
   await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
   await closeSheet(tester);
@@ -808,8 +849,7 @@ void main() {
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     await capture(tester, 'a8-edit-entry');
-    await tester.ensureVisible(find.text('#adventure'));
-    await tester.pumpAndSettle();
+    await scrollFormTo(tester, find.text('#adventure'));
     await tester.tap(find.text('#adventure'));
     await tester.pumpAndSettle();
     await capture(tester, 'a8-tag-picker');
@@ -1868,8 +1908,7 @@ void main() {
     await tapText('Cancel');
     await tapText('Edit');
     await shot('a8-edit-entry');
-    await tester.ensureVisible(find.text('#adventure'));
-    await tester.pumpAndSettle();
+    await scrollFormTo(tester, find.text('#adventure'));
     await tapText('#adventure');
     await shot('d14-tag-picker');
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));

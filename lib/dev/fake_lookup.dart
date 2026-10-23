@@ -165,6 +165,38 @@ class FakeLookupSource extends LookupSource implements MusicSource {
     return 'fake://cover/$shape/$source';
   }
 
+  /// Four other editions of any title, each with its own (fake) cover;
+  /// books say which edition, as Open Library and Apple Books do.
+  @override
+  Future<List<LookupMatch>> coverChoices(
+    String title, {
+    required MediaType type,
+    String? creator,
+  }) async {
+    await _call('covers:$title:${type.name}');
+    final slug = slugify(title);
+    if (slug.isEmpty) return const [];
+    final shape = type == MediaType.music ? 'square' : 'poster';
+    const editions = [
+      (2019, 'Ebook'),
+      (2009, 'Paperback'),
+      (2024, 'TV tie-in'),
+      (1986, 'Paperback'),
+    ];
+    return [
+      for (final (i, (year, edition)) in editions.indexed)
+        LookupMatch(
+          type: type,
+          title: title,
+          source: 'fake:$slug-${i + 2}',
+          released: Released(year),
+          creator: creator,
+          edition: type == MediaType.books ? edition : null,
+          coverUrl: 'fake://cover/$shape/fake:$slug-${i + 2}',
+        ),
+    ];
+  }
+
   @override
   Future<List<TrackInfo>> albumTracks(String albumSource) async {
     await _call('tracks:$albumSource');

@@ -14,6 +14,7 @@ import '../../data/operations/operations.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/chips.dart';
+import '../../widgets/cover_choice.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
@@ -643,27 +644,24 @@ class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const gap = 12.0;
-              final width = (constraints.maxWidth - 2 * gap) / 3;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final (i, part) in widget.parts.indexed)
-                    _CoverChoice(
-                      entry: part,
-                      width: width,
-                      picked: part.id == _picked,
-                      label: part.id != _picked
-                          ? null
-                          : i == 0
-                          ? 'First in the series'
-                          : 'Your pick',
-                      onTap: () => setState(() => _picked = part.id),
-                    ),
+          CoverChoiceGrid(
+            count: widget.parts.length,
+            itemBuilder: (i, width) {
+              final part = widget.parts[i];
+              return CoverChoice(
+                cover: CoverImage(
+                  entry: part,
+                  width: CoverChoice.imageWidth(width),
+                  fontSize: 11,
+                ),
+                title: part.title,
+                width: width,
+                picked: part.id == _picked,
+                lines: [
+                  if (part.id == _picked)
+                    i == 0 ? 'First in the series' : 'Your pick',
                 ],
+                onTap: () => setState(() => _picked = part.id),
               );
             },
           ),
@@ -679,81 +677,6 @@ class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
           ),
           const SizedBox(height: 8),
         ],
-      ),
-    );
-  }
-}
-
-/// One cover to pick: ringed in the accent when picked, the title under
-/// it, and "First in the series" or "Your pick" under the picked one.
-class _CoverChoice extends StatelessWidget {
-  const _CoverChoice({
-    required this.entry,
-    required this.width,
-    required this.picked,
-    required this.label,
-    required this.onTap,
-  });
-
-  final Entry entry;
-  final double width;
-  final bool picked;
-  final String? label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
-    return Semantics(
-      button: true,
-      selected: picked,
-      label: entry.title,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
-          width: width,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    width: 2,
-                    color: picked
-                        ? theme.colorScheme.primary
-                        : Colors.transparent,
-                  ),
-                ),
-                child: CoverImage(entry: entry, width: width - 8, fontSize: 11),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                entry.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium!.copyWith(fontSize: 13),
-              ),
-              if (label case final label?) ...[
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall!.copyWith(
-                    fontStyle: FontStyle.normal,
-                    fontSize: 12,
-                    color: colors.muted,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }

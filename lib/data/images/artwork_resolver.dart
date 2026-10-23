@@ -94,6 +94,7 @@ class ArtworkResolver {
     entry.creator ?? '',
     entry.album ?? '',
     entry.source ?? '',
+    entry.coverFrom ?? '',
   ].join('|');
 
   _Record? _recordOf(Entry entry) {
@@ -143,6 +144,19 @@ class ArtworkResolver {
     return _enqueue('entry:${entry.id}', () => _resolveEntry(entry));
   }
 
+  /// The cover the entry would have without its `cover_from`: the match's
+  /// own (Add / edit entry › Pick a cover, "The match's cover"). The same as
+  /// [coverUrl] for an entry without one; for one with it, asked each time
+  /// and never recorded, so the record keeps the picked cover.
+  Future<String?> ownCoverUrl(Entry entry) async {
+    if (entry.coverFrom == null) return coverUrl(entry);
+    try {
+      return (await _findCover(entry.copyWith(coverFrom: null))).$1;
+    } on LookupException {
+      return null;
+    }
+  }
+
   /// Drops the request for [entryId] if it has not started.
   void release(String entryId) => _release('entry:$entryId');
 
@@ -178,8 +192,18 @@ class ArtworkResolver {
   }
 
   /// The cover URL and, for an entry matched on the device, the id it was
-  /// matched to (the album's, for a song).
+  /// matched to (the album's, for a song). A cover picked from another
+  /// match (`cover_from`) is asked of that match's provider; an entry
+  /// without a source is still matched for its id, which its track list
+  /// and series go by.
   Future<(String?, String?)> _findCover(Entry entry) async {
+    if (entry.coverFrom case final coverFrom?) {
+      final provider = lookups.sourceOf(coverFrom);
+      final url = await provider?.pickedCoverUrl(coverFrom, type: entry.type);
+      if (entry.source != null) return (url, null);
+      final (_, matched) = await _findCover(entry.copyWith(coverFrom: null));
+      return (url, matched);
+    }
     if (entry.source case final source?) {
       final provider = lookups.sourceOf(source);
       if (provider == null) return (null, null);

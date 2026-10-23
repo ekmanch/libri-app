@@ -215,6 +215,11 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tapText('Cancel');
     await a.tapText('Edit');
     await a.check('Add / edit entry');
+    await a.tap(find.bySemanticsLabel('Cover. Tap to change'));
+    await a.check('Add / edit entry › Pick a cover');
+    await a.tap(find.bySemanticsLabel(RegExp(r', 2009\b')).first);
+    await a.tap(find.widgetWithText(FilledButton, 'Done'));
+    await a.check('Add / edit entry › Cover from another match');
     await tester.ensureVisible(find.text('#adventure'));
     await a.tapText('#adventure');
     await a.check('Add / edit entry › Tag picker');

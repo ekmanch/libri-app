@@ -34,6 +34,9 @@ class LookupMatch {
     this.network,
     this.coverUrl,
     this.largeCoverUrl,
+    this.coverSource,
+    this.edition,
+    this.editionYear,
   });
 
   final MediaType type;
@@ -111,6 +114,20 @@ class LookupMatch {
 
   String? get cacheCoverUrl => largeCoverUrl ?? coverUrl;
 
+  /// The id the cover image is found by when it is picked for another
+  /// entry (Add / edit entry › Pick a cover), when it is not [source]: an
+  /// Open Library edition's, "openlibrary:OL7518154M", for the edition's
+  /// cover a work row shows. Read through [coverFrom].
+  final String? coverSource;
+
+  String get coverFrom => coverSource ?? source;
+
+  /// For a book in the cover picker: the edition the cover is of, as the
+  /// picker captions it ("Hardcover", "Ebook", "TV tie-in"), and its year
+  /// when that is not [released]'s.
+  final String? edition;
+  final int? editionYear;
+
   /// The provider part of a lookup id: "tmdb" for "tmdb:movie:603".
   static String providerOf(String source) =>
       source.substring(0, source.indexOf(':').clamp(0, source.length));
@@ -134,6 +151,9 @@ class LookupMatch {
     String? network,
     String? coverUrl,
     String? largeCoverUrl,
+    String? coverSource,
+    String? edition,
+    int? editionYear,
   }) => LookupMatch(
     type: type,
     title: title,
@@ -156,6 +176,9 @@ class LookupMatch {
     network: network ?? this.network,
     coverUrl: coverUrl ?? this.coverUrl,
     largeCoverUrl: largeCoverUrl ?? this.largeCoverUrl,
+    coverSource: coverSource ?? this.coverSource,
+    edition: edition ?? this.edition,
+    editionYear: editionYear ?? this.editionYear,
   );
 
   @override
@@ -181,7 +204,10 @@ class LookupMatch {
       other.language == language &&
       other.network == network &&
       other.coverUrl == coverUrl &&
-      other.largeCoverUrl == largeCoverUrl;
+      other.largeCoverUrl == largeCoverUrl &&
+      other.coverSource == coverSource &&
+      other.edition == edition &&
+      other.editionYear == editionYear;
 
   @override
   int get hashCode => Object.hash(type, title, source, released, coverUrl);

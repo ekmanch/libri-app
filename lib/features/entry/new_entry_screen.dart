@@ -10,6 +10,7 @@ import '../../data/lookup/lookup_service.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/media_type.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/lookup_notice.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/cached_image.dart';
@@ -268,9 +269,9 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       children: [
                         if (result == null)
-                          _Notice('Looking up "$query"…', spinner: true)
+                          LookupNotice('Looking up "$query"…', spinner: true)
                         else if (result.notConfigured)
-                          _Notice(
+                          LookupNotice(
                             _type == null
                                 ? 'Lookups are not set up on this build '
                                       '(no API keys).'
@@ -279,7 +280,7 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                                       '(no API key).',
                           )
                         else if (result.allFailed case final failure?)
-                          _Notice(
+                          LookupNotice(
                             failure == LookupFailure.offline
                                 ? 'Could not reach the lookup. Check your '
                                       'connection and try again.'
@@ -288,13 +289,13 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                             onRetry: _lookUp,
                           )
                         else if (matches.isEmpty && result.partlyFailed)
-                          _Notice(
+                          LookupNotice(
                             'Some lookups could not be reached, so a match '
                             'may be missing. Try again in a moment.',
                             onRetry: _lookUp,
                           )
                         else if (matches.isEmpty)
-                          _Notice(
+                          LookupNotice(
                             _type == null
                                 ? 'No matches for "$query".'
                                 : 'No matches among ${_type!.label.toLowerCase()}.',
@@ -358,53 +359,6 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
 
 /// A centered muted line for the states without rows, with a spinner
 /// while looking up, or a "Try again" after a failure.
-class _Notice extends StatelessWidget {
-  const _Notice(this.text, {this.spinner = false, this.onRetry});
-
-  final String text;
-  final bool spinner;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: Column(
-        children: [
-          if (spinner) ...[
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium!.copyWith(color: colors.muted),
-          ),
-          if (onRetry != null)
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.primary,
-                textStyle: theme.textTheme.labelMedium,
-                minimumSize: const Size(48, 48),
-              ),
-              child: const Text('Try again'),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MatchRow extends StatelessWidget {
   const _MatchRow({
     required this.match,

@@ -24,12 +24,16 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/chip_grid.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/chips.dart';
+import '../../widgets/cover_placeholder.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/segmented_control.dart';
+import '../../widgets/touch_target.dart';
 import '../settings/display_preferences.dart';
+import 'cover_picker_sheet.dart';
 import 'new_entry_screen.dart';
 import 'released_sheet.dart';
 import 'seasons.dart';
@@ -194,6 +198,16 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   LookupMatch? _match;
   bool _saving = false;
 
+  /// The lookup id of another match whose cover the entry shows (Add / edit
+  /// entry › Cover from another match), or null for the match's own.
+  /// Cleared with the source when the type changes.
+  String? _coverFrom;
+
+  /// The match's own cover, and the cover picked from another match, as
+  /// shown in the form; null until known.
+  String? _ownCoverUrl;
+  String? _pickedCoverUrl;
+
   @override
   void initState() {
     super.initState();
@@ -250,6 +264,21 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _seasonalOnly = entry?.seasonalOnly ?? false;
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
+    _coverFrom = entry?.coverFrom;
+    _ownCoverUrl = match?.cacheCoverUrl;
+    if (entry != null) {
+      final resolver = ref.read(artworkResolverProvider);
+      resolver.ownCoverUrl(entry).then((url) {
+        if (mounted && _match == null) setState(() => _ownCoverUrl = url);
+      });
+      if (entry.coverFrom != null) {
+        resolver.coverUrl(entry).then((url) {
+          if (mounted && _coverFrom == entry.coverFrom) {
+            setState(() => _pickedCoverUrl = url);
+          }
+        });
+      }
+    }
     _seasons = entry?.seasons ?? Season.listable(match?.seasons ?? const []);
     _seedSeason();
     _creatorFocus.addListener(() => setState(() {}));
@@ -740,6 +769,8 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   void _applyMatch(LookupMatch match) {
     _match = match;
     _source = match.source;
+    // A cover picked from another match stays: the owner chose it.
+    _ownCoverUrl = match.cacheCoverUrl;
     if (_title.text.trim().isEmpty) _title.text = match.title;
     if (match.creator case final creator?) _creator.text = creator;
     if (match.released case final released?) {
@@ -780,9 +811,36 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _suggestionsPrepared = false;
   }
 
+  /// Add / edit entry › Pick a cover, on the entry's type and title: a pick
+  /// changes only the cover.
+  Future<void> _pickCover() async {
+    final title = _title.text.trim();
+    if (title.isEmpty) return;
+    final creator = _creator.text.trim();
+    await showCoverPicker(
+      context,
+      type: _type,
+      title: title,
+      creator: creator.isEmpty ? null : creator,
+      source: _source,
+      ownCoverUrl: _ownCoverUrl,
+      ownYear: _usesSeasons
+          ? _seasons.firstOrNull?.released?.year
+          : _released?.year,
+      coverFrom: _coverFrom,
+      onPicked: (pick) => setState(() {
+        _coverFrom = pick.coverFrom;
+        _pickedCoverUrl = pick.url;
+      }),
+    );
+  }
+
   void _pickType(MediaType type) {
     setState(() {
-      if (type != _type) _source = null;
+      if (type != _type) {
+        _source = null;
+        _coverFrom = null;
+      }
       _type = type;
       _kind = switch (type) {
         MediaType.music =>
@@ -915,6 +973,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       seasonalOnly: _seasonalOnly,
       added: base?.added ?? DateTime(now.year, now.month, now.day),
       source: _source,
+      coverFrom: _coverFrom,
       platform: _type == MediaType.games && platform.isNotEmpty
           ? platform
           : null,
@@ -997,7 +1056,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       // A pick replaces the cover, whether it brought a new source or the
       // one the entry had (the same book, whose cover may come from
       // elsewhere now), as does a source edited by hand.
-      if (_match != null || entry.source != widget.entry!.source) {
+      if (_match != null ||
+          entry.source != widget.entry!.source ||
+          entry.coverFrom != widget.entry!.coverFrom) {
         ref.read(artworkResolverProvider).forget(entry.id);
       }
     } else {
@@ -1092,6 +1153,15 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                     ),
                     const SizedBox(height: 14),
                   ],
+                  _FormCover(
+                    type: _type,
+                    title: _title.text.trim(),
+                    url: _coverFrom == null ? _ownCoverUrl : _pickedCoverUrl,
+                    fromOther: _coverFrom != null,
+                    onTap: _pickCover,
+                    onReset: () => setState(() => _coverFrom = null),
+                  ),
+                  const SizedBox(height: 14),
                   const FieldLabel('Title'),
                   AppTextField(
                     controller: _title,
@@ -1488,4 +1558,146 @@ extension on BookFormat {
     BookFormat.audiobook => 'Audiobook',
     BookFormat.physical => 'Physical',
   };
+}
+
+/// The cover at the top of the form (Add / edit entry › Cover from another
+/// match): the cover with a small pencil badge, which opens Pick a cover
+/// when tapped, and beside it "From the match · tap to change", or after a
+/// pick "From another match" with "Use the match’s cover".
+class _FormCover extends StatelessWidget {
+  const _FormCover({
+    required this.type,
+    required this.title,
+    required this.url,
+    required this.fromOther,
+    required this.onTap,
+    required this.onReset,
+  });
+
+  final MediaType type;
+  final String title;
+  final String? url;
+  final bool fromOther;
+  final VoidCallback onTap;
+  final VoidCallback onReset;
+
+  static const width = 64.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    final hint = theme.textTheme.bodySmall!.copyWith(
+      fontStyle: FontStyle.normal,
+      fontSize: 13,
+      height: 1.4,
+      color: colors.muted,
+    );
+    final draft = Entry(
+      id: '',
+      type: type,
+      title: title,
+      status: EntryStatus.want,
+      added: DateTime(2000),
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Semantics(
+          container: true,
+          button: true,
+          label: 'Cover. Tap to change',
+          excludeSemantics: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: title.isEmpty ? null : onTap,
+            child: Padding(
+              // Room for the badge, which hangs over the corner.
+              padding: const EdgeInsets.only(right: 6, bottom: 6),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CachedImage(
+                    url: url,
+                    width: width,
+                    height: width / CoverPlaceholder.aspectRatio(type),
+                    placeholder: CoverPlaceholder(
+                      entry: draft,
+                      width: width,
+                      fontSize: 9.5,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  Positioned(
+                    right: -6,
+                    bottom: -6,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colors.surfaceHigh,
+                        border: Border.all(
+                          width: 2,
+                          color: theme.scaffoldBackgroundColor,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: StrokeIcon(
+                        AppIcons.pencil,
+                        size: 13,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cover',
+                  style: theme.textTheme.labelSmall!.copyWith(letterSpacing: 0),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  fromOther
+                      ? 'From another match'
+                      : 'From the match · tap to change',
+                  style: hint,
+                ),
+                if (fromOther) ...[
+                  const SizedBox(height: 8),
+                  TouchTarget(
+                    child: Semantics(
+                      container: true,
+                      button: true,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onReset,
+                        child: Text(
+                          'Use the match’s cover',
+                          style: hint.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

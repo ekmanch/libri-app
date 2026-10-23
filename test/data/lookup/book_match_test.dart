@@ -102,4 +102,18 @@ void main() {
       expect(volumeOf('The Two Towers'), isNull);
     });
   });
+
+  test('editionLabel: a tie-in from the title, else the format', () {
+    expect(editionLabel('Shōgun (TV Tie-in)'), 'TV tie-in');
+    expect(editionLabel('Dune (Movie Tie-In)'), 'Movie tie-in');
+    expect(editionLabel('Dune: tie-in edition'), 'Tie-in');
+    expect(editionLabel('Shōgun', format: 'Hardcover'), 'Hardcover');
+    expect(
+      editionLabel('Shōgun', format: 'Mass Market Paperback'),
+      'Paperback',
+    );
+    expect(editionLabel('Shōgun', format: 'Audio CD'), 'Audiobook');
+    expect(editionLabel('Shōgun', format: 'Microfilm'), isNull);
+    expect(editionLabel('Shōgun', fallback: 'Ebook'), 'Ebook');
+  });
 }

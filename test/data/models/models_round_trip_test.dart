@@ -80,6 +80,19 @@ void main() {
       expect(linked.copyWith(source: null).source, isNull);
     });
 
+    test('cover_from follows source, only while set', () {
+      final entry = Entry.fromJson(json);
+      expect(entry.toJson().containsKey('cover_from'), isFalse);
+      final picked = entry.copyWith(
+        source: 'openlibrary:OL2918756W',
+        coverFrom: 'itunes:123456',
+      );
+      final keys = picked.toJson().keys.toList();
+      expect(keys.indexOf('cover_from'), keys.indexOf('source') + 1);
+      expect(picked.toJson()['cover_from'], 'itunes:123456');
+      expect(Entry.fromJson(picked.toJson()), picked);
+    });
+
     test('a file written before source existed decodes with a null one', () {
       final old = {...json}..remove('source');
       expect(Entry.fromJson(old).source, isNull);

@@ -29,6 +29,22 @@ class StrokeCircle {
 class AppIcons {
   AppIcons._();
 
+  /// A pencil, for the cover badge in Add / edit entry.
+  static const pencil = StrokeIconData(
+    polylines: [
+      [
+        Offset(4, 20),
+        Offset(8, 20),
+        Offset(19, 9),
+        Offset(15, 5),
+        Offset(4, 16),
+        Offset(4, 20),
+      ],
+      [Offset(14, 6), Offset(18, 10)],
+    ],
+    strokeWidth: 2.4,
+  );
+
   /// Three book spines.
   static const library = StrokeIconData(
     polylines: [

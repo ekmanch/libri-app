@@ -21,6 +21,7 @@ import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/form_fields.dart';
 import 'package:library_app/widgets/segmented_control.dart';
 
 import '../../helpers/pump.dart';
@@ -47,6 +48,16 @@ void main() {
     await tester.scrollUntilVisible(
       finder,
       200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  /// Scrolls back up to [finder], for a field above the visible part.
+  Future<void> scrollUpTo(WidgetTester tester, Finder finder) async {
+    await tester.scrollUntilVisible(
+      finder,
+      -200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
@@ -173,6 +184,74 @@ void main() {
     expect(entry.added, DateTime(today.year, today.month, today.day));
   });
 
+  group('Cover from another match', () {
+    Future<ProviderContainer> openDracula(
+      WidgetTester tester, {
+      String? coverFrom,
+    }) {
+      final dracula = loadFixture()
+          .entryById('books/dracula-1897')!
+          .copyWith(source: 'openlibrary:OL45804W', coverFrom: coverFrom);
+      return pumpApp(tester, EntryFormScreen.edit(dracula));
+    }
+
+    Future<void> pickPaperback(WidgetTester tester) async {
+      await tester.tap(find.bySemanticsLabel('Cover. Tap to change'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pick a cover'), findsOneWidget);
+      expect(
+        find.text('Other matches for “Dracula”. Only the cover changes.'),
+        findsOneWidget,
+      );
+      expect(find.text('The match’s cover'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Dracula, 2009 ·\u00a0Paperback'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a pick changes only the cover', (tester) async {
+      final container = await openDracula(tester);
+      expect(find.text('From the match · tap to change'), findsOneWidget);
+      await pickPaperback(tester);
+      expect(find.text('From another match'), findsOneWidget);
+      expect(find.text('Use the match’s cover'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById('books/dracula-1897')!;
+      expect(saved.coverFrom, 'fake:dracula-3');
+      expect(saved.source, 'openlibrary:OL45804W');
+      expect(saved.title, 'Dracula');
+      expect(saved.released, const Released(1897));
+    });
+
+    testWidgets("“Use the match’s cover” puts the default back", (
+      tester,
+    ) async {
+      final container = await openDracula(tester, coverFrom: 'fake:dracula-3');
+      expect(find.text('From another match'), findsOneWidget);
+      await tester.tap(find.text('Use the match’s cover'));
+      await tester.pumpAndSettle();
+      expect(find.text('From the match · tap to change'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById('books/dracula-1897')!;
+      expect(saved.coverFrom, isNull);
+    });
+
+    testWidgets('changing the type clears it, like the source', (tester) async {
+      final container = await openDracula(tester, coverFrom: 'fake:dracula-3');
+      await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+      await tester.pumpAndSettle();
+      expect(find.text('From the match · tap to change'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById('books/dracula-1897')!;
+      expect(saved.coverFrom, isNull);
+      expect(saved.source, isNull);
+    });
+  });
+
   testWidgets('the type changes the creator label and the extra fields', (
     tester,
   ) async {
@@ -180,17 +259,21 @@ void main() {
     await tester.tap(find.widgetWithText(PillChip, 'Books'));
     await tester.pumpAndSettle();
     expect(find.text('Author'), findsOneWidget);
+    await scrollTo(tester, find.text('Pages'));
     expect(find.text('Formats'), findsOneWidget);
     expect(find.text('Audiobook'), findsOneWidget);
     expect(find.text('Pages'), findsOneWidget);
 
+    await scrollUpTo(tester, find.widgetWithText(PillChip, 'Games'));
     await tester.tap(find.widgetWithText(PillChip, 'Games'));
     await tester.pumpAndSettle();
     expect(find.text('Studio'), findsOneWidget);
+    await scrollTo(tester, find.text('Platforms'));
     expect(find.text('Platforms'), findsOneWidget);
     expect(find.text('Formats'), findsNothing);
     expect(find.text('Pages'), findsNothing);
 
+    await scrollUpTo(tester, find.widgetWithText(PillChip, 'Music'));
     await tester.tap(find.widgetWithText(PillChip, 'Music'));
     await tester.pumpAndSettle();
     expect(find.text('Artist'), findsOneWidget);
@@ -396,7 +479,9 @@ void main() {
         match: FakeLookupSource.catalogSearch('running up').single,
       ),
     );
-    expect(find.text('Album'), findsNWidgets(2)); // Segment and field label.
+    expect(find.widgetWithText(SegmentedControl<EntryKind>, 'Album'), findsOne);
+    await scrollTo(tester, find.widgetWithText(TextField, 'Hounds of Love'));
+    expect(find.widgetWithText(FieldLabel, 'Album'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Hounds of Love'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Add'));
     await tester.pumpAndSettle();
@@ -620,8 +705,9 @@ void main() {
         find.bySemanticsLabel('Status, In progress, set by the seasons'),
         findsOneWidget,
       );
-      // Season 2 to Done in its sheet: the show becomes Done.
-      await scrollTo(
+      // Season 2 to Done in its sheet: the show becomes Done. The seasons
+      // sit above the status row.
+      await scrollUpTo(
         tester,
         find.bySemanticsLabel(RegExp('^Season 2 status: ')),
       );
@@ -723,12 +809,14 @@ void main() {
       'shows/the-haunting-of-hill-house-2018',
     )!;
     await pumpApp(tester, EntryFormScreen.edit(hillHouse));
-    await scrollTo(tester, find.text('Add season'));
+    await scrollTo(tester, find.text('Season 1'));
     Finder pill(int n) => find.bySemanticsLabel(RegExp('^Season $n status: '));
     expect(find.text('Season 1'), findsOneWidget);
+    await scrollTo(tester, find.text('Add season'));
     expect(pill(1), findsNothing);
     await tester.tap(find.text('Add season'));
     await tester.pumpAndSettle();
+    await scrollUpTo(tester, pill(1));
     expect(pill(1), findsOneWidget);
     expect(pill(2), findsOneWidget);
   });
@@ -775,6 +863,7 @@ void main() {
         find.text('Details fetched online. You can change anything.'),
         findsOneWidget,
       );
+      await scrollTo(tester, find.text('Platforms'));
       expect(find.text('Platforms'), findsOneWidget);
       for (final p in match.platforms) {
         expect(find.widgetWithText(PillChip, p), findsOneWidget);
@@ -999,6 +1088,7 @@ void main() {
         type: MediaType.games,
       ).first;
       await pumpApp(tester, EntryFormScreen.create(match: onPc));
+      await scrollTo(tester, find.widgetWithText(PillChip, 'PlayStation 5'));
       expect(isSelected(tester, find.widgetWithText(PillChip, 'PC')), isTrue);
       expect(
         isSelected(tester, find.widgetWithText(PillChip, 'PlayStation 5')),
@@ -1016,6 +1106,7 @@ void main() {
         EntryFormScreen.create(match: match),
         prefs: const DisplayPreferences(defaultPlatform: null),
       );
+      await scrollTo(tester, find.widgetWithText(PillChip, 'PC'));
       expect(isSelected(tester, find.widgetWithText(PillChip, 'PC')), isFalse);
       expect(container.read(displayPreferencesProvider).defaultPlatform, null);
     });

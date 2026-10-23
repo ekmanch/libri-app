@@ -54,6 +54,13 @@ abstract class Entry with _$Entry {
     /// are matched on the device and never stored here. Changing the type
     /// clears it; editing the title never does.
     String? source,
+
+    /// The lookup id of another match whose cover the entry shows (Add /
+    /// edit entry › Pick a cover), "itunes:123456" or an Open Library
+    /// edition, "openlibrary:OL7518154M"; left out while the cover is the
+    /// match's own. The only cover data in the file: the image itself is
+    /// found from it on the device. Changing the type clears it.
+    @JsonKey(name: 'cover_from', includeIfNull: false) String? coverFrom,
     // Games.
     @JsonKey(includeIfNull: false) String? platform,
     // Books.

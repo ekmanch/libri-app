@@ -8,12 +8,45 @@ const maxBookTags = 6;
 /// Whether two book hits are the same book: the same title (as
 /// [sameTitle]) and an author in common, case and punctuation aside; two
 /// hits without an author need only the title.
-bool sameBook(LookupMatch a, LookupMatch b) {
-  if (!sameTitle(a.title, b.title)) return false;
-  final left = _authorKeys(a.creator);
-  final right = _authorKeys(b.creator);
+bool sameBook(LookupMatch a, LookupMatch b) =>
+    sameTitle(a.title, b.title) && shareAuthor(a.creator, b.creator);
+
+/// Whether two creator lines ("James Clavell", "A, B") name an author in
+/// common, case and punctuation aside; two without an author count as
+/// sharing one.
+bool shareAuthor(String? a, String? b) {
+  final left = _authorKeys(a);
+  final right = _authorKeys(b);
   if (left.isEmpty || right.isEmpty) return left.isEmpty && right.isEmpty;
   return left.any(right.contains);
+}
+
+/// The edition a book's cover is of, as Add / edit entry › Pick a cover
+/// captions it: a tie-in from the title ("Shōgun (TV Tie-in)" is a "TV
+/// tie-in"), else Open Library's physical format ("Mass Market Paperback"
+/// reads "Paperback"), else [fallback] ("Ebook" for Apple Books). Null
+/// when nothing says.
+String? editionLabel(String title, {String? format, String? fallback}) {
+  if (RegExp(r'tie[- ]?in', caseSensitive: false).hasMatch(title)) {
+    if (RegExp(
+      r'\b(tv|television|series|netflix|hbo|fx)\b',
+      caseSensitive: false,
+    ).hasMatch(title)) {
+      return 'TV tie-in';
+    }
+    if (RegExp(r'\b(movie|film)\b', caseSensitive: false).hasMatch(title)) {
+      return 'Movie tie-in';
+    }
+    return 'Tie-in';
+  }
+  final f = format?.toLowerCase() ?? '';
+  if (f.contains('hardcover') || f.contains('hardback')) return 'Hardcover';
+  if (f.contains('paperback') || f.contains('softcover')) return 'Paperback';
+  if (f.contains('audio')) return 'Audiobook';
+  if (f.contains('ebook') || f.contains('e-book') || f.contains('electronic')) {
+    return 'Ebook';
+  }
+  return fallback;
 }
 
 Set<String> _authorKeys(String? creator) => {

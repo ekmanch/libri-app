@@ -214,4 +214,45 @@ void main() {
     expect(service.sourceOf('igdb:1009'), isNull);
     expect(LookupMatch.providerOf('deezer:album:1'), 'deezer');
   });
+
+  test('cover choices: every source in turn, with a cover, one of each image; '
+      'failures in the result', () async {
+    final a = _Covers('a', ['x', 'y', null, 'x']);
+    final b = _Covers('b', ['y', 'z']);
+    final down = _Covers('c', const [], failure: LookupFailure.offline);
+    final result = await LookupService([
+      a,
+      b,
+      down,
+    ]).coverChoices(' Dune ', type: MediaType.books, creator: 'Frank Herbert');
+    expect(result.matches.map((m) => m.coverUrl), ['x', 'y', 'z']);
+    expect(result.matches.map((m) => m.source), ['a:0', 'a:1', 'b:1']);
+    expect(a.asked, ['Dune:Frank Herbert']);
+    expect(result.failures, [LookupFailure.offline]);
+    expect(result.partlyFailed, isTrue);
+  });
+}
+
+/// Answers [coverChoices] with one match per URL in [covers] (null for a
+/// match without a cover), or throws [failure].
+class _Covers extends _Stub {
+  _Covers(String id, this.covers, {super.failure})
+    : super(id, {MediaType.books});
+
+  final List<String?> covers;
+  final asked = <String>[];
+
+  @override
+  Future<List<LookupMatch>> coverChoices(
+    String title, {
+    required MediaType type,
+    String? creator,
+  }) async {
+    asked.add('$title:$creator');
+    if (failure case final failure?) throw LookupException(failure);
+    return [
+      for (final (i, url) in covers.indexed)
+        LookupMatch(type: type, title: title, source: '$id:$i', coverUrl: url),
+    ];
+  }
 }
