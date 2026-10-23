@@ -34,9 +34,11 @@ String stripHtml(String html) {
 /// Whether two titles are the same once case, punctuation, diacritics and
 /// a leading "The" are set aside: "Salem's Lot" is "Salems lot", "The
 /// Mummy" is "Mummy".
-bool sameTitle(String a, String b) => _titleKey(a) == _titleKey(b);
+bool sameTitle(String a, String b) => titleKey(a) == titleKey(b);
 
-String _titleKey(String title) {
+/// What [sameTitle] compares: the title lowercased, without punctuation,
+/// spaces or a leading "The". Two titles with the same key are the same.
+String titleKey(String title) {
   var key = title
       .toLowerCase()
       .replaceAll(RegExp(r"['’]"), '')
@@ -65,7 +67,7 @@ bool sameLooseTitle(String a, String b) =>
 /// The key a stored track rating is matched to a listed track by, when
 /// their ids differ: the title without case, punctuation or an edition
 /// note.
-String trackTitleKey(String title) => _titleKey(looseTitle(title));
+String trackTitleKey(String title) => titleKey(looseTitle(title));
 
 /// The one hit for an entry: the same title in the same year; else the
 /// same title a year off (a festival run, a late release); else, when no

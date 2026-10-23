@@ -17,6 +17,7 @@ import '../../widgets/page_header.dart';
 import '../../widgets/pinned_sliver.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/segmented_control.dart';
+import '../entry/series.dart';
 import '../music/music_tab.dart';
 import '../music/artist_screen.dart';
 import '../music/music_type_body.dart';
@@ -32,7 +33,6 @@ import '../shell/floating_nav_bar.dart';
 import 'active_plan_card.dart';
 import 'entry_list_body.dart';
 import 'entry_list_views.dart';
-import 'entry_sections.dart';
 import 'filter_sheet.dart';
 import 'home_return_provider.dart';
 import 'home_type_provider.dart';
@@ -41,6 +41,7 @@ import 'library_filter_provider.dart';
 import 'library_sort.dart';
 import 'library_search.dart';
 import 'search_screen.dart';
+import 'series_groups.dart';
 import 'sort_sheet.dart';
 import 'view_menu.dart';
 
@@ -511,7 +512,9 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       controller: _scroll,
       leadingSlivers: [...header, segments, count],
       pinnedExtent: countExtent,
+      groupSeries: groupsSeriesFor(status),
       onTap: (entry) => widget.onOpenEntry?.call(entry),
+      onTapSeries: (group) => openSeriesPage(context, group.parts.first.id),
     );
   }
 
@@ -531,8 +534,6 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       filter.apply(library.entries),
       prefs.filteredSort,
     );
-    final types = matching.map((e) => e.type).toSet();
-    final byType = sectionEntriesByType(matching, colors.forType);
 
     final chips = SliverToBoxAdapter(
       child: Padding(
@@ -605,6 +606,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         ),
       ),
     );
+    final types = matching.map((e) => e.type).toSet();
     return EntryListBody(
       key: ValueKey(filter),
       entries: matching,
@@ -614,12 +616,13 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       // Filtered results, one type). Several: one section per type with a dot
       // rail (Library › Filtered results, several types).
       color: types.length == 1 ? colors.forType(types.single) : colors.muted,
-      railSections: types.length == 1 ? null : byType,
-      plainSections: byType,
+      typeColors: colors.forType,
       controller: _scroll,
       leadingSlivers: [...header, chips, count],
       pinnedExtent: countExtent,
+      groupSeries: groupsSeriesForFilter(filter.statuses),
       onTap: (entry) => widget.onOpenEntry?.call(entry),
+      onTapSeries: (group) => openSeriesPage(context, group.parts.first.id),
     );
   }
 }

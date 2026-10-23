@@ -23,6 +23,12 @@ const _$EntryStatusEnumMap = {
   EntryStatus.dnf: 'dnf',
 };
 
+SetSeriesCover _$SetSeriesCoverFromJson(Map<String, dynamic> json) =>
+    SetSeriesCover(json['entryId'] as String);
+
+Map<String, dynamic> _$SetSeriesCoverToJson(SetSeriesCover instance) =>
+    <String, dynamic>{'entryId': instance.entryId};
+
 SetKind _$SetKindFromJson(Map<String, dynamic> json) => SetKind(
   json['entryId'] as String,
   $enumDecode(_$EntryKindEnumMap, json['kind']),

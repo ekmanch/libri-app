@@ -12,6 +12,9 @@ import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/entry/entry_details_sheet.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/series.dart';
+import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/repository/fixture_library_repository.dart';
+import 'package:library_app/widgets/app_buttons.dart';
 import 'package:library_app/widgets/chips.dart';
 
 import '../../helpers/pump_app.dart';
@@ -26,6 +29,25 @@ class _Opener extends StatelessWidget {
       body: Center(
         child: TextButton(
           onPressed: () => showEntryDetailsSheet(context, entryId),
+          child: const Text('Open'),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pushes the series page for the entry, as a series row of the library
+/// list does.
+class _PageOpener extends StatelessWidget {
+  const _PageOpener(this.entryId);
+  final String entryId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => openSeriesPage(context, entryId),
           child: const Text('Open'),
         ),
       ),
@@ -294,5 +316,114 @@ void main() {
   testWidgets('an entry in no series has no section', (tester) async {
     await open(tester, 'movies/the-mummy-1999');
     expect(find.text('SERIES'), findsNothing);
+  });
+
+  group('the series page from a series row', () {
+    Future<ProviderContainer> openPage(WidgetTester tester) async {
+      final container = await pumpApp(
+        tester,
+        const _PageOpener(_fellowship),
+        lookupOverrides: fakeLookupOverrides(),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('lists every part with no "this one", and a Cover button', (
+      tester,
+    ) async {
+      await openPage(tester);
+      expect(find.byType(AllSeriesScreen), findsOneWidget);
+      expect(find.text('The Lord of the Rings'), findsOneWidget);
+      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('This one'), findsNothing);
+      expect(
+        find.bySemanticsLabel('Open The Fellowship of the Ring, done'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Open The Two Towers, want'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Add The Return of the King'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(AppButton, 'Cover'), findsOneWidget);
+    });
+
+    testWidgets('a part opens its details sheet; closing it comes back', (
+      tester,
+    ) async {
+      await openPage(tester);
+      await tester.tap(find.bySemanticsLabel('Open The Two Towers, want'));
+      await tester.pumpAndSettle();
+      expect(find.byType(EntryDetailsSheet), findsOneWidget);
+      expect(find.text('MOVIE · 2002'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(EntryDetailsSheet), findsNothing);
+      expect(find.byType(AllSeriesScreen), findsOneWidget);
+      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+    });
+
+    testWidgets('Cover picks the part whose cover stands for the series', (
+      tester,
+    ) async {
+      final container = await openPage(tester);
+      await tester.tap(find.widgetWithText(AppButton, 'Cover'));
+      await tester.pumpAndSettle();
+      expect(find.text('Series cover'), findsOneWidget);
+      expect(
+        find.text('Shown for The Lord of the Rings in your library'),
+        findsOneWidget,
+      );
+      expect(find.text('First in the series'), findsOneWidget);
+      expect(find.text('Your pick'), findsNothing);
+      await tester.tap(
+        find.bySemanticsLabel('The Lord of the Rings: The Two Towers'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('First in the series'), findsNothing);
+      expect(find.text('Your pick'), findsOneWidget);
+      await tester.tap(find.widgetWithText(AppButton, 'Done'));
+      await tester.pumpAndSettle();
+      expect(find.text('Series cover'), findsNothing);
+      final repository =
+          container.read(libraryRepositoryProvider) as FixtureLibraryRepository;
+      expect(repository.current!.entryById(_towers)!.series!.cover, isTrue);
+      expect(repository.current!.entryById(_fellowship)!.series!.cover, isNull);
+
+      // Opened again, the pick is ringed; Done without a change applies
+      // nothing.
+      await tester.tap(find.widgetWithText(AppButton, 'Cover'));
+      await tester.pumpAndSettle();
+      expect(find.text('Your pick'), findsOneWidget);
+      await tester.tap(find.widgetWithText(AppButton, 'Done'));
+      await tester.pumpAndSettle();
+      expect(repository.current!.entryById(_towers)!.series!.cover, isTrue);
+    });
+
+    testWidgets('with one part in the library there is no Cover button', (
+      tester,
+    ) async {
+      final library = loadFixture();
+      await pumpApp(
+        tester,
+        const _PageOpener(_fellowship),
+        library: library.copyWith(
+          entries: [
+            for (final e in library.entries)
+              if (e.id != _towers) e,
+          ],
+        ),
+        lookupOverrides: fakeLookupOverrides(),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text('3 movies · 1 in your library'), findsOneWidget);
+      expect(find.widgetWithText(AppButton, 'Cover'), findsNothing);
+    });
   });
 }

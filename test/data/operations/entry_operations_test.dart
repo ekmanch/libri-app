@@ -11,6 +11,7 @@ import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/series.dart';
 
 void main() {
   test('SetStatus changes one entry in place', () {
@@ -264,5 +265,60 @@ void main() {
     expect(after.seasons!.first.status, EntryStatus.done);
     expect(after.seasons!.last.status, isNull);
     expect(after.status, EntryStatus.done);
+  });
+
+  group('SetSeriesCover', () {
+    final one = mummy.copyWith(
+      id: 'movies/kfp1',
+      title: 'Kung Fu Panda',
+      series: const Series(name: 'Kung Fu Panda', number: 1),
+    );
+    final two = mummy.copyWith(
+      id: 'movies/kfp2',
+      title: 'Kung Fu Panda 2',
+      series: const Series(name: 'Kung Fu Panda', number: 2, cover: true),
+    );
+    final three = mummy.copyWith(
+      id: 'movies/kfp3',
+      title: 'Kung Fu Panda 3',
+      series: const Series(name: 'kung fu panda', number: 3),
+    );
+    final book = mummy.copyWith(
+      id: 'books/kfp',
+      type: MediaType.books,
+      title: 'Kung Fu Panda: The Novel',
+      series: const Series(name: 'Kung Fu Panda', number: 1, cover: true),
+    );
+    final library = sampleLibrary().copyWith(
+      entries: [mummy, one, two, three, book],
+    );
+
+    test('marks the part and clears the rest of its series, same type', () {
+      final result = const SetSeriesCover('movies/kfp3').apply(library);
+      expect(result.entryById('movies/kfp1')!.series!.cover, isNull);
+      expect(result.entryById('movies/kfp2')!.series!.cover, isNull);
+      expect(result.entryById('movies/kfp3')!.series!.cover, isTrue);
+      // A book series of the same name is another series.
+      expect(result.entryById('books/kfp')!.series!.cover, isTrue);
+      expect(result.entries.map((e) => e.id), library.entries.map((e) => e.id));
+    });
+
+    test('part 1 picked: no part is marked, so part 1 stands in', () {
+      final result = const SetSeriesCover('movies/kfp1').apply(library);
+      expect(result.entryById('movies/kfp1')!.series!.cover, isTrue);
+      expect(result.entryById('movies/kfp2')!.series!.cover, isNull);
+    });
+
+    test('an entry in no series, or missing, changes nothing', () {
+      expect(SetSeriesCover(mummy.id).apply(library), library);
+      expect(const SetSeriesCover('nope').apply(library), library);
+    });
+
+    test('summarizes itself', () {
+      expect(
+        const SetSeriesCover('movies/kfp2').summary(library),
+        'Use Kung Fu Panda 2 as the cover of its series',
+      );
+    });
   });
 }

@@ -9,7 +9,9 @@ import '../../widgets/cover_image.dart';
 /// One cell of the grid with covers (Library › Movies, grid with covers; Long
 /// grid: fast-scroll thumb): the cover, a title of up to two lines and the
 /// year. A check badge on the cover means Done; the caption never shows a
-/// status.
+/// status. A series grouped as one tile shows one part's cover with a stack
+/// badge and the count ([seriesCount]), and the check when every part is
+/// done ([done]).
 class CoverGridTile extends StatelessWidget {
   const CoverGridTile({
     super.key,
@@ -18,8 +20,11 @@ class CoverGridTile extends StatelessWidget {
     this.today,
     this.title,
     this.caption,
+    this.seriesCount,
+    this.done,
   });
 
+  /// The entry, or the part whose cover stands for a series.
   final Entry entry;
   final VoidCallback? onTap;
   final DateTime? today;
@@ -29,6 +34,12 @@ class CoverGridTile extends StatelessWidget {
 
   /// Shown instead of the year, e.g. the artist for an album.
   final String? caption;
+
+  /// The parts in a series tile's stack badge; null for a plain entry.
+  final int? seriesCount;
+
+  /// Whether to draw the check; the entry's status decides when null.
+  final bool? done;
 
   /// Fixed line boxes, so the grid can size its rows exactly whatever the
   /// platform's font metrics or text scale.
@@ -52,7 +63,7 @@ class CoverGridTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final done = entry.status == EntryStatus.done;
+    final done = this.done ?? entry.status == EntryStatus.done;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -84,6 +95,43 @@ class CoverGridTile extends StatelessWidget {
                           size: 14,
                           color: theme.colorScheme.primary,
                           semanticLabel: 'Done',
+                        ),
+                      ),
+                    ),
+                  ),
+                if (seriesCount case final count?)
+                  Positioned(
+                    left: 6,
+                    bottom: 6,
+                    child: Semantics(
+                      label: 'Series, $count',
+                      excludeSemantics: true,
+                      child: Container(
+                        height: 22,
+                        padding: const EdgeInsets.symmetric(horizontal: 7),
+                        decoration: BoxDecoration(
+                          color: colors.coverBadge,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            StrokeIcon(
+                              AppIcons.stack,
+                              size: 13,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '$count',
+                              textScaler: TextScaler.noScaling,
+                              style: theme.textTheme.labelSmall!.copyWith(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

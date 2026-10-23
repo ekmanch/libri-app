@@ -10,12 +10,17 @@ import '../../data/lookup/text_clean.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/media_type.dart';
 import '../../theme/app_theme.dart';
+import '../../data/operations/operations.dart';
+import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/chips.dart';
+import '../../widgets/cover_image.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/section_heading.dart';
+import '../../widgets/sheet_frame.dart';
+import 'entry_details_sheet.dart';
 import 'new_entry_screen.dart';
 
 /// One row of the Series section (Library › Movie in a series; Book in a
@@ -42,6 +47,16 @@ class SeriesRow {
   MediaType.movies || MediaType.anime => ('movie', 'movies'),
   MediaType.shows || MediaType.music => ('part', 'parts'),
 };
+
+/// The series name as the library shows it: TMDB names its collections
+/// "The Lord of the Rings Collection"; the row says "The Lord of the Rings".
+String seriesDisplayName(String name) {
+  final match = RegExp(
+    r'^(.+?)\s+collection$',
+    caseSensitive: false,
+  ).firstMatch(name.trim());
+  return match?.group(1) ?? name.trim();
+}
 
 /// A part's title without the series name in front of it: "The Fellowship
 /// of the Ring" for "The Lord of the Rings: The Fellowship of the Ring",
@@ -407,14 +422,34 @@ Future<String?> openAllSeries(BuildContext context, String entryId) =>
       MaterialPageRoute(builder: (_) => AllSeriesScreen(entryId: entryId)),
     );
 
+/// Opens the series page for a series row of the library list (Library ›
+/// Series page (from a series row)), by one of its parts in the library.
+Future<void> openSeriesPage(BuildContext context, String entryId) =>
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => AllSeriesScreen(entryId: entryId, fromList: true),
+      ),
+    );
+
 /// Every part of a series, full screen (Library › All volumes in a series):
 /// the series name with a back arrow, "43 volumes · 15 in your library", then
 /// the rows of [SeriesPartRow], opened scrolled to this one with a few above
 /// it in view. Tapping a part in the library pops with its id.
+///
+/// Opened from a series row of the library list ([fromList]; Library ›
+/// Series page (from a series row)) it is the series page instead: no part
+/// is "this one", a part in the library opens its details sheet and closing
+/// it comes back here, and with two or more parts in the library a Cover
+/// button picks the part whose cover stands for the series in the list.
 class AllSeriesScreen extends ConsumerStatefulWidget {
-  const AllSeriesScreen({super.key, required this.entryId});
+  const AllSeriesScreen({
+    super.key,
+    required this.entryId,
+    this.fromList = false,
+  });
 
   final String entryId;
+  final bool fromList;
 
   @override
   ConsumerState<AllSeriesScreen> createState() => _AllSeriesScreenState();
@@ -434,6 +469,14 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
     });
   }
 
+  Future<void> _open(String id) async {
+    if (widget.fromList) {
+      await showEntryDetailsSheet(context, id);
+      return;
+    }
+    Navigator.pop(context, id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -449,9 +492,10 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
             library: library?.entries ?? const [],
             parts: parts,
           );
-    if (rows.isNotEmpty) _scrollToCurrent();
+    if (rows.isNotEmpty && !widget.fromList) _scrollToCurrent();
     final (_, many) = seriesNouns(entry?.type ?? MediaType.movies);
-    final owned = rows.where((r) => r.owned).length;
+    final owned = [for (final r in rows) ?r.entry];
+    final name = series?.name ?? 'Series';
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -459,14 +503,31 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             PageHeader(
-              title: series?.name ?? 'Series',
+              title: widget.fromList ? seriesDisplayName(name) : name,
               onBack: () => Navigator.pop(context),
+              actions: [
+                if (widget.fromList && owned.length >= 2)
+                  Padding(
+                    // Clear of the title, which gives way before it.
+                    padding: const EdgeInsets.only(left: 12),
+                    child: AppButton(
+                      label: 'Cover',
+                      kind: AppButtonKind.outline,
+                      compact: true,
+                      onPressed: () => showSeriesCoverSheet(
+                        context,
+                        seriesName: seriesDisplayName(name),
+                        parts: owned,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             // Under the title, past the back arrow, like all seasons.
             Padding(
               padding: const EdgeInsets.fromLTRB(68, 0, 20, 8),
               child: Text(
-                '${rows.length} $many · $owned in your library',
+                '${rows.length} $many · ${owned.length} in your library',
                 style: theme.textTheme.bodySmall!.copyWith(
                   fontStyle: FontStyle.normal,
                   fontSize: 13.5,
@@ -484,18 +545,212 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
                         children: [
                           for (final row in rows)
                             SeriesPartRow(
-                              key: row.entry?.id == entry.id ? _current : null,
+                              key: !widget.fromList && row.entry?.id == entry.id
+                                  ? _current
+                                  : null,
                               row: row,
                               series: series.name,
                               type: entry.type,
-                              current: row.entry?.id == entry.id,
-                              onOpen: (id) => Navigator.pop(context, id),
+                              current:
+                                  !widget.fromList && row.entry?.id == entry.id,
+                              onOpen: _open,
                             ),
                         ],
                       ),
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The part whose cover stands for a series in the library list: the one
+/// marked `cover`, else the first of [parts] (part 1, in series order).
+Entry seriesCoverEntry(List<Entry> parts) =>
+    parts.firstWhere((p) => p.series?.cover == true, orElse: () => parts.first);
+
+/// Picks the part whose cover stands for the series in the library list
+/// (Library › Series page (from a series row): Series cover): the covers of
+/// [parts], the parts in the library in series order, with the current one
+/// ringed; Done applies [SetSeriesCover] when another was picked.
+Future<void> showSeriesCoverSheet(
+  BuildContext context, {
+  required String seriesName,
+  required List<Entry> parts,
+}) => showAppSheet<void>(
+  context,
+  builder: (context) => SeriesCoverSheet(seriesName: seriesName, parts: parts),
+);
+
+class SeriesCoverSheet extends ConsumerStatefulWidget {
+  const SeriesCoverSheet({
+    super.key,
+    required this.seriesName,
+    required this.parts,
+  });
+
+  final String seriesName;
+  final List<Entry> parts;
+
+  @override
+  ConsumerState<SeriesCoverSheet> createState() => _SeriesCoverSheetState();
+}
+
+class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
+  late String _picked = seriesCoverEntry(widget.parts).id;
+
+  Future<void> _done() async {
+    final navigator = Navigator.of(context);
+    if (_picked != seriesCoverEntry(widget.parts).id) {
+      await ref.read(libraryRepositoryProvider).apply(SetSeriesCover(_picked));
+    }
+    navigator.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    return SheetFrame(
+      scrollable: true,
+      header: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Series cover', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 2),
+                Text(
+                  'Shown for ${widget.seriesName} in your library',
+                  style: theme.textTheme.bodySmall!.copyWith(
+                    fontStyle: FontStyle.normal,
+                    color: colors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          AppButton(label: 'Done', compact: true, onPressed: _done),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 12.0;
+              final width = (constraints.maxWidth - 2 * gap) / 3;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final (i, part) in widget.parts.indexed)
+                    _CoverChoice(
+                      entry: part,
+                      width: width,
+                      picked: part.id == _picked,
+                      label: part.id != _picked
+                          ? null
+                          : i == 0
+                          ? 'First in the series'
+                          : 'Your pick',
+                      onTap: () => setState(() => _picked = part.id),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Only parts in your library can be the cover. The first in the '
+            'series is used until you pick another.',
+            style: theme.textTheme.bodySmall!.copyWith(
+              fontStyle: FontStyle.normal,
+              fontSize: 13,
+              color: colors.muted,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// One cover to pick: ringed in the accent when picked, the title under
+/// it, and "First in the series" or "Your pick" under the picked one.
+class _CoverChoice extends StatelessWidget {
+  const _CoverChoice({
+    required this.entry,
+    required this.width,
+    required this.picked,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Entry entry;
+  final double width;
+  final bool picked;
+  final String? label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    return Semantics(
+      button: true,
+      selected: picked,
+      label: entry.title,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          width: width,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    width: 2,
+                    color: picked
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
+                  ),
+                ),
+                child: CoverImage(entry: entry, width: width - 8, fontSize: 11),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                entry.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium!.copyWith(fontSize: 13),
+              ),
+              if (label case final label?) ...[
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall!.copyWith(
+                    fontStyle: FontStyle.normal,
+                    fontSize: 12,
+                    color: colors.muted,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

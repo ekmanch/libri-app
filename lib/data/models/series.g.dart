@@ -9,9 +9,11 @@ part of 'series.dart';
 _Series _$SeriesFromJson(Map<String, dynamic> json) => _Series(
   name: json['name'] as String,
   number: (json['number'] as num?)?.toInt(),
+  cover: json['cover'] as bool?,
 );
 
 Map<String, dynamic> _$SeriesToJson(_Series instance) => <String, dynamic>{
   'name': instance.name,
   'number': instance.number,
+  'cover': ?instance.cover,
 };

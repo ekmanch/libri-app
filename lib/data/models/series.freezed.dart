@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Series {
 
- String get name; int? get number;
+ String get name; int? get number;@JsonKey(includeIfNull: false) bool? get cover;
 /// Create a copy of Series
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $SeriesCopyWith<Series> get copyWith => _$SeriesCopyWithImpl<Series>(this as Ser
 @override
 bool operator ==(Object other) {
   final _this = this as Series;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Series&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.number, _this.number) || other.number == _this.number));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Series&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.number, _this.number) || other.number == _this.number)&&(identical(other.cover, _this.cover) || other.cover == _this.cover));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Series;
-  return Object.hash(runtimeType,_this.name,_this.number);
+  return Object.hash(runtimeType,_this.name,_this.number,_this.cover);
 }
 
 @override
 String toString() {
   final _this = this as Series;
-  return 'Series(name: ${_this.name}, number: ${_this.number})';
+  return 'Series(name: ${_this.name}, number: ${_this.number}, cover: ${_this.cover})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $SeriesCopyWith<$Res>  {
   factory $SeriesCopyWith(Series value, $Res Function(Series) _then) = _$SeriesCopyWithImpl;
 @useResult
 $Res call({
- String name, int? number
+ String name, int? number,@JsonKey(includeIfNull: false) bool? cover
 });
 
 
@@ -71,11 +71,12 @@ class _$SeriesCopyWithImpl<$Res>
 
 /// Create a copy of Series
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? number = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? number = freezed,Object? cover = freezed,}) {
   return _then(Series(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,cover: freezed == cover ? _self.cover : cover // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
@@ -160,10 +161,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  int? number)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  int? number, @JsonKey(includeIfNull: false)  bool? cover)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Series() when $default != null:
-return $default(_that.name,_that.number);case _:
+return $default(_that.name,_that.number,_that.cover);case _:
   return orElse();
 
 }
@@ -181,10 +182,10 @@ return $default(_that.name,_that.number);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  int? number)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  int? number, @JsonKey(includeIfNull: false)  bool? cover)  $default,) {final _that = this;
 switch (_that) {
 case _Series():
-return $default(_that.name,_that.number);case _:
+return $default(_that.name,_that.number,_that.cover);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -201,10 +202,10 @@ return $default(_that.name,_that.number);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  int? number)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  int? number, @JsonKey(includeIfNull: false)  bool? cover)?  $default,) {final _that = this;
 switch (_that) {
 case _Series() when $default != null:
-return $default(_that.name,_that.number);case _:
+return $default(_that.name,_that.number,_that.cover);case _:
   return null;
 
 }
@@ -216,11 +217,12 @@ return $default(_that.name,_that.number);case _:
 @JsonSerializable()
 
 class _Series implements Series {
-  const _Series({required this.name, this.number});
+  const _Series({required this.name, this.number, @JsonKey(includeIfNull: false) this.cover});
   factory _Series.fromJson(Map<String, dynamic> json) => _$SeriesFromJson(json);
 
 @override final  String name;
 @override final  int? number;
+@override@JsonKey(includeIfNull: false) final  bool? cover;
 
 /// Create a copy of Series
 /// with the given fields replaced by the non-null parameter values.
@@ -235,18 +237,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Series&&(identical(other.name, name) || other.name == name)&&(identical(other.number, number) || other.number == number));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Series&&(identical(other.name, name) || other.name == name)&&(identical(other.number, number) || other.number == number)&&(identical(other.cover, cover) || other.cover == cover));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,name,number);
+    return Object.hash(runtimeType,name,number,cover);
 }
 
 @override
 String toString() {
-    return 'Series(name: $name, number: $number)';
+    return 'Series(name: $name, number: $number, cover: $cover)';
 }
 
 
@@ -257,7 +259,7 @@ abstract mixin class _$SeriesCopyWith<$Res> implements $SeriesCopyWith<$Res> {
   factory _$SeriesCopyWith(_Series value, $Res Function(_Series) _then) = __$SeriesCopyWithImpl;
 @override @useResult
 $Res call({
- String name, int? number
+ String name, int? number,@JsonKey(includeIfNull: false) bool? cover
 });
 
 
@@ -274,11 +276,12 @@ class __$SeriesCopyWithImpl<$Res>
 
 /// Create a copy of Series
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? number = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? number = freezed,Object? cover = freezed,}) {
   return _then(_Series(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,cover: freezed == cover ? _self.cover : cover // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 

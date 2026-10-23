@@ -46,6 +46,8 @@ import 'package:library_app/widgets/segmented_control.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/entry_row.dart';
+import 'package:library_app/features/entry/tag_picker_sheet.dart';
+import 'package:library_app/widgets/app_buttons.dart';
 import 'package:library_app/widgets/tag_group.dart';
 
 /// Wraps the whole app, including sheets, dialogs and menus in the root
@@ -412,6 +414,91 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await closeSheet(tester);
 }
 
+/// A series as one row of a long type list (Library › Movies, text view;
+/// list and grid with covers), the series page it opens (Library › Series
+/// page (from a series row)) and its Series cover sheet, at [scale]. The
+/// movies are padded to three screens, so The Lord of the Rings' two parts
+/// group. Captures are prefixed "large-text-" above 1.
+Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  final long = padForLongLists(
+    decodeLibrary(
+      await File(FixtureLibraryRepository.assetPath).readAsString(),
+    ),
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(
+          FixtureLibraryRepository(loadJson: () async => encodeLibrary(long)),
+        ),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  final row = find.text('The Lord of the Rings');
+  Future<void> toRow() async {
+    await tester.scrollUntilVisible(row, 200, scrollable: homeList());
+    await tester.pumpAndSettle();
+  }
+
+  // Title order: the row sits where its first part would, among the T's.
+  await pickChip(tester, 'Movies');
+  await tester.tap(find.text('Newest added'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Title, A to Z'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  await toRow();
+  await capture(tester, '${prefix}l4-series-row-text');
+  await revealHeader(tester);
+  await pickView(tester, 'List with covers');
+  await toRow();
+  await waitForImages(tester, count: 3);
+  await capture(tester, '${prefix}l4-series-row-list');
+  await revealHeader(tester);
+  await pickView(tester, 'Grid with covers');
+  await toRow();
+  // The scroll stops with the tile's title in view; bring its cover and
+  // badge down too, and let the fast-scroll thumb fade.
+  await tester.drag(homeList(), const Offset(0, 260));
+  await tester.pump(const Duration(seconds: 2));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 3);
+  await capture(tester, '${prefix}l4-series-row-grid');
+
+  // Library › Series page (from a series row), then its cover sheet.
+  await tester.tap(row);
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 0);
+  await capture(tester, '${prefix}l5-series-page');
+  await tester.tap(find.widgetWithText(AppButton, 'Cover'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 2);
+  await capture(tester, '${prefix}l5-series-cover');
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await revealHeader(tester);
+  await pickView(tester, 'Text');
+  await tester.tap(find.text('Title, A to Z'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Newest added'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+}
+
 /// Library › Movie in a series (The Lord of the Rings), Book in a long series
 /// (Berserk 43) and All volumes in a series at [scale], with the Series and
 /// Number fields of Add / edit entry and an anime's kind control. Captures
@@ -603,6 +690,14 @@ void main() {
     await walkSeries(tester, scale: 1.3);
   });
 
+  testWidgets('series rows', (tester) async {
+    await walkSeriesRows(tester);
+  });
+
+  testWidgets('series rows at a larger text size', (tester) async {
+    await walkSeriesRows(tester, scale: 1.3);
+  });
+
   testWidgets('library screens in dark and light', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -766,6 +861,22 @@ void main() {
     await tester.longPress(pickerChip('Directors', '#clint-eastwood'));
     await tester.pumpAndSettle();
     await capture(tester, 'd16-tag-categories');
+    await tester.tap(dialogText('Cancel'));
+    await tester.pumpAndSettle();
+    // A one-category tag's long press moves it to another such group.
+    final otherGroup = find.descendant(
+      of: find.byType(TagPickerSheet),
+      matching: find.text('Other'),
+    );
+    await tester.ensureVisible(otherGroup);
+    await tester.pumpAndSettle();
+    await tester.tap(otherGroup);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(pickerChip('Other', '#favorite'));
+    await tester.pumpAndSettle();
+    await tester.longPress(pickerChip('Other', '#favorite'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'd16-tag-move');
     await tester.tap(dialogText('Cancel'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'hilary');

@@ -18,6 +18,7 @@ void main() {
     SetRating(mummy.id, 7),
     SetRating(mummy.id, null),
     SetKind(dirt.id, EntryKind.song),
+    SetSeriesCover(mummy.id),
     AddEntry(dirt.copyWith(id: 'music/new-dirt-alice-in-chains')),
     UpdateEntry(mummy.copyWith(note: 'Rewatch with the kids')),
     DeleteEntry(dirt.id),

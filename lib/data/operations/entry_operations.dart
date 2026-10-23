@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import '../lookup/text_clean.dart';
 import '../models/entry.dart';
 import '../models/entry_id.dart';
 import '../models/entry_kind.dart';
@@ -107,6 +108,49 @@ class SetStatus extends LibraryOperation {
   @override
   String summary(Library before) =>
       'Mark ${_title(before, entryId)} as ${_statusWord(status)}';
+}
+
+/// Makes the entry's cover the one that stands for its series in the
+/// library list (Library › Series page (from a series row): Cover): sets
+/// `cover` on the entry's `series` and clears it on every other part of the
+/// same series (same type, same name). Part 1 stands in when no part is
+/// marked, so marking part 1 just clears the rest. An entry in no series,
+/// or a missing one, changes nothing.
+@JsonSerializable()
+class SetSeriesCover extends LibraryOperation {
+  const SetSeriesCover(this.entryId);
+
+  factory SetSeriesCover.fromJson(Map<String, Object?> json) =>
+      _$SetSeriesCoverFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetSeriesCoverToJson(this);
+
+  final String entryId;
+
+  @override
+  Library apply(Library library) {
+    final entry = library.entryById(entryId);
+    final series = entry?.series;
+    if (entry == null || series == null) return library;
+    return library.copyWith(
+      entries: [
+        for (final e in library.entries)
+          if (e.id == entryId)
+            e.copyWith(series: series.copyWith(cover: true))
+          else if (e.type == entry.type &&
+              e.series != null &&
+              e.series!.cover == true &&
+              sameTitle(e.series!.name, series.name))
+            e.copyWith(series: e.series!.copyWith(cover: null))
+          else
+            e,
+      ],
+    );
+  }
+
+  @override
+  String summary(Library before) =>
+      'Use ${_title(before, entryId)} as the cover of its series';
 }
 
 /// Sets an anime's kind, series or movie, when the lookup tells the daily

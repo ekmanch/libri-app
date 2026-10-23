@@ -26,6 +26,8 @@ import 'package:library_app/features/sync/token_expiry_dialog.dart';
 import 'package:library_app/main.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/features/entry/tag_picker_sheet.dart';
+import 'package:library_app/widgets/app_buttons.dart';
 import 'package:library_app/widgets/tag_group.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
 
@@ -239,6 +241,29 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await tester.longPress(chip);
     await tester.pumpAndSettle();
     await a.check('Add / edit entry › Tag categories (long press)');
+    await a.tap(
+      find.descendant(
+        of: find.byType(AppDialog),
+        matching: find.text('Cancel'),
+      ),
+    );
+    // A one-category tag's long press offers the other such groups.
+    await a.tap(
+      find.descendant(
+        of: find.byType(TagPickerSheet),
+        matching: find.text('Other'),
+      ),
+    );
+    final favorite = find.descendant(
+      of: find.widgetWithText(TagGroup, 'Other'),
+      matching: find.widgetWithText(PillChip, '#favorite'),
+    );
+    await a.reveal(favorite);
+    await tester.ensureVisible(favorite);
+    await tester.pumpAndSettle();
+    await tester.longPress(favorite);
+    await tester.pumpAndSettle();
+    await a.check('Add / edit entry › Move a one-category tag (long press)');
     await a.tap(
       find.descendant(
         of: find.byType(AppDialog),
@@ -618,8 +643,34 @@ void main() {
         await tester.enterText(find.byType(TextField).last, 'le');
         await tester.pumpAndSettle();
         await audit.check('Library › Filter: all Authors, searching');
+        await audit.back();
+        await audit.closeSheet();
       },
     );
+    // A long movie list groups The Lord of the Rings' two parts as one row,
+    // which opens the series page and its cover sheet.
+    await audit.step('Library › Series row, series page and cover', () async {
+      await audit.pickChip('Movies');
+      // The row sits where its newest part would, well down the list.
+      final row = find.text('The Lord of the Rings');
+      await tester.scrollUntilVisible(
+        row,
+        300,
+        scrollable: find
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await audit.check('Library › Movies, text view with a series row');
+      await audit.tap(row);
+      await audit.check('Library › Series page (from a series row)');
+      await audit.tap(find.widgetWithText(AppButton, 'Cover'));
+      await audit.check('Library › Series cover');
+      await audit.tap(find.widgetWithText(FilledButton, 'Done'));
+      await audit.back();
+    });
     handle.dispose();
     report.addAll(audit.findings);
     failures.addAll(audit.failures);

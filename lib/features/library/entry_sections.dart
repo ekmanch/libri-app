@@ -7,6 +7,7 @@ import '../../widgets/labels.dart';
 import 'library_filter.dart';
 import 'library_sort.dart';
 import 'sectioned_list_body.dart';
+import 'series_groups.dart';
 
 /// A section of entries; see [ListSection].
 class EntrySection extends ListSection<Entry> {
@@ -138,13 +139,55 @@ EntrySection _keyOf(Entry entry, LibrarySort sort, DateTime now) {
 
 /// Library › Long list: rail by release year to Long grid: fast-scroll thumb:
 /// the jump rail (with its section headers) or the grid's fast-scroll thumb
-/// appears only when the list is at least three screens tall and has two
-/// sections or more.
+/// appears only when the list is at least three screens tall ([isLongList])
+/// and has two sections or more.
 bool showJumpRail({
   required int sectionCount,
   required double contentHeight,
   required double viewportHeight,
-}) => sectionCount >= 2 && contentHeight >= 3 * viewportHeight;
+}) =>
+    sectionCount >= 2 &&
+    isLongList(contentHeight: contentHeight, viewportHeight: viewportHeight);
+
+/// [sectionEntries] for a list of rows (entries and grouped series): a
+/// series row sits in the section its first-sorting part would.
+List<ListSection<LibraryRow>> sectionRows(
+  List<LibraryRow> rows,
+  LibrarySort sort, {
+  DateTime? today,
+}) => _rowSections(
+  rows,
+  sectionEntries([for (final r in rows) r.lead], sort, today: today),
+);
+
+/// [sectionEntriesByType] for a list of rows.
+List<ListSection<LibraryRow>> sectionRowsByType(
+  List<LibraryRow> rows,
+  Color Function(MediaType type) colorOf,
+) => _rowSections(
+  rows,
+  sectionEntriesByType([for (final r in rows) r.lead], colorOf),
+);
+
+/// The sections of the rows' lead entries, with the rows put back in.
+List<ListSection<LibraryRow>> _rowSections(
+  List<LibraryRow> rows,
+  List<EntrySection> sections,
+) {
+  final byLead = {for (final row in rows) row.lead.id: row};
+  return [
+    for (final s in sections)
+      ListSection<LibraryRow>(
+        label: s.label,
+        railLabel: s.railLabel,
+        bubbleLabel: s.bubbleLabel,
+        items: [for (final e in s.entries) byLead[e.id]!],
+        uppercaseHeader: s.uppercaseHeader,
+        color: s.color,
+        dotColor: s.dotColor,
+      ),
+  ];
+}
 
 /// Filtered results with several types (Library › Filtered results, several
 /// types): one section per type, in type order, each with its color for the

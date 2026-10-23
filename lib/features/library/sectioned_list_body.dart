@@ -134,6 +134,20 @@ class SectionedListBody<T> extends StatefulWidget {
   static const thumbHeight = 44.0;
   static const headerHeight = 40.0;
 
+  /// How tall [itemCount] items in [sectionCount] sections are laid out:
+  /// rows and headers in the text and list views, rows of tiles in the
+  /// grid. [rowExtent] is one row's, or one grid row's, height.
+  static double contentHeightOf({
+    required int itemCount,
+    required int sectionCount,
+    required bool grid,
+    required double rowExtent,
+    int gridColumns = 3,
+    double gridTopPadding = 0,
+  }) => grid
+      ? gridTopPadding + (itemCount / gridColumns).ceil() * rowExtent
+      : itemCount * rowExtent + sectionCount * headerHeight;
+
   @override
   State<SectionedListBody<T>> createState() => _SectionedListBodyState<T>();
 }
@@ -277,11 +291,14 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
         final rowExtent = isGrid
             ? widget.gridRowExtent(width)
             : widget.rowExtent;
-        final contentHeight = isGrid
-            ? widget.gridTopPadding +
-                  (count / widget.gridColumns).ceil() * rowExtent
-            : count * rowExtent +
-                  sections.length * SectionedListBody.headerHeight;
+        final contentHeight = SectionedListBody.contentHeightOf(
+          itemCount: count,
+          sectionCount: sections.length,
+          grid: isGrid,
+          rowExtent: rowExtent,
+          gridColumns: widget.gridColumns,
+          gridTopPadding: widget.gridTopPadding,
+        );
         final rail = showJumpRail(
           sectionCount: sections.length,
           contentHeight: contentHeight,

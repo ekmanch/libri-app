@@ -85,6 +85,7 @@ Library padForLongLists(Library library, {int perType = 120}) {
           // tag has entries behind it.
           tags: books ? [authorTags[i % authorTags.length]] : const [],
           tracks: null,
+          series: null,
           seasonalOnly: false,
           creator: music
               ? _artistName(i)

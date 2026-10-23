@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/entry.dart';
+import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/series.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/library/cover_grid_tile.dart';
 import 'package:library_app/features/library/entry_list_body.dart';
 import 'package:library_app/features/library/library_sort.dart';
+import 'package:library_app/features/library/series_groups.dart';
+import 'package:library_app/features/library/series_row.dart';
 import 'package:library_app/features/settings/entry_view.dart';
 import 'package:library_app/theme/app_theme.dart';
+import 'package:library_app/widgets/app_icons.dart';
+import 'package:library_app/widgets/cover_image.dart';
 
 import '../../helpers/sample_library.dart';
 
@@ -28,6 +34,8 @@ Future<void> pumpBody(
   List<Entry> entries, {
   LibrarySort sort = LibrarySort.yearNewest,
   EntryView view = EntryView.text,
+  bool groupSeries = false,
+  void Function(SeriesGroup group)? onTapSeries,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -44,6 +52,8 @@ Future<void> pumpBody(
             view: view,
             color: Colors.amber,
             onTap: (_) {},
+            onTapSeries: onTapSeries,
+            groupSeries: groupSeries,
             today: DateTime(2026, 10, 10),
           ),
         ),
@@ -52,6 +62,27 @@ Future<void> pumpBody(
   );
   await tester.pumpAndSettle();
 }
+
+/// The two Lord of the Rings movies, added after every entry of [longList],
+/// so they lead the newest-added order.
+final lotr = [
+  mummy.copyWith(
+    id: 'movies/fellowship',
+    title: 'The Lord of the Rings: The Fellowship of the Ring',
+    released: const Released(2001),
+    status: EntryStatus.done,
+    added: DateTime(2026, 9, 2),
+    series: const Series(name: 'The Lord of the Rings', number: 1),
+  ),
+  mummy.copyWith(
+    id: 'movies/towers',
+    title: 'The Lord of the Rings: The Two Towers',
+    released: const Released(2002),
+    status: EntryStatus.want,
+    added: DateTime(2026, 9, 1),
+    series: const Series(name: 'The Lord of the Rings', number: 2),
+  ),
+];
 
 void main() {
   testWidgets('a short list has no headers and no rail', (tester) async {
@@ -177,5 +208,175 @@ void main() {
     await pumpBody(tester, longList(30), view: EntryView.grid);
     expect(find.byType(CoverGridTile), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  group('series rows', () {
+    testWidgets('a long list folds a series into one row, at its lead', (
+      tester,
+    ) async {
+      SeriesGroup? tapped;
+      await pumpBody(
+        tester,
+        [...longList(150), ...lotr],
+        sort: LibrarySort.newestAdded,
+        groupSeries: true,
+        onTapSeries: (g) => tapped = g,
+      );
+      expect(find.byType(SeriesGroupRow), findsOneWidget);
+      expect(find.text('The Lord of the Rings'), findsOneWidget);
+      // The subtitle is rich text: the stack icon, then the words.
+      expect(find.textContaining('2 movies · 2001–2002'), findsOneWidget);
+      expect(find.text('1 of 2 done'), findsOneWidget);
+      expect(
+        find.text('The Lord of the Rings: The Fellowship of the Ring'),
+        findsNothing,
+      );
+      expect(
+        find.bySemanticsLabel(
+          'The Lord of the Rings, series, 2 movies · 2001–2002, 1 of 2 done',
+        ),
+        findsOneWidget,
+      );
+      // The row is first: the series' newest part was added last of all.
+      expect(
+        tester.getTopLeft(find.byType(SeriesGroupRow)).dy,
+        lessThan(tester.getTopLeft(find.text('Movie 149')).dy),
+      );
+      await tester.tap(find.text('The Lord of the Rings'));
+      expect(tapped?.name, 'The Lord of the Rings');
+      expect(tapped?.parts.length, 2);
+    });
+
+    testWidgets('all parts done: the check instead of the count', (
+      tester,
+    ) async {
+      await pumpBody(
+        tester,
+        [...longList(150), lotr[0], lotr[1].copyWith(status: EntryStatus.done)],
+        sort: LibrarySort.newestAdded,
+        groupSeries: true,
+      );
+      expect(find.text('2 of 2 done'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(SeriesGroupRow),
+          matching: find.byWidgetPredicate(
+            (w) => w is StrokeIcon && w.data == AppIcons.check,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a short list, and a list told not to, show every part', (
+      tester,
+    ) async {
+      await pumpBody(
+        tester,
+        [...longList(12), ...lotr],
+        sort: LibrarySort.newestAdded,
+        groupSeries: true,
+      );
+      expect(find.byType(SeriesGroupRow), findsNothing);
+      expect(
+        find.text('The Lord of the Rings: The Fellowship of the Ring'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('The Lord of the Rings: The Two Towers'),
+        findsOneWidget,
+      );
+
+      await pumpBody(
+        tester,
+        [...longList(150), ...lotr],
+        sort: LibrarySort.newestAdded,
+        groupSeries: false,
+      );
+      expect(find.byType(SeriesGroupRow), findsNothing);
+      expect(
+        find.text('The Lord of the Rings: The Fellowship of the Ring'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('one part in the library stays a plain row', (tester) async {
+      await pumpBody(
+        tester,
+        [...longList(150), lotr[0]],
+        sort: LibrarySort.newestAdded,
+        groupSeries: true,
+      );
+      expect(find.byType(SeriesGroupRow), findsNothing);
+      expect(
+        find.text('The Lord of the Rings: The Fellowship of the Ring'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the list with covers and the grid show one cover with the '
+        'stack badge and the count', (tester) async {
+      await pumpBody(
+        tester,
+        [...longList(150), ...lotr],
+        sort: LibrarySort.newestAdded,
+        view: EntryView.listWithPhotos,
+        groupSeries: true,
+      );
+      expect(find.byType(SeriesGroupRow), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SeriesGroupRow),
+          matching: find.byType(CoverImage),
+        ),
+        findsOneWidget,
+      );
+
+      SeriesGroup? tapped;
+      await pumpBody(
+        tester,
+        [...longList(150), ...lotr],
+        sort: LibrarySort.newestAdded,
+        view: EntryView.grid,
+        groupSeries: true,
+        onTapSeries: (g) => tapped = g,
+      );
+      expect(find.byType(SeriesGridTile), findsOneWidget);
+      expect(find.text('The Lord of the Rings'), findsOneWidget);
+      expect(find.text('2 movies'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(
+          'The Lord of the Rings, series, 2 movies · 2001–2002, 1 of 2 done',
+        ),
+        findsOneWidget,
+      );
+      // The cover is part 1's: the tile wraps the Fellowship's cover.
+      final tile = tester.widget<SeriesGridTile>(find.byType(SeriesGridTile));
+      expect(tile.group.coverEntry.id, 'movies/fellowship');
+      await tester.tap(find.text('The Lord of the Rings'));
+      expect(tapped?.name, 'The Lord of the Rings');
+    });
+
+    testWidgets("a marked part's cover stands for the series", (tester) async {
+      await pumpBody(
+        tester,
+        [
+          ...longList(150),
+          lotr[0],
+          lotr[1].copyWith(
+            series: const Series(
+              name: 'The Lord of the Rings',
+              number: 2,
+              cover: true,
+            ),
+          ),
+        ],
+        sort: LibrarySort.newestAdded,
+        view: EntryView.grid,
+        groupSeries: true,
+      );
+      final tile = tester.widget<SeriesGridTile>(find.byType(SeriesGridTile));
+      expect(tile.group.coverEntry.id, 'movies/towers');
+    });
   });
 }

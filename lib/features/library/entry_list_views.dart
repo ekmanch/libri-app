@@ -10,6 +10,8 @@ import 'cover_grid_tile.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/cover_placeholder.dart';
 import 'sectioned_list_body.dart';
+import 'series_groups.dart';
+import 'series_row.dart';
 
 /// Row heights and grid metrics, shared with the jump rail so that section
 /// offsets can be computed without measuring.
@@ -63,43 +65,37 @@ abstract final class EntryListMetrics {
 double countRowExtent(TextScaler scaler) =>
     8 + 48 + EntryListMetrics.textGrowth(scaler);
 
-/// The slivers for a list of entries in the chosen view: text rows, rows with
+/// The slivers for a list of rows in the chosen view: text rows, rows with
 /// covers (Library › Movies, list with covers) or a three-column grid
-/// (Library › Movies, grid with covers).
+/// (Library › Movies, grid with covers). A series grouped as one row gets
+/// [SeriesGroupRow] or [SeriesGridTile], and [onTapSeries].
 List<Widget> entryListSlivers({
-  required List<Entry> entries,
+  required List<LibraryRow> rows,
   required EntryView view,
   required void Function(Entry entry) onTap,
+  void Function(SeriesGroup group)? onTapSeries,
   DateTime? today,
   String Function(Entry entry)? caption,
 }) {
+  Widget row(LibraryRow item) => entryListRow(
+    item,
+    view: view,
+    onTap: onTap,
+    onTapSeries: onTapSeries,
+    today: today,
+  );
   switch (view) {
     case EntryView.text:
-      return [
-        SliverList.builder(
-          itemCount: entries.length,
-          itemBuilder: (context, i) => EntryRow.forEntry(
-            entries[i],
-            today: today,
-            onTap: () => onTap(entries[i]),
-          ),
-        ),
-      ];
     case EntryView.listWithPhotos:
       return [
         SliverList.builder(
-          itemCount: entries.length,
-          itemBuilder: (context, i) => EntryRow.forEntry(
-            entries[i],
-            today: today,
-            onTap: () => onTap(entries[i]),
-            leading: CoverImage(entry: entries[i], width: 40),
-          ),
+          itemCount: rows.length,
+          itemBuilder: (context, i) => row(rows[i]),
         ),
       ];
     case EntryView.grid:
       // One type per list, so one cover shape; mixed lists use the poster.
-      final type = entries.isEmpty ? MediaType.movies : entries.first.type;
+      final type = rows.isEmpty ? MediaType.movies : rows.first.lead.type;
       return [
         SliverPadding(
           padding: const EdgeInsets.only(top: EntryListMetrics.gridTopPadding),
@@ -114,16 +110,47 @@ List<Widget> entryListSlivers({
                   type,
                 ),
               ),
-              itemCount: entries.length,
-              itemBuilder: (context, i) => CoverGridTile(
-                entry: entries[i],
-                today: today,
-                caption: caption?.call(entries[i]),
-                onTap: () => onTap(entries[i]),
-              ),
+              itemCount: rows.length,
+              itemBuilder: (context, i) => switch (rows[i]) {
+                EntryItem(:final entry) => CoverGridTile(
+                  entry: entry,
+                  today: today,
+                  caption: caption?.call(entry),
+                  onTap: () => onTap(entry),
+                ),
+                final SeriesGroup group => SeriesGridTile(
+                  group: group,
+                  onTap: () => onTapSeries?.call(group),
+                ),
+              },
             ),
           ),
         ),
       ];
   }
+}
+
+/// One row of the text or list view for [item]: an [EntryRow], or a
+/// [SeriesGroupRow] for a grouped series.
+Widget entryListRow(
+  LibraryRow item, {
+  required EntryView view,
+  required void Function(Entry entry) onTap,
+  void Function(SeriesGroup group)? onTapSeries,
+  DateTime? today,
+}) {
+  final withCover = view == EntryView.listWithPhotos;
+  return switch (item) {
+    EntryItem(:final entry) => EntryRow.forEntry(
+      entry,
+      today: today,
+      onTap: () => onTap(entry),
+      leading: withCover ? CoverImage(entry: entry, width: 40) : null,
+    ),
+    final SeriesGroup group => SeriesGroupRow(
+      group: group,
+      withCover: withCover,
+      onTap: () => onTapSeries?.call(group),
+    ),
+  };
 }

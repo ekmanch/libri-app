@@ -85,18 +85,23 @@ String songSubtitle(Entry songOrAlbum, {DateTime? today}) {
 }
 
 /// One entry in a list: title, italic subtitle and a status mark. No tags.
+/// A series grouped as one row (Library › Series page (from a series row)
+/// note) uses [subtitleIcon] for the stack before its subtitle and
+/// [trailing] for "2 of 4 done" in the status mark's place.
 class EntryRow extends StatelessWidget {
   const EntryRow({
     super.key,
     required this.title,
     required this.subtitle,
-    required this.status,
+    this.status,
     this.onTap,
     this.leading,
     this.typeLabel,
     this.typeColor,
     this.badge,
-  });
+    this.subtitleIcon,
+    this.trailing,
+  }) : assert(status != null || trailing != null);
 
   /// [showType] adds the type word in its color before the subtitle, as in
   /// search results: "Show · 2021".
@@ -116,14 +121,24 @@ class EntryRow extends StatelessWidget {
        typeColor = showType ? colors?.forType(entry.type) : null,
        badge = entry.hasNewSeasonOn(today ?? DateTime.now())
            ? newSeasonLabel
-           : null;
+           : null,
+       subtitleIcon = null,
+       trailing = null;
 
   static const newSeasonLabel = 'New season';
 
   final String title;
   final String subtitle;
-  final EntryStatus status;
+
+  /// Drawn as a [StatusMark] at the end, unless [trailing] is given.
+  final EntryStatus? status;
   final VoidCallback? onTap;
+
+  /// A small icon before the subtitle: the stack of a series row.
+  final StrokeIconData? subtitleIcon;
+
+  /// What ends the row instead of the status mark.
+  final Widget? trailing;
 
   /// A cover or photo before the text. Rows with one are 76 px tall.
   final Widget? leading;
@@ -206,6 +221,17 @@ class EntryRow extends StatelessWidget {
                     _withBadge(
                       TextSpan(
                         children: [
+                          if (subtitleIcon case final icon?) ...[
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: StrokeIcon(
+                                icon,
+                                size: 13,
+                                color: colors.muted,
+                              ),
+                            ),
+                            const TextSpan(text: ' '),
+                          ],
                           if (typeLabel != null)
                             TextSpan(
                               text: typeLabel,
@@ -225,7 +251,7 @@ class EntryRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            StatusMark(status),
+            trailing ?? StatusMark(status!),
           ],
         ),
       ),
@@ -298,7 +324,6 @@ class StatusMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
     if (status == EntryStatus.done) {
       return StrokeIcon(
         AppIcons.check,
@@ -307,7 +332,22 @@ class StatusMark extends StatelessWidget {
         semanticLabel: 'Done',
       );
     }
-    final filled = status == EntryStatus.inProgress;
+    return StatusPill(status.label, filled: status == EntryStatus.inProgress);
+  }
+}
+
+/// The small pill of a [StatusMark]: filled for In progress, outlined for
+/// Want and DNF. A series row's "2 of 4 done" is a filled one.
+class StatusPill extends StatelessWidget {
+  const StatusPill(this.label, {super.key, this.filled = false});
+
+  final String label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -316,7 +356,7 @@ class StatusMark extends StatelessWidget {
         border: filled ? null : Border.all(color: theme.colorScheme.outline),
       ),
       child: Text(
-        status.label,
+        label,
         style: theme.textTheme.labelMedium!.copyWith(fontSize: 12.5),
       ),
     );

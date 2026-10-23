@@ -50,6 +50,23 @@ class AppIcons {
     ],
   );
 
+  /// Three stacked layers: a series grouped as one row (Library › Movies,
+  /// text view with a series row; the grid's series badge).
+  static const stack = StrokeIconData(
+    strokeWidth: 2.2,
+    polylines: [
+      [
+        Offset(4, 7),
+        Offset(12, 3),
+        Offset(20, 7),
+        Offset(12, 11),
+        Offset(4, 7),
+      ],
+      [Offset(4, 12), Offset(12, 16), Offset(20, 12)],
+      [Offset(4, 17), Offset(12, 21), Offset(20, 17)],
+    ],
+  );
+
   static const plus = StrokeIconData(
     strokeWidth: 2.5,
     polylines: [
