@@ -17,7 +17,9 @@ class SeriesList {
 /// The parts of the series an entry belongs to (Library › Movie in a series;
 /// Book in a long series; All volumes in a series), fetched when its details
 /// open and kept on the phone. A stored list shows at once and is fetched
-/// again behind it once it is [refreshAfter] old, since a series grows. The
+/// again behind it once it is [refreshAfter] old, since a series grows, or
+/// at once when the entry's series name is not the one it was asked for (a
+/// renamed series can be another of the game's collections). The
 /// entry is known to the lookup by its `source`, or by the id the artwork
 /// resolver matched it to. Only the entry's series name and number live in
 /// `library.json`.
@@ -46,10 +48,14 @@ class SeriesService {
       yield null;
       return;
     }
+    final name = entry.series?.name;
     final stored = await store.read(source);
     if (stored != null) {
       yield SeriesList(stored.series, fromCache: true);
-      if (now.difference(stored.fetched) < refreshAfter) return;
+      if (now.difference(stored.fetched) < refreshAfter &&
+          stored.asked == name) {
+        return;
+      }
     }
     final lookup = lookups.sourceOf(source);
     if (lookup == null) {
@@ -61,7 +67,7 @@ class SeriesService {
       if (!lookup.isConfigured) {
         throw const LookupException(LookupFailure.notConfigured);
       }
-      parts = await lookup.seriesParts(source, name: entry.series?.name);
+      parts = await lookup.seriesParts(source, name: name);
     } on LookupException {
       // The stored list stays on screen.
       if (stored == null) rethrow;
@@ -71,7 +77,7 @@ class SeriesService {
       if (stored == null) yield null;
       return;
     }
-    await store.write(source, parts, fetched: now);
+    await store.write(source, parts, fetched: now, asked: name);
     yield SeriesList(parts, fromCache: false);
   }
 

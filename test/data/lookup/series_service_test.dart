@@ -95,6 +95,22 @@ void main() {
     expect(results.last!.series.name, 'The Lord of the Rings');
   });
 
+  test('a renamed series shows the stored list and is fetched again with '
+      'the new name', () async {
+    final b = build();
+    await b.service.load(_fellowship).toList();
+    final renamed = _fellowship.copyWith(
+      series: const Series(name: 'Middle-earth', number: 1),
+    );
+    final results = await b.service.load(renamed).toList();
+    expect(results.map((r) => r!.fromCache), [true, false]);
+    expect(b.fake.calls, hasLength(2));
+    expect((await b.store.read(_source))!.asked, 'Middle-earth');
+    // Asked under that name, the list is trusted again.
+    await b.service.load(renamed).toList();
+    expect(b.fake.calls, hasLength(2));
+  });
+
   test(
     'a failed refetch keeps the stored list; nothing stored fails',
     () async {
@@ -154,9 +170,10 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('series');
     addTearDown(() => dir.delete(recursive: true));
     final store = FileSeriesStore(dir);
-    await store.write(_source, _lotr, fetched: now);
+    await store.write(_source, _lotr, fetched: now, asked: _lotr.name);
     final stored = await store.read(_source);
     expect(stored!.series.name, _lotr.name);
+    expect(stored.asked, _lotr.name);
     expect(stored.series.parts, _lotr.parts);
     expect(stored.fetched.toUtc(), now.toUtc());
     expect(await store.read('tmdb:movie:121'), isNull);

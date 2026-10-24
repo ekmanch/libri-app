@@ -4,8 +4,10 @@ import 'dart:io';
 import '../storage/atomic_file.dart';
 import 'lookup_source.dart';
 
-/// A series as stored, with when it was fetched.
-typedef StoredSeries = ({DateTime fetched, SeriesParts series});
+/// A series as stored, with when it was fetched and the entry's series name
+/// it was asked for ([asked], null when the entry had none or the list was
+/// stored before the name was kept).
+typedef StoredSeries = ({DateTime fetched, SeriesParts series, String? asked});
 
 /// Where a fetched series (its name and parts) is kept, by the lookup id of
 /// the entry it was fetched for. On the phone only, never in `library.json`.
@@ -16,6 +18,7 @@ abstract class SeriesStore {
     String source,
     SeriesParts series, {
     required DateTime fetched,
+    String? asked,
   });
 
   /// Drops every series but those of [keepSources].
@@ -34,10 +37,12 @@ class MemorySeriesStore implements SeriesStore {
     String source,
     SeriesParts series, {
     required DateTime fetched,
+    String? asked,
   }) async {
     _series[source] = (
       fetched: fetched,
       series: (name: series.name, parts: List.unmodifiable(series.parts)),
+      asked: asked,
     );
   }
 
@@ -77,8 +82,10 @@ class FileSeriesStore implements SeriesStore {
       final fetched = DateTime.tryParse(json['fetched'] as String? ?? '');
       final name = json['name'];
       if (fetched == null || name is! String) return null;
+      final asked = json['asked'];
       return (
         fetched: fetched,
+        asked: asked is String ? asked : null,
         series: (
           name: name,
           parts: [
@@ -103,11 +110,13 @@ class FileSeriesStore implements SeriesStore {
     String source,
     SeriesParts series, {
     required DateTime fetched,
+    String? asked,
   }) => writeAtomically(
     _file(source),
     '${_encoder.convert({
       'source': source,
       'fetched': fetched.toUtc().toIso8601String(),
+      'asked': ?asked,
       'name': series.name,
       'parts': [
         for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'source': p.source},
