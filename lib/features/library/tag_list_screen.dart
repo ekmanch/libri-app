@@ -7,6 +7,7 @@ import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/search_field.dart';
 import 'entry_list_views.dart';
 import 'entry_sections.dart';
@@ -216,7 +217,7 @@ class _TagRow extends StatelessWidget {
       checked: selected,
       label: name,
       excludeSemantics: true,
-      child: InkWell(
+      child: RowInkWell(
         onTap: onTap,
         onLongPress: onLongPress,
         child: Container(

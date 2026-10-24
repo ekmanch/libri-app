@@ -9,6 +9,7 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/bordered_row.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/labels.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
 import '../entry/entry_form_screen.dart';
@@ -171,7 +172,7 @@ class PlanEntrySheet extends ConsumerWidget {
           Semantics(
             button: true,
             label: 'Plan note',
-            child: InkWell(
+            child: RowInkWell(
               onTap: editNote,
               // At least 48 dp tall to tap, however short the note.
               child: ConstrainedBox(

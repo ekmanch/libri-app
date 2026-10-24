@@ -16,6 +16,7 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/libri_logo.dart';
 import '../../widgets/radio_mark.dart';
+import '../../widgets/row_ink_well.dart';
 import '../library/library_filter_provider.dart';
 import '../shell/shell_session.dart';
 import '../sync/relative_time.dart';
@@ -1241,7 +1242,7 @@ class _BranchRow extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      child: InkWell(
+      child: RowInkWell(
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 68),
@@ -1346,7 +1347,7 @@ class _FileRow extends StatelessWidget {
       button: true,
       selected: selected,
       enabled: onTap != null,
-      child: InkWell(
+      child: RowInkWell(
         onTap: onTap,
         child: Opacity(
           opacity: file.usable ? 1 : 0.5,

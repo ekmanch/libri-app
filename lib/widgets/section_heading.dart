@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
+import 'row_ink_well.dart';
 
 /// Uppercase section label, in the type color on the library home, muted
 /// elsewhere. Optional [trailing] text on the right, such as a count. With
@@ -70,7 +71,7 @@ class SectionHeading extends StatelessWidget {
       label: semanticsLabel,
       onTap: onTap,
       excludeSemantics: semanticsLabel != null,
-      child: InkWell(
+      child: RowInkWell(
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 48),

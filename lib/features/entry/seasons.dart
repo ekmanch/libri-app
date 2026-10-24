@@ -16,6 +16,7 @@ import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/radio_mark.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/touch_target.dart';
@@ -565,7 +566,7 @@ class _SeasonStatusSheetState extends State<SeasonStatusSheet> {
             Semantics(
               button: true,
               selected: status == current.status,
-              child: InkWell(
+              child: RowInkWell(
                 onTap: () {
                   Navigator.pop(context);
                   if (status != current.status) widget.onPick(status);

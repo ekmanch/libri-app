@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/libri_logo.dart';
 import '../../widgets/page_header.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/setting_row.dart';
 
@@ -230,7 +231,7 @@ class _SourceRow extends StatelessWidget {
       label: '${source.name}, opens website',
       value: source.description,
       excludeSemantics: true,
-      child: InkWell(
+      child: RowInkWell(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),

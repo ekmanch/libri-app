@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/pinned_sliver.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/segmented_control.dart';
 import '../library/cover_grid_tile.dart';
 import '../../widgets/cover_image.dart';
@@ -389,7 +390,7 @@ class TrackRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    return InkWell(
+    return RowInkWell(
       onTap: onTap,
       child: Container(
         constraints: BoxConstraints(minHeight: leading == null ? 56 : 76),

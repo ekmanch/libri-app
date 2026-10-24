@@ -9,6 +9,7 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import 'library_search.dart';
@@ -143,7 +144,7 @@ class _TagRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    return InkWell(
+    return RowInkWell(
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 52),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
+import 'row_ink_well.dart';
 
 /// A row in Settings and the connection screen (Settings › Library connection):
 /// a label on the left, a muted value, a hairline under it. With [onTap] the
@@ -107,7 +108,7 @@ class SettingRow extends StatelessWidget {
     if (onTap == null) return row;
     return Semantics(
       button: true,
-      child: InkWell(onTap: onTap, child: row),
+      child: RowInkWell(onTap: onTap, child: row),
     );
   }
 }

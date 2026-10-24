@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../library/cover_grid_tile.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/artist_photo.dart';
+import '../../widgets/row_ink_well.dart';
 import '../library/entry_list_views.dart';
 import 'artist_index.dart';
 
@@ -37,7 +38,7 @@ class ArtistRow extends StatelessWidget {
       button: true,
       label: '${artist.name}, ${artist.countLabel}',
       excludeSemantics: true,
-      child: InkWell(
+      child: RowInkWell(
         onTap: onTap,
         child: Container(
           constraints: BoxConstraints(

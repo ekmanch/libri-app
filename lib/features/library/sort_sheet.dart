@@ -4,6 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/radio_mark.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/sheet_frame.dart';
 import 'library_sort.dart';
 
@@ -50,7 +51,7 @@ class _SortSheetState extends State<_SortSheet> {
             Semantics(
               button: true,
               selected: sort == _current,
-              child: InkWell(
+              child: RowInkWell(
                 onTap: () {
                   setState(() => _current = sort);
                   widget.onChanged(sort);

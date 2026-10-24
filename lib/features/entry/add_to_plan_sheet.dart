@@ -9,6 +9,7 @@ import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/sheet_frame.dart';
 import '../plans/plan_form_screen.dart';
 import '../plans/plan_progress.dart';
@@ -151,7 +152,7 @@ class _PlanRow extends StatelessWidget {
       checked: on,
       label: planTitle(plan),
       excludeSemantics: true,
-      child: InkWell(
+      child: RowInkWell(
         onTap: () => onToggle(!on),
         child: Container(
           constraints: const BoxConstraints(minHeight: 60),

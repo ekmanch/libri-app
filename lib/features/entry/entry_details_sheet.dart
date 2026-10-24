@@ -15,6 +15,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/labels.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/segmented_control.dart';
 import '../../widgets/sheet_frame.dart';
@@ -408,7 +409,7 @@ class _TrackListState extends State<_TrackList> {
             label:
                 '${info.title}, ${rating == null ? 'not rated' : ratingLabel(rating.rating)}',
             excludeSemantics: true,
-            child: InkWell(
+            child: RowInkWell(
               onTap: () => widget.onRate(info, rating),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 44),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'row_ink_well.dart';
 
 /// A tappable row between two hairlines: the rating, "When" and plans rows of
 /// the details sheets (Library › Entry details; Plans › Entry details (timeline
@@ -32,7 +33,7 @@ class BorderedRow extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticsLabel,
-      child: InkWell(
+      child: RowInkWell(
         onTap: onTap,
         child: Container(
           constraints: BoxConstraints(minHeight: minHeight),

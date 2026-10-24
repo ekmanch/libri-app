@@ -17,6 +17,7 @@ import '../../widgets/cached_image.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import 'entry_form_screen.dart';
@@ -385,7 +386,7 @@ class _MatchRow extends StatelessWidget {
       ?match.album,
       if (match.platforms.isNotEmpty) match.platforms.join(', '),
     ].where((s) => s.isNotEmpty).join(' · ');
-    return InkWell(
+    return RowInkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),

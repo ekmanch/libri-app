@@ -13,6 +13,7 @@ import '../../widgets/form_fields.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/radio_mark.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/segmented_control.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/sheet_frame.dart';
@@ -592,7 +593,7 @@ class _CopyFromSheet extends StatelessWidget {
             Semantics(
               button: true,
               selected: plan.id == selected?.id,
-              child: InkWell(
+              child: RowInkWell(
                 onTap: () => Navigator.pop(context, plan),
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 60),

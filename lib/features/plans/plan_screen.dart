@@ -16,6 +16,7 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/fitted_title.dart';
 import '../../widgets/touch_target.dart';
@@ -690,7 +691,7 @@ class _CheckRow extends StatelessWidget {
           PlanCheck(done: item.done, title: entry.title, onTap: onToggle),
           const SizedBox(width: 8),
           Expanded(
-            child: InkWell(
+            child: RowInkWell(
               onTap: onOpen,
               child: Container(
                 constraints: const BoxConstraints(minHeight: 48),

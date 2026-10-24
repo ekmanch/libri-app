@@ -8,6 +8,7 @@ import '../data/models/season.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'labels.dart';
+import 'row_ink_well.dart';
 
 /// The years a show ran, from its first season out to its last one out:
 /// "2025–2026", or "2025" when they are the same. Null when no season is
@@ -193,7 +194,7 @@ class EntryRow extends StatelessWidget {
     final subtitleStyle = theme.textTheme.bodySmall!.copyWith(
       fontStyle: FontStyle.italic,
     );
-    return InkWell(
+    return RowInkWell(
       onTap: onTap,
       child: Container(
         constraints: BoxConstraints(minHeight: leading == null ? 56 : 76),

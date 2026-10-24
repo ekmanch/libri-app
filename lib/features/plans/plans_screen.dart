@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_header.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../settings/settings_screen.dart';
 import '../shell/app_shell.dart';
@@ -226,7 +227,7 @@ class _PlanRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    return InkWell(
+    return RowInkWell(
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 60),
