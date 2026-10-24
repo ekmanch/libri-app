@@ -15,6 +15,11 @@ void main() {
     expect(normalizePlatform('XSX'), 'Xbox Series X|S');
     expect(normalizePlatform('Nintendo Switch'), 'Switch');
     expect(normalizePlatform('nintendo switch 2'), 'Switch 2');
+    expect(
+      normalizePlatform('Super Nintendo Entertainment System'),
+      'Super Nintendo',
+    );
+    expect(normalizePlatform('SNES'), 'Super Nintendo');
     expect(normalizePlatform('windows'), 'PC');
     expect(normalizePlatform('steam deck'), 'Steam Deck');
     // Unknown names keep their spelling, with spaces tidied.

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/series.dart';
@@ -44,6 +46,18 @@ class IgdbSource extends HttpLookupSource {
       'genres.name,language_supports.language.locale,'
       'language_supports.language_support_type';
 
+  /// [_fields] and what ranks a search hit: its platforms' types, how many
+  /// ratings it has and the game it is a port of.
+  static const _searchFields =
+      '$_fields,platforms.platform_type,total_rating_count,parent_game';
+
+  /// IGDB's platform types: 2 is an arcade cabinet, 6 a home computer.
+  static const _arcade = 2, _computer = 6;
+
+  /// Platforms nobody adds a game for: handheld electronic LCD games and
+  /// pre-smartphone mobiles.
+  static const _minorPlatforms = {411, 55};
+
   /// IGDB's `language_support_type` id for spoken audio (2 is subtitles, 3
   /// the interface).
   static const _audioSupport = 1;
@@ -74,7 +88,7 @@ class IgdbSource extends HttpLookupSource {
   /// remakes from bundles, DLC, remasters and ports, which are left out
   /// of the parts.
   static const _collectionFields =
-      'name,collections.name,collections.games.name,'
+      'name,parent_game,collections.name,collections.games.name,'
       'collections.games.first_release_date,collections.games.game_type,'
       'collections.games.version_parent';
 
@@ -226,12 +240,80 @@ class IgdbSource extends HttpLookupSource {
   static String coverUrlFor(String imageId) =>
       '$_images$coverSize/$imageId.jpg';
 
+  /// IGDB's search ranks ports poorly and often leaves them out (the
+  /// Super Nintendo "Street Fighter II" is not among its hits), so the games
+  /// named exactly [query] are asked too, the most rated first, and fill up
+  /// to half of the list ahead of the search's own hits ([_rankNamed]).
+  /// Packs and updates (`game_type` 13 and 14) are never offered.
   Future<List<LookupMatch>> _search(String query, int limit) async {
-    final games = await _games(
-      'search ${_quote(query)}; fields $_fields; '
-      'where version_parent = null; limit $limit;',
+    const where = 'version_parent = null & game_type != (13, 14)';
+    final named = _rankNamed(
+      await _games(
+        'fields $_searchFields; where $where & name ~ ${_quote(query)}; '
+        'sort total_rating_count desc; limit $limit;',
+      ),
     );
-    return [for (final game in games) ?_match(game)];
+    final searched = await _games(
+      'search ${_quote(query)}; fields $_searchFields; where $where; '
+      'limit $limit;',
+    );
+    final half = (limit + 1) ~/ 2;
+    final seen = <Object?>{};
+    return [
+      for (final game in [
+        ...named.take(half),
+        ...searched,
+        ...named.skip(half),
+      ])
+        if (seen.add(game['id'])) ?_match(game),
+    ].take(limit).toList();
+  }
+
+  /// How likely a game is the one wanted, from its platforms, lower first:
+  /// a console, handheld or PC 0, a home computer 1, only arcades or minor
+  /// platforms 2.
+  static int _platformRank(Map<String, Object?> game) {
+    var rank = 2;
+    for (final p in objectsAt(game, 'platforms')) {
+      final type = p['platform_type'];
+      if (_minorPlatforms.contains(p['id']) || type == _arcade) continue;
+      rank = math.min(rank, type == _computer ? 1 : 0);
+    }
+    return rank;
+  }
+
+  /// The exact-name hits, the most rated first as IGDB sorted them, the
+  /// unrated ones by [_platformRank]; a game that came out in arcades goes
+  /// right after its first port, since that is what people played (the
+  /// Super Nintendo "Street Fighter II" before the 1991 cabinet).
+  static List<Map<String, Object?>> _rankNamed(
+    List<Map<String, Object?>> games,
+  ) {
+    int? rating(Map<String, Object?> g) => switch (g['total_rating_count']) {
+      final num n => n.toInt(),
+      _ => null,
+    };
+    final rated = [
+      for (final g in games)
+        if (rating(g) != null) g,
+    ];
+    // A stable sort, so IGDB's order holds within a rank.
+    final unrated = [
+      for (final (i, g) in games.where((g) => rating(g) == null).indexed)
+        (i: i, rank: _platformRank(g), game: g),
+    ]..sort((a, b) => a.rank != b.rank ? a.rank - b.rank : a.i - b.i);
+    final ranked = [...rated, for (final u in unrated) u.game];
+    for (final game in [...ranked]) {
+      final inArcades = objectsAt(
+        game,
+        'platforms',
+      ).any((p) => p['platform_type'] == _arcade);
+      if (!inArcades) continue;
+      final at = ranked.indexOf(game);
+      final port = ranked.indexWhere((g) => g['parent_game'] == game['id']);
+      if (port > at) ranked.insert(port, ranked.removeAt(at));
+    }
+    return ranked;
   }
 
   @override
@@ -371,13 +453,20 @@ class IgdbSource extends HttpLookupSource {
   }
 
   /// Reads the game's collection, so the form gets its series and number.
+  /// A port is no part of its own, so it takes the number of the game it is
+  /// a port of.
   @override
   Future<LookupMatch> details(LookupMatch match) async {
-    final parts = await seriesParts(match.source);
+    final game = await _collectionGame(match.source);
+    final parts = game == null ? null : _collectionOf(game);
     if (parts == null) return match;
-    final number = parts.parts
-        .where((p) => p.source == match.source)
-        .firstOrNull;
+    final parent = switch (game!['parent_game']) {
+      final num id => 'igdb:${id.toInt()}',
+      _ => null,
+    };
+    final number =
+        parts.parts.where((p) => p.source == match.source).firstOrNull ??
+        parts.parts.where((p) => p.source == parent).firstOrNull;
     return match.copyWith(
       series: Series(name: parts.name, number: number?.number),
     );
@@ -385,11 +474,15 @@ class IgdbSource extends HttpLookupSource {
 
   @override
   Future<SeriesParts?> seriesParts(String source, {String? name}) async {
+    final game = await _collectionGame(source);
+    return game == null ? null : _collectionOf(game, name: name);
+  }
+
+  Future<Map<String, Object?>?> _collectionGame(String source) async {
     final games = await _games(
       'fields $_collectionFields; where id = ${_parse(source)}; limit 1;',
     );
-    if (games.isEmpty) return null;
-    return _collectionOf(games.first, name: name);
+    return games.firstOrNull;
   }
 
   static int _parse(String source) {

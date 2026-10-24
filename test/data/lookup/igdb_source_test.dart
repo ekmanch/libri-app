@@ -92,7 +92,8 @@ void main() {
       type: MediaType.games,
       limit: 5,
     );
-    expect(sent.length, 2);
+    // The token, the games named "last of us", then the search.
+    expect(sent.length, 3);
     final token = sent[0];
     expect(token.method, 'POST');
     expect(token.url.host, 'id.twitch.tv');
@@ -101,17 +102,25 @@ void main() {
       'client_secret': 'secret',
       'grant_type': 'client_credentials',
     });
-    final games = sent[1];
+    final games = sent[2];
     expect(games.url.toString(), 'https://api.igdb.com/v4/games');
     expect(games.headers['Client-ID'], 'cid');
     expect(games.headers['Authorization'], 'Bearer tok1');
+    const fields =
+        'fields name,first_release_date,summary,'
+        'cover.image_id,platforms.name,involved_companies.company.name,'
+        'involved_companies.developer,genres.name,'
+        'language_supports.language.locale,language_supports.language_support_type,'
+        'platforms.platform_type,total_rating_count,parent_game';
+    expect(
+      sent[1].body,
+      '$fields; where version_parent = null & game_type != (13, 14) & '
+      'name ~ "last of us"; sort total_rating_count desc; limit 5;',
+    );
     expect(
       games.body,
-      'search "last of us"; fields name,first_release_date,summary,'
-      'cover.image_id,platforms.name,involved_companies.company.name,'
-      'involved_companies.developer,genres.name,'
-      'language_supports.language.locale,language_supports.language_support_type; '
-      'where version_parent = null; limit 5;',
+      'search "last of us"; $fields; '
+      'where version_parent = null & game_type != (13, 14); limit 5;',
     );
 
     final hit = hits.single;
@@ -129,7 +138,7 @@ void main() {
     // The token is on disk for the next run.
     expect(await tokens.valid(), 'tok1');
     await source((_) async => json(200, [])).search('x', type: MediaType.games);
-    expect(sent.single.url.host, 'api.igdb.com');
+    expect(sent.map((r) => r.url.host).toSet(), {'api.igdb.com'});
   });
 
   test('a token near its expiry is not reused', () async {
@@ -152,10 +161,11 @@ void main() {
     });
     final hits = await igdb.search('x', type: MediaType.games);
     expect(hits.single.title, 'The Last of Us');
-    expect(calls, 2);
+    expect(calls, 3);
     expect(sent.map((r) => r.url.host).toList(), [
       'api.igdb.com',
       'id.twitch.tv',
+      'api.igdb.com',
       'api.igdb.com',
     ]);
     expect(await tokens.valid(), isNot('stale'));
@@ -251,6 +261,58 @@ void main() {
       igdb.coverUrl('tmdb:movie:1', type: MediaType.games),
       throwsA(isA<LookupException>()),
     );
+  });
+
+  test('games named exactly the query come first, a port before its '
+      'arcade original, and fill half the list', () async {
+    Map<String, Object?> game(
+      int id,
+      String name,
+      List<(int, int)> platforms, {
+      int? rating,
+      int? parent,
+    }) => {
+      'id': id,
+      'name': name,
+      'platforms': [
+        for (final (pid, type) in platforms) {'id': pid, 'platform_type': type},
+      ],
+      'total_rating_count': ?rating,
+      'parent_game': ?parent,
+    };
+    final arcade = game(3186, 'Street Fighter II', [(52, 2)], rating: 376);
+    final snes = game(
+      321621,
+      'Street Fighter II',
+      [(19, 1)],
+      rating: 12,
+      parent: 3186,
+    );
+    final amiga = game(240001, 'Street Fighter II', [(16, 6)], parent: 3186);
+    final lcd = game(198928, 'Street Fighter II', [(411, 5)], parent: 3186);
+    final dos = game(321622, 'Street Fighter II', [(13, 4)], parent: 3186);
+    final turbo = game(4238, 'Super Street Fighter II Turbo', [(52, 2)]);
+    final champion = game(39496, 'Street Fighter II: Champion Edition', [
+      (52, 2),
+    ]);
+    final igdb = source(
+      (request) async => request.body.startsWith('search')
+          ? json(200, [arcade, turbo, champion])
+          : json(200, [arcade, snes, amiga, lcd, dos]),
+    );
+    final hits = await igdb.search(
+      'Street Fighter II',
+      type: MediaType.games,
+      limit: 6,
+    );
+    expect(hits.map((h) => h.source), [
+      'igdb:321621', // The most rated port, then its arcade original.
+      'igdb:3186',
+      'igdb:321622', // DOS before Amiga, a home computer.
+      'igdb:4238', // Half the list is named hits; the search's own follow.
+      'igdb:39496',
+      'igdb:240001',
+    ]);
   });
 
   test('quotes in the query are escaped', () async {
@@ -403,7 +465,7 @@ void main() {
       expect(full.series, const Series(name: 'BioShock', number: 1));
       expect(
         sent.last.body,
-        'fields name,collections.name,collections.games.name,'
+        'fields name,parent_game,collections.name,collections.games.name,'
         'collections.games.first_release_date,collections.games.game_type,'
         'collections.games.version_parent; where id = 20; limit 1;',
       );
@@ -558,6 +620,24 @@ void main() {
         (await other.seriesParts('igdb:3186'))!.parts.map((p) => p.title),
         ['Street Fighter II', 'Street Fighter II: Movie'],
       );
+    });
+
+    test('a port takes the number of the game it is a port of', () async {
+      final port = {
+        ...bioshock,
+        'id': 30,
+        'parent_game': 21,
+        'name': 'BioShock 2',
+      };
+      final igdb = source((_) async => json(200, [port]));
+      final full = await igdb.details(
+        const LookupMatch(
+          type: MediaType.games,
+          title: 'BioShock 2',
+          source: 'igdb:30',
+        ),
+      );
+      expect(full.series, const Series(name: 'BioShock', number: 2));
     });
 
     test('a game in no collection has none', () async {
