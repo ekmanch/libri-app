@@ -746,12 +746,13 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // The lookup did not answer, so the list may be
-                          // an old one (Library › Series page: couldn't
+                          // an old one (Library › Series page: couldn’t
                           // update); Try again asks again.
                           if (list?.updateFailed ?? false)
                             _SeriesNoteRow(
                               text: 'Couldn’t update this series',
                               action: 'Try again',
+                              status: true,
                               onPressed: () => ref.invalidate(
                                 seriesPartsProvider(widget.entryId),
                               ),
@@ -787,24 +788,31 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
 
 /// A quiet line on the series page with an action in the accent: "2 hidden
 /// parts · Show" at the end, "Couldn’t update this series · Try again" at
-/// the top.
+/// the top, which is a [status]: ruled off from the parts and announced.
 class _SeriesNoteRow extends StatelessWidget {
   const _SeriesNoteRow({
     required this.text,
     required this.action,
     required this.onPressed,
+    this.status = false,
   });
 
   final String text;
   final String action;
   final VoidCallback onPressed;
+  final bool status;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    return Container(
+    final row = Container(
       constraints: const BoxConstraints(minHeight: 56),
+      decoration: status
+          ? BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.divider)),
+            )
+          : null,
       child: Row(
         children: [
           Expanded(
@@ -827,6 +835,7 @@ class _SeriesNoteRow extends StatelessWidget {
         ],
       ),
     );
+    return status ? Semantics(liveRegion: true, child: row) : row;
   }
 }
 
