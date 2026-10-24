@@ -308,6 +308,7 @@ const _lordOfTheRings = (
       year: 2001,
       source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
       creator: null,
+      extra: false,
     ),
     (
       number: 2,
@@ -315,6 +316,7 @@ const _lordOfTheRings = (
       year: 2002,
       source: 'fake:the-lord-of-the-rings-the-two-towers',
       creator: null,
+      extra: false,
     ),
     (
       number: 3,
@@ -322,6 +324,7 @@ const _lordOfTheRings = (
       year: 2003,
       source: 'fake:the-lord-of-the-rings-the-return-of-the-king',
       creator: null,
+      extra: false,
     ),
   ],
 );
@@ -342,6 +345,7 @@ final _berserk = (
         },
         source: 'fake:berserk-vol-$n',
         creator: null,
+        extra: false,
       ),
   ],
 );

@@ -12,7 +12,8 @@ import 'rate_limiter.dart';
 /// series" statement (P179) with the series ordinal (P1545), and every other
 /// part of that series with its ordinal and publication date (P577). The
 /// author (P50) tells the book from a film or a game of the same name.
-/// The parts are cleaned up as they come in ([cleanParts]).
+/// The parts the series page should not list at first are marked as extras
+/// ([extraParts]).
 class WikidataSeries with LookupHttp {
   WikidataSeries(
     this.client, {
@@ -210,7 +211,9 @@ LIMIT 5000''';
       final series = seriesOf[id];
       if (series == null) continue;
       if (!sameAuthor(creator, authorsOf[id] ?? const {})) continue;
-      final parts = cleanParts((partsOf[series] ?? const {}).values)
+      final all = (partsOf[series] ?? const {}).values.toList();
+      final extras = extraParts(all);
+      final parts = all
         ..sort((a, b) {
           final x = a.number, y = b.number;
           if (x != null && y != null) return x.compareTo(y);
@@ -230,6 +233,7 @@ LIMIT 5000''';
                 year: p.year,
                 source: 'wikidata:${p.id}',
                 creator: p.authors.isEmpty ? null : p.authors.join(', '),
+                extra: extras.contains(p.id),
               ),
           ],
         ),
@@ -239,29 +243,35 @@ LIMIT 5000''';
     return null;
   }
 
-  /// Wikidata's parts of a series without what the series page should not
-  /// list (Library › Book series after the automatic rules): a part that is
-  /// itself part of another part (The Lord of the Rings' six-book edition,
-  /// "The First Journey" and so on), a part with neither a number nor a
-  /// date (the prologue "Concerning Hobbits"), and, when most of what is
-  /// left is numbered, the unnumbered rest (the Appendices). A series that
-  /// numbers few of its parts keeps them all: Wikidata numbers only
-  /// Whirlwind in the Asian Saga. The type (P31) is no help: the Appendices
-  /// are a "literary work" like the novels, and half the Asian Saga is a
-  /// "written work".
-  static List<WikidataPart> cleanParts(Iterable<WikidataPart> parts) {
+  /// The ids of the parts of a series the series page hides until the
+  /// owner shows them (Library › Book series after the automatic rules): a
+  /// part that is itself part of another part (The Lord of the Rings'
+  /// six-book edition, "The First Journey" and so on), a part with neither
+  /// a number nor a date (the prologue "Concerning Hobbits"), and, when most
+  /// of what is left is numbered, the unnumbered rest (the Appendices). A
+  /// series that numbers few of its parts keeps them all: Wikidata numbers
+  /// only Whirlwind in the Asian Saga. The type (P31) is no help: the
+  /// Appendices are a "literary work" like the novels, and half the Asian
+  /// Saga is a "written work".
+  static Set<String> extraParts(Iterable<WikidataPart> parts) {
     final ids = {for (final p in parts) p.id};
+    final extras = {
+      for (final p in parts)
+        if (p.partOf.any(ids.contains) || (p.number == null && p.year == null))
+          p.id,
+    };
     final kept = [
       for (final p in parts)
-        if (!p.partOf.any(ids.contains))
-          if (p.number != null || p.year != null) p,
+        if (!extras.contains(p.id)) p,
     ];
     final numbered = kept.where((p) => p.number != null).length;
-    if (numbered * 2 <= kept.length) return kept;
-    return [
-      for (final p in kept)
-        if (p.number != null) p,
-    ];
+    if (numbered * 2 > kept.length) {
+      extras.addAll([
+        for (final p in kept)
+          if (p.number == null) p.id,
+      ]);
+    }
+    return extras;
   }
 
   static int? _earliest(int? a, int? b) =>
@@ -272,7 +282,7 @@ LIMIT 5000''';
       text == null ? null : int.tryParse(text.trim());
 }
 
-/// One part of a series as Wikidata has it, before [WikidataSeries.cleanParts]:
+/// One part of a series as Wikidata has it, before [WikidataSeries.extraParts]:
 /// its item id, its label, its series ordinal, its earliest year, the items
 /// it is part of (P361) and its authors' names.
 typedef WikidataPart = ({

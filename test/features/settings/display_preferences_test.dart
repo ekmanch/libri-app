@@ -74,6 +74,9 @@ void main() {
     hiddenSeriesParts: const {
       'books:dune': {'wikidata:Q7', 'wikidata:Q8'},
     },
+    shownSeriesParts: const {
+      'books:the lord of the rings': {'wikidata:Q334335'},
+    },
   );
 
   test('preferences survive the stored form', () {
@@ -104,18 +107,21 @@ void main() {
     expect(prefs.hiddenSeriesParts, isEmpty);
   });
 
-  test('hiding parts replaces the series\' set; none removes it', () {
+  test('choosing parts replaces the series\' sets; none removes them', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final notifier = container.read(displayPreferencesProvider.notifier);
-    notifier.setHiddenParts('books:dune', {'wikidata:Q7'});
-    notifier.setHiddenParts('books:berserk', {'a'});
-    notifier.setHiddenParts('books:dune', {'wikidata:Q8'});
+    notifier.setSeriesParts('books:dune', hidden: {'wikidata:Q7'}, shown: {});
+    notifier.setSeriesParts('books:berserk', hidden: {'a'}, shown: {'b'});
+    notifier.setSeriesParts('books:dune', hidden: {'wikidata:Q8'}, shown: {});
     expect(container.read(displayPreferencesProvider).hiddenSeriesParts, {
       'books:dune': {'wikidata:Q8'},
       'books:berserk': {'a'},
     });
-    notifier.setHiddenParts('books:dune', {});
+    expect(container.read(displayPreferencesProvider).shownSeriesParts, {
+      'books:berserk': {'b'},
+    });
+    notifier.setSeriesParts('books:dune', hidden: {}, shown: {});
     expect(
       container.read(displayPreferencesProvider).hiddenPartsOf('books:dune'),
       isEmpty,

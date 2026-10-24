@@ -39,6 +39,7 @@ class SeriesRow {
     this.entry,
     this.partKey,
     this.creator,
+    this.extra = false,
   });
 
   final int? number;
@@ -55,6 +56,10 @@ class SeriesRow {
   /// The fetched part's authors, when the source names them.
   final String? creator;
 
+  /// Whether the automatic rules count the fetched part as an extra, hidden
+  /// until the owner shows it.
+  final bool extra;
+
   bool get owned => entry != null;
 }
 
@@ -67,25 +72,35 @@ String seriesKey(MediaType type, String name) =>
 String seriesPartKey(SeriesPart part) =>
     part.source ?? 'title:${titleKey(part.title)}';
 
-/// [rows] without the parts the owner hid ([hiddenKeys], Library › Series
-/// page: choose what to show), and the hidden ones. A part in the library
-/// is never hidden.
+/// Which parts of the series [key] the owner chose to hide and, of the
+/// extras, to show (Library › Series page: choose what to show).
+typedef SeriesPartChoices = ({Set<String> hidden, Set<String> shown});
+
+SeriesPartChoices seriesPartChoices(DisplayPreferences prefs, String key) =>
+    (hidden: prefs.hiddenPartsOf(key), shown: prefs.shownPartsOf(key));
+
+/// Whether [row] is hidden: a part not in the library that the owner hid,
+/// or an extra of the automatic rules they did not show. A part in the
+/// library is never hidden.
+bool isHiddenRow(SeriesRow row, SeriesPartChoices choices) =>
+    !row.owned &&
+    (choices.hidden.contains(row.partKey) ||
+        (row.extra && !choices.shown.contains(row.partKey)));
+
+/// [rows] without the hidden parts ([isHiddenRow]), and the hidden ones.
 ({List<SeriesRow> shown, List<SeriesRow> hidden}) splitHiddenRows(
   List<SeriesRow> rows,
-  Set<String> hiddenKeys,
-) {
-  bool hidden(SeriesRow r) => !r.owned && hiddenKeys.contains(r.partKey);
-  return (
-    shown: [
-      for (final r in rows)
-        if (!hidden(r)) r,
-    ],
-    hidden: [
-      for (final r in rows)
-        if (hidden(r)) r,
-    ],
-  );
-}
+  SeriesPartChoices choices,
+) => (
+  shown: [
+    for (final r in rows)
+      if (!isHiddenRow(r, choices)) r,
+  ],
+  hidden: [
+    for (final r in rows)
+      if (isHiddenRow(r, choices)) r,
+  ],
+);
 
 /// "movie", "movies" for the parts of a movie or anime series; "volume",
 /// "volumes" for a book's; "game", "games".
@@ -157,9 +172,18 @@ List<SeriesRow> seriesRows({
   final matched = List<Entry?>.filled(fetched.length, null);
   // One pass per rule over every part, so a weaker rule never takes an
   // entry a stronger one would give another part: the 2013 "Tomb Raider"
-  // is part 18 by its id, not part 1 by its title.
+  // is part 18 by its id, not part 1 by its title. Extras come last in each
+  // pass, so "The Journey of the Nine Companions", number 2 of a six-book
+  // edition, never takes the owner's The Two Towers by its number.
+  final order = [
+    for (final (i, p) in fetched.indexed)
+      if (!p.extra) i,
+    for (final (i, p) in fetched.indexed)
+      if (p.extra) i,
+  ];
   void pass(bool Function(SeriesPart part, Entry e) test) {
-    for (final (i, part) in fetched.indexed) {
+    for (final i in order) {
+      final part = fetched[i];
       if (matched[i] != null) continue;
       final j = left.indexWhere((e) => test(part, e));
       if (j >= 0) matched[i] = left.removeAt(j);
@@ -192,6 +216,7 @@ List<SeriesRow> seriesRows({
         entry: entry,
         partKey: seriesPartKey(part),
         creator: part.creator,
+        extra: part.extra,
       ),
     );
   }
@@ -255,9 +280,9 @@ class SeriesSection extends ConsumerWidget {
     if (series == null) return const SizedBox.shrink();
     final library = ref.watch(libraryProvider).value;
     final parts = ref.watch(seriesPartsProvider(entry.id)).value?.series;
-    final hiddenKeys = ref.watch(
+    final choices = ref.watch(
       displayPreferencesProvider.select(
-        (p) => p.hiddenPartsOf(seriesKey(entry.type, series.name)),
+        (p) => seriesPartChoices(p, seriesKey(entry.type, series.name)),
       ),
     );
     final rows = splitHiddenRows(
@@ -266,7 +291,7 @@ class SeriesSection extends ConsumerWidget {
         library: library?.entries ?? const [],
         parts: parts,
       ),
-      hiddenKeys,
+      choices,
     ).shown;
     final currentIndex = rows.indexWhere((r) => r.entry?.id == entry.id);
     final shown = seriesWindow(rows, currentIndex);
@@ -647,14 +672,14 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
             library: library?.entries ?? const [],
             parts: parts,
           );
-    final hiddenKeys = ref.watch(
+    final choices = ref.watch(
       displayPreferencesProvider.select(
         (p) => entry == null || series == null
-            ? const <String>{}
-            : p.hiddenPartsOf(seriesKey(entry.type, series.name)),
+            ? (hidden: const <String>{}, shown: const <String>{})
+            : seriesPartChoices(p, seriesKey(entry.type, series.name)),
       ),
     );
-    final (:shown, :hidden) = splitHiddenRows(all, hiddenKeys);
+    final (:shown, :hidden) = splitHiddenRows(all, choices);
     final rows = _peek ? all : shown;
     if (rows.isNotEmpty && !widget.fromList) _scrollToCurrent();
     final (_, many) = seriesNouns(entry?.type ?? MediaType.movies);
@@ -813,13 +838,21 @@ class _SeriesPartsSheetState extends ConsumerState<SeriesPartsSheet> {
       if (!r.owned && r.partKey != null) r,
   ];
 
+  late final SeriesPartChoices _saved = seriesPartChoices(
+    ref.read(displayPreferencesProvider),
+    widget.seriesKey,
+  );
+
+  /// The listed parts the owner hid, and the listed extras they show. Parts
+  /// no longer listed (now in the library, or gone from the source) are
+  /// let go on Done.
   late final Set<String> _hidden = {
     for (final r in _missing)
-      if (ref
-          .read(displayPreferencesProvider)
-          .hiddenPartsOf(widget.seriesKey)
-          .contains(r.partKey))
-        r.partKey!,
+      if (_saved.hidden.contains(r.partKey)) r.partKey!,
+  };
+  late final Set<String> _shown = {
+    for (final r in _missing)
+      if (r.extra && _saved.shown.contains(r.partKey)) r.partKey!,
   };
 
   /// The authors most of the series' parts have, so a part by someone else
@@ -836,7 +869,7 @@ class _SeriesPartsSheetState extends ConsumerState<SeriesPartsSheet> {
   void _done() {
     ref
         .read(displayPreferencesProvider.notifier)
-        .setHiddenParts(widget.seriesKey, _hidden);
+        .setSeriesParts(widget.seriesKey, hidden: _hidden, shown: _shown);
     Navigator.pop(context);
   }
 
@@ -892,7 +925,7 @@ class _SeriesPartsSheetState extends ConsumerState<SeriesPartsSheet> {
   Widget _partRow(SeriesRow row) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final on = !_hidden.contains(row.partKey);
+    final on = !isHiddenRow(row, (hidden: _hidden, shown: _shown));
     final title = seriesPartTitle(row.title, widget.seriesName);
     final sub = [
       row.number == null ? 'No number' : 'Number ${row.number}',
@@ -905,10 +938,11 @@ class _SeriesPartsSheetState extends ConsumerState<SeriesPartsSheet> {
       excludeSemantics: true,
       child: RowInkWell(
         onTap: () => setState(() {
-          if (on) {
-            _hidden.add(row.partKey!);
+          final key = row.partKey!;
+          if (row.extra) {
+            on ? _shown.remove(key) : _shown.add(key);
           } else {
-            _hidden.remove(row.partKey);
+            on ? _hidden.add(key) : _hidden.remove(key);
           }
         }),
         child: Container(

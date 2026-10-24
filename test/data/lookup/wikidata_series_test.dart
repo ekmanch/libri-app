@@ -280,8 +280,8 @@ void main() {
   });
 
   test('the parts of a part, undated unnumbered parts and, in a numbered '
-      'series, unnumbered extras are left out (Library › Book series after '
-      'the automatic rules)', () async {
+      'series, the unnumbered rest are kept as extras (Library › Book series '
+      'after the automatic rules)', () async {
     Map<String, Object?> part(
       String id,
       String label, {
@@ -345,15 +345,23 @@ void main() {
       ],
     );
     final found = await wikidata.seriesOf('The Fellowship of the Ring', null);
-    expect(found!.parts.parts.map((p) => p.title), [
-      'The Fellowship of the Ring',
-      'The Two Towers',
-      'The Return of the King',
-    ]);
-    expect(found.parts.parts.first.creator, 'J. R. R. Tolkien');
+    final parts = found!.parts.parts;
+    expect(parts, hasLength(8));
+    expect(
+      [
+        for (final p in parts)
+          if (!p.extra) p.title,
+      ],
+      [
+        'The Fellowship of the Ring',
+        'The Two Towers',
+        'The Return of the King',
+      ],
+    );
+    expect(parts.first.creator, 'J. R. R. Tolkien');
   });
 
-  test('cleanParts: a part of something outside the series stays', () {
+  test('extraParts: a part of something outside the series is no extra', () {
     WikidataPart part(
       String id, {
       int? number,
@@ -368,17 +376,16 @@ void main() {
       authors: const [],
     );
     expect(
-      WikidataSeries.cleanParts([
+      WikidataSeries.extraParts([
         part('A', number: 1, year: 2000, partOf: {'Q-elsewhere'}),
         part('B', number: 2, year: 2001),
-      ]).map((p) => p.id),
-      ['A', 'B'],
+      ]),
+      isEmpty,
     );
     // Half numbered is not most: the unnumbered stay.
     expect(
-      WikidataSeries.cleanParts([part('A', number: 1), part('B', year: 2001)])
-          .map((p) => p.id),
-      ['A', 'B'],
+      WikidataSeries.extraParts([part('A', number: 1), part('B', year: 2001)]),
+      isEmpty,
     );
   });
 

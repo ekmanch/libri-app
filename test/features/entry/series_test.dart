@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'dart:ui' show CheckedState;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
@@ -113,6 +116,7 @@ void main() {
           year: 2001,
           source: 'tmdb:movie:120',
           creator: null,
+          extra: false,
         ),
         (
           number: 2,
@@ -120,6 +124,7 @@ void main() {
           year: 2002,
           source: 'tmdb:movie:121',
           creator: null,
+          extra: false,
         ),
         (
           number: 3,
@@ -127,6 +132,7 @@ void main() {
           year: 2003,
           source: 'tmdb:movie:122',
           creator: null,
+          extra: false,
         ),
       ],
     );
@@ -164,6 +170,7 @@ void main() {
             year: 1996,
             source: 'igdb:912',
             creator: null,
+            extra: false,
           ),
           (
             number: 2,
@@ -171,6 +178,7 @@ void main() {
             year: 1997,
             source: 'igdb:1',
             creator: null,
+            extra: false,
           ),
           (
             number: 3,
@@ -178,6 +186,7 @@ void main() {
             year: 2006,
             source: 'igdb:2',
             creator: null,
+            extra: false,
           ),
           (
             number: 4,
@@ -185,6 +194,7 @@ void main() {
             year: 2013,
             source: 'igdb:1164',
             creator: null,
+            extra: false,
           ),
           (
             number: 5,
@@ -192,6 +202,7 @@ void main() {
             year: 2015,
             source: 'igdb:7323',
             creator: null,
+            extra: false,
           ),
         ],
       );
@@ -237,6 +248,7 @@ void main() {
             year: 1996,
             source: null,
             creator: null,
+            extra: false,
           ),
           (
             number: 2,
@@ -244,6 +256,7 @@ void main() {
             year: 2013,
             source: null,
             creator: null,
+            extra: false,
           ),
         ],
       );
@@ -266,6 +279,7 @@ void main() {
             year: 2007,
             source: null,
             creator: null,
+            extra: false,
           ),
           (
             number: 17,
@@ -273,6 +287,7 @@ void main() {
             year: 2007,
             source: null,
             creator: null,
+            extra: false,
           ),
         ],
       );
@@ -300,6 +315,7 @@ void main() {
             year: 1986,
             source: null,
             creator: null,
+            extra: false,
           ),
           (
             number: null,
@@ -307,6 +323,7 @@ void main() {
             year: 1962,
             source: null,
             creator: null,
+            extra: false,
           ),
           (
             number: null,
@@ -314,6 +331,7 @@ void main() {
             year: 1966,
             source: null,
             creator: null,
+            extra: false,
           ),
           (
             number: null,
@@ -321,6 +339,7 @@ void main() {
             year: 1975,
             source: null,
             creator: null,
+            extra: false,
           ),
           (
             number: 2,
@@ -328,6 +347,7 @@ void main() {
             year: 1981,
             source: null,
             creator: null,
+            extra: false,
           ),
         ],
       );
@@ -722,6 +742,86 @@ void main() {
     );
   });
 
+  testWidgets(
+    'an extra of the automatic rules starts hidden, and Choose what to show '
+    'shows it (Library › Book series after the automatic rules)',
+    (tester) async {
+      const SeriesParts withExtra = (
+        name: 'The Lord of the Rings',
+        parts: [
+          (
+            number: 1,
+            title: 'The Lord of the Rings: The Fellowship of the Ring',
+            year: 2001,
+            source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
+            creator: null,
+            extra: false,
+          ),
+          (
+            number: 2,
+            title: 'The Lord of the Rings: The Two Towers',
+            year: 2002,
+            source: 'fake:the-lord-of-the-rings-the-two-towers',
+            creator: null,
+            extra: false,
+          ),
+          (
+            number: null,
+            title: 'The Appendices',
+            year: 2003,
+            source: 'fake:appendices',
+            creator: null,
+            extra: true,
+          ),
+        ],
+      );
+      final container = await pumpApp(
+        tester,
+        const _PageOpener(_fellowship),
+        lookupOverrides: fakeLookupOverrides(
+          source: FakeLookupSource(
+            seriesBySource: {
+              'fake:the-lord-of-the-rings-the-fellowship-of-the-ring':
+                  withExtra,
+              'fake:the-lord-of-the-rings-the-two-towers': withExtra,
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('1 hidden part'), findsOneWidget);
+      expect(find.bySemanticsLabel('Add The Appendices'), findsNothing);
+
+      await tester.tap(find.byTooltip('Series options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose what to show'));
+      await tester.pumpAndSettle();
+      final row = find.bySemanticsLabel('The Appendices');
+      expect(
+        tester.getSemantics(row).flagsCollection.isChecked,
+        CheckedState.isFalse,
+      );
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(row).flagsCollection.isChecked,
+        CheckedState.isTrue,
+      );
+      await tester.tap(find.widgetWithText(AppButton, 'Done'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('1 hidden part'), findsNothing);
+      expect(find.bySemanticsLabel('Add The Appendices'), findsOneWidget);
+      final prefs = container.read(displayPreferencesProvider);
+      final key = 'movies:${titleKey('The Lord of the Rings')}';
+      expect(prefs.shownPartsOf(key), {'fake:appendices'});
+      expect(prefs.hiddenPartsOf(key), isEmpty);
+    },
+  );
+
   test('splitHiddenRows never hides a part in the library', () {
     final owned = SeriesRow(
       title: 'Owned',
@@ -730,11 +830,66 @@ void main() {
     );
     const missing = SeriesRow(title: 'Missing', partKey: 'b');
     const other = SeriesRow(title: 'Other', partKey: 'c');
-    final (:shown, :hidden) = splitHiddenRows(
-      [owned, missing, other],
-      {'a', 'b'},
+    const extra = SeriesRow(title: 'Extra', partKey: 'd', extra: true);
+    const shownExtra = SeriesRow(
+      title: 'Shown extra',
+      partKey: 'e',
+      extra: true,
     );
-    expect(shown.map((r) => r.title), ['Owned', 'Other']);
-    expect(hidden.map((r) => r.title), ['Missing']);
+    final ownedExtra = SeriesRow(
+      title: 'Owned extra',
+      entry: loadFixture().entryById(_fellowship),
+      partKey: 'f',
+      extra: true,
+    );
+    final (:shown, :hidden) = splitHiddenRows(
+      [owned, missing, other, extra, shownExtra, ownedExtra],
+      (hidden: {'a', 'b'}, shown: {'e'}),
+    );
+    expect(shown.map((r) => r.title), [
+      'Owned',
+      'Other',
+      'Shown extra',
+      'Owned extra',
+    ]);
+    expect(hidden.map((r) => r.title), ['Missing', 'Extra']);
+  });
+
+  test('an extra never takes an owned part by its number', () {
+    // Wikidata's six-book edition numbers its books 1 to 6 too.
+    final towers = loadFixture().entryById(_towers)!;
+    final rows = seriesRows(
+      current: towers,
+      library: loadFixture().entries,
+      parts: (
+        name: 'The Lord of the Rings',
+        parts: [
+          (
+            number: 2,
+            title: 'The Journey of the Nine Companions',
+            year: null,
+            source: 'wikidata:Q2',
+            creator: null,
+            extra: true,
+          ),
+          (
+            number: 2,
+            title: 'The Lord of the Rings: The Two Towers',
+            year: 2002,
+            source: 'wikidata:Q1',
+            creator: null,
+            extra: false,
+          ),
+        ],
+      ),
+    );
+    final matched = rows.firstWhere((r) => r.entry?.id == _towers);
+    expect(matched.extra, isFalse);
+    expect(
+      rows
+          .firstWhere((r) => r.title == 'The Journey of the Nine Companions')
+          .owned,
+      isFalse,
+    );
   });
 }

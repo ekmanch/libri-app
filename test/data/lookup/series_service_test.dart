@@ -36,6 +36,7 @@ const SeriesParts _lotr = (
       year: 2001,
       source: _source,
       creator: null,
+      extra: false,
     ),
     (
       number: 2,
@@ -43,6 +44,7 @@ const SeriesParts _lotr = (
       year: 2002,
       source: 'tmdb:movie:121',
       creator: null,
+      extra: false,
     ),
   ],
 );
@@ -191,7 +193,7 @@ void main() {
     expect(await store.read(_source), isNotNull);
   });
 
-  test('the file store keeps the authors of a part, and a list from before '
+  test('the file store keeps the authors of a part and its extra mark, and a list from before '
       'version 2 counts as stale', () async {
     final dir = await Directory.systemTemp.createTemp('series');
     addTearDown(() => dir.delete(recursive: true));
@@ -205,6 +207,7 @@ void main() {
           year: 2006,
           source: 'wikidata:Q7',
           creator: 'Brian Herbert, Kevin J. Anderson',
+          extra: true,
         ),
       ],
     );

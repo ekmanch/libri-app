@@ -61,9 +61,10 @@ class FileSeriesStore implements SeriesStore {
 
   static const _encoder = JsonEncoder.withIndent('  ');
 
-  /// 2 since 2026-10-24: Wikidata's parts are cleaned up when fetched (the
-  /// parts of a part, unnumbered extras) and carry their authors.
-  static const version = 2;
+  /// 3 since 2026-10-24: Wikidata's parts carry their authors, and the
+  /// ones the automatic rules count as extras are kept and marked `extra`
+  /// (version 2 dropped them, and version 1 had no rules at all).
+  static const version = 3;
 
   Directory get _series =>
       Directory('${directory.path}${Platform.pathSeparator}series');
@@ -104,6 +105,7 @@ class FileSeriesStore implements SeriesStore {
                   year: item['year'] as int?,
                   source: item['source'] as String?,
                   creator: item['creator'] as String?,
+                  extra: item['extra'] == true,
                 ),
           ],
         ),
@@ -128,7 +130,7 @@ class FileSeriesStore implements SeriesStore {
       'asked': ?asked,
       'name': series.name,
       'parts': [
-        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'source': p.source, 'creator': ?p.creator},
+        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'source': p.source, 'creator': ?p.creator, if (p.extra) 'extra': true},
       ],
     })}\n',
   );

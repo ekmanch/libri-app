@@ -27,6 +27,7 @@ class DisplayPreferences {
     this.seasonalThemeDefault = true,
     this.defaultPlatform = 'PC',
     this.hiddenSeriesParts = const {},
+    this.shownSeriesParts = const {},
   });
 
   final ThemeMode themeMode;
@@ -64,8 +65,16 @@ class DisplayPreferences {
   /// [seriesKey] to the parts' lookup ids. A series with none is left out.
   final Map<String, Set<String>> hiddenSeriesParts;
 
+  /// The parts the automatic rules count as extras that the owner chose to
+  /// see after all (Library › Book series after the automatic rules), in
+  /// the same form.
+  final Map<String, Set<String>> shownSeriesParts;
+
   Set<String> hiddenPartsOf(String seriesKey) =>
       hiddenSeriesParts[seriesKey] ?? const {};
+
+  Set<String> shownPartsOf(String seriesKey) =>
+      shownSeriesParts[seriesKey] ?? const {};
 
   static const platformChoices = [
     'PC',
@@ -103,6 +112,7 @@ class DisplayPreferences {
     bool? seasonalThemeDefault,
     Object? defaultPlatform = _keep,
     Map<String, Set<String>>? hiddenSeriesParts,
+    Map<String, Set<String>>? shownSeriesParts,
   }) => DisplayPreferences(
     themeMode: themeMode ?? this.themeMode,
     accent: accent ?? this.accent,
@@ -117,6 +127,7 @@ class DisplayPreferences {
         ? this.defaultPlatform
         : defaultPlatform as String?,
     hiddenSeriesParts: hiddenSeriesParts ?? this.hiddenSeriesParts,
+    shownSeriesParts: shownSeriesParts ?? this.shownSeriesParts,
   );
 
   /// Sentinel for [copyWith], so a null [defaultPlatform] can be set.
@@ -138,9 +149,20 @@ class DisplayPreferences {
     'timeline_default': timelineDefault,
     'seasonal_theme_default': seasonalThemeDefault,
     'default_platform': defaultPlatform,
-    'hidden_series_parts': {
-      for (final e in hiddenSeriesParts.entries) e.key: [...e.value]..sort(),
-    },
+    'hidden_series_parts': _partsJson(hiddenSeriesParts),
+    'shown_series_parts': _partsJson(shownSeriesParts),
+  };
+
+  static Map<String, List<String>> _partsJson(Map<String, Set<String>> parts) =>
+      {
+        for (final e in parts.entries) e.key: [...e.value]..sort(),
+      };
+
+  static Map<String, Set<String>> _partsFromJson(Object? raw) => {
+    if (raw is Map)
+      for (final MapEntry(:key, :value) in raw.entries)
+        if (key is String && value is List && value.isNotEmpty)
+          key: {...value.whereType<String>()},
   };
 
   /// Reads [toJson]'s form. Anything missing or unknown, such as a value
@@ -165,7 +187,6 @@ class DisplayPreferences {
     };
 
     final platform = json['default_platform'];
-    final hidden = json['hidden_series_parts'];
     return DisplayPreferences(
       themeMode: byName(ThemeMode.values, json['theme']) ?? defaults.themeMode,
       accent: switch (json['accent']) {
@@ -198,12 +219,8 @@ class DisplayPreferences {
           : platform is String
           ? platform
           : null,
-      hiddenSeriesParts: {
-        if (hidden is Map)
-          for (final MapEntry(:key, :value) in hidden.entries)
-            if (key is String && value is List && value.isNotEmpty)
-              key: {...value.whereType<String>()},
-      },
+      hiddenSeriesParts: _partsFromJson(json['hidden_series_parts']),
+      shownSeriesParts: _partsFromJson(json['shown_series_parts']),
     );
   }
 
@@ -220,9 +237,10 @@ class DisplayPreferences {
       other.timelineDefault == timelineDefault &&
       other.seasonalThemeDefault == seasonalThemeDefault &&
       other.defaultPlatform == defaultPlatform &&
-      _sameHidden(other.hiddenSeriesParts, hiddenSeriesParts);
+      _sameParts(other.hiddenSeriesParts, hiddenSeriesParts) &&
+      _sameParts(other.shownSeriesParts, shownSeriesParts);
 
-  static bool _sameHidden(
+  static bool _sameParts(
     Map<String, Set<String>> a,
     Map<String, Set<String>> b,
   ) =>
@@ -243,12 +261,16 @@ class DisplayPreferences {
     timelineDefault,
     seasonalThemeDefault,
     defaultPlatform,
-    Object.hashAllUnordered(
-      hiddenSeriesParts.entries.map(
-        (e) => Object.hash(e.key, Object.hashAllUnordered(e.value)),
-      ),
-    ),
+    _partsHash(hiddenSeriesParts),
+    _partsHash(shownSeriesParts),
   );
+
+  static int _partsHash(Map<String, Set<String>> parts) =>
+      Object.hashAllUnordered(
+        parts.entries.map(
+          (e) => Object.hash(e.key, Object.hashAllUnordered(e.value)),
+        ),
+      );
 }
 
 /// Where the preferences are saved. Outside the running app nothing is
@@ -310,15 +332,26 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
   void setFilteredSort(LibrarySort sort) =>
       state = state.copyWith(filteredSort: sort);
 
-  /// The parts of the series [seriesKey] to hide; none removes the series.
-  void setHiddenParts(String seriesKey, Set<String> parts) =>
-      state = state.copyWith(
-        hiddenSeriesParts: {
-          for (final e in state.hiddenSeriesParts.entries)
-            if (e.key != seriesKey) e.key: e.value,
-          if (parts.isNotEmpty) seriesKey: {...parts},
-        },
-      );
+  /// The parts of the series [seriesKey] to hide, and the extras to show;
+  /// an empty set removes the series from that map.
+  void setSeriesParts(
+    String seriesKey, {
+    required Set<String> hidden,
+    required Set<String> shown,
+  }) {
+    Map<String, Set<String>> put(
+      Map<String, Set<String>> all,
+      Set<String> parts,
+    ) => {
+      for (final e in all.entries)
+        if (e.key != seriesKey) e.key: e.value,
+      if (parts.isNotEmpty) seriesKey: {...parts},
+    };
+    state = state.copyWith(
+      hiddenSeriesParts: put(state.hiddenSeriesParts, hidden),
+      shownSeriesParts: put(state.shownSeriesParts, shown),
+    );
+  }
 }
 
 final displayPreferencesProvider =
