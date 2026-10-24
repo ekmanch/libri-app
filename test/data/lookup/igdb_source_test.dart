@@ -110,7 +110,7 @@ void main() {
       'search "last of us"; fields name,first_release_date,summary,'
       'cover.image_id,platforms.name,involved_companies.company.name,'
       'involved_companies.developer,genres.name,'
-      'language_supports.language.locale,language_supports.support_type; '
+      'language_supports.language.locale,language_supports.language_support_type; '
       'where version_parent = null; limit 5;',
     );
 
@@ -177,7 +177,7 @@ void main() {
           for (final (locale, type) in supports)
             {
               'language': {'locale': locale},
-              'support_type': type,
+              'language_support_type': type,
             },
         ],
       };

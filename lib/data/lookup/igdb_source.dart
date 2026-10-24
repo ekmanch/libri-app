@@ -42,7 +42,7 @@ class IgdbSource extends HttpLookupSource {
       'name,first_release_date,summary,cover.image_id,platforms.name,'
       'involved_companies.company.name,involved_companies.developer,'
       'genres.name,language_supports.language.locale,'
-      'language_supports.support_type';
+      'language_supports.language_support_type';
 
   /// IGDB's `language_support_type` id for spoken audio (2 is subtitles, 3
   /// the interface).
@@ -53,7 +53,7 @@ class IgdbSource extends HttpLookupSource {
   static String? _language(Map<String, Object?> game) {
     final audio = {
       for (final l in objectsAt(game, 'language_supports'))
-        if (l['support_type'] == _audioSupport)
+        if (l['language_support_type'] == _audioSupport)
           ?stringAt(
             l['language'] as Map<String, Object?>? ?? const {},
             'locale',
