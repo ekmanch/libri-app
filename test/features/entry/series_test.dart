@@ -4,7 +4,9 @@ import 'dart:ui' show CheckedState;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
+import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
@@ -822,6 +824,46 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a series the lookup could not update says so, and Try again asks again '
+    '(Library › Series page: couldn\'t update)',
+    (tester) async {
+      final source = _FlakySeries();
+      addTearDown(() => seasonClock = DateTime.now);
+      await pumpApp(
+        tester,
+        const _PageOpener(_fellowship),
+        lookupOverrides: fakeLookupOverrides(source: source),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('Couldn’t update this series'), findsNothing);
+
+      // A week on, the stored list is asked about again, and the lookup
+      // does not answer: the stored list stays, with the line.
+      source.failing = true;
+      final later = DateTime.now().add(const Duration(days: 8));
+      seasonClock = () => later;
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('Couldn’t update this series'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Try again'));
+      await tester.pumpAndSettle();
+      expect(find.text('Couldn’t update this series'), findsOneWidget);
+
+      source.failing = false;
+      await tester.tap(find.widgetWithText(TextButton, 'Try again'));
+      await tester.pumpAndSettle();
+      expect(find.text('Couldn’t update this series'), findsNothing);
+      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+    },
+  );
+
   test('splitHiddenRows never hides a part in the library', () {
     final owned = SeriesRow(
       title: 'Owned',
@@ -892,4 +934,15 @@ void main() {
       isFalse,
     );
   });
+}
+
+/// The fake lookup, whose series lists fail while [failing] is set.
+class _FlakySeries extends FakeLookupSource {
+  bool failing = false;
+
+  @override
+  Future<SeriesParts?> seriesParts(String source, {String? name}) async {
+    if (failing) throw const LookupException(LookupFailure.offline);
+    return super.seriesParts(source, name: name);
+  }
 }

@@ -121,31 +121,33 @@ void main() {
     expect(b.fake.calls, hasLength(2));
   });
 
-  test(
-    'a failed refetch keeps the stored list; nothing stored fails',
-    () async {
-      final b = build(failure: LookupFailure.offline);
-      await b.store.write(
-        _source,
-        _lotr,
-        fetched: now.subtract(const Duration(days: 8)),
-      );
-      final results = await b.service.load(_fellowship).toList();
-      expect(results.single!.fromCache, isTrue);
+  test('a failed refetch keeps the stored list and says so; nothing stored '
+      'fails', () async {
+    final b = build(failure: LookupFailure.offline);
+    await b.store.write(
+      _source,
+      _lotr,
+      fetched: now.subtract(const Duration(days: 8)),
+    );
+    final results = await b.service.load(_fellowship).toList();
+    expect(results.map((r) => (r!.fromCache, r.updateFailed)), [
+      (true, false),
+      (true, true),
+    ]);
+    expect(results.last!.series.parts, _lotr.parts);
 
-      final empty = build(failure: LookupFailure.offline);
-      await expectLater(
-        empty.service.load(_fellowship).toList(),
-        throwsA(
-          isA<LookupException>().having(
-            (e) => e.failure,
-            'failure',
-            LookupFailure.offline,
-          ),
+    final empty = build(failure: LookupFailure.offline);
+    await expectLater(
+      empty.service.load(_fellowship).toList(),
+      throwsA(
+        isA<LookupException>().having(
+          (e) => e.failure,
+          'failure',
+          LookupFailure.offline,
         ),
-      );
-    },
-  );
+      ),
+    );
+  });
 
   test('no series known, or no lookup id, is null', () async {
     final none = build(series: const {_source: null});

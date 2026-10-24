@@ -6,12 +6,18 @@ import 'lookup_service.dart';
 import 'lookup_source.dart';
 import 'series_store.dart';
 
-/// A series' parts, and whether they came from the phone.
+/// A series' parts, whether they came from the phone, and whether asking
+/// the lookup for a newer list failed, so the stored one is all there is.
 class SeriesList {
-  const SeriesList(this.series, {required this.fromCache});
+  const SeriesList(
+    this.series, {
+    required this.fromCache,
+    this.updateFailed = false,
+  });
 
   final SeriesParts series;
   final bool fromCache;
+  final bool updateFailed;
 }
 
 /// The parts of the series an entry belongs to (Library › Movie in a series;
@@ -40,7 +46,8 @@ class SeriesService {
   /// The stored parts first, when there are any, then the fetched ones when
   /// they were fetched. Ends with null when no lookup id could be found or
   /// the lookup knows no series for the entry. Fails with [LookupException]
-  /// only when nothing is stored.
+  /// only when nothing is stored; with a stored list it ends with that list
+  /// again, marked [SeriesList.updateFailed].
   Stream<SeriesList?> load(Entry entry) async* {
     final now = seasonClock();
     final source = entry.source ?? await resolver.matchedSource(entry);
@@ -69,8 +76,9 @@ class SeriesService {
       }
       parts = await lookup.seriesParts(source, name: name);
     } on LookupException {
-      // The stored list stays on screen.
+      // The stored list stays on screen, saying it could not be updated.
       if (stored == null) rethrow;
+      yield SeriesList(stored.series, fromCache: true, updateFailed: true);
       return;
     }
     if (parts == null || parts.parts.isEmpty) {

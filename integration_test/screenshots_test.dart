@@ -17,12 +17,14 @@ import 'package:integration_test/integration_test.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
+import 'package:library_app/data/lookup/lookup_source.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/dev/fake_github_api.dart';
+import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
@@ -435,12 +437,14 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
 /// A series as one row of a long type list (Library › Movies, text view;
 /// list and grid with covers), the series page it opens (Library › Series
 /// page (from a series row)), its menu, Series cover and Choose what to show
-/// sheets and a hidden part (Library › Series page: hidden parts), at
+/// sheets, a hidden part (Library › Series page: hidden parts) and a list
+/// the lookup could not update (Library › Series page: couldn't update), at
 /// [scale]. The
 /// movies are padded to three screens, so The Lord of the Rings' two parts
 /// group. Captures are prefixed "large-text-" above 1.
 Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
   final prefix = scale == 1 ? '' : 'large-text-';
+  final source = _FlakySeries();
   final long = padForLongLists(
     decodeLibrary(
       await File(FixtureLibraryRepository.assetPath).readAsString(),
@@ -449,7 +453,7 @@ Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        ...fakeLookupOverrides(),
+        ...fakeLookupOverrides(source: source),
         libraryRepositoryProvider.overrideWithValue(
           FixtureLibraryRepository(loadJson: () async => encodeLibrary(long)),
         ),
@@ -530,6 +534,19 @@ Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(returnOfTheKing);
   await tester.tap(find.widgetWithText(FilledButton, 'Done'));
   await tester.pumpAndSettle();
+  // Library › Series page: couldn't update. A week on, the lookup does not
+  // answer, so the stored list shows with the line.
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  source.failing = true;
+  final later = DateTime.now().add(const Duration(days: 8));
+  seasonClock = () => later;
+  addTearDown(() => seasonClock = DateTime.now);
+  await tester.tap(row);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}l5-series-not-updated');
+  source.failing = false;
+  seasonClock = DateTime.now;
   await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
   await revealHeader(tester);
@@ -2556,4 +2573,15 @@ void main() {
       await capture(tester, name);
     }
   });
+}
+
+/// The fake lookup, whose series lists fail while [failing] is set.
+class _FlakySeries extends FakeLookupSource {
+  bool failing = false;
+
+  @override
+  Future<SeriesParts?> seriesParts(String source, {String? name}) async {
+    if (failing) throw const LookupException(LookupFailure.offline);
+    return super.seriesParts(source, name: name);
+  }
 }

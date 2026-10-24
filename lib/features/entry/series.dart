@@ -543,6 +543,8 @@ Future<void> openSeriesPage(BuildContext context, String entryId) =>
 /// Parts the owner hid (Library › Series page: hidden parts) are left out
 /// of the list and the counts; the ⋮ menu's Choose what to show picks them,
 /// and "2 hidden parts · Show" at the end shows them until the page closes.
+/// When the lookup could not be asked for a newer list, the stored one
+/// shows under "Couldn’t update this series · Try again".
 class AllSeriesScreen extends ConsumerStatefulWidget {
   const AllSeriesScreen({
     super.key,
@@ -664,7 +666,8 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
     final library = ref.watch(libraryProvider).value;
     final entry = library?.entryById(widget.entryId);
     final series = entry?.series;
-    final parts = ref.watch(seriesPartsProvider(widget.entryId)).value?.series;
+    final list = ref.watch(seriesPartsProvider(widget.entryId)).value;
+    final parts = list?.series;
     final all = entry == null
         ? const <SeriesRow>[]
         : seriesRows(
@@ -742,6 +745,17 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // The lookup did not answer, so the list may be
+                          // an old one (Library › Series page: couldn't
+                          // update); Try again asks again.
+                          if (list?.updateFailed ?? false)
+                            _SeriesNoteRow(
+                              text: 'Couldn’t update this series',
+                              action: 'Try again',
+                              onPressed: () => ref.invalidate(
+                                seriesPartsProvider(widget.entryId),
+                              ),
+                            ),
                           for (final row in rows)
                             SeriesPartRow(
                               key: !widget.fromList && row.entry?.id == entry.id
@@ -755,32 +769,10 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
                               onOpen: _open,
                             ),
                           if (hidden.isNotEmpty)
-                            Container(
-                              constraints: const BoxConstraints(minHeight: 56),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      hiddenLabel,
-                                      style: theme.textTheme.bodyMedium!
-                                          .copyWith(
-                                            fontSize: 14,
-                                            color: colors.placeholder,
-                                          ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  TextButton(
-                                    onPressed: () =>
-                                        setState(() => _peek = !_peek),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor:
-                                          theme.colorScheme.primary,
-                                    ),
-                                    child: Text(_peek ? 'Hide' : 'Show'),
-                                  ),
-                                ],
-                              ),
+                            _SeriesNoteRow(
+                              text: hiddenLabel,
+                              action: _peek ? 'Hide' : 'Show',
+                              onPressed: () => setState(() => _peek = !_peek),
                             ),
                         ],
                       ),
@@ -788,6 +780,51 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A quiet line on the series page with an action in the accent: "2 hidden
+/// parts · Show" at the end, "Couldn’t update this series · Try again" at
+/// the top.
+class _SeriesNoteRow extends StatelessWidget {
+  const _SeriesNoteRow({
+    required this.text,
+    required this.action,
+    required this.onPressed,
+  });
+
+  final String text;
+  final String action;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 56),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium!.copyWith(
+                fontSize: 14,
+                color: colors.placeholder,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          TextButton(
+            onPressed: onPressed,
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.primary,
+            ),
+            child: Text(action),
+          ),
+        ],
       ),
     );
   }
