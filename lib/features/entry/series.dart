@@ -88,7 +88,8 @@ List<Entry> entriesInSeries(
 /// lookup id, else by number, else by title), then the library's other
 /// entries of the series, every row placed by its number (rows without one
 /// after the rest, in the order they came). A matched part takes its
-/// entry's number, since Number is the owner's to edit; the source's
+/// entry's number, title and year, since those are the owner's to edit
+/// (Open Library may call volume 16 "Berserk #16-20"); the source's
 /// number only counts where the entry has none. Without fetched parts the
 /// rows are the library's entries alone.
 List<SeriesRow> seriesRows({
@@ -128,8 +129,8 @@ List<SeriesRow> seriesRows({
     rows.add(
       SeriesRow(
         number: entry?.series?.number ?? part.number,
-        title: part.title,
-        year: part.year,
+        title: entry?.title ?? part.title,
+        year: entry?.year ?? part.year,
         entry: entry,
       ),
     );

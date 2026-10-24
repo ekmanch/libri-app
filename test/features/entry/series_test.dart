@@ -140,13 +140,30 @@ void main() {
         parts: parts,
       );
       expect(
-        {for (final r in rows) r.title: r.entry?.id},
-        {
-          'The Fellowship of the Ring': 'a',
-          'The Two Towers': 'b',
-          'The Return of the King': 'c',
-        },
+        {for (final r in rows) r.number: r.entry?.id},
+        {9: 'a', 2: 'b', 3: 'c'},
       );
+    });
+
+    test('a part shows the title and year of the entry that is it', () {
+      // Open Library's work for volume 16 is an omnibus, "Berserk #16-20".
+      const SeriesParts berserk = (
+        name: 'Berserk',
+        parts: [
+          (number: 16, title: 'Berserk #16-20', year: 2007, source: null),
+          (number: 17, title: 'Berserk Volume 17', year: 2007, source: null),
+        ],
+      );
+      final sixteen = _entry('s', 'Berserk Volume 16', number: 16, year: 2008);
+      final rows = seriesRows(
+        current: sixteen,
+        library: [sixteen],
+        parts: berserk,
+      );
+      expect(rows.map((r) => (r.number, r.title, r.year, r.owned)), [
+        (16, 'Berserk Volume 16', 2008, true),
+        (17, 'Berserk Volume 17', 2007, false),
+      ]);
     });
 
     test('a part takes the number of the entry that is it', () {
