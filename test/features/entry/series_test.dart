@@ -12,6 +12,7 @@ import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/entry/entry_details_sheet.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/series.dart';
+import 'package:library_app/features/shell/app_shell.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/widgets/app_buttons.dart';
@@ -143,6 +144,73 @@ void main() {
         {for (final r in rows) r.number: r.entry?.id},
         {9: 'a', 2: 'b', 3: 'c'},
       );
+    });
+
+    test('an id match wins over a weaker match of an earlier part', () {
+      // IGDB's Tomb Raider: part 1 shares its title with the 2013 reboot
+      // (part 4 here), and Rise was stored as number 2 of another
+      // collection; ids put both where they are.
+      const SeriesParts tombRaider = (
+        name: 'The Lord of the Rings',
+        parts: [
+          (number: 1, title: 'Tomb Raider', year: 1996, source: 'igdb:912'),
+          (number: 2, title: 'Tomb Raider II', year: 1997, source: 'igdb:1'),
+          (number: 3, title: 'Legend', year: 2006, source: 'igdb:2'),
+          (number: 4, title: 'Tomb Raider', year: 2013, source: 'igdb:1164'),
+          (
+            number: 5,
+            title: 'Rise of the Tomb Raider',
+            year: 2015,
+            source: 'igdb:7323',
+          ),
+        ],
+      );
+      final reboot = _entry(
+        'r',
+        'Tomb Raider',
+        number: 4,
+        year: 2013,
+        source: 'igdb:1164',
+      );
+      final rise = _entry(
+        'x',
+        'Rise of the Tomb Raider',
+        number: 2,
+        year: 2015,
+        source: 'igdb:7323',
+      );
+      final rows = seriesRows(
+        current: reboot,
+        library: [reboot, rise],
+        parts: tombRaider,
+      );
+      expect(rows.length, 5);
+      expect(rows.where((r) => r.owned).map((r) => r.entry!.id), {'x', 'r'});
+      expect(
+        rows.where((r) => r.title == 'Tomb Raider II').single.owned,
+        false,
+      );
+      expect(
+        rows.where((r) => r.year == 1996).single.owned,
+        isFalse,
+        reason: 'the 1996 part is not the 2013 entry',
+      );
+    });
+
+    test('a title match prefers the part of the same year', () {
+      const SeriesParts twice = (
+        name: 'The Lord of the Rings',
+        parts: [
+          (number: 1, title: 'Tomb Raider', year: 1996, source: null),
+          (number: 2, title: 'Tomb Raider', year: 2013, source: null),
+        ],
+      );
+      final reboot = _entry('r', 'Tomb Raider', year: 2013);
+      final rows = seriesRows(current: reboot, library: [reboot], parts: twice);
+      expect(rows.map((r) => (r.number, r.year, r.owned)), [
+        (1, 1996, false),
+        (2, 2013, true),
+      ]);
     });
 
     test('a part shows the title and year of the entry that is it', () {
@@ -405,6 +473,20 @@ void main() {
         findsOneWidget,
       );
       expect(find.widgetWithText(AppButton, 'Cover'), findsOneWidget);
+    });
+
+    testWidgets('the list scrolls clear of the pill and "+"', (tester) async {
+      await openPage(tester);
+      final scroll = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: find.byType(AllSeriesScreen),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      expect(
+        (scroll.padding! as EdgeInsets).bottom,
+        AppShell.contentBottomPadding,
+      );
     });
 
     testWidgets('a part opens its details sheet; closing it comes back', (

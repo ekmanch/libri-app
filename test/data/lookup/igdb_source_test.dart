@@ -446,6 +446,53 @@ void main() {
       },
     );
 
+    test('a title that names a collection inside it takes that one; the '
+        'entry\'s series name wins', () async {
+      // Rise of the Tomb Raider is in "Tomb Raider: Survivor" and in
+      // "Tomb Raider".
+      final rise = {
+        'id': 7323,
+        'name': 'Rise of the Tomb Raider',
+        'collections': [
+          {
+            'id': 1,
+            'name': 'Tomb Raider: Survivor',
+            'games': [
+              {'id': 7323, 'name': 'Rise of the Tomb Raider'},
+            ],
+          },
+          {
+            'id': 2,
+            'name': 'Tomb Raider',
+            'games': [
+              {'id': 912, 'name': 'Tomb Raider', 'first_release_date': 0},
+              {
+                'id': 7323,
+                'name': 'Rise of the Tomb Raider',
+                'first_release_date': 1447113600,
+              },
+            ],
+          },
+        ],
+      };
+      final igdb = source((_) async => json(200, [rise]));
+      final full = await igdb.details(
+        const LookupMatch(
+          type: MediaType.games,
+          title: 'Rise of the Tomb Raider',
+          source: 'igdb:7323',
+        ),
+      );
+      expect(full.series, const Series(name: 'Tomb Raider', number: 2));
+      expect(
+        (await igdb.seriesParts(
+          'igdb:7323',
+          name: 'Tomb Raider: Survivor',
+        ))!.name,
+        'Tomb Raider: Survivor',
+      );
+    });
+
     test('a game in no collection has none', () async {
       final igdb = source((_) async => json(200, [tlou]));
       expect(await igdb.seriesParts('igdb:1009'), isNull);

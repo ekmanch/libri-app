@@ -21,6 +21,7 @@ import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
+import '../shell/app_shell.dart';
 import 'entry_details_sheet.dart';
 import 'new_entry_screen.dart';
 
@@ -85,7 +86,8 @@ List<Entry> entriesInSeries(
 
 /// The rows of the series [current] is in: the fetched [parts] in the
 /// series' own order, each matched to the entry in [library] that is it (by
-/// lookup id, else by number, else by title), then the library's other
+/// lookup id, else by number, else by title and year, else by title; each
+/// rule tried on every part before the next), then the library's other
 /// entries of the series, every row placed by its number (rows without one
 /// after the rest, in the order they came). A matched part takes its
 /// entry's number, title and year, since those are the owner's to edit
@@ -105,27 +107,37 @@ List<SeriesRow> seriesRows({
       if (e.id != current.id) e,
   ];
   final left = [...owned];
-  Entry? take(bool Function(Entry) test) {
-    final i = left.indexWhere(test);
-    return i < 0 ? null : left.removeAt(i);
+  final fetched = parts?.parts ?? const <SeriesPart>[];
+  final matched = List<Entry?>.filled(fetched.length, null);
+  // One pass per rule over every part, so a weaker rule never takes an
+  // entry a stronger one would give another part: the 2013 "Tomb Raider"
+  // is part 18 by its id, not part 1 by its title.
+  void pass(bool Function(SeriesPart part, Entry e) test) {
+    for (final (i, part) in fetched.indexed) {
+      if (matched[i] != null) continue;
+      final j = left.indexWhere((e) => test(part, e));
+      if (j >= 0) matched[i] = left.removeAt(j);
+    }
   }
 
+  bool sameYear(SeriesPart part, Entry e) =>
+      part.year == null || e.year == null || part.year == e.year;
+  bool titled(SeriesPart part, Entry e) => sameTitle(e.title, part.title);
+  bool shortTitled(SeriesPart part, Entry e) => sameTitle(
+    seriesPartTitle(e.title, name),
+    seriesPartTitle(part.title, name),
+  );
+
+  pass((p, e) => p.source != null && e.source == p.source);
+  pass((p, e) => p.number != null && e.series?.number == p.number);
+  pass((p, e) => titled(p, e) && sameYear(p, e));
+  pass((p, e) => shortTitled(p, e) && sameYear(p, e));
+  pass(titled);
+  pass(shortTitled);
+
   final rows = <SeriesRow>[];
-  for (final part in parts?.parts ?? const <SeriesPart>[]) {
-    final entry =
-        (part.source == null
-            ? null
-            : take((e) => e.source != null && e.source == part.source)) ??
-        (part.number == null
-            ? null
-            : take((e) => e.series?.number == part.number)) ??
-        take((e) => sameTitle(e.title, part.title)) ??
-        take(
-          (e) => sameTitle(
-            seriesPartTitle(e.title, name),
-            seriesPartTitle(part.title, name),
-          ),
-        );
+  for (final (i, part) in fetched.indexed) {
+    final entry = matched[i];
     rows.add(
       SeriesRow(
         number: entry?.series?.number ?? part.number,
@@ -543,7 +555,14 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
               child: entry == null || series == null
                   ? const SizedBox()
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      // From a series row the page sits inside the Library
+                      // tab, under the pill and "+", so it scrolls clear.
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        0,
+                        20,
+                        widget.fromList ? AppShell.contentBottomPadding : 24,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
