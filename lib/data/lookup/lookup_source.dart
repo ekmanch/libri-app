@@ -32,6 +32,20 @@ abstract class LookupSource {
     int limit = 10,
   });
 
+  /// The game platforms a search can be narrowed to (Add / edit entry ›
+  /// Platform picker), A to Z by name; empty from a source without games.
+  Future<List<GamePlatform>> platforms() async => const [];
+
+  /// Candidates for what the user typed among the games released on
+  /// [platform] (Add / edit entry › Game search on a platform), each dated
+  /// by its release there rather than its first release anywhere. Plain
+  /// [search] from a source that cannot narrow by platform.
+  Future<List<LookupMatch>> searchOnPlatform(
+    String query,
+    GamePlatform platform, {
+    int limit = 10,
+  }) => search(query, type: MediaType.games, limit: limit);
+
   /// The one best hit for an entry that was never looked up, so its cover
   /// can be found: same title, and the same year when one is known.
   Future<LookupMatch?> match(
@@ -101,3 +115,10 @@ typedef SeriesPart = ({int? number, String title, int? year, String? source});
 
 /// A series: its name and its parts in the source's order.
 typedef SeriesParts = ({String name, List<SeriesPart> parts});
+
+/// A game platform as the lookup lists it (Add / edit entry › Platform
+/// picker): the lookup's own id for it, the name the app shows and saves,
+/// spelled as `normalizePlatform` spells it ("Super Nintendo", "PC"), and
+/// the other names it goes by ("SNES", "Super Nintendo Entertainment
+/// System"), which a search in the picker matches too.
+typedef GamePlatform = ({int id, String name, List<String> aka});

@@ -48,7 +48,9 @@ class LookupResult {
 /// Asks the right sources for a query and merges their answers. One type:
 /// its source's own order, cut to [capOneType]. All: every configured
 /// source in parallel, each cut to [capPerTypeAll], then one from each type
-/// in turn (in [MediaType] order) so no type crowds out the others.
+/// in turn (in [MediaType] order) so no type crowds out the others. Games
+/// may be narrowed to one platform (Add / edit entry › Game search on a
+/// platform).
 /// Failures come back in the result, never as exceptions. A complete
 /// answer (no failures) is remembered for the session, so switching the
 /// type chips back and forth costs nothing.
@@ -81,10 +83,16 @@ class LookupService {
     return null;
   }
 
-  Future<LookupResult> search(String query, {MediaType? type}) async {
+  /// [platform] counts only when [type] is games.
+  Future<LookupResult> search(
+    String query, {
+    MediaType? type,
+    GamePlatform? platform,
+  }) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return LookupResult.empty;
-    final key = '${type?.name ?? '*'}|${trimmed.toLowerCase()}';
+    final on = type == MediaType.games ? platform : null;
+    final key = '${type?.name ?? '*'}|${on?.id ?? ''}|${trimmed.toLowerCase()}';
     final cached = _cache[key];
     if (cached != null) return cached;
 
@@ -95,7 +103,7 @@ class LookupService {
         for (final source in sourcesFor(t)) (t, source),
     ];
     final answers = await Future.wait([
-      for (final (t, source) in asks) _ask(source, trimmed, t, limit),
+      for (final (t, source) in asks) _ask(source, trimmed, t, limit, on),
     ]);
 
     final failures = <LookupFailure>[];
@@ -169,15 +177,29 @@ class LookupService {
     );
   }
 
+  /// The platforms games can be narrowed to (Add / edit entry › Platform
+  /// picker): the first configured game source's. Empty when none is set
+  /// up; throws [LookupException] when the list could not be had.
+  Future<List<GamePlatform>> platforms() async {
+    for (final source in sourcesFor(MediaType.games)) {
+      final platforms = await source.platforms();
+      if (platforms.isNotEmpty) return platforms;
+    }
+    return const [];
+  }
+
   /// A list of matches, the failure, or for a partial answer both.
   Future<Object> _ask(
     LookupSource source,
     String query,
     MediaType type,
     int limit,
+    GamePlatform? platform,
   ) async {
     try {
-      return await source.search(query, type: type, limit: limit);
+      return platform == null
+          ? await source.search(query, type: type, limit: limit)
+          : await source.searchOnPlatform(query, platform, limit: limit);
     } on PartialLookupException catch (e) {
       return (e.matches, e.failure);
     } on LookupException catch (e) {

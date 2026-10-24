@@ -7,8 +7,10 @@ import '../../data/lookup/lookup_failure.dart';
 import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/lookup_service.dart';
+import '../../data/lookup/lookup_source.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/media_type.dart';
+import '../../data/models/platform_names.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/lookup_notice.dart';
 import '../../widgets/app_buttons.dart';
@@ -21,6 +23,7 @@ import '../../widgets/row_ink_well.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import 'entry_form_screen.dart';
+import 'platform_picker_sheet.dart';
 
 /// Starts a new entry (Add / edit entry › New entry: pick a match, then the
 /// form), full screen above the floating navigation. Resolves with the saved
@@ -44,17 +47,23 @@ Future<Entry?> openNewEntryScreen(
 
 /// "Look up again" from the form (Add / edit entry): the same screen as
 /// Add / edit entry › New entry: pick a match, started on the entry's type and
-/// title, that hands the picked match back instead of opening a form. Resolves
-/// with null when nothing was picked.
+/// title (and a game's [platform], its first), that hands the picked match
+/// back instead of opening a form. Resolves with null when nothing was
+/// picked.
 Future<LookupMatch?> openMatchPicker(
   BuildContext context, {
   required MediaType type,
   required String title,
+  String? platform,
 }) {
   return Navigator.of(context, rootNavigator: true).push<LookupMatch>(
     MaterialPageRoute(
-      builder: (_) =>
-          NewEntryScreen(initialType: type, initialTitle: title, pick: true),
+      builder: (_) => NewEntryScreen(
+        initialType: type,
+        initialTitle: title,
+        initialPlatform: platform,
+        pick: true,
+      ),
     ),
   );
 }
@@ -63,19 +72,27 @@ Future<LookupMatch?> openMatchPicker(
 /// up online once typing pauses; a match is fetched in full and opens the form
 /// prefilled, "Fill in the details myself" opens it with just the title and
 /// type. With [pick] the screen is "Look up again": a match is handed back to
-/// the form that asked, and there is no "Fill in" button. Nothing here names a
-/// provider.
+/// the form that asked, and there is no "Fill in" button. While Games is
+/// picked, the search can be narrowed to one platform (Game search on a
+/// platform), for this visit only; a match found that way picks the
+/// platform in the form. Nothing here names a provider.
 class NewEntryScreen extends ConsumerStatefulWidget {
   const NewEntryScreen({
     super.key,
     this.initialType,
     this.initialTitle,
     this.initialTags = const [],
+    this.initialPlatform,
     this.pick = false,
   });
 
   final MediaType? initialType;
   final String? initialTitle;
+
+  /// The platform a game search starts on, by name ("Look up again" on a
+  /// game passes its first); any platform when the lookup lists none by
+  /// that name.
+  final String? initialPlatform;
   final List<String> initialTags;
   final bool pick;
 
@@ -89,6 +106,12 @@ class NewEntryScreen extends ConsumerStatefulWidget {
 class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
   late final _query = TextEditingController(text: widget.initialTitle ?? '');
   late MediaType? _type = widget.initialType;
+
+  /// The platform a game search is narrowed to, or null for any.
+  GamePlatform? _platform;
+
+  /// The chip of the type the screen opened on, scrolled into view.
+  final _startChip = GlobalKey();
 
   Timer? _debounce;
 
@@ -109,8 +132,37 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
   @override
   void initState() {
     super.initState();
+    // Games sits past the screen edge; the chip picked on the way in is
+    // brought into view.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chip = _startChip.currentContext;
+      if (chip == null || !chip.mounted) return;
+      Scrollable.ensureVisible(
+        chip,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+    _start();
+  }
+
+  /// Finds the platform passed in, then looks the title up.
+  Future<void> _start() async {
+    final name = widget.initialPlatform;
+    if (name != null && _type == MediaType.games) {
+      try {
+        final platforms = await ref.read(gamePlatformsProvider.future);
+        _platform = platformNamed(platforms, name);
+      } on Object {
+        // Without the list the search runs on any platform.
+      }
+      if (!mounted) return;
+    }
     if (_text.isNotEmpty) _lookUp();
   }
+
+  /// The platform the search runs on: only for games.
+  GamePlatform? get _searchPlatform =>
+      _type == MediaType.games ? _platform : null;
 
   @override
   void dispose() {
@@ -139,6 +191,19 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
     if (_text.isNotEmpty) _lookUp();
   }
 
+  Future<void> _choosePlatform() async {
+    final pick = await showPlatformPicker(context, selected: _platform);
+    if (pick == null || !mounted) return;
+    _setPlatform(pick.platform);
+  }
+
+  void _setPlatform(GamePlatform? platform) {
+    if (platform?.id == _platform?.id) return;
+    setState(() => _platform = platform);
+    _debounce?.cancel();
+    if (_text.isNotEmpty) _lookUp();
+  }
+
   Future<void> _lookUp() async {
     final query = _text;
     final type = _type;
@@ -146,7 +211,7 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
     setState(() => _loading = true);
     final result = await ref
         .read(lookupServiceProvider)
-        .search(query, type: type);
+        .search(query, type: type, platform: _searchPlatform);
     if (!mounted || id != _request) return;
     setState(() {
       _result = result;
@@ -168,6 +233,9 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
       }
       if (!mounted) return;
       setState(() => _opening = null);
+      if (_searchPlatform case final platform?) {
+        picked = picked!.copyWith(searchedPlatform: platform.name);
+      }
     }
     if (widget.pick) {
       Navigator.pop(context, picked);
@@ -238,6 +306,7 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                     for (final t in MediaType.values) ...[
                       const SizedBox(width: 8),
                       PillChip(
+                        key: t == widget.initialType ? _startChip : null,
                         label: t.label,
                         selected: _type == t,
                         dotColor: colors.forType(t),
@@ -248,6 +317,15 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                 ),
               ),
             ),
+            if (_type == MediaType.games)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                child: PlatformChip(
+                  platform: _platform,
+                  onTap: _choosePlatform,
+                  onClear: () => _setPlatform(null),
+                ),
+              ),
             // A thin line under the chips while a lookup is pending or in
             // flight, so refining a query never blanks the rows.
             SizedBox(
@@ -296,11 +374,13 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                             onRetry: _lookUp,
                           )
                         else if (matches.isEmpty)
-                          LookupNotice(
-                            _type == null
-                                ? 'No matches for "$query".'
-                                : 'No matches among ${_type!.label.toLowerCase()}.',
-                          )
+                          LookupNotice(switch ((_type, _searchPlatform)) {
+                            (null, _) => 'No matches for "$query".',
+                            (_, final platform?) =>
+                              'No games called that on ${platform.name}.',
+                            (final type?, null) =>
+                              'No matches among ${type.label.toLowerCase()}.',
+                          })
                         else ...[
                           const SectionHeading(
                             'Is it one of these?',
@@ -309,6 +389,7 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                           for (final match in matches)
                             _MatchRow(
                               match: match,
+                              platform: _searchPlatform?.name,
                               opening: _opening == match,
                               onTap: _opening == null
                                   ? () => _open(match: match)
@@ -364,10 +445,15 @@ class _MatchRow extends StatelessWidget {
   const _MatchRow({
     required this.match,
     required this.onTap,
+    this.platform,
     this.opening = false,
   });
 
   final LookupMatch match;
+
+  /// The platform the search ran on: named first, the others counted
+  /// ("Super Nintendo and 3 more"), as the year is that platform's.
+  final String? platform;
   final VoidCallback? onTap;
 
   /// The full details are being fetched for this row.
@@ -381,10 +467,15 @@ class _MatchRow extends StatelessWidget {
         ? (match.album == null ? 'Album' : 'Song')
         : match.type.singular;
     final year = match.released?.year;
+    final platforms = {...match.platforms.map(normalizePlatform)};
+    final others = platforms.length - 1;
     final subtitle = [
       ?match.creator,
       ?match.album,
-      if (match.platforms.isNotEmpty) match.platforms.join(', '),
+      if (platform != null && platforms.contains(platform))
+        others > 0 ? '$platform and $others more' : platform!
+      else if (match.platforms.isNotEmpty)
+        match.platforms.join(', '),
     ].where((s) => s.isNotEmpty).join(' · ');
     return RowInkWell(
       onTap: onTap,

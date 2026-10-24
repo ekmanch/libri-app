@@ -7,6 +7,13 @@ String normalizePlatform(String name) {
   return _aliases[key] ?? trimmed;
 }
 
+/// "PlayStation 5, PC" in an entry's `platform` field, as a list of
+/// spelled-out names ("PS5" reads as "PlayStation 5").
+List<String> splitPlatforms(String? text) => [
+  for (final part in (text ?? '').split(','))
+    if (part.trim().isNotEmpty) normalizePlatform(part),
+];
+
 const _aliases = {
   'ps': 'PlayStation',
   'ps1': 'PlayStation',

@@ -51,6 +51,9 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
       tokens: IgdbTokenStore(
         JsonFile(File('${cache.path}${Platform.pathSeparator}igdb_token.json')),
       ),
+      platformsFile: JsonFile(
+        File('${cache.path}${Platform.pathSeparator}igdb_platforms.json'),
+      ),
     ),
     tmdb,
     AniListSource(client, tmdb: tmdb, links: FileAnimeLinkStore(cache)),
@@ -66,6 +69,14 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
 
 final lookupServiceProvider = Provider<LookupService>(
   (ref) => LookupService(ref.watch(lookupSourcesProvider)),
+);
+
+/// The platforms a game search can be narrowed to (Add / edit entry ›
+/// Platform picker), asked once a session; a failure is not kept, so the
+/// next open asks again.
+final gamePlatformsProvider = FutureProvider<List<GamePlatform>>(
+  (ref) => ref.watch(lookupServiceProvider).platforms(),
+  retry: (_, _) => null,
 );
 
 /// The daily check for new seasons, or null for none. Off by default, so a

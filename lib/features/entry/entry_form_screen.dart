@@ -249,6 +249,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         _platformOptions.where((p) => p.toLowerCase() == name?.toLowerCase()),
       );
     }
+    // A game found on one platform starts with that one picked too.
+    if (match?.searchedPlatform case final platform?) {
+      _platformsOn.add(_addPlatformOption(platform));
+    }
     _album = TextEditingController(text: entry?.album ?? match?.album ?? '');
     _status = entry?.status ?? EntryStatus.want;
     _rating = entry?.rating;
@@ -493,13 +497,6 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       ),
     );
   }
-
-  /// "PlayStation 5, PC" in the entry's `platform` field, as a list of
-  /// spelled-out names ("PS5" reads as "PlayStation 5").
-  static List<String> splitPlatforms(String? text) => [
-    for (final part in (text ?? '').split(','))
-      if (part.trim().isNotEmpty) normalizePlatform(part),
-  ];
 
   /// Adds a chip unless one with the same platform is there already.
   /// Returns the chip's name.
@@ -751,7 +748,8 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   }
 
   /// "Look up again": the match picker (Add / edit entry › New entry: pick a
-  /// match) on this entry's type and title; a pick sets the source and
+  /// match) on this entry's type and title, and for a game on its first
+  /// platform (Game search on a platform); a pick sets the source and
   /// replaces the lookup's fields (creator, released, description, pages,
   /// album) with the match's where it has them, since a pick means another
   /// book, or the right one this time. The title, note, status, tags and
@@ -761,6 +759,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       context,
       type: _type,
       title: _title.text.trim(),
+      platform: _platformOptions.where(_platformsOn.contains).firstOrNull,
     );
     if (match == null || !mounted) return;
     setState(() => _applyMatch(match));
@@ -802,6 +801,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     for (final platform in match.platforms) {
       _addPlatformOption(platform);
+    }
+    if (match.searchedPlatform case final platform?) {
+      _platformsOn.add(_addPlatformOption(platform));
     }
     // The tag suggestions are matched against the library on the next
     // build, as for a new entry.

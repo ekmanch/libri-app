@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../data/lookup/episode_info.dart';
+import '../data/lookup/igdb_source.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_match.dart';
 import '../data/lookup/lookup_source.dart';
@@ -9,6 +10,7 @@ import '../data/lookup/track_info.dart';
 import '../data/models/entry_id.dart';
 import '../data/models/entry_kind.dart';
 import '../data/models/media_type.dart';
+import '../data/models/platform_names.dart';
 import '../data/models/released.dart';
 import '../data/models/season.dart';
 
@@ -88,6 +90,28 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   }) async {
     await _call('search:${query.trim().toLowerCase()}:${type.name}');
     return catalogSearch(query, type: type).take(limit).toList();
+  }
+
+  /// A short list of IGDB's platforms, read as IGDB's are.
+  @override
+  Future<List<GamePlatform>> platforms() async {
+    await _call('platforms');
+    return IgdbSource.platformsFrom(_platformRows);
+  }
+
+  /// The catalog's games out on [platform], dated by their release there.
+  @override
+  Future<List<LookupMatch>> searchOnPlatform(
+    String query,
+    GamePlatform platform, {
+    int limit = 10,
+  }) async {
+    await _call('search:${query.trim().toLowerCase()}:${platform.name}');
+    return [
+      for (final match in catalogSearch(query, type: MediaType.games))
+        if (match.platforms.map(normalizePlatform).contains(platform.name))
+          match.copyWith(released: _releasedOn[(match.source, platform.name)]),
+    ].take(limit).toList();
   }
 
   @override
@@ -433,6 +457,115 @@ List<EpisodeInfo> _airingFromToday() {
   ];
 }
 
+/// IGDB's records for the platforms [FakeLookupSource.platforms] lists.
+const _platformRows = <Map<String, Object?>>[
+  {'id': 52, 'name': 'Arcade', 'abbreviation': 'Arcade'},
+  {
+    'id': 33,
+    'name': 'Game Boy',
+    'abbreviation': 'Game Boy',
+    'alternative_name': 'GB',
+  },
+  {
+    'id': 22,
+    'name': 'Game Boy Color',
+    'abbreviation': 'GBC',
+    'alternative_name': 'GBC',
+  },
+  {
+    'id': 18,
+    'name': 'Nintendo Entertainment System',
+    'abbreviation': 'NES',
+    'alternative_name': 'NES',
+  },
+  {
+    'id': 4,
+    'name': 'Nintendo 64',
+    'abbreviation': 'N64',
+    'alternative_name': 'N64',
+  },
+  {
+    'id': 130,
+    'name': 'Nintendo Switch',
+    'abbreviation': 'Switch',
+    'alternative_name': 'NX',
+  },
+  {
+    'id': 6,
+    'name': 'PC (Microsoft Windows)',
+    'abbreviation': 'PC',
+    'alternative_name': 'mswin',
+  },
+  {
+    'id': 7,
+    'name': 'PlayStation',
+    'abbreviation': 'PS1',
+    'alternative_name': 'PSX, PSOne',
+  },
+  {
+    'id': 8,
+    'name': 'PlayStation 2',
+    'abbreviation': 'PS2',
+    'alternative_name': 'PS2',
+  },
+  {
+    'id': 9,
+    'name': 'PlayStation 3',
+    'abbreviation': 'PS3',
+    'alternative_name': 'PS3',
+  },
+  {
+    'id': 48,
+    'name': 'PlayStation 4',
+    'abbreviation': 'PS4',
+    'alternative_name': 'PS4',
+  },
+  {
+    'id': 167,
+    'name': 'PlayStation 5',
+    'abbreviation': 'PS5',
+    'alternative_name': 'PS5',
+  },
+  {
+    'id': 29,
+    'name': 'Sega Mega Drive/Genesis',
+    'abbreviation': 'Genesis/MegaDrive',
+    'alternative_name': 'Sega Genesis',
+  },
+  {
+    'id': 32,
+    'name': 'Sega Saturn',
+    'abbreviation': 'Saturn',
+    'alternative_name': 'Saturn',
+  },
+  {
+    'id': 19,
+    'name': 'Super Nintendo Entertainment System',
+    'abbreviation': 'SNES',
+    'alternative_name': 'SNES, Super Nintendo',
+  },
+  {
+    'id': 5,
+    'name': 'Wii',
+    'abbreviation': 'Wii',
+    'alternative_name': 'Revolution',
+  },
+  {
+    'id': 169,
+    'name': 'Xbox Series X|S',
+    'abbreviation': 'Series X|S',
+    'alternative_name': 'XSX',
+  },
+];
+
+/// Where a catalog game came out later on a platform than its first
+/// release, by source and platform name.
+const _releasedOn = <(String, String), Released>{
+  ('igdb:322188', 'Wii'): Released(2011, 12, 2),
+  ('igdb:322188', 'Sega Mega Drive/Genesis'): Released(1994, 6, 25),
+  ('igdb:39496', 'Wii'): Released(2008, 9, 30),
+};
+
 const fakeCatalog = <LookupMatch>[
   LookupMatch(
     source: 'igdb:1009',
@@ -718,5 +851,58 @@ const fakeCatalog = <LookupMatch>[
     description: 'The remake of the 2001 survival horror game.',
     platforms: ['PlayStation 5', 'PC'],
     tags: ['survival-horror', 'horror', 'psychological'],
+  ),
+  LookupMatch(
+    source: 'igdb:321621',
+    coverUrl: 'fake://cover/poster/igdb:321621',
+    type: MediaType.games,
+    title: 'Street Fighter II',
+    released: Released(1992, 6, 10),
+    creator: 'Capcom',
+    description: 'The Super Nintendo port of the 1991 arcade game.',
+    platforms: [
+      'Super Nintendo Entertainment System',
+      'Wii',
+      'Wii U',
+      'Super Famicom',
+    ],
+    tags: ['fighting', 'arcade'],
+  ),
+  LookupMatch(
+    source: 'igdb:3186',
+    coverUrl: 'fake://cover/poster/igdb:3186',
+    type: MediaType.games,
+    title: 'Street Fighter II',
+    released: Released(1991, 2, 6),
+    creator: 'Capcom',
+    description: 'Eight world warriors, one tournament.',
+    platforms: ['Arcade'],
+    tags: ['fighting', 'arcade'],
+  ),
+  LookupMatch(
+    source: 'igdb:39496',
+    coverUrl: 'fake://cover/poster/igdb:39496',
+    type: MediaType.games,
+    title: 'Street Fighter II: Champion Edition',
+    released: Released(1992, 3, 13),
+    creator: 'Capcom',
+    description: 'The four bosses become playable.',
+    platforms: ['Arcade', 'TurboGrafx-16/PC Engine', 'Wii'],
+    tags: ['fighting', 'arcade'],
+  ),
+  LookupMatch(
+    source: 'igdb:322188',
+    coverUrl: 'fake://cover/poster/igdb:322188',
+    type: MediaType.games,
+    title: 'Super Street Fighter II',
+    released: Released(1994, 6, 25),
+    creator: 'Capcom',
+    description: 'Four new challengers join the tournament.',
+    platforms: [
+      'Super Nintendo Entertainment System',
+      'Sega Mega Drive/Genesis',
+      'Wii',
+    ],
+    tags: ['fighting', 'arcade'],
   ),
 ];

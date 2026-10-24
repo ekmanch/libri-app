@@ -11,6 +11,7 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/storage/json_file.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
+import 'package:library_app/data/lookup/lookup_source.dart';
 import 'package:library_app/data/models/series.dart';
 
 void main() {
@@ -312,6 +313,113 @@ void main() {
       'igdb:4238', // Half the list is named hits; the search's own follow.
       'igdb:39496',
       'igdb:240001',
+    ]);
+  });
+
+  test('platforms: IGDB\'s list, named as the app names them, kept on the '
+      'phone for a month and kept when IGDB does not answer', () async {
+    final file = JsonFile(File('${dir.path}/igdb_platforms.json'));
+    var answer = (http.Request _) async => json(200, [
+      {
+        'id': 19,
+        'name': 'Super Nintendo Entertainment System',
+        'abbreviation': 'SNES',
+        'alternative_name': 'SNES, Super Nintendo',
+      },
+      {
+        'id': 6,
+        'name': 'PC (Microsoft Windows)',
+        'abbreviation': 'PC',
+        'alternative_name': 'mswin',
+      },
+      {'id': 52, 'name': 'Arcade', 'abbreviation': 'Arcade'},
+    ]);
+    sent = [];
+    IgdbSource build() {
+      return IgdbSource(
+        MockClient((request) async {
+          sent.add(request);
+          if (request.url.host == 'id.twitch.tv') {
+            return json(200, {'access_token': 'tok', 'expires_in': 5184000});
+          }
+          return answer(request);
+        }),
+        clientId: 'cid',
+        clientSecret: 'secret',
+        tokens: tokens,
+        platformsFile: file,
+        now: () => now,
+      );
+    }
+
+    // Records compare their lists by identity, so the names are joined.
+    List<String> flat(List<GamePlatform> list) => [
+      for (final p in list) '${p.id} ${p.name}: ${p.aka.join(' | ')}',
+    ];
+    final platforms = flat(await build().platforms());
+    expect(platforms, [
+      '52 Arcade: ',
+      '6 PC: mswin | PC (Microsoft Windows)',
+      '19 Super Nintendo: SNES | Super Nintendo Entertainment System',
+    ]);
+    expect(sent.last.url.path, '/v4/platforms');
+    expect(
+      sent.last.body,
+      'fields name,abbreviation,alternative_name; limit 500;',
+    );
+
+    // Within a month a new run reads the file.
+    sent.clear();
+    expect(flat(await build().platforms()), platforms);
+    expect(sent, isEmpty);
+
+    // After a month IGDB is asked; not answering, the old list stands.
+    now = now.add(const Duration(days: 31));
+    answer = (_) async => json(500, {});
+    expect(flat(await build().platforms()), platforms);
+    expect(sent.where((r) => r.url.path == '/v4/platforms'), isNotEmpty);
+    await file.delete();
+    await expectLater(build().platforms(), throwsA(isA<LookupException>()));
+  });
+
+  test('a search on a platform asks once, narrowed, and dates each game by '
+      'its release there', () async {
+    final igdb = source(
+      (_) async => json(200, [
+        {
+          ...tlou,
+          'release_dates': [
+            {'platform': 9, 'date': 1371168000, 'date_format': 0},
+            {'platform': 48, 'date': 1406851200, 'date_format': 0},
+            {'platform': 48, 'date': 1414713600, 'date_format': 0},
+          ],
+        },
+        {
+          ...tlou,
+          'id': 2,
+          'release_dates': [
+            // A year-only date sits on December 31.
+            {'platform': 48, 'date': 1419984000, 'date_format': 2},
+          ],
+        },
+        {...tlou, 'id': 3},
+      ]),
+    );
+    const ps4 = (id: 48, name: 'PlayStation 4', aka: <String>[]);
+    final hits = await igdb.searchOnPlatform('last of us', ps4, limit: 5);
+    expect(sent.where((r) => r.url.host == 'api.igdb.com'), hasLength(1));
+    expect(
+      sent.last.body,
+      endsWith(
+        ',release_dates.platform,release_dates.date,release_dates.date_format; '
+        'where version_parent = null & game_type != (13, 14) & '
+        'platforms = (48); limit 5;',
+      ),
+    );
+    expect(hits.map((h) => h.released), [
+      const Released(2014, 8, 1),
+      const Released(2014),
+      const Released(2013, 6, 14), // None there: its first release.
     ]);
   });
 

@@ -30,6 +30,7 @@ import 'package:library_app/data/storage/connection_store.dart';
 import 'package:library_app/features/entry/dropped_season_dialog.dart';
 import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
+import 'package:library_app/features/entry/platform_picker_sheet.dart';
 import 'package:library_app/features/first_run/first_run_flow.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
@@ -704,8 +705,77 @@ Future<void> walkBook(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
 }
 
+/// Add / edit entry › Platform picker and Game search on a platform: a
+/// game search for "Street Fighter II", the picker over it, then the
+/// search narrowed to the Super Nintendo.
+Future<void> walkGamePlatform(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(FixtureLibraryRepository()),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byType(AddButton));
+  await tester.pumpAndSettle();
+  final games = find.widgetWithText(PillChip, 'Games');
+  await tester.dragUntilVisible(
+    games,
+    find.byWidgetPredicate(
+      (w) => w is ListView && w.scrollDirection == Axis.horizontal,
+    ),
+    const Offset(-80, 0),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(games);
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'Street Fighter II');
+  await tester.pump(NewEntryScreen.debounce);
+  await waitForImages(tester, count: 4);
+  await tester.tap(
+    find
+        .descendant(
+          of: find.byType(PlatformChip),
+          matching: find.byType(InkWell),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a50-platform-picker');
+  await tester.enterText(find.byType(TextField).last, 'snes');
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a50-platform-picker-search');
+  await tester.tap(find.text('Super Nintendo'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 2);
+  await capture(tester, '${prefix}a50-game-search-on-platform');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('game search on a platform', (tester) async {
+    await walkGamePlatform(tester);
+  });
+
+  testWidgets('game search on a platform at a larger text size', (
+    tester,
+  ) async {
+    await walkGamePlatform(tester, scale: 1.3);
+  });
 
   testWidgets('book page count', (tester) async {
     await walkBook(tester);

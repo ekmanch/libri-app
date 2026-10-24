@@ -4,6 +4,7 @@ import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
 import 'package:library_app/data/models/media_type.dart';
+import 'package:library_app/dev/fake_lookup.dart';
 
 /// Answers every search with [count] numbered matches, or throws.
 class _Stub extends LookupSource {
@@ -205,6 +206,36 @@ void main() {
     await service.search('dune', type: MediaType.anime);
     await service.search('dune', type: MediaType.anime);
     expect(flaky.searches.length, 2);
+  });
+
+  test('games narrow to a platform; other types and All ignore it', () async {
+    final fake = FakeLookupSource();
+    final service = LookupService([fake]);
+    final snes = (await service.platforms()).firstWhere(
+      (p) => p.name == 'Super Nintendo',
+    );
+    final on = await service.search(
+      'street fighter ii',
+      type: MediaType.games,
+      platform: snes,
+    );
+    expect(fake.calls.last, 'search:street fighter ii:Super Nintendo');
+    expect(on.matches.map((m) => m.source), ['igdb:321621', 'igdb:322188']);
+    // Each platform is its own answer; any platform is another.
+    await service.search('street fighter ii', type: MediaType.games);
+    expect(fake.calls.last, 'search:street fighter ii:games');
+    await service.search(
+      'street fighter ii',
+      type: MediaType.movies,
+      platform: snes,
+    );
+    expect(fake.calls.last, 'search:street fighter ii:movies');
+    expect(
+      await LookupService([
+        _Stub('tmdb', {MediaType.movies}),
+      ]).platforms(),
+      isEmpty,
+    );
   });
 
   test('sourceOf finds the source by the id prefix', () {

@@ -17,6 +17,7 @@ import 'package:library_app/dev/fake_github_api.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
+import 'package:library_app/features/entry/platform_picker_sheet.dart';
 import 'package:library_app/features/first_run/first_run_flow.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/shell/app_shell.dart';
@@ -365,6 +366,36 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tapText('GAME · 2013');
     await a.check('Add / edit entry › New game from a match');
     await a.back();
+    await a.back();
+  });
+  await a.step('game search on a platform', () async {
+    await a.tap(find.byType(AddButton));
+    final games = find.widgetWithText(PillChip, 'Games');
+    await tester.dragUntilVisible(
+      games,
+      find.byWidgetPredicate(
+        (w) => w is ListView && w.scrollDirection == Axis.horizontal,
+      ),
+      const Offset(-80, 0),
+    );
+    await tester.pumpAndSettle();
+    await a.tap(games);
+    await tester.enterText(find.byType(TextField), 'Street Fighter II');
+    await tester.pump(NewEntryScreen.debounce);
+    await tester.pumpAndSettle();
+    await a.tap(
+      find
+          .descendant(
+            of: find.byType(PlatformChip),
+            matching: find.byType(InkWell),
+          )
+          .first,
+    );
+    await a.check('Add / edit entry › Platform picker');
+    await tester.enterText(find.byType(TextField).last, 'snes');
+    await tester.pumpAndSettle();
+    await a.tapText('Super Nintendo');
+    await a.check('Add / edit entry › Game search on a platform');
     await a.back();
   });
   await a.step('music', () async {

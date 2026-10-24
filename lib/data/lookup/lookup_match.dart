@@ -37,6 +37,7 @@ class LookupMatch {
     this.coverSource,
     this.edition,
     this.editionYear,
+    this.searchedPlatform,
   });
 
   final MediaType type;
@@ -128,6 +129,11 @@ class LookupMatch {
   final String? edition;
   final int? editionYear;
 
+  /// For a game found in a search on one platform (Add / edit entry › Game
+  /// search on a platform): that platform's name, which the form picks in
+  /// Platforms. Never stored.
+  final String? searchedPlatform;
+
   /// The provider part of a lookup id: "tmdb" for "tmdb:movie:603".
   static String providerOf(String source) =>
       source.substring(0, source.indexOf(':').clamp(0, source.length));
@@ -154,6 +160,7 @@ class LookupMatch {
     String? coverSource,
     String? edition,
     int? editionYear,
+    String? searchedPlatform,
   }) => LookupMatch(
     type: type,
     title: title,
@@ -179,6 +186,7 @@ class LookupMatch {
     coverSource: coverSource ?? this.coverSource,
     edition: edition ?? this.edition,
     editionYear: editionYear ?? this.editionYear,
+    searchedPlatform: searchedPlatform ?? this.searchedPlatform,
   );
 
   @override
@@ -207,7 +215,8 @@ class LookupMatch {
       other.largeCoverUrl == largeCoverUrl &&
       other.coverSource == coverSource &&
       other.edition == edition &&
-      other.editionYear == editionYear;
+      other.editionYear == editionYear &&
+      other.searchedPlatform == searchedPlatform;
 
   @override
   int get hashCode => Object.hash(type, title, source, released, coverUrl);

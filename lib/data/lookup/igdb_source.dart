@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import '../models/media_type.dart';
+import '../models/platform_names.dart';
 import '../models/released.dart';
 import '../models/series.dart';
+import '../storage/json_file.dart';
 import 'http_lookup_source.dart';
 import 'igdb_token_store.dart';
 import 'lookup_failure.dart';
@@ -22,16 +24,24 @@ class IgdbSource extends HttpLookupSource {
     required this.clientId,
     required this.clientSecret,
     required this.tokens,
+    this.platformsFile,
     Uri? baseUrl,
     Uri? tokenUrl,
+    DateTime Function()? now,
     super.timeout,
   }) : _baseUrl = baseUrl ?? Uri.https('api.igdb.com', '/v4/'),
        _tokenUrl = tokenUrl ?? Uri.https('id.twitch.tv', '/oauth2/token'),
+       _now = now ?? DateTime.now,
        super(minGap: const Duration(milliseconds: 300));
 
   final String clientId;
   final String clientSecret;
   final IgdbTokenStore tokens;
+
+  /// Where IGDB's platform list is kept between runs (Add / edit entry ›
+  /// Platform picker), or null to ask once a session.
+  final JsonFile? platformsFile;
+  final DateTime Function() _now;
   final Uri _baseUrl;
   final Uri _tokenUrl;
 
@@ -157,15 +167,18 @@ class IgdbSource extends HttpLookupSource {
     return _token = token;
   }
 
-  /// Runs an Apicalypse [body] against `games`. A refused token is dropped
-  /// and fetched again once.
-  Future<List<Map<String, Object?>>> _games(String body) async {
+  /// Runs an Apicalypse [body] against `games`, or another [endpoint]. A
+  /// refused token is dropped and fetched again once.
+  Future<List<Map<String, Object?>>> _games(
+    String body, {
+    String endpoint = 'games',
+  }) async {
     requireConfigured();
     for (var attempt = 0; ; attempt++) {
       final token = await _accessToken();
       final response = await send(
         () => client.post(
-          _baseUrl.resolve('games'),
+          _baseUrl.resolve(endpoint),
           headers: {
             'Client-ID': clientId,
             'Authorization': 'Bearer $token',
@@ -322,6 +335,119 @@ class IgdbSource extends HttpLookupSource {
     required MediaType type,
     int limit = 10,
   }) => _search(query, limit);
+
+  /// One search narrowed to [platform], with no exact-name query beside it:
+  /// on one platform the search finds the ports it otherwise misses.
+  @override
+  Future<List<LookupMatch>> searchOnPlatform(
+    String query,
+    GamePlatform platform, {
+    int limit = 10,
+  }) async {
+    final games = await _games(
+      'search ${_quote(query)}; fields $_fields,release_dates.platform,'
+      'release_dates.date,release_dates.date_format; '
+      'where version_parent = null & game_type != (13, 14) & '
+      'platforms = (${platform.id}); limit $limit;',
+    );
+    return [
+      for (final game in games)
+        if (_match(game) case final match?)
+          match.copyWith(released: _releasedOn(game, platform.id)),
+    ];
+  }
+
+  /// The game's first release on the platform [platformId], as precise as
+  /// IGDB has it (a year-only date sits on December 31, so its format
+  /// says what is known); null when it lists none there.
+  static Released? _releasedOn(Map<String, Object?> game, int platformId) {
+    Map<String, Object?>? first;
+    for (final r in objectsAt(game, 'release_dates')) {
+      if (r['platform'] != platformId || r['date'] is! num) continue;
+      if (first == null || (r['date']! as num) < (first['date']! as num)) {
+        first = r;
+      }
+    }
+    if (first == null) return null;
+    final date = DateTime.fromMillisecondsSinceEpoch(
+      (first['date']! as num).toInt() * 1000,
+      isUtc: true,
+    );
+    return switch (first['date_format']) {
+      0 => Released(date.year, date.month, date.day),
+      1 => Released(date.year, date.month),
+      _ => Released(date.year),
+    };
+  }
+
+  /// How long a stored platform list is trusted: IGDB adds a platform a
+  /// few times a year.
+  static const platformsMaxAge = Duration(days: 30);
+
+  List<GamePlatform>? _platforms;
+
+  /// IGDB's platforms, kept in [platformsFile] and asked again once the
+  /// list is [platformsMaxAge] old; a stored list of any age stands in
+  /// when IGDB does not answer.
+  @override
+  Future<List<GamePlatform>> platforms() async {
+    if (_platforms case final platforms?) return platforms;
+    final stored = await platformsFile?.read();
+    final fetched = DateTime.tryParse(stored?['fetched'] as String? ?? '');
+    final rows = switch (stored?['platforms']) {
+      final List<Object?> list => [
+        for (final row in list)
+          if (row is Map<String, Object?>) row,
+      ],
+      _ => null,
+    };
+    if (rows != null &&
+        fetched != null &&
+        _now().difference(fetched) < platformsMaxAge) {
+      return _platforms = platformsFrom(rows);
+    }
+    try {
+      final fresh = await _games(
+        'fields name,abbreviation,alternative_name; limit 500;',
+        endpoint: 'platforms',
+      );
+      await platformsFile?.write({
+        'fetched': _now().toUtc().toIso8601String(),
+        'platforms': fresh,
+      });
+      return _platforms = platformsFrom(fresh);
+    } on LookupException {
+      if (rows == null) rethrow;
+      return _platforms = platformsFrom(rows);
+    }
+  }
+
+  /// IGDB's platform records as [GamePlatform]s, A to Z: the name spelled
+  /// as the app spells it ("Super Nintendo Entertainment System" is "Super
+  /// Nintendo", "PC (Microsoft Windows)" is "PC"), the abbreviation, the
+  /// alternative names and IGDB's own name as the other names.
+  static List<GamePlatform> platformsFrom(List<Map<String, Object?>> rows) {
+    final platforms = <GamePlatform>[];
+    for (final row in rows) {
+      final id = row['id'];
+      final full = stringAt(row, 'name');
+      if (id is! num || full == null || full.trim().isEmpty) continue;
+      final name = normalizePlatform(_platform(full));
+      final seen = {name.toLowerCase()};
+      final aka = [
+        for (final other in [
+          ?stringAt(row, 'abbreviation'),
+          ...?stringAt(row, 'alternative_name')?.split(','),
+          full,
+        ])
+          if (other.trim() case final o when o.isNotEmpty)
+            if (seen.add(o.toLowerCase())) o,
+      ];
+      platforms.add((id: id.toInt(), name: name, aka: aka));
+    }
+    return platforms
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
 
   @override
   Future<LookupMatch?> match(
