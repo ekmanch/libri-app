@@ -82,6 +82,27 @@ class IgdbSource extends HttpLookupSource {
   /// 8 a remake.
   static const _partTypes = {0, 8};
 
+  /// Collections whose game types mislead, by IGDB's collection id. IGDB
+  /// files Street Fighter II's revisions (Champion Edition, Turbo, Super)
+  /// as expanded games (10) and HD Remix as a remaster (9), and its puzzle,
+  /// card and pachislot spin-offs as main games, so these take the extra
+  /// [types] and leave out the games in [skip].
+  static const _collectionRules = <int, ({Set<int> types, Set<int> skip})>{
+    // Street Fighter II: the movie game, a pachislot, Uno, pinball.
+    2879: (types: {9, 10}, skip: {45192, 55060, 55063, 55062}),
+    // Street Fighter: Final Fight, 2010, the Puzzle and Gem Fighters,
+    // Mouse Generation, Puzzle Spirits, Battle Combination, the
+    // pachislot, X Mega Man, the cancelled Tekken X and the Switch 2
+    // Street Fighter 6.
+    219: (
+      types: {9, 10},
+      skip: {
+        1655, 45196, 20803, 23072, 39314, 55061, 60889, 55065, 69377, //
+        45184, 1239, 343673,
+      },
+    ),
+  };
+
   @override
   Set<MediaType> get types => const {MediaType.games};
 
@@ -255,12 +276,18 @@ class IgdbSource extends HttpLookupSource {
     );
     if (collection == null) return null;
     final seriesName = stringAt(collection, 'name')!;
+    final rule = switch (collection['id']) {
+      final num id => _collectionRules[id.toInt()],
+      _ => null,
+    };
     final parts =
         [
           for (final g in objectsAt(collection, 'games'))
             if (g['id'] case final num id)
               if (stringAt(g, 'name') case final title?)
-                if (g['version_parent'] == null && _isPart(g['game_type']))
+                if (g['version_parent'] == null &&
+                    _isPart(g['game_type'], extra: rule?.types ?? const {}) &&
+                    !(rule?.skip.contains(id.toInt()) ?? false))
                   (
                     id: id.toInt(),
                     title: title,
@@ -327,17 +354,21 @@ class IgdbSource extends HttpLookupSource {
         .collection;
   }
 
-  /// A game type IGDB gives as a number or an expanded object; a record
-  /// without one counts as a main game.
-  static bool _isPart(Object? type) => switch (type) {
-    null => true,
-    final num id => _partTypes.contains(id.toInt()),
-    final Map<String, Object?> expanded => switch (expanded['id']) {
-      final num id => _partTypes.contains(id.toInt()),
+  /// A game type IGDB gives as a number or an expanded object, counted as
+  /// a part when it is one of [_partTypes] or [extra]; a record without one
+  /// counts as a main game.
+  static bool _isPart(Object? type, {Set<int> extra = const {}}) {
+    bool counts(int id) => _partTypes.contains(id) || extra.contains(id);
+    return switch (type) {
+      null => true,
+      final num id => counts(id.toInt()),
+      final Map<String, Object?> expanded => switch (expanded['id']) {
+        final num id => counts(id.toInt()),
+        _ => true,
+      },
       _ => true,
-    },
-    _ => true,
-  };
+    };
+  }
 
   /// Reads the game's collection, so the form gets its series and number.
   @override

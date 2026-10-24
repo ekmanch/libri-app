@@ -493,6 +493,73 @@ void main() {
       );
     });
 
+    test('Street Fighter II counts its revisions and leaves out the '
+        'spin-offs', () async {
+      final sf2 = {
+        'id': 3186,
+        'name': 'Street Fighter II',
+        'collections': [
+          {
+            'id': 2879,
+            'name': 'Street Fighter II',
+            'games': [
+              {
+                'id': 3186,
+                'name': 'Street Fighter II',
+                'first_release_date': 667958400,
+                'game_type': 0,
+              },
+              {
+                'id': 39496,
+                'name': 'Street Fighter II: Champion Edition',
+                'first_release_date': 702086400,
+                'game_type': 10,
+              },
+              {
+                'id': 45192,
+                'name': 'Street Fighter II: Movie',
+                'first_release_date': 817776000,
+                'game_type': 0,
+              },
+              {
+                'id': 21796,
+                'name': 'Super Street Fighter II Turbo HD Remix',
+                'first_release_date': 1227571200,
+                'game_type': 9,
+              },
+              {
+                'id': 231006,
+                'name': 'Street Fighter II',
+                'first_release_date': 700000000,
+                'game_type': 11,
+              },
+            ],
+          },
+        ],
+      };
+      final igdb = source((_) async => json(200, [sf2]));
+      expect((await igdb.seriesParts('igdb:3186'))!.parts.map((p) => p.title), [
+        'Street Fighter II',
+        'Street Fighter II: Champion Edition',
+        'Super Street Fighter II Turbo HD Remix',
+      ]);
+      // Another collection keeps the plain rule.
+      final other = source(
+        (_) async => json(200, [
+          {
+            ...sf2,
+            'collections': [
+              {...(sf2['collections']! as List).single as Map, 'id': 1},
+            ],
+          },
+        ]),
+      );
+      expect(
+        (await other.seriesParts('igdb:3186'))!.parts.map((p) => p.title),
+        ['Street Fighter II', 'Street Fighter II: Movie'],
+      );
+    });
+
     test('a game in no collection has none', () async {
       final igdb = source((_) async => json(200, [tlou]));
       expect(await igdb.seriesParts('igdb:1009'), isNull);
