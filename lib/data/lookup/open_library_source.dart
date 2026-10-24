@@ -184,12 +184,47 @@ class OpenLibrarySource extends HttpLookupSource {
     String query, {
     required MediaType type,
     int limit = 10,
-  }) async {
-    final (:hits, :failure) = await _both(
-      _search({'q': query}, limit),
-      apple?.search(query, limit: limit),
-      limit,
-    );
+  }) => searchSteps(query, type: type, limit: limit).last;
+
+  /// An Apple hit shown before Open Library answered is, in the merged
+  /// list, the Open Library row of the same book when there is one: Open
+  /// Library's year, author and pages with Apple's description and cover,
+  /// so picking it needs no second Open Library search.
+  @override
+  LookupMatch? sameMatch(LookupMatch early, List<LookupMatch> complete) {
+    for (final match in complete) {
+      if (match.source == early.source) return match;
+    }
+    for (final match in complete) {
+      if (sameBook(match, early)) return match;
+    }
+    return null;
+  }
+
+  /// Apple's hits as soon as Apple answers before Open Library, which can
+  /// take ten seconds or more; then both, merged. Picking one of Apple's
+  /// hits early still asks Open Library for the year in [details].
+  @override
+  Stream<List<LookupMatch>> searchSteps(
+    String query, {
+    required MediaType type,
+    int limit = 10,
+  }) async* {
+    final openLibrary = _search({'q': query}, limit);
+    final appleHits = apple?.search(query, limit: limit);
+    if (appleHits != null) {
+      final appleFirst = await Future.any([
+        _settle(openLibrary).then((_) => false),
+        _settle(appleHits).then((_) => true),
+      ]);
+      if (appleFirst) {
+        if (await _settle(appleHits) case final List<LookupMatch> ab
+            when ab.isNotEmpty) {
+          yield mergeBookHits(const [], ab, limit: limit);
+        }
+      }
+    }
+    final (:hits, :failure) = await _both(openLibrary, appleHits, limit);
     if (failure != null) {
       throw PartialLookupException(
         hits,
@@ -198,7 +233,7 @@ class OpenLibrarySource extends HttpLookupSource {
         message: failure.message,
       );
     }
-    return hits;
+    yield hits;
   }
 
   /// No match while one source failed is not a miss: the failure is

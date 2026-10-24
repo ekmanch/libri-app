@@ -11,6 +11,7 @@ class LookupResult {
     this.matches = const [],
     this.failures = const [],
     this.asked = 0,
+    this.complete = true,
   });
 
   static const empty = LookupResult();
@@ -25,6 +26,10 @@ class LookupResult {
   /// Zero means none is set up for the chosen type (or for any type, on
   /// All).
   final int asked;
+
+  /// False while some sources have not answered yet: the matches so far
+  /// ([LookupService.searchSteps]).
+  final bool complete;
 
   bool get notConfigured => asked == 0;
 
@@ -83,18 +88,35 @@ class LookupService {
     return null;
   }
 
-  /// [platform] counts only when [type] is games.
+  /// [platform] counts only when [type] is games. The last of
+  /// [searchSteps].
   Future<LookupResult> search(
     String query, {
     MediaType? type,
     GamePlatform? platform,
-  }) async {
+  }) => searchSteps(query, type: type, platform: platform).last;
+
+  /// The matches as the sources answer: a result each time one answers
+  /// (or, like books, answers in part: Apple Books in under a second, Open
+  /// Library in up to fifteen), marked [LookupResult.complete] on the last.
+  /// Only a complete result with no failures is remembered.
+  Stream<LookupResult> searchSteps(
+    String query, {
+    MediaType? type,
+    GamePlatform? platform,
+  }) async* {
     final trimmed = query.trim();
-    if (trimmed.isEmpty) return LookupResult.empty;
+    if (trimmed.isEmpty) {
+      yield LookupResult.empty;
+      return;
+    }
     final on = type == MediaType.games ? platform : null;
     final key = '${type?.name ?? '*'}|${on?.id ?? ''}|${trimmed.toLowerCase()}';
     final cached = _cache[key];
-    if (cached != null) return cached;
+    if (cached != null) {
+      yield cached;
+      return;
+    }
 
     final types = type == null ? MediaType.values : [type];
     final limit = type == null ? capPerTypeAll : capOneType;
@@ -102,35 +124,53 @@ class LookupService {
       for (final t in types)
         for (final source in sourcesFor(t)) (t, source),
     ];
-    final answers = await Future.wait([
-      for (final (t, source) in asks) _ask(source, trimmed, t, limit, on),
-    ]);
-
-    final failures = <LookupFailure>[];
-    var partial = 0;
-    final byType = <MediaType, List<LookupMatch>>{};
-    for (final (i, answer) in answers.indexed) {
-      final (t, _) = asks[i];
-      switch (answer) {
-        case List<LookupMatch> matches:
-          byType.putIfAbsent(t, () => []).addAll(matches.take(limit));
-        case LookupFailure failure:
-          failures.add(failure);
-        case (List<LookupMatch> matches, LookupFailure failure):
-          byType.putIfAbsent(t, () => []).addAll(matches.take(limit));
-          failures.add(failure);
-          partial++;
-      }
+    if (asks.isEmpty) {
+      yield const LookupResult();
+      return;
     }
-    final result = LookupResult(
-      matches: type == null
-          ? _roundRobin([for (final t in types) byType[t] ?? const []])
-          : [...?byType[type]],
-      failures: failures,
-      asked: asks.length + partial,
-    );
-    if (failures.isEmpty) _remember(key, result);
-    return result;
+
+    // The latest answer of each ask (null until its first), and how many
+    // have given their last.
+    final answers = List<Object?>.filled(asks.length, null);
+    var pending = asks.length;
+    final updates = StreamController<void>();
+    for (final (i, (t, source)) in asks.indexed) {
+      _askSteps(source, trimmed, t, limit, on).listen((step) {
+        answers[i] = step.answer;
+        if (step.last) pending--;
+        updates.add(null);
+        if (pending == 0) updates.close();
+      });
+    }
+
+    await for (final _ in updates.stream) {
+      final failures = <LookupFailure>[];
+      var partial = 0;
+      final byType = <MediaType, List<LookupMatch>>{};
+      for (final (i, answer) in answers.indexed) {
+        final (t, _) = asks[i];
+        switch (answer) {
+          case List<LookupMatch> matches:
+            byType.putIfAbsent(t, () => []).addAll(matches.take(limit));
+          case LookupFailure failure:
+            failures.add(failure);
+          case (List<LookupMatch> matches, LookupFailure failure):
+            byType.putIfAbsent(t, () => []).addAll(matches.take(limit));
+            failures.add(failure);
+            partial++;
+        }
+      }
+      final result = LookupResult(
+        matches: type == null
+            ? _roundRobin([for (final t in types) byType[t] ?? const []])
+            : [...?byType[type]],
+        failures: failures,
+        asked: asks.length + partial,
+        complete: pending == 0,
+      );
+      if (result.complete && failures.isEmpty) _remember(key, result);
+      yield result;
+    }
   }
 
   /// Covers to pick from for an entry titled [title] (Add / edit entry ›
@@ -188,24 +228,33 @@ class LookupService {
     return const [];
   }
 
-  /// A list of matches, the failure, or for a partial answer both.
-  Future<Object> _ask(
+  /// One ask's answers as they come: a list of matches, the failure, or for
+  /// a partial answer both; [last] marks the final one.
+  Stream<({Object answer, bool last})> _askSteps(
     LookupSource source,
     String query,
     MediaType type,
     int limit,
     GamePlatform? platform,
-  ) async {
+  ) async* {
+    List<LookupMatch> hits = const [];
     try {
-      return platform == null
-          ? await source.search(query, type: type, limit: limit)
-          : await source.searchOnPlatform(query, platform, limit: limit);
+      final steps = platform == null
+          ? source.searchSteps(query, type: type, limit: limit)
+          : Stream.fromFuture(
+              source.searchOnPlatform(query, platform, limit: limit),
+            );
+      await for (final step in steps) {
+        hits = step;
+        yield (answer: hits, last: false);
+      }
+      yield (answer: hits, last: true);
     } on PartialLookupException catch (e) {
-      return (e.matches, e.failure);
+      yield (answer: (e.matches, e.failure), last: true);
     } on LookupException catch (e) {
-      return e.failure;
+      yield (answer: e.failure, last: true);
     } on Object {
-      return LookupFailure.other;
+      yield (answer: LookupFailure.other, last: true);
     }
   }
 

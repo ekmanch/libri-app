@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
@@ -5,6 +7,7 @@ import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_providers.dart';
 import 'package:library_app/data/models/media_type.dart';
+import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
@@ -196,6 +199,55 @@ void main() {
     expect(rowTitled('Akira'), findsOneWidget);
   });
 
+  testWidgets('a source answering in steps shows its first matches while '
+      'the rest load', (tester) async {
+    final books = _TwoSteps();
+    await pumpApp(
+      tester,
+      const _Opener(type: MediaType.books),
+      lookupOverrides: fakeLookupOverrides(source: books),
+    );
+    await open(tester);
+    await tester.enterText(find.byType(TextField), 'Dune');
+    await tester.pump(NewEntryScreen.debounce);
+    await tester.pump();
+    await tester.pump();
+    expect(rowTitled('Dune (early)'), findsOneWidget);
+    expect(rowTitled('Dune (full)'), findsNothing);
+    expect(find.bySemanticsLabel('Looking up'), findsOneWidget);
+
+    books.release.complete();
+    await tester.pumpAndSettle();
+    expect(rowTitled('Dune (full)'), findsOneWidget);
+    expect(rowTitled('Dune (early)'), findsOneWidget);
+    expect(find.bySemanticsLabel('Looking up'), findsNothing);
+  });
+
+  testWidgets('a match picked before the search is done waits for it and '
+      'opens with what the rest brought, asking nothing again', (tester) async {
+    final books = _TwoSteps();
+    await pumpApp(
+      tester,
+      const _Opener(type: MediaType.books),
+      lookupOverrides: fakeLookupOverrides(source: books),
+    );
+    await open(tester);
+    await tester.enterText(find.byType(TextField), 'Dune');
+    await tester.pump(NewEntryScreen.debounce);
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(rowTitled('Dune (early)'));
+    await tester.pump();
+    expect(books.calls.where((c) => c.startsWith('details:')), isEmpty);
+
+    books.release.complete();
+    await tester.pumpAndSettle();
+    expect(books.calls.where((c) => c.startsWith('details:')), [
+      'details:fake:early',
+    ]);
+    expect(find.text('1965'), findsWidgets);
+  });
+
   group('states', () {
     Future<void> pumpWith(
       WidgetTester tester, {
@@ -370,4 +422,29 @@ class _HalfAnswering extends FakeLookupSource {
     required MediaType type,
     int limit = 10,
   }) async => throw const PartialLookupException([], LookupFailure.other);
+}
+
+/// The fake lookup, whose book searches answer in two steps: an early hit,
+/// then the full list once [release] is completed.
+class _TwoSteps extends FakeLookupSource {
+  final release = Completer<void>();
+
+  @override
+  Stream<List<LookupMatch>> searchSteps(
+    String query, {
+    required MediaType type,
+    int limit = 10,
+  }) async* {
+    LookupMatch hit(String title, String id, [int? year]) => LookupMatch(
+      type: type,
+      title: title,
+      source: 'fake:$id',
+      released: year == null ? null : Released(year),
+    );
+    yield [hit('$query (early)', 'early')];
+    await release.future;
+    // The rest brings the early hit's year, as Open Library does for an
+    // Apple hit.
+    yield [hit('$query (full)', 'full'), hit('$query (early)', 'early', 1965)];
+  }
 }

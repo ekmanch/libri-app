@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
@@ -74,6 +76,28 @@ class _Partial extends _Stub {
   }) async {
     calls++;
     throw PartialLookupException(answered, LookupFailure.other);
+  }
+}
+
+/// A source that answers in two steps, the second only once [release] is
+/// completed: an early hit, then the full list.
+class _TwoSteps extends _Stub {
+  _TwoSteps() : super('openlibrary', {MediaType.books});
+
+  final release = Completer<void>();
+
+  @override
+  Stream<List<LookupMatch>> searchSteps(
+    String query, {
+    required MediaType type,
+    int limit = 10,
+  }) async* {
+    yield [LookupMatch(type: type, title: 'Early', source: 'itunes:1')];
+    await release.future;
+    yield [
+      LookupMatch(type: type, title: 'Full', source: 'openlibrary:1'),
+      LookupMatch(type: type, title: 'Early', source: 'itunes:1'),
+    ];
   }
 }
 
@@ -236,6 +260,26 @@ void main() {
       ]).platforms(),
       isEmpty,
     );
+  });
+
+  test('searchSteps shows the matches so far, then the complete answer, '
+      'and remembers only that', () async {
+    final books = _TwoSteps();
+    final service = LookupService([books]);
+    final steps = <LookupResult>[];
+    await service.searchSteps('dune', type: MediaType.books).listen((r) {
+      steps.add(r);
+      if (!books.release.isCompleted) books.release.complete();
+    }).asFuture<void>();
+    expect(steps.first.complete, isFalse);
+    expect(steps.first.matches.map((m) => m.title), ['Early']);
+    expect(steps.last.complete, isTrue);
+    expect(steps.last.matches.map((m) => m.title), ['Full', 'Early']);
+    // Asked again, the complete answer comes from memory in one step.
+    final again = await service
+        .searchSteps('dune', type: MediaType.books)
+        .toList();
+    expect(again.single.matches.map((m) => m.title), ['Full', 'Early']);
   });
 
   test('sourceOf finds the source by the id prefix', () {

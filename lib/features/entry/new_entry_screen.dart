@@ -124,6 +124,10 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
   /// A lookup is pending or in flight.
   bool _loading = false;
 
+  /// The complete answer of the lookup in flight, for a pick made from an
+  /// early step; null when a newer lookup took its place.
+  Completer<LookupResult?>? _complete;
+
   /// The match being fetched in full before the form opens.
   LookupMatch? _opening;
 
@@ -208,25 +212,50 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
     final query = _text;
     final type = _type;
     final id = ++_request;
+    final complete = Completer<LookupResult?>();
+    if (_complete case final older? when !older.isCompleted) {
+      older.complete(null);
+    }
+    _complete = complete;
     setState(() => _loading = true);
-    final result = await ref
-        .read(lookupServiceProvider)
-        .search(query, type: type, platform: _searchPlatform);
-    if (!mounted || id != _request) return;
-    setState(() {
-      _result = result;
-      _loading = false;
-    });
+    // The matches show as each source answers (Apple Books long before
+    // Open Library); the bar runs until the last.
+    await for (final result
+        in ref
+            .read(lookupServiceProvider)
+            .searchSteps(query, type: type, platform: _searchPlatform)) {
+      if (!mounted || id != _request) return;
+      setState(() {
+        _result = result;
+        _loading = !result.complete;
+      });
+      if (result.complete && !complete.isCompleted) complete.complete(result);
+    }
   }
 
   Future<void> _open({LookupMatch? match}) async {
     var picked = match;
     if (match != null) {
       setState(() => _opening = match);
-      final source = ref.read(lookupServiceProvider).sourceOf(match.source);
+      var source = ref.read(lookupServiceProvider).sourceOf(match.source);
+      // Picked before every source answered: the search in flight brings
+      // the rest of this match (for a book, Open Library's year), so it is
+      // waited for rather than asked again.
+      if (_result case final result? when !result.complete) {
+        final full = await _complete?.future;
+        if (!mounted) return;
+        if (full != null) {
+          final later = source?.sameMatch(match, full.matches);
+          if (later != null) {
+            picked = later;
+            source = ref.read(lookupServiceProvider).sourceOf(later.source);
+            setState(() => _opening = later);
+          }
+        }
+      }
       if (source != null) {
         try {
-          picked = await source.details(match);
+          picked = await source.details(picked!);
         } on LookupException {
           // The search already had the essentials; the form opens with them.
         }
@@ -347,7 +376,8 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       children: [
-                        if (result == null)
+                        if (result == null ||
+                            (!result.complete && result.matches.isEmpty))
                           LookupNotice('Looking up "$query"…', spinner: true)
                         else if (result.notConfigured)
                           LookupNotice(

@@ -32,6 +32,26 @@ abstract class LookupSource {
     int limit = 10,
   });
 
+  /// [search] in steps, for a source that asks more than one provider:
+  /// each event is the matches so far, the last one is what [search] gives,
+  /// and a failure ends the stream as it fails [search]. One step by
+  /// default.
+  Stream<List<LookupMatch>> searchSteps(
+    String query, {
+    required MediaType type,
+    int limit = 10,
+  }) => Stream.fromFuture(search(query, type: type, limit: limit));
+
+  /// [early], a match from an early step of [searchSteps], as the complete
+  /// answer lists it ([complete]), so a pick made before the search was done
+  /// takes what the later sources added; null when it is not listed.
+  LookupMatch? sameMatch(LookupMatch early, List<LookupMatch> complete) {
+    for (final match in complete) {
+      if (match.source == early.source) return match;
+    }
+    return null;
+  }
+
   /// The game platforms a search can be narrowed to (Add / edit entry ›
   /// Platform picker), A to Z by name; empty from a source without games.
   Future<List<GamePlatform>> platforms() async => const [];

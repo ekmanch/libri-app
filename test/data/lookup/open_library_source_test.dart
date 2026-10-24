@@ -369,6 +369,90 @@ void main() {
     expect(ol.issued('igdb:1'), isFalse);
   });
 
+  test('searchSteps gives Apple\'s hits while Open Library is slow, then '
+      'both merged', () async {
+    final openLibraryMayAnswer = Completer<void>();
+    final ol = source((request) async {
+      if (isOpenLibrary(request)) {
+        await openLibraryMayAnswer.future;
+        return json(200, {
+          'docs': [kingRat],
+        });
+      }
+      return json(200, {
+        'results': [appleKingRat, weightOfAngels],
+      });
+    });
+    final steps = <List<String>>[];
+    final done = ol.searchSteps('King Rat', type: MediaType.books).listen((
+      hits,
+    ) {
+      steps.add([for (final h in hits) h.source]);
+      if (!openLibraryMayAnswer.isCompleted) openLibraryMayAnswer.complete();
+    }).asFuture<void>();
+    await done;
+    expect(steps, [
+      ['itunes:1436057399', 'itunes:6756269989'],
+      ['openlibrary:OL2918736W', 'itunes:6756269989'],
+    ]);
+  });
+
+  test('sameMatch finds an early Apple hit as the merged Open Library row '
+      'of the same book, else by its own id', () async {
+    final openLibraryMayAnswer = Completer<void>();
+    final ol = source((request) async {
+      if (isOpenLibrary(request)) {
+        await openLibraryMayAnswer.future;
+        return json(200, {
+          'docs': [kingRat],
+        });
+      }
+      return json(200, {
+        'results': [appleKingRat, weightOfAngels],
+      });
+    });
+    final steps = <List<LookupMatch>>[];
+    await ol.searchSteps('King Rat', type: MediaType.books).listen((hits) {
+      steps.add(hits);
+      if (!openLibraryMayAnswer.isCompleted) openLibraryMayAnswer.complete();
+    }).asFuture<void>();
+    final [early, complete] = steps;
+    final rat = ol.sameMatch(early.first, complete)!;
+    expect(rat.source, 'openlibrary:OL2918736W');
+    expect(rat.released, const Released(1962));
+    expect(ol.sameMatch(early[1], complete)!.source, 'itunes:6756269989');
+    expect(
+      ol.sameMatch(
+        book('itunes:9', 'Tai-Pan', creator: 'James Clavell'),
+        complete,
+      ),
+      isNull,
+    );
+  });
+
+  test('searchSteps is one step when Open Library answers first', () async {
+    final appleMayAnswer = Completer<void>();
+    final ol = source((request) async {
+      if (isOpenLibrary(request)) {
+        appleMayAnswer.complete();
+        return json(200, {
+          'docs': [kingRat],
+        });
+      }
+      // Well after Open Library's answer has been read.
+      await appleMayAnswer.future;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      return json(200, {
+        'results': [appleKingRat],
+      });
+    });
+    final steps = await ol
+        .searchSteps('King Rat', type: MediaType.books)
+        .toList();
+    expect(steps, hasLength(1));
+    expect(steps.single.single.source, 'openlibrary:OL2918736W');
+  });
+
   test('the merge keeps one row per book with the Open Library id, takes '
       'Apple\'s description and cover for it, and takes turns with the '
       'books only Apple has', () {
