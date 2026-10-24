@@ -525,6 +525,7 @@ class IgdbSource extends HttpLookupSource {
                     isUtc: true,
                   ).year,
             source: 'igdb:${p.id}',
+            creator: null,
           ),
       ],
     );

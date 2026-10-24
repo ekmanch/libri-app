@@ -61,6 +61,10 @@ class FileSeriesStore implements SeriesStore {
 
   static const _encoder = JsonEncoder.withIndent('  ');
 
+  /// 2 since 2026-10-24: Wikidata's parts are cleaned up when fetched (the
+  /// parts of a part, unnumbered extras) and carry their authors.
+  static const version = 2;
+
   Directory get _series =>
       Directory('${directory.path}${Platform.pathSeparator}series');
 
@@ -79,9 +83,12 @@ class FileSeriesStore implements SeriesStore {
       if (json is! Map<String, Object?> || json['source'] != source) {
         return null;
       }
-      final fetched = DateTime.tryParse(json['fetched'] as String? ?? '');
+      var fetched = DateTime.tryParse(json['fetched'] as String? ?? '');
       final name = json['name'];
       if (fetched == null || name is! String) return null;
+      // A list stored before the current [version] was cleaned by older
+      // rules: it shows, and is fetched again at once.
+      if (json['version'] != version) fetched = DateTime.utc(1970);
       final asked = json['asked'];
       return (
         fetched: fetched,
@@ -96,6 +103,7 @@ class FileSeriesStore implements SeriesStore {
                   title: item['title'] as String,
                   year: item['year'] as int?,
                   source: item['source'] as String?,
+                  creator: item['creator'] as String?,
                 ),
           ],
         ),
@@ -114,12 +122,13 @@ class FileSeriesStore implements SeriesStore {
   }) => writeAtomically(
     _file(source),
     '${_encoder.convert({
+      'version': version,
       'source': source,
       'fetched': fetched.toUtc().toIso8601String(),
       'asked': ?asked,
       'name': series.name,
       'parts': [
-        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'source': p.source},
+        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'source': p.source, 'creator': ?p.creator},
       ],
     })}\n',
   );

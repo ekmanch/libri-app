@@ -239,6 +239,42 @@ class AppIcons {
     ],
   );
 
+  /// A picture in a frame: Series cover in the series page's menu.
+  static const image = StrokeIconData(
+    rects: [Rect.fromLTRB(5, 4, 19, 20)],
+    polylines: [
+      [
+        Offset(5, 15),
+        Offset(9, 11),
+        Offset(13, 15),
+        Offset(15, 13),
+        Offset(19, 17),
+      ],
+    ],
+  );
+
+  /// An eye: Choose what to show in the series page's menu.
+  static const eye = StrokeIconData(
+    polylines: [
+      [
+        Offset(2, 12),
+        Offset(4.5, 8.5),
+        Offset(8, 6),
+        Offset(12, 5),
+        Offset(16, 6),
+        Offset(19.5, 8.5),
+        Offset(22, 12),
+        Offset(19.5, 15.5),
+        Offset(16, 18),
+        Offset(12, 19),
+        Offset(8, 18),
+        Offset(4.5, 15.5),
+        Offset(2, 12),
+      ],
+    ],
+    circles: [StrokeCircle(Offset(12, 12), 3)],
+  );
+
   /// A bin, for Delete.
   static const trash = StrokeIconData(
     polylines: [

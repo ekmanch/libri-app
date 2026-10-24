@@ -110,8 +110,16 @@ typedef ShowSeasons = ({List<Season> seasons, bool canceled, EntryKind? kind});
 
 /// One part of a series as the lookup lists it: its number in the series
 /// (null when the source gives none), its title, its year and its lookup id
-/// (so a part in the library is matched to it, and "+ Add" can look it up).
-typedef SeriesPart = ({int? number, String title, int? year, String? source});
+/// (so a part in the library is matched to it, and "+ Add" can look it up),
+/// and its authors when the source names them (Wikidata does, so Choose
+/// what to show can say which parts someone else wrote).
+typedef SeriesPart = ({
+  int? number,
+  String title,
+  int? year,
+  String? source,
+  String? creator,
+});
 
 /// A series: its name and its parts in the source's order.
 typedef SeriesParts = ({String name, List<SeriesPart> parts});

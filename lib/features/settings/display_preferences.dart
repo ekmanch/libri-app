@@ -26,6 +26,7 @@ class DisplayPreferences {
     this.timelineDefault = false,
     this.seasonalThemeDefault = true,
     this.defaultPlatform = 'PC',
+    this.hiddenSeriesParts = const {},
   });
 
   final ThemeMode themeMode;
@@ -57,6 +58,14 @@ class DisplayPreferences {
   /// Pre-selected on a new game that came out on it (Add / edit entry); null
   /// means none. The choices are listed in Settings.
   final String? defaultPlatform;
+
+  /// The parts not in the library that the owner chose not to see, per
+  /// series (Library › Series page: choose what to show): the series'
+  /// [seriesKey] to the parts' lookup ids. A series with none is left out.
+  final Map<String, Set<String>> hiddenSeriesParts;
+
+  Set<String> hiddenPartsOf(String seriesKey) =>
+      hiddenSeriesParts[seriesKey] ?? const {};
 
   static const platformChoices = [
     'PC',
@@ -93,6 +102,7 @@ class DisplayPreferences {
     bool? timelineDefault,
     bool? seasonalThemeDefault,
     Object? defaultPlatform = _keep,
+    Map<String, Set<String>>? hiddenSeriesParts,
   }) => DisplayPreferences(
     themeMode: themeMode ?? this.themeMode,
     accent: accent ?? this.accent,
@@ -106,6 +116,7 @@ class DisplayPreferences {
     defaultPlatform: defaultPlatform == _keep
         ? this.defaultPlatform
         : defaultPlatform as String?,
+    hiddenSeriesParts: hiddenSeriesParts ?? this.hiddenSeriesParts,
   );
 
   /// Sentinel for [copyWith], so a null [defaultPlatform] can be set.
@@ -127,6 +138,9 @@ class DisplayPreferences {
     'timeline_default': timelineDefault,
     'seasonal_theme_default': seasonalThemeDefault,
     'default_platform': defaultPlatform,
+    'hidden_series_parts': {
+      for (final e in hiddenSeriesParts.entries) e.key: [...e.value]..sort(),
+    },
   };
 
   /// Reads [toJson]'s form. Anything missing or unknown, such as a value
@@ -151,6 +165,7 @@ class DisplayPreferences {
     };
 
     final platform = json['default_platform'];
+    final hidden = json['hidden_series_parts'];
     return DisplayPreferences(
       themeMode: byName(ThemeMode.values, json['theme']) ?? defaults.themeMode,
       accent: switch (json['accent']) {
@@ -183,6 +198,12 @@ class DisplayPreferences {
           : platform is String
           ? platform
           : null,
+      hiddenSeriesParts: {
+        if (hidden is Map)
+          for (final MapEntry(:key, :value) in hidden.entries)
+            if (key is String && value is List && value.isNotEmpty)
+              key: {...value.whereType<String>()},
+      },
     );
   }
 
@@ -198,7 +219,15 @@ class DisplayPreferences {
       other.artistSort == artistSort &&
       other.timelineDefault == timelineDefault &&
       other.seasonalThemeDefault == seasonalThemeDefault &&
-      other.defaultPlatform == defaultPlatform;
+      other.defaultPlatform == defaultPlatform &&
+      _sameHidden(other.hiddenSeriesParts, hiddenSeriesParts);
+
+  static bool _sameHidden(
+    Map<String, Set<String>> a,
+    Map<String, Set<String>> b,
+  ) =>
+      a.length == b.length &&
+      a.entries.every((e) => setEquals(b[e.key], e.value));
 
   @override
   int get hashCode => Object.hash(
@@ -214,6 +243,11 @@ class DisplayPreferences {
     timelineDefault,
     seasonalThemeDefault,
     defaultPlatform,
+    Object.hashAllUnordered(
+      hiddenSeriesParts.entries.map(
+        (e) => Object.hash(e.key, Object.hashAllUnordered(e.value)),
+      ),
+    ),
   );
 }
 
@@ -275,6 +309,16 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
 
   void setFilteredSort(LibrarySort sort) =>
       state = state.copyWith(filteredSort: sort);
+
+  /// The parts of the series [seriesKey] to hide; none removes the series.
+  void setHiddenParts(String seriesKey, Set<String> parts) =>
+      state = state.copyWith(
+        hiddenSeriesParts: {
+          for (final e in state.hiddenSeriesParts.entries)
+            if (e.key != seriesKey) e.key: e.value,
+          if (parts.isNotEmpty) seriesKey: {...parts},
+        },
+      );
 }
 
 final displayPreferencesProvider =

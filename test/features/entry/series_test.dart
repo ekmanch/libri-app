@@ -11,7 +11,9 @@ import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/entry/entry_details_sheet.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
+import 'package:library_app/data/lookup/text_clean.dart';
 import 'package:library_app/features/entry/series.dart';
+import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/shell/app_shell.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
@@ -110,18 +112,21 @@ void main() {
           title: 'The Fellowship of the Ring',
           year: 2001,
           source: 'tmdb:movie:120',
+          creator: null,
         ),
         (
           number: 2,
           title: 'The Two Towers',
           year: 2002,
           source: 'tmdb:movie:121',
+          creator: null,
         ),
         (
           number: 3,
           title: 'The Return of the King',
           year: 2003,
           source: 'tmdb:movie:122',
+          creator: null,
         ),
       ],
     );
@@ -153,15 +158,40 @@ void main() {
       const SeriesParts tombRaider = (
         name: 'The Lord of the Rings',
         parts: [
-          (number: 1, title: 'Tomb Raider', year: 1996, source: 'igdb:912'),
-          (number: 2, title: 'Tomb Raider II', year: 1997, source: 'igdb:1'),
-          (number: 3, title: 'Legend', year: 2006, source: 'igdb:2'),
-          (number: 4, title: 'Tomb Raider', year: 2013, source: 'igdb:1164'),
+          (
+            number: 1,
+            title: 'Tomb Raider',
+            year: 1996,
+            source: 'igdb:912',
+            creator: null,
+          ),
+          (
+            number: 2,
+            title: 'Tomb Raider II',
+            year: 1997,
+            source: 'igdb:1',
+            creator: null,
+          ),
+          (
+            number: 3,
+            title: 'Legend',
+            year: 2006,
+            source: 'igdb:2',
+            creator: null,
+          ),
+          (
+            number: 4,
+            title: 'Tomb Raider',
+            year: 2013,
+            source: 'igdb:1164',
+            creator: null,
+          ),
           (
             number: 5,
             title: 'Rise of the Tomb Raider',
             year: 2015,
             source: 'igdb:7323',
+            creator: null,
           ),
         ],
       );
@@ -201,8 +231,20 @@ void main() {
       const SeriesParts twice = (
         name: 'The Lord of the Rings',
         parts: [
-          (number: 1, title: 'Tomb Raider', year: 1996, source: null),
-          (number: 2, title: 'Tomb Raider', year: 2013, source: null),
+          (
+            number: 1,
+            title: 'Tomb Raider',
+            year: 1996,
+            source: null,
+            creator: null,
+          ),
+          (
+            number: 2,
+            title: 'Tomb Raider',
+            year: 2013,
+            source: null,
+            creator: null,
+          ),
         ],
       );
       final reboot = _entry('r', 'Tomb Raider', year: 2013);
@@ -218,8 +260,20 @@ void main() {
       const SeriesParts berserk = (
         name: 'Berserk',
         parts: [
-          (number: 16, title: 'Berserk #16-20', year: 2007, source: null),
-          (number: 17, title: 'Berserk Volume 17', year: 2007, source: null),
+          (
+            number: 16,
+            title: 'Berserk #16-20',
+            year: 2007,
+            source: null,
+            creator: null,
+          ),
+          (
+            number: 17,
+            title: 'Berserk Volume 17',
+            year: 2007,
+            source: null,
+            creator: null,
+          ),
         ],
       );
       final sixteen = _entry('s', 'Berserk Volume 16', number: 16, year: 2008);
@@ -240,11 +294,41 @@ void main() {
       const SeriesParts saga = (
         name: 'The Lord of the Rings',
         parts: [
-          (number: 6, title: 'Whirlwind', year: 1986, source: null),
-          (number: null, title: 'King Rat', year: 1962, source: null),
-          (number: null, title: 'Tai-Pan', year: 1966, source: null),
-          (number: null, title: 'Shōgun', year: 1975, source: null),
-          (number: 2, title: 'Noble House', year: 1981, source: null),
+          (
+            number: 6,
+            title: 'Whirlwind',
+            year: 1986,
+            source: null,
+            creator: null,
+          ),
+          (
+            number: null,
+            title: 'King Rat',
+            year: 1962,
+            source: null,
+            creator: null,
+          ),
+          (
+            number: null,
+            title: 'Tai-Pan',
+            year: 1966,
+            source: null,
+            creator: null,
+          ),
+          (
+            number: null,
+            title: 'Shōgun',
+            year: 1975,
+            source: null,
+            creator: null,
+          ),
+          (
+            number: 2,
+            title: 'Noble House',
+            year: 1981,
+            source: null,
+            creator: null,
+          ),
         ],
       );
       final shogun = _entry('s', 'Shōgun', number: 1);
@@ -441,6 +525,11 @@ void main() {
   });
 
   group('the series page from a series row', () {
+    Future<void> openMenu(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Series options'));
+      await tester.pumpAndSettle();
+    }
+
     Future<ProviderContainer> openPage(WidgetTester tester) async {
       final container = await pumpApp(
         tester,
@@ -452,7 +541,7 @@ void main() {
       return container;
     }
 
-    testWidgets('lists every part with no "this one", and a Cover button', (
+    testWidgets('lists every part with no "this one", and a ⋮ menu', (
       tester,
     ) async {
       await openPage(tester);
@@ -472,7 +561,9 @@ void main() {
         find.bySemanticsLabel('Add The Return of the King'),
         findsOneWidget,
       );
-      expect(find.widgetWithText(AppButton, 'Cover'), findsOneWidget);
+      await openMenu(tester);
+      expect(find.text('Series cover'), findsOneWidget);
+      expect(find.text('Choose what to show'), findsOneWidget);
     });
 
     testWidgets('the list scrolls clear of the pill and "+"', (tester) async {
@@ -508,7 +599,8 @@ void main() {
       tester,
     ) async {
       final container = await openPage(tester);
-      await tester.tap(find.widgetWithText(AppButton, 'Cover'));
+      await openMenu(tester);
+      await tester.tap(find.text('Series cover'));
       await tester.pumpAndSettle();
       expect(find.text('Series cover'), findsOneWidget);
       expect(
@@ -533,7 +625,8 @@ void main() {
 
       // Opened again, the pick is ringed; Done without a change applies
       // nothing.
-      await tester.tap(find.widgetWithText(AppButton, 'Cover'));
+      await openMenu(tester);
+      await tester.tap(find.text('Series cover'));
       await tester.pumpAndSettle();
       expect(find.text('Your pick'), findsOneWidget);
       await tester.tap(find.widgetWithText(AppButton, 'Done'));
@@ -541,7 +634,7 @@ void main() {
       expect(repository.current!.entryById(_towers)!.series!.cover, isTrue);
     });
 
-    testWidgets('with one part in the library there is no Cover button', (
+    testWidgets('with one part in the library there is no Series cover', (
       tester,
     ) async {
       final library = loadFixture();
@@ -559,7 +652,89 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       expect(find.text('3 movies · 1 in your library'), findsOneWidget);
-      expect(find.widgetWithText(AppButton, 'Cover'), findsNothing);
+      await openMenu(tester);
+      expect(find.text('Series cover'), findsNothing);
+      expect(find.text('Choose what to show'), findsOneWidget);
     });
+
+    testWidgets(
+      'Choose what to show hides a part not in the library, and the hidden '
+      'row shows it for now (Library › Series page: hidden parts)',
+      (tester) async {
+        final container = await openPage(tester);
+        await openMenu(tester);
+        await tester.tap(find.text('Choose what to show'));
+        await tester.pumpAndSettle();
+        expect(find.text('Show in this series'), findsOneWidget);
+        // Only the part not in the library is listed, ticked.
+        final row = find.bySemanticsLabel('The Return of the King');
+        expect(row, findsOneWidget);
+        expect(find.text('Number 3 · 2003'), findsOneWidget);
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(AppButton, 'Done'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Show in this series'), findsNothing);
+        expect(find.text('2 movies · 2 in your library'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel('Add The Return of the King'),
+          findsNothing,
+        );
+        expect(find.text('1 hidden part'), findsOneWidget);
+        expect(
+          container
+              .read(displayPreferencesProvider)
+              .hiddenPartsOf('movies:${titleKey('The Lord of the Rings')}'),
+          {'fake:the-lord-of-the-rings-the-return-of-the-king'},
+        );
+
+        await tester.tap(find.widgetWithText(TextButton, 'Show'));
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel('Add The Return of the King'),
+          findsOneWidget,
+        );
+        // Still not counted while it shows.
+        expect(find.text('2 movies · 2 in your library'), findsOneWidget);
+        await tester.tap(find.widgetWithText(TextButton, 'Hide'));
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel('Add The Return of the King'),
+          findsNothing,
+        );
+
+        // Ticked again, it is back and nothing is kept for the series.
+        await openMenu(tester);
+        await tester.tap(find.text('Choose what to show'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.bySemanticsLabel('The Return of the King'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(AppButton, 'Done'));
+        await tester.pumpAndSettle();
+        expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+        expect(find.text('1 hidden part'), findsNothing);
+        expect(
+          container.read(displayPreferencesProvider).hiddenSeriesParts,
+          {},
+        );
+      },
+    );
+  });
+
+  test('splitHiddenRows never hides a part in the library', () {
+    final owned = SeriesRow(
+      title: 'Owned',
+      entry: loadFixture().entryById(_fellowship),
+      partKey: 'a',
+    );
+    const missing = SeriesRow(title: 'Missing', partKey: 'b');
+    const other = SeriesRow(title: 'Other', partKey: 'c');
+    final (:shown, :hidden) = splitHiddenRows(
+      [owned, missing, other],
+      {'a', 'b'},
+    );
+    expect(shown.map((r) => r.title), ['Owned', 'Other']);
+    expect(hidden.map((r) => r.title), ['Missing']);
   });
 }

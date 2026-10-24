@@ -615,6 +615,7 @@ class OpenLibrarySource extends HttpLookupSource {
           title: hit.title,
           year: year,
           source: hit.source,
+          creator: null,
         );
       } else if (year != null && (known.year == null || year < known.year!)) {
         byNumber[volume.number] = (
@@ -622,6 +623,7 @@ class OpenLibrarySource extends HttpLookupSource {
           title: known.title,
           year: year,
           source: known.source,
+          creator: null,
         );
       }
     }

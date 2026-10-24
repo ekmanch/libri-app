@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,8 +35,15 @@ const SeriesParts _lotr = (
       title: 'The Fellowship of the Ring',
       year: 2001,
       source: _source,
+      creator: null,
     ),
-    (number: 2, title: 'The Two Towers', year: 2002, source: 'tmdb:movie:121'),
+    (
+      number: 2,
+      title: 'The Two Towers',
+      year: 2002,
+      source: 'tmdb:movie:121',
+      creator: null,
+    ),
   ],
 );
 
@@ -181,5 +189,35 @@ void main() {
     await store.prune({_source});
     expect(await store.read('tmdb:movie:121'), isNull);
     expect(await store.read(_source), isNotNull);
+  });
+
+  test('the file store keeps the authors of a part, and a list from before '
+      'version 2 counts as stale', () async {
+    final dir = await Directory.systemTemp.createTemp('series');
+    addTearDown(() => dir.delete(recursive: true));
+    final store = FileSeriesStore(dir);
+    const SeriesParts dune = (
+      name: 'Dune',
+      parts: [
+        (
+          number: 7,
+          title: 'Hunters of Dune',
+          year: 2006,
+          source: 'wikidata:Q7',
+          creator: 'Brian Herbert, Kevin J. Anderson',
+        ),
+      ],
+    );
+    await store.write('openlibrary:OL1W', dune, fetched: now);
+    expect((await store.read('openlibrary:OL1W'))!.series.parts, dune.parts);
+    final file = File(
+      '${dir.path}/series/${FileSeriesStore.fileNameFor('openlibrary:OL1W')}',
+    );
+    final json = jsonDecode(await file.readAsString()) as Map<String, Object?>
+      ..remove('version');
+    await file.writeAsString(jsonEncode(json));
+    final old = await store.read('openlibrary:OL1W');
+    expect(old!.series.parts, dune.parts);
+    expect(old.fetched.year, 1970);
   });
 }

@@ -48,7 +48,6 @@ import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
-import 'package:library_app/widgets/app_buttons.dart';
 import 'package:library_app/widgets/tag_group.dart';
 
 /// Wraps the whole app, including sheets, dialogs and menus in the root
@@ -435,7 +434,9 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
 
 /// A series as one row of a long type list (Library › Movies, text view;
 /// list and grid with covers), the series page it opens (Library › Series
-/// page (from a series row)) and its Series cover sheet, at [scale]. The
+/// page (from a series row)), its menu, Series cover and Choose what to show
+/// sheets and a hidden part (Library › Series page: hidden parts), at
+/// [scale]. The
 /// movies are padded to three screens, so The Lord of the Rings' two parts
 /// group. Captures are prefixed "large-text-" above 1.
 Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
@@ -501,10 +502,32 @@ Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await waitForImages(tester, count: 0);
   await capture(tester, '${prefix}l5-series-page');
-  await tester.tap(find.widgetWithText(AppButton, 'Cover'));
-  await tester.pumpAndSettle();
+  Future<void> menu(String item) async {
+    await tester.tap(find.byTooltip('Series options'));
+    await tester.pumpAndSettle();
+    if (item == 'Series cover') {
+      await capture(tester, '${prefix}l5-series-menu');
+    }
+    await tester.tap(find.text(item));
+    await tester.pumpAndSettle();
+  }
+
+  await menu('Series cover');
   await waitForImages(tester, count: 2);
   await capture(tester, '${prefix}l5-series-cover');
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  // Library › Series page: choose what to show, then hidden parts.
+  await menu('Choose what to show');
+  final returnOfTheKing = find.bySemanticsLabel('The Return of the King');
+  await tester.tap(returnOfTheKing);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}l5-series-show');
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}l5-series-hidden');
+  await menu('Choose what to show');
+  await tester.tap(returnOfTheKing);
   await tester.tap(find.widgetWithText(FilledButton, 'Done'));
   await tester.pumpAndSettle();
   await tester.tap(find.byTooltip('Back'));

@@ -9,6 +9,7 @@ import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
+import '../../widgets/check_box_mark.dart';
 import '../../widgets/row_ink_well.dart';
 import '../../widgets/sheet_frame.dart';
 import '../plans/plan_form_screen.dart';
@@ -140,7 +141,6 @@ class _PlanRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final colors = LibraryColors.of(context);
     final state = switch (planState(plan)) {
       PlanState.active => 'Active',
@@ -175,25 +175,7 @@ class _PlanRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: on ? scheme.primaryContainer : Colors.transparent,
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: on ? scheme.primaryContainer : colors.placeholder,
-                    width: 2,
-                  ),
-                ),
-                child: on
-                    ? StrokeIcon(
-                        AppIcons.check,
-                        size: 14,
-                        color: scheme.onPrimaryContainer,
-                      )
-                    : null,
-              ),
+              CheckBoxMark(checked: on),
             ],
           ),
         ),

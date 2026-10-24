@@ -235,6 +235,7 @@ class TmdbSource extends HttpLookupSource {
             title: p.title,
             year: p.released?.year,
             source: 'tmdb:movie:${p.id}',
+            creator: null,
           ),
       ],
     );

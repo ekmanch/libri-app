@@ -28,7 +28,6 @@ import 'package:library_app/main.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
-import 'package:library_app/widgets/app_buttons.dart';
 import 'package:library_app/widgets/tag_group.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
 
@@ -684,7 +683,7 @@ void main() {
       },
     );
     // A long movie list groups The Lord of the Rings' two parts as one row,
-    // which opens the series page and its cover sheet.
+    // which opens the series page, its menu and its two sheets.
     await audit.step('Library › Series row, series page and cover', () async {
       await audit.pickChip('Movies');
       // The row sits where its newest part would, well down the list.
@@ -702,9 +701,17 @@ void main() {
       await audit.check('Library › Movies, text view with a series row');
       await audit.tap(row);
       await audit.check('Library › Series page (from a series row)');
-      await audit.tap(find.widgetWithText(AppButton, 'Cover'));
+      await audit.tap(find.byTooltip('Series options'));
+      await audit.check('Library › Series page menu');
+      await audit.tapText('Series cover');
       await audit.check('Library › Series cover');
       await audit.tap(find.widgetWithText(FilledButton, 'Done'));
+      await audit.tap(find.byTooltip('Series options'));
+      await audit.tapText('Choose what to show');
+      await audit.check('Library › Series page: choose what to show');
+      await audit.tap(find.bySemanticsLabel('The Return of the King'));
+      await audit.tap(find.widgetWithText(FilledButton, 'Done'));
+      await audit.check('Library › Series page: hidden parts');
       await audit.back();
     });
     handle.dispose();

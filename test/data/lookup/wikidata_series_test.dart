@@ -36,6 +36,8 @@ void main() {
     required String partLabel,
     String? partOrdinal,
     String? date,
+    String? partOf,
+    String? partAuthor,
   }) => {
     'book': item(book),
     if (author != null) 'authorLabel': cell(author),
@@ -46,6 +48,8 @@ void main() {
     'partLabel': cell(partLabel),
     if (partOrdinal != null) 'partOrdinal': cell(partOrdinal),
     if (date != null) 'date': cell('${date}T00:00:00Z'),
+    if (partOf != null) 'partOf': item(partOf),
+    if (partAuthor != null) 'partAuthorLabel': cell(partAuthor),
   };
 
   final lotr = [
@@ -240,37 +244,172 @@ void main() {
   });
 
   test('parts without an ordinal come after the rest, by date', () async {
+    // Mostly unnumbered, as Wikidata has the Asian Saga, so none is dropped.
+    Map<String, Object?> saga(
+      String part,
+      String label, {
+      String? ordinal,
+      required String date,
+    }) => row(
+      book: 'Q1',
+      series: 'Q3562203',
+      seriesLabel: 'The Asian Saga',
+      part: part,
+      partLabel: label,
+      partOrdinal: ordinal,
+      date: date,
+    );
+    final wikidata = source(
+      search: [
+        {'id': 'Q1'},
+      ],
+      rows: [
+        saga('Q2', 'Noble House', date: '1981-01-01'),
+        saga('Q3', 'Whirlwind', ordinal: '6', date: '1986-01-01'),
+        saga('Q4', 'King Rat', date: '1962-01-01'),
+        saga('Q1', 'Shōgun', date: '1975-01-01'),
+      ],
+    );
+    final found = await wikidata.seriesOf('Shōgun', null);
+    expect(found!.parts.parts.map((p) => p.title), [
+      'Whirlwind',
+      'King Rat',
+      'Shōgun',
+      'Noble House',
+    ]);
+  });
+
+  test('the parts of a part, undated unnumbered parts and, in a numbered '
+      'series, unnumbered extras are left out (Library › Book series after '
+      'the automatic rules)', () async {
+    Map<String, Object?> part(
+      String id,
+      String label, {
+      String? ordinal,
+      String? date,
+      String? partOf,
+    }) => row(
+      book: 'Q208088',
+      author: 'J. R. R. Tolkien',
+      series: 'Q15228',
+      ordinal: '1',
+      part: id,
+      partLabel: label,
+      partOrdinal: ordinal,
+      date: date,
+      partOf: partOf,
+      partAuthor: 'J. R. R. Tolkien',
+    );
     final wikidata = source(
       search: [
         {'id': 'Q208088'},
       ],
       rows: [
-        ...lotr,
-        row(
-          book: 'Q208088',
-          author: 'J. R. R. Tolkien',
-          series: 'Q15228',
+        part(
+          'Q208088',
+          'The Fellowship of the Ring',
           ordinal: '1',
-          part: 'Q77',
-          partLabel: 'A later companion',
-          date: '1980-01-01',
+          date: '1954-07-29',
         ),
-        row(
-          book: 'Q208088',
-          author: 'J. R. R. Tolkien',
-          series: 'Q15228',
+        part('Q332139', 'Concerning Hobbits'),
+        part('Q208133', 'The Two Towers', ordinal: '2', date: '1954-11-11'),
+        part(
+          'Q208137',
+          'The Return of the King',
+          ordinal: '3',
+          date: '1955-10-20',
+        ),
+        part(
+          'Q334335',
+          'Appendices of The Lord of the Rings',
+          date: '1954-07-29',
+        ),
+        part(
+          'Q133892392',
+          'The First Journey',
           ordinal: '1',
-          part: 'Q78',
-          partLabel: 'An early companion',
-          date: '1960-01-01',
+          partOf: 'Q208088',
+        ),
+        part(
+          'Q133892413',
+          'The Journey of the Nine Companions',
+          ordinal: '2',
+          partOf: 'Q208088',
+        ),
+        part(
+          'Q133892737',
+          'The End of the Third Age',
+          ordinal: '6',
+          partOf: 'Q208137',
         ),
       ],
     );
     final found = await wikidata.seriesOf('The Fellowship of the Ring', null);
-    expect(found!.parts.parts.map((p) => p.title).toList().sublist(3), [
-      'An early companion',
-      'A later companion',
+    expect(found!.parts.parts.map((p) => p.title), [
+      'The Fellowship of the Ring',
+      'The Two Towers',
+      'The Return of the King',
     ]);
+    expect(found.parts.parts.first.creator, 'J. R. R. Tolkien');
+  });
+
+  test('cleanParts: a part of something outside the series stays', () {
+    WikidataPart part(
+      String id, {
+      int? number,
+      int? year,
+      Set<String> partOf = const {},
+    }) => (
+      id: id,
+      title: id,
+      number: number,
+      year: year,
+      partOf: partOf,
+      authors: const [],
+    );
+    expect(
+      WikidataSeries.cleanParts([
+        part('A', number: 1, year: 2000, partOf: {'Q-elsewhere'}),
+        part('B', number: 2, year: 2001),
+      ]).map((p) => p.id),
+      ['A', 'B'],
+    );
+    // Half numbered is not most: the unnumbered stay.
+    expect(
+      WikidataSeries.cleanParts([part('A', number: 1), part('B', year: 2001)])
+          .map((p) => p.id),
+      ['A', 'B'],
+    );
+  });
+
+  test('a part by other authors says who, each author once', () async {
+    final wikidata = source(
+      search: [
+        {'id': 'Q1'},
+      ],
+      rows: [
+        for (final author in [
+          'Brian Herbert',
+          'Kevin J. Anderson',
+          'Brian Herbert',
+        ])
+          row(
+            book: 'Q1',
+            series: 'Q6095696',
+            seriesLabel: 'Dune',
+            part: 'Q7',
+            partLabel: 'Hunters of Dune',
+            partOrdinal: '7',
+            date: '2006-08-08',
+            partAuthor: author,
+          ),
+      ],
+    );
+    final found = await wikidata.seriesOf('Dune', null);
+    expect(
+      found!.parts.parts.single.creator,
+      'Brian Herbert, Kevin J. Anderson',
+    );
   });
 
   test('authors match on a surname, case aside', () {

@@ -13,14 +13,17 @@ import '../../theme/app_theme.dart';
 import '../../data/operations/operations.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
+import '../../widgets/check_box_mark.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/cover_choice.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
+import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
+import '../settings/display_preferences.dart';
 import '../shell/app_shell.dart';
 import 'entry_details_sheet.dart';
 import 'new_entry_screen.dart';
@@ -29,7 +32,14 @@ import 'new_entry_screen.dart';
 /// long series; All volumes in a series): a part of the series as the lookup
 /// lists it, the entry in the library that is it, or both.
 class SeriesRow {
-  const SeriesRow({this.number, required this.title, this.year, this.entry});
+  const SeriesRow({
+    this.number,
+    required this.title,
+    this.year,
+    this.entry,
+    this.partKey,
+    this.creator,
+  });
 
   final int? number;
   final String title;
@@ -38,7 +48,43 @@ class SeriesRow {
   /// The entry that is this part, when it is in the library.
   final Entry? entry;
 
+  /// The fetched part's [seriesPartKey], by which it is hidden; null for an
+  /// entry the lookup does not list.
+  final String? partKey;
+
+  /// The fetched part's authors, when the source names them.
+  final String? creator;
+
   bool get owned => entry != null;
+}
+
+/// The key a series' hidden parts are kept under on the device: its type
+/// and its name as the library shows it, compared like a title.
+String seriesKey(MediaType type, String name) =>
+    '${type.name}:${titleKey(seriesDisplayName(name))}';
+
+/// The key a part is hidden by: its lookup id, else its title.
+String seriesPartKey(SeriesPart part) =>
+    part.source ?? 'title:${titleKey(part.title)}';
+
+/// [rows] without the parts the owner hid ([hiddenKeys], Library › Series
+/// page: choose what to show), and the hidden ones. A part in the library
+/// is never hidden.
+({List<SeriesRow> shown, List<SeriesRow> hidden}) splitHiddenRows(
+  List<SeriesRow> rows,
+  Set<String> hiddenKeys,
+) {
+  bool hidden(SeriesRow r) => !r.owned && hiddenKeys.contains(r.partKey);
+  return (
+    shown: [
+      for (final r in rows)
+        if (!hidden(r)) r,
+    ],
+    hidden: [
+      for (final r in rows)
+        if (hidden(r)) r,
+    ],
+  );
 }
 
 /// "movie", "movies" for the parts of a movie or anime series; "volume",
@@ -144,6 +190,8 @@ List<SeriesRow> seriesRows({
         title: entry?.title ?? part.title,
         year: entry?.year ?? part.year,
         entry: entry,
+        partKey: seriesPartKey(part),
+        creator: part.creator,
       ),
     );
   }
@@ -180,7 +228,7 @@ List<SeriesRow> seriesWindow(List<SeriesRow> rows, int currentIndex) {
 
 /// The Series section of an entry's details, after Rating (Library › Movie in
 /// a series; Book in a long series): the series name, "2 of 3 in your
-/// library", and the parts. This one is highlighted; parts in the library
+/// library", and the parts, without the ones the owner hid. This one is highlighted; parts in the library
 /// show their status and open their own details through [onOpen]; missing
 /// ones are grayed with "+ Add", which starts a new entry looked up for that
 /// title. Six parts or more show a window of three and "All 43 volumes ›",
@@ -207,11 +255,19 @@ class SeriesSection extends ConsumerWidget {
     if (series == null) return const SizedBox.shrink();
     final library = ref.watch(libraryProvider).value;
     final parts = ref.watch(seriesPartsProvider(entry.id)).value?.series;
-    final rows = seriesRows(
-      current: entry,
-      library: library?.entries ?? const [],
-      parts: parts,
+    final hiddenKeys = ref.watch(
+      displayPreferencesProvider.select(
+        (p) => p.hiddenPartsOf(seriesKey(entry.type, series.name)),
+      ),
     );
+    final rows = splitHiddenRows(
+      seriesRows(
+        current: entry,
+        library: library?.entries ?? const [],
+        parts: parts,
+      ),
+      hiddenKeys,
+    ).shown;
     final currentIndex = rows.indexWhere((r) => r.entry?.id == entry.id);
     final shown = seriesWindow(rows, currentIndex);
     final (_, many) = seriesNouns(entry.type);
@@ -455,8 +511,13 @@ Future<void> openSeriesPage(BuildContext context, String entryId) =>
 /// Opened from a series row of the library list ([fromList]; Library ›
 /// Series page (from a series row)) it is the series page instead: no part
 /// is "this one", a part in the library opens its details sheet and closing
-/// it comes back here, and with two or more parts in the library a Cover
-/// button picks the part whose cover stands for the series in the list.
+/// it comes back here, and with two or more parts in the library the ⋮ menu
+/// has Series cover, which picks the part whose cover stands for the series
+/// in the list.
+///
+/// Parts the owner hid (Library › Series page: hidden parts) are left out
+/// of the list and the counts; the ⋮ menu's Choose what to show picks them,
+/// and "2 hidden parts · Show" at the end shows them until the page closes.
 class AllSeriesScreen extends ConsumerStatefulWidget {
   const AllSeriesScreen({
     super.key,
@@ -471,9 +532,14 @@ class AllSeriesScreen extends ConsumerStatefulWidget {
   ConsumerState<AllSeriesScreen> createState() => _AllSeriesScreenState();
 }
 
+enum _SeriesMenuAction { cover, show }
+
 class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
   final _current = GlobalKey();
   bool _scrolled = false;
+
+  /// Whether the hidden parts show for now ("Show" on the hidden row).
+  bool _peek = false;
 
   void _scrollToCurrent() {
     if (_scrolled) return;
@@ -493,6 +559,79 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
     Navigator.pop(context, id);
   }
 
+  Future<void> _openMenu(
+    BuildContext anchor, {
+    required bool cover,
+    required bool show,
+  }) {
+    final theme = Theme.of(anchor);
+    final colors = LibraryColors.of(anchor);
+    final button = anchor.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final origin = button.localToGlobal(Offset.zero, ancestor: overlay);
+    PopupMenuItem<_SeriesMenuAction> item(
+      _SeriesMenuAction action,
+      StrokeIconData icon,
+      String label,
+    ) => PopupMenuItem(
+      value: action,
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Row(
+        children: [
+          StrokeIcon(icon, size: 20, color: colors.muted),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: theme.textTheme.titleMedium)),
+        ],
+      ),
+    );
+    return showMenu<_SeriesMenuAction>(
+      context: context,
+      useRootNavigator: true,
+      position: RelativeRect.fromLTRB(
+        overlay.size.width - 16 - 230,
+        origin.dy + button.size.height - 4,
+        16,
+        0,
+      ),
+      constraints: const BoxConstraints(minWidth: 230, maxWidth: 230),
+      popUpAnimationStyle: AppMotion.menu,
+      items: [
+        if (cover)
+          item(_SeriesMenuAction.cover, AppIcons.image, 'Series cover'),
+        if (show)
+          item(_SeriesMenuAction.show, AppIcons.eye, 'Choose what to show'),
+      ],
+    ).then((action) {
+      if (!mounted) return;
+      final library = ref.read(libraryProvider).value;
+      final entry = library?.entryById(widget.entryId);
+      final series = entry?.series;
+      if (entry == null || series == null) return;
+      final rows = seriesRows(
+        current: entry,
+        library: library?.entries ?? const [],
+        parts: ref.read(seriesPartsProvider(widget.entryId)).value?.series,
+      );
+      switch (action) {
+        case _SeriesMenuAction.cover:
+          showSeriesCoverSheet(
+            context,
+            seriesName: seriesDisplayName(series.name),
+            parts: [for (final r in rows) ?r.entry],
+          );
+        case _SeriesMenuAction.show:
+          showSeriesPartsSheet(
+            context,
+            seriesName: series.name,
+            seriesKey: seriesKey(entry.type, series.name),
+            rows: rows,
+          );
+        case null:
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -501,17 +640,30 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
     final entry = library?.entryById(widget.entryId);
     final series = entry?.series;
     final parts = ref.watch(seriesPartsProvider(widget.entryId)).value?.series;
-    final rows = entry == null
+    final all = entry == null
         ? const <SeriesRow>[]
         : seriesRows(
             current: entry,
             library: library?.entries ?? const [],
             parts: parts,
           );
+    final hiddenKeys = ref.watch(
+      displayPreferencesProvider.select(
+        (p) => entry == null || series == null
+            ? const <String>{}
+            : p.hiddenPartsOf(seriesKey(entry.type, series.name)),
+      ),
+    );
+    final (:shown, :hidden) = splitHiddenRows(all, hiddenKeys);
+    final rows = _peek ? all : shown;
     if (rows.isNotEmpty && !widget.fromList) _scrollToCurrent();
     final (_, many) = seriesNouns(entry?.type ?? MediaType.movies);
-    final owned = [for (final r in rows) ?r.entry];
+    final owned = [for (final r in all) ?r.entry];
     final name = series?.name ?? 'Series';
+    final canCover = widget.fromList && owned.length >= 2;
+    final canShow = all.any((r) => !r.owned);
+    final hiddenLabel =
+        '${hidden.length} hidden ${hidden.length == 1 ? 'part' : 'parts'}';
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -522,28 +674,27 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
               title: widget.fromList ? seriesDisplayName(name) : name,
               onBack: () => Navigator.pop(context),
               actions: [
-                if (widget.fromList && owned.length >= 2)
-                  Padding(
-                    // Clear of the title, which gives way before it.
-                    padding: const EdgeInsets.only(left: 12),
-                    child: AppButton(
-                      label: 'Cover',
-                      kind: AppButtonKind.outline,
-                      compact: true,
-                      onPressed: () => showSeriesCoverSheet(
-                        context,
-                        seriesName: seriesDisplayName(name),
-                        parts: owned,
+                if (canCover || canShow)
+                  Builder(
+                    builder: (anchor) => Transform.translate(
+                      // The dots line up with the page margin, as drawn.
+                      offset: const Offset(10, 0),
+                      child: IconButton(
+                        onPressed: () =>
+                            _openMenu(anchor, cover: canCover, show: canShow),
+                        tooltip: 'Series options',
+                        icon: const StrokeIcon(AppIcons.more, size: 22),
                       ),
                     ),
                   ),
               ],
             ),
-            // Under the title, past the back arrow, like all seasons.
+            // Under the title, past the back arrow, like all seasons. Hidden
+            // parts are not counted, even while they show.
             Padding(
               padding: const EdgeInsets.fromLTRB(68, 0, 20, 8),
               child: Text(
-                '${rows.length} $many · ${owned.length} in your library',
+                '${shown.length} $many · ${owned.length} in your library',
                 style: theme.textTheme.bodySmall!.copyWith(
                   fontStyle: FontStyle.normal,
                   fontSize: 13.5,
@@ -578,11 +729,223 @@ class _AllSeriesScreenState extends ConsumerState<AllSeriesScreen> {
                                   !widget.fromList && row.entry?.id == entry.id,
                               onOpen: _open,
                             ),
+                          if (hidden.isNotEmpty)
+                            Container(
+                              constraints: const BoxConstraints(minHeight: 56),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      hiddenLabel,
+                                      style: theme.textTheme.bodyMedium!
+                                          .copyWith(
+                                            fontSize: 14,
+                                            color: colors.placeholder,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  TextButton(
+                                    onPressed: () =>
+                                        setState(() => _peek = !_peek),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor:
+                                          theme.colorScheme.primary,
+                                    ),
+                                    child: Text(_peek ? 'Hide' : 'Show'),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks which parts of a series that are not in the library show (Library ›
+/// Series page: choose what to show): one row per such part in series order,
+/// ticked unless hidden, with its number, year and, when they are not the
+/// series' usual authors, its authors. Done keeps the unticked ones hidden
+/// on the device, under [seriesKey]; closing the sheet any other way keeps
+/// what was there.
+Future<void> showSeriesPartsSheet(
+  BuildContext context, {
+  required String seriesName,
+  required String seriesKey,
+  required List<SeriesRow> rows,
+}) => showAppSheet<void>(
+  context,
+  builder: (context) => SeriesPartsSheet(
+    seriesName: seriesName,
+    seriesKey: seriesKey,
+    rows: rows,
+  ),
+);
+
+class SeriesPartsSheet extends ConsumerStatefulWidget {
+  const SeriesPartsSheet({
+    super.key,
+    required this.seriesName,
+    required this.seriesKey,
+    required this.rows,
+  });
+
+  /// The series' name, left out in front of the parts' titles.
+  final String seriesName;
+  final String seriesKey;
+
+  /// Every row of the series; the ones not in the library are listed.
+  final List<SeriesRow> rows;
+
+  @override
+  ConsumerState<SeriesPartsSheet> createState() => _SeriesPartsSheetState();
+}
+
+class _SeriesPartsSheetState extends ConsumerState<SeriesPartsSheet> {
+  late final List<SeriesRow> _missing = [
+    for (final r in widget.rows)
+      if (!r.owned && r.partKey != null) r,
+  ];
+
+  late final Set<String> _hidden = {
+    for (final r in _missing)
+      if (ref
+          .read(displayPreferencesProvider)
+          .hiddenPartsOf(widget.seriesKey)
+          .contains(r.partKey))
+        r.partKey!,
+  };
+
+  /// The authors most of the series' parts have, so a part by someone else
+  /// can say who.
+  late final String? _usualCreator = () {
+    final counts = <String, int>{};
+    for (final r in widget.rows) {
+      if (r.creator case final c?) counts[c] = (counts[c] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return null;
+    return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+  }();
+
+  void _done() {
+    ref
+        .read(displayPreferencesProvider.notifier)
+        .setHiddenParts(widget.seriesKey, _hidden);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    return SheetFrame(
+      scrollable: true,
+      header: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Show in this series', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 2),
+                Text(
+                  'Parts not in your library',
+                  style: theme.textTheme.bodySmall!.copyWith(
+                    fontStyle: FontStyle.normal,
+                    color: colors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          AppButton(label: 'Done', compact: true, onPressed: _done),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final row in _missing) _partRow(row),
+          const SizedBox(height: 14),
+          Text(
+            'Untick what you never want to see. Parts in your library always '
+            'show, and parts the series gets later show until you hide them.',
+            style: theme.textTheme.bodySmall!.copyWith(
+              fontStyle: FontStyle.normal,
+              fontSize: 13,
+              color: colors.muted,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _partRow(SeriesRow row) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    final on = !_hidden.contains(row.partKey);
+    final title = seriesPartTitle(row.title, widget.seriesName);
+    final sub = [
+      row.number == null ? 'No number' : 'Number ${row.number}',
+      if (row.year case final year?) '$year',
+      if (row.creator case final c? when c != _usualCreator) c,
+    ].join(' · ');
+    return Semantics(
+      checked: on,
+      label: title,
+      excludeSemantics: true,
+      child: RowInkWell(
+        onTap: () => setState(() {
+          if (on) {
+            _hidden.add(row.partKey!);
+          } else {
+            _hidden.remove(row.partKey);
+          }
+        }),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 60),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: colors.divider)),
+          ),
+          child: Row(
+            children: [
+              CheckBoxMark(checked: on, size: 22),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium!.copyWith(
+                        color: on ? null : colors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      sub,
+                      style: theme.textTheme.bodySmall!.copyWith(
+                        fontStyle: FontStyle.normal,
+                        fontSize: 13,
+                        color: colors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

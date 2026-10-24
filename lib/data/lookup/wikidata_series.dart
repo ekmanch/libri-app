@@ -12,6 +12,7 @@ import 'rate_limiter.dart';
 /// series" statement (P179) with the series ordinal (P1545), and every other
 /// part of that series with its ordinal and publication date (P577). The
 /// author (P50) tells the book from a film or a game of the same name.
+/// The parts are cleaned up as they come in ([cleanParts]).
 class WikidataSeries with LookupHttp {
   WikidataSeries(
     this.client, {
@@ -72,10 +73,10 @@ class WikidataSeries with LookupHttp {
 
   /// One query for the candidates: each one's series statement with its
   /// ordinal and the names of its authors, and every part of the series
-  /// with its ordinal and date.
+  /// with its ordinal, date, authors and what it is a part of (P361).
   static String query(List<String> ids) =>
       '''
-SELECT ?book ?authorLabel ?series ?seriesLabel ?ordinal ?part ?partLabel ?partOrdinal ?date WHERE {
+SELECT ?book ?authorLabel ?series ?seriesLabel ?ordinal ?part ?partLabel ?partOrdinal ?date ?partOf ?partAuthorLabel WHERE {
   VALUES ?book { ${ids.map((id) => 'wd:$id').join(' ')} }
   ?book p:P179 ?statement . ?statement ps:P179 ?series .
   OPTIONAL { ?statement pq:P1545 ?ordinal }
@@ -83,9 +84,11 @@ SELECT ?book ?authorLabel ?series ?seriesLabel ?ordinal ?part ?partLabel ?partOr
   ?part p:P179 ?partStatement . ?partStatement ps:P179 ?series .
   OPTIONAL { ?partStatement pq:P1545 ?partOrdinal }
   OPTIONAL { ?part wdt:P577 ?date }
+  OPTIONAL { ?part wdt:P361 ?partOf }
+  OPTIONAL { ?part wdt:P50 ?partAuthor }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
-LIMIT 2000''';
+LIMIT 5000''';
 
   Future<List<Map<String, Object?>>> _sparql(String query) async {
     final response = await send(
@@ -169,8 +172,7 @@ LIMIT 2000''';
     final seriesOf = <String, String>{};
     final ordinalOf = <String, String?>{};
     final seriesName = <String, String>{};
-    final partsOf =
-        <String, Map<String, ({String title, int? number, int? year})>>{};
+    final partsOf = <String, Map<String, WikidataPart>>{};
     for (final row in rows) {
       final book = _item(row, 'book');
       final series = _item(row, 'series');
@@ -188,10 +190,19 @@ LIMIT 2000''';
       final date = _value(row, 'date') ?? '';
       final year = date.length >= 4 ? int.tryParse(date.substring(0, 4)) : null;
       final known = parts[part];
+      final partOf = _item(row, 'partOf');
+      final author = _value(row, 'partAuthorLabel');
       parts[part] = (
+        id: part,
         title: partTitle,
         number: _ordinal(_value(row, 'partOrdinal')) ?? known?.number,
         year: _earliest(year, known?.year),
+        partOf: {...?known?.partOf, ?partOf},
+        authors: [
+          ...?known?.authors,
+          if (author != null && !(known?.authors.contains(author) ?? false))
+            author,
+        ],
       );
     }
     // The first candidate, in search order, that is a book by the author.
@@ -199,12 +210,12 @@ LIMIT 2000''';
       final series = seriesOf[id];
       if (series == null) continue;
       if (!sameAuthor(creator, authorsOf[id] ?? const {})) continue;
-      final parts = (partsOf[series] ?? const {}).entries.toList()
+      final parts = cleanParts((partsOf[series] ?? const {}).values)
         ..sort((a, b) {
-          final x = a.value.number, y = b.value.number;
+          final x = a.number, y = b.number;
           if (x != null && y != null) return x.compareTo(y);
           if (x != null || y != null) return x == null ? 1 : -1;
-          final p = a.value.year, q = b.value.year;
+          final p = a.year, q = b.year;
           if (p != null && q != null) return p.compareTo(q);
           return p == null ? (q == null ? 0 : 1) : -1;
         });
@@ -214,10 +225,11 @@ LIMIT 2000''';
           parts: [
             for (final p in parts)
               (
-                number: p.value.number,
-                title: p.value.title,
-                year: p.value.year,
-                source: 'wikidata:${p.key}',
+                number: p.number,
+                title: p.title,
+                year: p.year,
+                source: 'wikidata:${p.id}',
+                creator: p.authors.isEmpty ? null : p.authors.join(', '),
               ),
           ],
         ),
@@ -227,6 +239,31 @@ LIMIT 2000''';
     return null;
   }
 
+  /// Wikidata's parts of a series without what the series page should not
+  /// list (Library › Book series after the automatic rules): a part that is
+  /// itself part of another part (The Lord of the Rings' six-book edition,
+  /// "The First Journey" and so on), a part with neither a number nor a
+  /// date (the prologue "Concerning Hobbits"), and, when most of what is
+  /// left is numbered, the unnumbered rest (the Appendices). A series that
+  /// numbers few of its parts keeps them all: Wikidata numbers only
+  /// Whirlwind in the Asian Saga. The type (P31) is no help: the Appendices
+  /// are a "literary work" like the novels, and half the Asian Saga is a
+  /// "written work".
+  static List<WikidataPart> cleanParts(Iterable<WikidataPart> parts) {
+    final ids = {for (final p in parts) p.id};
+    final kept = [
+      for (final p in parts)
+        if (!p.partOf.any(ids.contains))
+          if (p.number != null || p.year != null) p,
+    ];
+    final numbered = kept.where((p) => p.number != null).length;
+    if (numbered * 2 <= kept.length) return kept;
+    return [
+      for (final p in kept)
+        if (p.number != null) p,
+    ];
+  }
+
   static int? _earliest(int? a, int? b) =>
       a == null || b == null ? a ?? b : (a < b ? a : b);
 
@@ -234,3 +271,15 @@ LIMIT 2000''';
   static int? _ordinal(String? text) =>
       text == null ? null : int.tryParse(text.trim());
 }
+
+/// One part of a series as Wikidata has it, before [WikidataSeries.cleanParts]:
+/// its item id, its label, its series ordinal, its earliest year, the items
+/// it is part of (P361) and its authors' names.
+typedef WikidataPart = ({
+  String id,
+  String title,
+  int? number,
+  int? year,
+  Set<String> partOf,
+  List<String> authors,
+});

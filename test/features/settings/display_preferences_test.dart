@@ -71,6 +71,9 @@ void main() {
     timelineDefault: true,
     seasonalThemeDefault: false,
     defaultPlatform: null,
+    hiddenSeriesParts: const {
+      'books:dune': {'wikidata:Q7', 'wikidata:Q8'},
+    },
   );
 
   test('preferences survive the stored form', () {
@@ -90,6 +93,7 @@ void main() {
       'sort': 'titleAz',
       'timeline_default': 'yes',
       'default_platform': 5,
+      'hidden_series_parts': {'books:dune': 'wikidata:Q7', 'movies:x': []},
     });
     expect(prefs.themeMode, ThemeMode.dark);
     expect(prefs.accent, Accents.hotPink);
@@ -97,6 +101,28 @@ void main() {
     expect(prefs.sortByType, isEmpty);
     expect(prefs.timelineDefault, isFalse);
     expect(prefs.defaultPlatform, isNull);
+    expect(prefs.hiddenSeriesParts, isEmpty);
+  });
+
+  test('hiding parts replaces the series\' set; none removes it', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(displayPreferencesProvider.notifier);
+    notifier.setHiddenParts('books:dune', {'wikidata:Q7'});
+    notifier.setHiddenParts('books:berserk', {'a'});
+    notifier.setHiddenParts('books:dune', {'wikidata:Q8'});
+    expect(container.read(displayPreferencesProvider).hiddenSeriesParts, {
+      'books:dune': {'wikidata:Q8'},
+      'books:berserk': {'a'},
+    });
+    notifier.setHiddenParts('books:dune', {});
+    expect(
+      container.read(displayPreferencesProvider).hiddenPartsOf('books:dune'),
+      isEmpty,
+    );
+    expect(container.read(displayPreferencesProvider).hiddenSeriesParts.keys, [
+      'books:berserk',
+    ]);
   });
 
   test('every change is saved to the store; the start values are not', () {

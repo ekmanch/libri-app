@@ -307,18 +307,21 @@ const _lordOfTheRings = (
       title: 'The Lord of the Rings: The Fellowship of the Ring',
       year: 2001,
       source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
+      creator: null,
     ),
     (
       number: 2,
       title: 'The Lord of the Rings: The Two Towers',
       year: 2002,
       source: 'fake:the-lord-of-the-rings-the-two-towers',
+      creator: null,
     ),
     (
       number: 3,
       title: 'The Lord of the Rings: The Return of the King',
       year: 2003,
       source: 'fake:the-lord-of-the-rings-the-return-of-the-king',
+      creator: null,
     ),
   ],
 );
@@ -338,6 +341,7 @@ final _berserk = (
           _ => 1990 + ((n - 1) * 27 / 39).round(),
         },
         source: 'fake:berserk-vol-$n',
+        creator: null,
       ),
   ],
 );
