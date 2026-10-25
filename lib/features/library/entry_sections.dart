@@ -150,15 +150,18 @@ bool showJumpRail({
     isLongList(contentHeight: contentHeight, viewportHeight: viewportHeight);
 
 /// [sectionEntries] for a list of rows (entries and grouped series): a
-/// series row sits in the section its first-sorting part would.
+/// series row sits in the section its first-sorting part would, except
+/// under Title, A to Z, where it sits under its name's letter.
 List<ListSection<LibraryRow>> sectionRows(
   List<LibraryRow> rows,
   LibrarySort sort, {
   DateTime? today,
-}) => _rowSections(
-  rows,
-  sectionEntries([for (final r in rows) r.lead], sort, today: today),
-);
+}) => sort == LibrarySort.titleAz
+    ? sectionsByTitle(rows, (r) => r.sortTitle)
+    : _rowSections(
+        rows,
+        sectionEntries([for (final r in rows) r.lead], sort, today: today),
+      );
 
 /// [sectionEntriesByType] for a list of rows.
 List<ListSection<LibraryRow>> sectionRowsByType(

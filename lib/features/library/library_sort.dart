@@ -14,8 +14,12 @@ extension LibrarySortLabel on LibrarySort {
   };
 }
 
-int _byTitle(Entry a, Entry b) =>
-    a.title.toLowerCase().compareTo(b.title.toLowerCase());
+int _byTitle(Entry a, Entry b) => compareTitles(a.title, b.title);
+
+/// The order of Title, A to Z, for anything with a title (entries, and the
+/// series rows named after their series).
+int compareTitles(String a, String b) =>
+    a.toLowerCase().compareTo(b.toLowerCase());
 
 /// `added` is a date, so entries added on the same day tie; the one later
 /// in the library (added later, since adding appends) goes first. The

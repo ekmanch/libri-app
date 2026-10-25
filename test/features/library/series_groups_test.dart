@@ -124,6 +124,7 @@ void main() {
           theMummy,
           alien,
         ], LibrarySort.titleAz),
+        sort: LibrarySort.titleAz,
       );
       expect(byTitle.map((r) => r.lead.id), [alien.id, kfp1.id, theMummy.id]);
 
@@ -375,6 +376,46 @@ void main() {
     expect(longListScreens, 3);
     expect(isLongList(contentHeight: 2400, viewportHeight: 800), isTrue);
     expect(isLongList(contentHeight: 2399, viewportHeight: 800), isFalse);
+  });
+
+  test('under Title, A to Z a series row sits where its name would', () {
+    // Owner's report, 2026-10-25: Tomb Raider sat under R, at "Rise of the
+    // Tomb Raider", between Resident Evil and South of Midnight.
+    final rise = part('rise', 'Rise of the Tomb Raider', series: 'Tomb Raider');
+    final shadow = part(
+      'shadow',
+      'Shadow of the Tomb Raider',
+      series: 'Tomb Raider',
+    );
+    final resident = part('re', 'Resident Evil Requiem');
+    final south = part('som', 'South of Midnight');
+    final sorted = sortEntries([
+      shadow,
+      south,
+      rise,
+      resident,
+    ], LibrarySort.titleAz);
+    expect(sorted.map((e) => e.id), ['re', 'rise', 'shadow', 'som']);
+
+    final rows = groupSeriesRows(sorted, sort: LibrarySort.titleAz);
+    expect(rows, [
+      EntryItem(resident),
+      EntryItem(south),
+      isA<SeriesGroup>().having((g) => g.title, 'title', 'Tomb Raider'),
+    ]);
+    // The lead is still the first part: the cover and the other sorts use it.
+    expect((rows.last as SeriesGroup).lead, rise);
+
+    final sections = sectionRows(rows, LibrarySort.titleAz);
+    expect(sections.map((s) => s.label), ['R', 'S', 'T']);
+    expect(sections[2].items.single, isA<SeriesGroup>());
+
+    // Without the sort, the rows keep the entries' order.
+    expect(groupSeriesRows(sorted).map((r) => r.lead.id), [
+      're',
+      'rise',
+      'som',
+    ]);
   });
 
   test('sections put a series row where its lead part would be', () {

@@ -3,6 +3,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/media_type.dart';
 import '../entry/series.dart';
+import 'library_sort.dart';
 
 /// One row of a type's list (Library › Movies, text view): an entry, or the
 /// parts of a series grouped as one row (the Library › Series page (from a
@@ -10,8 +11,13 @@ import '../entry/series.dart';
 sealed class LibraryRow {
   const LibraryRow();
 
-  /// The entry whose place in the sort the row takes.
+  /// The entry whose place in the sort the row takes, except under Title,
+  /// A to Z, where the row sorts by [sortTitle].
   Entry get lead;
+
+  /// The title the row sorts and sections by under Title, A to Z: the
+  /// entry's, or the series name.
+  String get sortTitle;
 }
 
 /// A row for one entry.
@@ -24,6 +30,9 @@ class EntryItem extends LibraryRow {
   Entry get lead => entry;
 
   @override
+  String get sortTitle => entry.title;
+
+  @override
   bool operator ==(Object other) =>
       other is EntryItem && other.entry.id == entry.id;
 
@@ -33,7 +42,7 @@ class EntryItem extends LibraryRow {
 
 /// The parts of a series that are in the library, as one row: named after
 /// the series, with one cover and the count, placed where its first-sorting
-/// part would be.
+/// part would be, or under Title, A to Z where its name would.
 class SeriesGroup extends LibraryRow {
   SeriesGroup({required this.name, required this.lead, required this.parts})
     : assert(parts.length >= 2);
@@ -41,7 +50,8 @@ class SeriesGroup extends LibraryRow {
   /// The series name as stored.
   final String name;
 
-  /// The part that sorts first, whose place the row takes.
+  /// The part that sorts first, whose place the row takes under every sort
+  /// but Title, A to Z.
   @override
   final Entry lead;
 
@@ -53,6 +63,9 @@ class SeriesGroup extends LibraryRow {
 
   /// The name as shown: TMDB's "Collection" suffix dropped.
   String get title => seriesDisplayName(name);
+
+  @override
+  String get sortTitle => title;
 
   int get count => parts.length;
 
@@ -109,8 +122,11 @@ bool groupsSeriesForFilter(Set<EntryStatus> statuses) =>
 /// [sorted] with the parts of each series folded into one [SeriesGroup] at
 /// the place of its first part in the order; entries in no series, and the
 /// only part of a series in the library, stay single rows. A series is told
-/// by type and name (compared like a title).
-List<LibraryRow> groupSeriesRows(List<Entry> sorted) {
+/// by type and name (compared like a title). Under [sort] Title, A to Z the
+/// rows are put in the order of their [LibraryRow.sortTitle] instead, so a
+/// series sits where its name would ("Tomb Raider" under T, not at "Rise of
+/// the Tomb Raider"); with no sort given the rows keep the entries' order.
+List<LibraryRow> groupSeriesRows(List<Entry> sorted, {LibrarySort? sort}) {
   final groups = <String, List<Entry>>{};
   final keyOf = <String, String>{};
   for (final entry in sorted) {
@@ -137,6 +153,15 @@ List<LibraryRow> groupSeriesRows(List<Entry> sorted) {
         parts: _inSeriesOrder(parts),
       ),
     );
+  }
+  if (sort == LibrarySort.titleAz) {
+    // A stable sort: a series named like a single entry keeps its place.
+    final indexed = rows.indexed.toList()
+      ..sort((a, b) {
+        final c = compareTitles(a.$2.sortTitle, b.$2.sortTitle);
+        return c != 0 ? c : a.$1.compareTo(b.$1);
+      });
+    return [for (final (_, row) in indexed) row];
   }
   return rows;
 }

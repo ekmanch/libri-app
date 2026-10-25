@@ -123,7 +123,7 @@ class EntryListBody extends StatelessWidget {
               today: today,
             );
         final rows = grouped
-            ? groupSeriesRows(entries)
+            ? groupSeriesRows(entries, sort: sort)
             : [for (final e in entries) EntryItem(e)];
         final byType = typeColors == null
             ? null
