@@ -158,7 +158,7 @@ Future<void> pickChip(WidgetTester tester, String label) async {
   await tester.dragUntilVisible(
     chip,
     row,
-    Offset(label == 'All' ? 80 : -80, 0),
+    Offset(label == 'Home' ? 80 : -80, 0),
   );
   await tester.pumpAndSettle();
   await tester.tap(chip);
@@ -920,7 +920,7 @@ void main() {
     await capture(tester, 'd1-sort');
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
 
     // Library › Filter sheet and Filtered results, one type: filter to shows
     // tagged horror.
@@ -1083,7 +1083,7 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     await closeSheet(tester);
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
 
     // Add / edit entry › New entry: pick a match.
     await tester.tap(find.byType(AddButton));
@@ -1249,7 +1249,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
 
     // Library › Home, light theme.
     final container = ProviderScope.containerOf(
@@ -1309,7 +1309,7 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     await closeSheet(tester);
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
 
     // Library › Movies, list with covers.
     await pickChip(tester, 'Movies');
@@ -1355,7 +1355,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
 
     // Plans › Entry details (timeline off) and the plan note; the linked tags
     // and copy-from sheets.
@@ -1502,7 +1502,7 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     await closeSheet(tester);
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
     await tester.tap(find.text('Plans'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Halloween 2026'));
@@ -2045,7 +2045,7 @@ void main() {
     await pickView(tester, 'List with covers');
     await shot('a20-movies-list-covers');
     await pickView(tester, 'Text');
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await tapSheetChip(tester, '#horror');
@@ -2127,7 +2127,7 @@ void main() {
     await tester.pumpAndSettle();
     await back();
     await closeSheet(tester);
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
     await tester.tap(find.byType(AddButton));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'The Last of Us');
@@ -2154,7 +2154,7 @@ void main() {
     await shot('a22-album-details');
     await closeSheet(tester);
     await back();
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
 
     // Plans.
     await tester.tap(find.text('Plans'));
@@ -2498,7 +2498,7 @@ void main() {
     // Library › Filter sheet with a long group as a row, and Filter: all
     // Authors behind it. From All: the authors are on books, so Movies alone
     // would hide the group (Library › Filter sheet).
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     final authorsRow = find.widgetWithText(TagGroupRow, 'Authors');

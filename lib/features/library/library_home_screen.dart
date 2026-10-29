@@ -258,7 +258,9 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 children: [
                   PillChip(
-                    label: 'All',
+                    // The first chip reads "Home" (canvas revision of
+                    // 2026-10-28); the state it stands for is still All here.
+                    label: 'Home',
                     selected: type == null,
                     onTap: () => _pickType(null),
                   ),

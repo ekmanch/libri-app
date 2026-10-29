@@ -155,7 +155,7 @@ class _Audit {
     await tester.dragUntilVisible(
       chip,
       row,
-      Offset(label == 'All' ? 80 : -80, 0),
+      Offset(label == 'Home' ? 80 : -80, 0),
     );
     await tester.pumpAndSettle();
     await tap(chip);
@@ -196,7 +196,7 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tapText('Clear all');
   });
   await a.step('search', () async {
-    await a.pickChip('All');
+    await a.pickChip('Home');
     await a.tapText('Search titles and tags');
     await tester.enterText(find.byType(TextField), 'hal');
     await tester.pumpAndSettle();
@@ -231,7 +231,7 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
     await a.back();
     await a.closeSheet();
-    await a.pickChip('All');
+    await a.pickChip('Home');
   });
   await a.step('two categories', () async {
     await a.pickChip('Movies');
@@ -305,7 +305,7 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tap(find.widgetWithText(FilledButton, 'Done'));
     await a.back();
     await a.closeSheet();
-    await a.pickChip('All');
+    await a.pickChip('Home');
   });
   await a.step('seasons', () async {
     await a.pickChip('Shows');
@@ -332,7 +332,7 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tapText('The Haunting of Hill House');
     await a.check('Show & seasons › One season');
     await a.closeSheet();
-    await a.pickChip('All');
+    await a.pickChip('Home');
   });
   await a.step('series', () async {
     await a.pickChip('Movies');
@@ -359,7 +359,7 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.check('Show & seasons › Anime season episodes');
     await a.back();
     await a.closeSheet();
-    await a.pickChip('All');
+    await a.pickChip('Home');
   });
   await a.step('new entry', () async {
     await a.tap(find.byType(AddButton));
@@ -418,7 +418,7 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.check('Library › Music: albums tab');
     await a.tapText('Songs');
     await a.check('Library › Music: songs tab');
-    await a.pickChip('All');
+    await a.pickChip('Home');
   });
   await a.step('plans', () async {
     await a.navTab('Plans');

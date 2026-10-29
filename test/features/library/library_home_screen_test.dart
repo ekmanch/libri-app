@@ -49,8 +49,8 @@ void main() {
     final row = find.byWidgetPredicate(
       (w) => w is ListView && w.scrollDirection == Axis.horizontal,
     );
-    // "All" is the first chip, so scroll back toward it.
-    final dx = label == 'All' ? 80.0 : -80.0;
+    // "Home" is the first chip, so scroll back toward it.
+    final dx = label == 'Home' ? 80.0 : -80.0;
     await tester.dragUntilVisible(chip, row, Offset(dx, 0));
     await tester.pumpAndSettle();
     await tester.tap(chip);
@@ -204,10 +204,10 @@ void main() {
     );
     expect(tester.state<ScrollableState>(row).position.pixels, 0);
     expect(
-      tester.widget<PillChip>(find.widgetWithText(PillChip, 'All')).selected,
+      tester.widget<PillChip>(find.widgetWithText(PillChip, 'Home')).selected,
       isTrue,
     );
-    expect(find.widgetWithText(PillChip, 'All').hitTestable(), findsOneWidget);
+    expect(find.widgetWithText(PillChip, 'Home').hitTestable(), findsOneWidget);
 
     container
         .read(libraryFilterProvider.notifier)
@@ -217,7 +217,7 @@ void main() {
     container.read(homeReturnProvider.notifier).goHome();
     await tester.pumpAndSettle();
     expect(container.read(libraryFilterProvider).isActive, isFalse);
-    expect(find.widgetWithText(PillChip, 'All'), findsOneWidget);
+    expect(find.widgetWithText(PillChip, 'Home'), findsOneWidget);
   });
 
   testWidgets('a return to the home scrolls All to the top', (tester) async {
@@ -261,7 +261,7 @@ void main() {
     expect(find.text('Newest added'), findsOneWidget);
     expect(find.byTooltip('Change view'), findsOneWidget);
 
-    await pickChip(tester, 'All');
+    await pickChip(tester, 'Home');
     expect(container.read(homeTypeProvider), isNull);
     expect(find.text('IN PROGRESS'), findsOneWidget);
     expect(find.text('ACTIVE PLAN'), findsOneWidget);
@@ -719,7 +719,7 @@ void main() {
       await tester.tapAt(const Offset(20, 20)); // Dismiss.
       await tester.pumpAndSettle();
 
-      await pickChip(tester, 'All');
+      await pickChip(tester, 'Home');
       await openSheet(tester);
       for (final type in MediaType.values) {
         expect(selected(tester, type.label), isFalse);

@@ -159,7 +159,7 @@ class _Walk {
     await tester.dragUntilVisible(
       chip,
       row,
-      Offset(label == 'All' ? 80 : -80, 0),
+      Offset(label == 'Home' ? 80 : -80, 0),
     );
     await tester.pumpAndSettle();
     await tap(chip);
@@ -211,7 +211,7 @@ Future<void> _walk(_Walk w) async {
     await w.tapText('Clear all');
   });
   await w.step('a5 search', () async {
-    await w.pickChip('All');
+    await w.pickChip('Home');
     await revealHeader(tester);
     await w.tapText('Search titles and tags');
     await tester.enterText(find.byType(TextField), 'hal');
@@ -238,7 +238,7 @@ Future<void> _walk(_Walk w) async {
     await w.shot('a8-edit-entry');
     await w.back();
     await w.closeSheet();
-    await w.pickChip('All');
+    await w.pickChip('Home');
   });
   await w.step('a13 and a8-new', () async {
     await revealHeader(tester);
@@ -268,7 +268,7 @@ Future<void> _walk(_Walk w) async {
     await w.shot('a22-album-details');
     await w.closeSheet();
     await w.back();
-    await w.pickChip('All');
+    await w.pickChip('Home');
   });
   await w.step('plans', () async {
     await w.navTab('Plans');
