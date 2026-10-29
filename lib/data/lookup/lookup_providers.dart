@@ -110,7 +110,8 @@ ReleaseCheck fileReleaseCheck(Ref ref) => ReleaseCheck(
 );
 
 /// The daily check of the series the owner follows, for the parts still to
-/// come (Library › Home: Coming soon), or null for none; off by default
+/// come (for the place that will list everything coming; the home lists
+/// only entries set Want), or null for none; off by default
 /// like [seasonCheckProvider]. `main` turns on [fileSeriesCheck].
 final seriesCheckProvider = Provider<SeriesCheck?>((ref) => null);
 
@@ -121,8 +122,9 @@ SeriesCheck fileSeriesCheck(Ref ref) => SeriesCheck(
 );
 
 /// The parts of followed series still to come, as the last series check
-/// recorded them (Library › Home: Coming soon); empty without a check. The
-/// shell invalidates it after each run.
+/// recorded them; empty without a check. The shell invalidates it after
+/// each run. Nothing reads it yet: the home lists only entries set Want,
+/// and the place that lists everything coming is still to be built.
 final upcomingPartsProvider = FutureProvider<List<UpcomingPart>>(
   (ref) => ref.watch(seriesCheckProvider)?.upcoming.read() ?? Future.value([]),
 );

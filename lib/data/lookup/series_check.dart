@@ -13,10 +13,11 @@ import 'series_service.dart';
 import 'text_clean.dart';
 
 /// A part of a series the owner follows whose release is still ahead, as
-/// the daily check found it (Library › Home: Coming soon): the series as
-/// the library's entry names it, a part in the library the series page
+/// the daily check found it (for the place that will list everything
+/// coming; the home's Coming soon lists only entries set Want): the series
+/// as the library's entry names it, a part in the library the series page
 /// opens by, and the part as the lookup lists it. Kept on the device in
-/// `upcoming_parts.json`, never in `library.json`. The home drops the ones
+/// `upcoming_parts.json`, never in `library.json`. The reader drops the ones
 /// that are in the library by now, hidden by the owner, or of a series no
 /// longer followed.
 @immutable
@@ -106,7 +107,7 @@ abstract class UpcomingPartsStore {
 }
 
 /// `upcoming_parts.json` under the cache folder: `{"parts": [...]}`. A
-/// cleared cache means an empty Coming soon until the next check.
+/// cleared cache means no recorded parts until the next check.
 class FileUpcomingPartsStore implements UpcomingPartsStore {
   FileUpcomingPartsStore(this._file);
 

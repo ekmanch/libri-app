@@ -5,7 +5,6 @@ import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
-import 'package:library_app/features/entry/series.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -1158,7 +1157,7 @@ void main() {
   });
 
   testWidgets(
-    'Coming soon lists a part of a followed series not in the library, and opens its series page',
+    'Coming soon leaves out a part of a followed series that is not in the library',
     (tester) async {
       fixHomeDay();
       const gollum = UpcomingPart(
@@ -1177,31 +1176,14 @@ void main() {
           upcomingParts: MemoryUpcomingPartsStore(const [gollum]),
         ),
       );
-      final row = find.byKey(
-        const ValueKey(
-          'home-comingSoon-part:fake:the-lord-of-the-rings-the-hunt-for-gollum',
-        ),
-      );
-      expect(row, findsOneWidget);
-      expect(
-        find.descendant(of: row, matching: find.text('The Hunt for Gollum')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: row,
-          matching: find.text('Movie · The Lord of the Rings'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: row, matching: find.text('Dec 17, 2027')),
-        findsOneWidget,
-      );
-      await tester.tap(row);
-      await tester.pumpAndSettle();
-      expect(find.byType(AllSeriesScreen), findsOneWidget);
-      expect(find.text('4 movies · 2 in your library'), findsOneWidget);
+      // The home lists only entries set Want (owner's decision, 2026-10-29);
+      // the record is kept for the place that will list everything coming.
+      expect(find.text('COMING SOON'), findsOneWidget);
+      expect(find.text('The Hunt for Gollum'), findsNothing);
+      expect(find.text('Movie · The Lord of the Rings'), findsNothing);
+      for (final row in tester.widgetList<HomeRow>(find.byType(HomeRow))) {
+        expect(row.row.entry.status, isNot(EntryStatus.done));
+      }
     },
   );
 }

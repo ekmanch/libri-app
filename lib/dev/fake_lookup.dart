@@ -340,8 +340,9 @@ const _lordOfTheRings = (
       creator: null,
       extra: false,
     ),
-    // Announced, as TMDB lists it: a part still to come, for the home's
-    // Coming soon (Library › Home).
+    // Announced, as TMDB lists it: a part still to come, which the series
+    // check records for the place that will list everything coming (the
+    // home lists only entries set Want).
     (
       number: 4,
       title: 'The Lord of the Rings: The Hunt for Gollum',

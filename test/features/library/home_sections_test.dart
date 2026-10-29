@@ -42,117 +42,144 @@ void main() {
       sections.where((s) => s.kind == kind).firstOrNull;
 
   group('Coming soon', () {
-    test(
-      'releases still ahead, exact dates first, then months, then years',
-      () {
-        final entries = [
-          entry('out', MediaType.movies, released: const Released(2024)),
-          entry(
-            'game',
-            MediaType.games,
-            title: "Castlevania: Belmont's Curse",
-            released: const Released(2027),
-            creator: 'Konami',
-          ),
-          entry(
-            'show',
-            MediaType.shows,
-            title: 'Wednesday',
-            status: EntryStatus.inProgress,
-            seasons: [
-              const Season(
-                season: 1,
-                released: Released(2022, 11, 23),
-                status: EntryStatus.done,
-              ),
-              const Season(
-                season: 2,
-                released: Released(2025, 8, 6),
-                status: EntryStatus.done,
-              ),
-              const Season(season: 3, released: Released(2027)),
-            ],
-          ),
-          entry(
-            'anime',
-            MediaType.anime,
-            title: 'Strange: Junji Ito',
-            released: const Released(2027, 1),
-          ),
-          entry(
-            'movie',
-            MediaType.movies,
-            title: 'Werwulf',
-            released: const Released(2026, 12, 25),
-            creator: 'Robert Eggers',
-          ),
-          entry(
-            'book',
-            MediaType.books,
-            title: 'Other Worlds Than These',
-            released: const Released(2026, 11, 10),
-            creator: 'Stephen King',
-          ),
-          entry(
-            'soon-show',
-            MediaType.shows,
-            title: 'Haunted Hotel',
-            status: EntryStatus.done,
-            seasons: [
-              const Season(
-                season: 1,
-                released: Released(2025, 9, 19),
-                status: EntryStatus.done,
-              ),
-              const Season(season: 2, released: Released(2026, 11)),
-            ],
-          ),
-          // A season without a date counts as out, like an entry.
-          entry(
-            'undated-show',
-            MediaType.shows,
-            seasons: [const Season(season: 1)],
-          ),
-        ];
-        final soon = section(
-          homeSections(entries, today: today),
-          HomeSectionKind.comingSoon,
-        )!;
-        expect(soon.total, 6);
-        expect(soon.rows.map((r) => r.id), [
-          'book',
-          'movie',
-          'soon-show',
-          'anime',
+    test('releases still ahead the owner wants, exact dates first, then months, then years', () {
+      final entries = [
+        entry('out', MediaType.movies, released: const Released(2024)),
+        // Not Want: a release ahead the owner has not asked for stays out.
+        entry(
+          'done-movie',
+          MediaType.movies,
+          released: const Released(2026, 12, 1),
+          status: EntryStatus.done,
+        ),
+        entry(
           'game',
+          MediaType.games,
+          title: "Castlevania: Belmont's Curse",
+          released: const Released(2027),
+          creator: 'Konami',
+        ),
+        entry(
           'show',
-        ]);
-        expect(soon.rows.map((r) => r.right), [
-          'Nov 10',
-          'Dec 25',
-          'Nov 2026',
-          'Jan 2027',
-          '2027',
-          '2027',
-        ]);
-        expect(soon.rows.map((r) => r.emphasized), [
-          true,
-          true,
-          false,
-          false,
-          false,
-          false,
-        ]);
-        expect(soon.rows.map((r) => r.subtitle), [
-          'Book · Stephen King',
-          'Movie · Robert Eggers',
-          'Show · Season 2',
-          'Anime',
-          'Game · Konami',
-          'Show · Season 3',
-        ]);
-      },
-    );
+          MediaType.shows,
+          title: 'Wednesday',
+          status: EntryStatus.inProgress,
+          seasons: [
+            const Season(
+              season: 1,
+              released: Released(2022, 11, 23),
+              status: EntryStatus.done,
+            ),
+            const Season(
+              season: 2,
+              released: Released(2025, 8, 6),
+              status: EntryStatus.done,
+            ),
+            // The coming season set Want: the owner asked for it.
+            const Season(
+              season: 3,
+              released: Released(2027),
+              status: EntryStatus.want,
+            ),
+          ],
+        ),
+        entry(
+          'anime',
+          MediaType.anime,
+          title: 'Strange: Junji Ito',
+          released: const Released(2027, 1),
+        ),
+        entry(
+          'movie',
+          MediaType.movies,
+          title: 'Werwulf',
+          released: const Released(2026, 12, 25),
+          creator: 'Robert Eggers',
+        ),
+        entry(
+          'book',
+          MediaType.books,
+          title: 'Other Worlds Than These',
+          released: const Released(2026, 11, 10),
+          creator: 'Stephen King',
+        ),
+        entry(
+          'soon-show',
+          MediaType.shows,
+          title: 'Haunted Hotel',
+          status: EntryStatus.done,
+          seasons: [
+            const Season(
+              season: 1,
+              released: Released(2025, 9, 19),
+              status: EntryStatus.done,
+            ),
+            const Season(
+              season: 2,
+              released: Released(2026, 11),
+              status: EntryStatus.want,
+            ),
+          ],
+        ),
+        // A Done show whose announced season is not set stays out.
+        entry(
+          'unset-show',
+          MediaType.shows,
+          status: EntryStatus.done,
+          seasons: [
+            const Season(
+              season: 1,
+              released: Released(2024, 3, 1),
+              status: EntryStatus.done,
+            ),
+            const Season(season: 2, released: Released(2026, 12)),
+          ],
+        ),
+        // A season without a date counts as out, like an entry.
+        entry(
+          'undated-show',
+          MediaType.shows,
+          seasons: [const Season(season: 1)],
+        ),
+      ];
+      final soon = section(
+        homeSections(entries, today: today),
+        HomeSectionKind.comingSoon,
+      )!;
+      expect(soon.total, 6);
+      expect(soon.rows.map((r) => r.id), [
+        'book',
+        'movie',
+        'soon-show',
+        'anime',
+        'game',
+        'show',
+      ]);
+      expect(soon.rows.map((r) => r.right), [
+        'Nov 10',
+        'Dec 25',
+        'Nov 2026',
+        'Jan 2027',
+        '2027',
+        '2027',
+      ]);
+      expect(soon.rows.map((r) => r.emphasized), [
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+      ]);
+      expect(soon.rows.map((r) => r.subtitle), [
+        'Book · Stephen King',
+        'Movie · Robert Eggers',
+        'Show · Season 2',
+        'Anime',
+        'Game · Konami',
+        'Show · Season 3',
+      ]);
+    });
 
     test('a date in another year names it', () {
       expect(
@@ -381,7 +408,7 @@ void main() {
     expect(homeSections(const [], today: today), isEmpty);
   });
 
-  group('Coming soon: parts of followed series', () {
+  group('upcomingPartsToShow (for the place that lists everything coming)', () {
     final fellowship = entry(
       'movies/fellowship',
       MediaType.movies,
@@ -406,44 +433,7 @@ void main() {
     );
     const prefs = DisplayPreferences();
 
-    test(
-      'a part is a row titled without the series name, dated like an entry',
-      () {
-        final game = entry(
-          'game',
-          MediaType.games,
-          title: 'GTA VI',
-          released: const Released(2027, 12, 18),
-        );
-        final sections = homeSections(
-          [fellowship, towers, game],
-          today: today,
-          upcoming: const [gollum],
-        );
-        final soon = section(sections, HomeSectionKind.comingSoon)!;
-        expect(soon.rows.map((r) => r.title), [
-          'The Hunt for Gollum',
-          'GTA VI',
-        ]);
-        final row = soon.rows.first;
-        expect(row.entry, isNull);
-        expect(row.part, gollum);
-        expect(row.type, MediaType.movies);
-        expect(row.subtitle, 'Movie · The Lord of the Rings');
-        expect(row.right, 'Dec 17, 2027');
-        expect(row.emphasized, isTrue);
-        expect(row.id, 'part:tmdb:movie:1');
-        // A part that has come out is left out.
-        final later = homeSections(
-          [fellowship],
-          today: DateTime(2027, 12, 17),
-          upcoming: const [gollum],
-        );
-        expect(section(later, HomeSectionKind.comingSoon), isNull);
-      },
-    );
-
-    test('upcomingPartsToShow drops unfollowed, owned and hidden parts', () {
+    test('drops unfollowed, owned and hidden parts', () {
       // Followed and not in the library: shown.
       expect(
         upcomingPartsToShow(

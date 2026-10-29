@@ -63,7 +63,8 @@ class FileSeriesStore implements SeriesStore {
   static const _encoder = JsonEncoder.withIndent('  ');
 
   /// 4 since 2026-10-29: the parts carry their release date, for the
-  /// home's Coming soon. 3 (2026-10-24): Wikidata's parts carry their
+  /// series check's record of parts still to come. 3 (2026-10-24):
+  /// Wikidata's parts carry their
   /// authors, and the ones the automatic rules count as extras are kept
   /// and marked `extra` (version 2 dropped them, and version 1 had no
   /// rules at all).

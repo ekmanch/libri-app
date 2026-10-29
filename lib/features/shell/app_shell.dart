@@ -137,7 +137,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// Runs the daily checks that are due: the season check, then the release
   /// date check (Library › Home: Coming soon), then the series check, whose
-  /// record the home reads again.
+  /// record [upcomingPartsProvider] reads again.
   Future<void> _runDailyChecks() async {
     await _checkSeasons();
     if (!mounted) return;

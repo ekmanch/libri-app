@@ -18,7 +18,8 @@ import 'library_sort.dart';
 /// The three sections of the library home on All (Library › Home), each
 /// shown only when it has something, up to [HomeSection.limit] rows each.
 enum HomeSectionKind {
-  /// Entries whose release date is still ahead, nearest first.
+  /// Entries the owner wants whose release date is still ahead, nearest
+  /// first ([wantsRelease]).
   comingSoon('Coming soon'),
 
   /// Entries In progress, the most recently changed first.
@@ -32,44 +33,29 @@ enum HomeSectionKind {
   final String title;
 }
 
-/// One row of a home section: an entry, or in Coming soon a part of a
-/// followed series that is not in the library yet ([part]); the detail
-/// after its type ("Stephen King", "Season 2", "2024", the series name),
-/// and what stands on the right ("Nov 10", "Today"), [emphasized] in the
-/// text color rather than the muted one.
+/// One row of a home section: the entry, the detail after its type
+/// ("Stephen King", "Season 2", "2024"), and what stands on the right ("Nov
+/// 10", "Today"), [emphasized] in the text color rather than the muted one.
 @immutable
 class HomeRowData {
-  HomeRowData(
-    Entry this.entry, {
+  const HomeRowData(
+    this.entry, {
     this.detail,
     this.right = '',
     this.emphasized = false,
-  }) : part = null,
-       title = entry.title;
+  });
 
-  /// A part still to come of a series the owner follows (Library › Home:
-  /// Coming soon), titled without the series name in front, as the Series
-  /// section lists parts.
-  HomeRowData.part(
-    UpcomingPart this.part, {
-    this.detail,
-    this.right = '',
-    this.emphasized = false,
-  }) : entry = null,
-       title = seriesPartTitle(part.title, seriesDisplayName(part.seriesName));
-
-  final Entry? entry;
-  final UpcomingPart? part;
-  final String title;
+  final Entry entry;
   final String? detail;
   final String right;
   final bool emphasized;
 
-  MediaType get type => entry?.type ?? part!.type;
+  String get title => entry.title;
 
-  /// What tells the row apart in its section: the entry's id, or the part's
-  /// key.
-  String get id => entry?.id ?? 'part:${part!.partKey}';
+  MediaType get type => entry.type;
+
+  /// What tells the row apart in its section.
+  String get id => entry.id;
 
   /// "Book · Stephen King", or just "Book".
   String get subtitle =>
@@ -97,18 +83,15 @@ class HomeSection {
 /// The home's sections for [entries] (seasonal-only ones already left out by
 /// the filter), skipping the empty ones. [changes] says when an entry last
 /// changed on this phone ([RecentChanges]); an entry without a record counts
-/// from the day it was added. [upcoming] are the parts of followed series
-/// still to come that Coming soon lists beside the entries, already sifted
-/// by [upcomingPartsToShow].
+/// from the day it was added.
 List<HomeSection> homeSections(
   Iterable<Entry> entries, {
   required DateTime today,
   Map<String, DateTime> changes = const {},
-  List<UpcomingPart> upcoming = const [],
 }) {
   final list = entries.toList();
   final sections = [
-    _comingSoon(list, upcoming, today),
+    _comingSoon(list, today),
     _inProgress(list, changes),
     _recentlyAdded(list, today),
   ];
@@ -141,12 +124,22 @@ List<HomeSection> homeSections(
   return (released: released, season: null);
 }
 
-/// The parts the daily series check recorded ([SeriesCheck]) that the home
-/// shows in Coming soon: of a series still followed (a part of it in
-/// [library] Done or In progress), not in the library by now (matched to
-/// the library's entries as the Series section matches them), not hidden
-/// by the owner in Choose what to show ([prefs]), and not an extra of the
-/// automatic rules the owner has not shown.
+/// Whether a release still ahead is one the owner asked for, so that the
+/// home lists it in Coming soon (owner's decision, 2026-10-29: the home
+/// shows only what is set Want): [entry] is Want, or [season], its coming
+/// season from [upcomingRelease], was set Want in its season sheet. A show
+/// Done or In progress whose announced season is not set stays out.
+bool wantsRelease(Entry entry, Season? season) =>
+    entry.status == EntryStatus.want || season?.status == EntryStatus.want;
+
+/// The parts the daily series check recorded ([SeriesCheck]) that are worth
+/// listing: of a series still followed (a part of it in [library] Done or
+/// In progress), not in the library by now (matched to the library's
+/// entries as the Series section matches them), not hidden by the owner in
+/// Choose what to show ([prefs]), and not an extra of the automatic rules
+/// the owner has not shown. The home does not list them (only entries set
+/// Want, [wantsRelease]); the place that will list everything coming (see
+/// TODO.md) does, so the sifting is kept for it.
 List<UpcomingPart> upcomingPartsToShow(
   List<UpcomingPart> parts, {
   required Iterable<Entry> library,
@@ -197,16 +190,13 @@ List<UpcomingPart> upcomingPartsToShow(
 /// nearest first within each.
 int _precision(Released r) => r.day != null ? 0 : (r.month != null ? 1 : 2);
 
-HomeSection _comingSoon(
-  List<Entry> entries,
-  List<UpcomingPart> parts,
-  DateTime today,
-) {
+HomeSection _comingSoon(List<Entry> entries, DateTime today) {
   final rows = <(Released, HomeRowData)>[];
   for (final entry in entries) {
     final upcoming = upcomingRelease(entry, today);
     if (upcoming == null) continue;
     final (:released, :season) = upcoming;
+    if (!wantsRelease(entry, season)) continue;
     rows.add((
       released,
       HomeRowData(
@@ -214,19 +204,6 @@ HomeSection _comingSoon(
         detail: season != null ? 'Season ${season.season}' : _creator(entry),
         right: comingSoonLabel(released, today: today),
         emphasized: released.day != null,
-      ),
-    ));
-  }
-  // A part of a followed series not in the library yet: "Movie · Dune".
-  for (final part in parts) {
-    if (part.released.isReleasedOn(today)) continue;
-    rows.add((
-      part.released,
-      HomeRowData.part(
-        part,
-        detail: seriesDisplayName(part.seriesName),
-        right: comingSoonLabel(part.released, today: today),
-        emphasized: part.released.day != null,
       ),
     ));
   }
