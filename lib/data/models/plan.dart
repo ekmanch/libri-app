@@ -39,6 +39,17 @@ abstract class Plan with _$Plan {
     return first;
   }
 
+  /// The latest "When" end among the items, or null when none has one: the
+  /// plan's end date, after which a plan with everything done is Finished.
+  DateTime? get lastDate {
+    DateTime? last;
+    for (final item in items) {
+      final to = item.when?.to;
+      if (to != null && (last == null || to.isAfter(last))) last = to;
+    }
+    return last;
+  }
+
   /// The name with the year, as the UI shows it: "Halloween 2026".
   String get title => year == null ? name : '$name $year';
 

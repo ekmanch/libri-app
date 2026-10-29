@@ -73,7 +73,9 @@ final seasonsBeforeDoneProvider =
 ///
 /// Ticking an item starts the plan, so unticking one later, or adding an entry
 /// to a finished plan, leaves it Active (the Plans › Edit plan note). Returns
-/// true when this tick finished the plan.
+/// true when this tick finished the plan: the last entry ticked, and the
+/// plan's end date passed (or no dates at all); before that day the plan
+/// stays Active and finishes on its own the day after ([planState]).
 Future<bool> togglePlanItemDone(
   WidgetRef ref, {
   required Plan plan,
@@ -113,7 +115,9 @@ Future<bool> togglePlanItemDone(
 }
 
 /// [togglePlanItemDone], and when the tick finishes the plan a short
-/// "Halloween 2026 finished" message whose Undo unticks the item again.
+/// "Halloween 2026 finished" message whose Undo unticks the item again. A
+/// tick that leaves everything done before the end date shows no message:
+/// the plan is still Active then.
 Future<void> togglePlanItemDoneWithUndo(
   BuildContext context,
   WidgetRef ref, {

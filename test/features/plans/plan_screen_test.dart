@@ -235,8 +235,10 @@ void main() {
     );
   });
 
-  testWidgets('ticking the last entry finishes the plan, with Undo', (
-    tester,
+  /// A one-entry plan from Halloween 2026's first undone item, Mononoke,
+  /// dated October 10 to 17, 2026; its end date is October 17.
+  Future<(ProviderContainer, String)> openMovieNight(
+    WidgetTester tester,
   ) async {
     final fixture = loadFixture();
     final halloween = fixture.planById('halloween-2026')!;
@@ -250,6 +252,7 @@ void main() {
       tags: [],
       items: [halloween.items.firstWhere((i) => !i.done)],
     );
+    expect(one.lastDate, DateTime(2026, 10, 17));
     final container = await pumpApp(
       tester,
       Scaffold(
@@ -257,20 +260,56 @@ void main() {
       ),
       library: fixture.copyWith(plans: [one]),
     );
-    final title = fixture.entryById(one.items.single.entry)!.title;
-    await tester.tap(check(title));
-    await tester.pumpAndSettle();
-    final ticked = repo(container).current!.planById('one')!;
-    expect(ticked.started, isTrue);
-    expect(planState(ticked), PlanState.finished);
-    expect(find.text('Movie night finished'), findsOneWidget);
-    await tester.tap(find.text('Undo'));
-    await tester.pumpAndSettle();
-    final undone = repo(container).current!.planById('one')!;
-    expect(undone.items.single.done, isFalse);
-    // Unticking leaves it active, not back to not started.
-    expect(planState(undone), PlanState.active);
-  });
+    return (container, fixture.entryById(one.items.single.entry)!.title);
+  }
+
+  testWidgets(
+    'ticking the last entry after the end date finishes the plan, with Undo',
+    (tester) async {
+      seasonClock = () => DateTime(2026, 10, 29);
+      addTearDown(() => seasonClock = DateTime.now);
+      final (container, title) = await openMovieNight(tester);
+      await tester.tap(check(title));
+      await tester.pumpAndSettle();
+      final ticked = repo(container).current!.planById('one')!;
+      expect(ticked.started, isTrue);
+      expect(planState(ticked), PlanState.finished);
+      expect(find.text('Movie night finished'), findsOneWidget);
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      final undone = repo(container).current!.planById('one')!;
+      expect(undone.items.single.done, isFalse);
+      // Unticking leaves it active, not back to not started.
+      expect(planState(undone), PlanState.active);
+    },
+  );
+
+  testWidgets(
+    'ticking the last entry before the end date keeps the plan active',
+    (tester) async {
+      seasonClock = () => DateTime(2026, 10, 15);
+      addTearDown(() => seasonClock = DateTime.now);
+      final (container, title) = await openMovieNight(tester);
+      await tester.tap(check(title));
+      await tester.pumpAndSettle();
+      final ticked = repo(container).current!.planById('one')!;
+      expect(ticked.items.single.done, isTrue);
+      expect(ticked.started, isTrue);
+      // Still Active on the end date itself, with no message; it finishes on
+      // its own the day after.
+      expect(planState(ticked), PlanState.active);
+      expect(find.text('Movie night finished'), findsNothing);
+      expect(find.text('Undo'), findsNothing);
+      expect(
+        planState(ticked, today: DateTime(2026, 10, 17)),
+        PlanState.active,
+      );
+      expect(
+        planState(ticked, today: DateTime(2026, 10, 18)),
+        PlanState.finished,
+      );
+    },
+  );
 
   group('timeline', () {
     testWidgets('dated groups with the rail and today, then Whenever', (
