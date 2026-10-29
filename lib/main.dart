@@ -17,6 +17,7 @@ import 'data/storage/app_files.dart';
 import 'data/storage/connection_store.dart';
 import 'dev/long_lists.dart';
 import 'features/first_run/first_run_flow.dart';
+import 'features/library/recent_changes.dart';
 import 'features/settings/display_preferences.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/shell_session.dart';
@@ -36,7 +37,8 @@ Future<void> main() async {
 }
 
 /// The app with its storage in [directory]: the cached `library.json`,
-/// `pending.json`, `sync.json`, `connection.json` and `preferences.json`;
+/// `pending.json`, `sync.json`, `connection.json`, `preferences.json` and
+/// `changes.json`;
 /// and its caches (images, track lists, the IGDB token) in
 /// [cacheDirectory], a `cache` subfolder of [directory] when not given.
 /// The integration tests pass a temporary folder, a memory [tokenStore]
@@ -51,6 +53,8 @@ Future<Widget> bootstrap(
       File('${directory.path}${Platform.pathSeparator}$name');
   final preferences = FilePreferencesStore(file('preferences.json'));
   final prefs = DisplayPreferences.fromJson(await preferences.load());
+  final changes = FilePreferencesStore(file('changes.json'));
+  final changed = RecentChanges.fromJson(await changes.load());
   final tokens = tokenStore ?? SecureTokenStore();
   final connections = FileConnectionStore(file('connection.json'));
 
@@ -83,6 +87,8 @@ Future<Widget> bootstrap(
       initialConnectionProvider.overrideWithValue(connection),
       preferencesStoreProvider.overrideWithValue(preferences),
       initialDisplayPreferencesProvider.overrideWithValue(prefs),
+      recentChangesStoreProvider.overrideWithValue(changes),
+      initialRecentChangesProvider.overrideWithValue(changed),
       if (api != null) gitHubApiFactoryProvider.overrideWithValue(api),
       artworkPrunerProvider.overrideWith(startArtworkPruner),
       seasonCheckProvider.overrideWith(fileSeasonCheck),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -10,7 +11,9 @@ import 'package:library_app/widgets/cover_placeholder.dart';
 import 'package:library_app/features/library/entry_list_body.dart';
 import 'package:library_app/features/library/entry_list_views.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
+import 'package:library_app/data/models/season.dart';
 import 'package:library_app/features/library/home_return_provider.dart';
+import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/features/library/home_type_provider.dart';
 import 'package:library_app/features/library/library_filter.dart';
 import 'package:library_app/features/library/library_filter_provider.dart';
@@ -24,7 +27,6 @@ import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/tag_group.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/widgets/labels.dart';
-import 'package:library_app/widgets/section_heading.dart';
 import 'package:library_app/widgets/segmented_control.dart';
 import 'package:library_app/widgets/sheet_frame.dart';
 
@@ -40,7 +42,6 @@ void main() {
       .where((e) => !e.seasonalOnly)
       .map((e) => e.title)
       .toList();
-  final movies = visibleOf(MediaType.movies);
 
   /// Scrolls the chip row (lazy, so a far chip is not built yet) and taps.
   Future<void> pickChip(WidgetTester tester, String label) async {
@@ -61,27 +62,124 @@ void main() {
     matching: find.text(label),
   );
 
-  testWidgets('All: two rows per type under a heading with the count', (
+  /// The fixture as of October 11, 2026: the day the home tests look from, so
+  /// Recently added (the last 30 days) has rows whatever today is.
+  final homeDay = DateTime(2026, 10, 11);
+  void fixHomeDay() {
+    seasonClock = () => homeDay;
+    addTearDown(() => seasonClock = DateTime.now);
+  }
+
+  testWidgets(
+    'All: the plan, then Coming soon, In progress and Recently added',
+    (tester) async {
+      fixHomeDay();
+      await pumpApp(tester, const LibraryHomeScreen());
+      expect(find.text('ACTIVE PLAN'), findsOneWidget);
+      expect(find.text('Halloween 2026'), findsOneWidget);
+      expect(find.text('Search titles and tags'), findsOneWidget);
+      expect(find.byType(StatusSegmentedControl), findsNothing);
+      // No per-type headings or counts any more.
+      expect(find.text('MOVIES'), findsNothing);
+      expect(find.bySemanticsLabel('Show all movies'), findsNothing);
+
+      final visible = fixture.entries.where((e) => !e.seasonalOnly).toList();
+      final expected = homeSections(visible, today: homeDay);
+      expect(expected.map((s) => s.kind), [
+        HomeSectionKind.comingSoon,
+        HomeSectionKind.inProgress,
+        HomeSectionKind.recentlyAdded,
+      ]);
+      expect(find.text('COMING SOON'), findsOneWidget);
+      expect(find.text('IN PROGRESS'), findsOneWidget);
+      final going = expected[1];
+      expect(find.text('See all ${going.total}'), findsOneWidget);
+      final rows = tester.widgetList<HomeRow>(find.byType(HomeRow)).toList();
+      // Coming soon: GTA VI's exact date before The Batman Part II's month.
+      expect(rows[0].row.entry.title, 'Grand Theft Auto VI');
+      expect(rows[0].row.right, 'Nov 19');
+      expect(rows[1].row.entry.title, 'The Batman Part II');
+      expect(rows[1].row.right, 'Oct 2027');
+      expect(find.text('Game · Rockstar Games'), findsOneWidget);
+      // In progress: newest added first with nothing changed on this phone.
+      expect(
+        rows.skip(2).take(going.rows.length).map((r) => r.row.entry.id),
+        going.rows.map((r) => r.entry.id),
+      );
+      expect(find.text('Show · Season 2'), findsOneWidget);
+      // Recently added: the newest in the fixture, added six days before, and
+      // ten rows at most.
+      final recent = expected[2];
+      expect(recent.rows.length, lessThanOrEqualTo(HomeSection.limit));
+      await tester.scrollUntilVisible(
+        find.text('RECENTLY ADDED'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('RECENTLY ADDED'), findsOneWidget);
+      expect(find.text('6 days ago'), findsOneWidget);
+      expect(
+        find.byKey(
+          ValueKey('home-recentlyAdded-${recent.rows.first.entry.id}'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('a home row opens the entry; See all opens In progress results', (
     tester,
   ) async {
-    await pumpApp(tester, const LibraryHomeScreen());
-    expect(find.text('ACTIVE PLAN'), findsOneWidget);
-    expect(find.text('Halloween 2026'), findsOneWidget);
-    expect(find.text('See all'), findsNothing);
-    expect(find.text('Search titles and tags'), findsOneWidget);
-
-    final heading = find.widgetWithText(SectionHeading, 'MOVIES');
-    expect(heading, findsOneWidget);
-    expect(
-      find.descendant(of: heading, matching: find.text('${movies.length}')),
-      findsOneWidget,
+    fixHomeDay();
+    Entry? opened;
+    final container = await pumpApp(
+      tester,
+      LibraryHomeScreen(onOpenEntry: (e) => opened = e),
     );
-    expect(find.bySemanticsLabel('Show all movies'), findsOneWidget);
+    await tester.tap(find.byType(HomeRow).first);
+    await tester.pumpAndSettle();
+    expect(opened?.title, 'Grand Theft Auto VI');
 
-    // Movies: first two rows in home order start with the newest wanted one.
-    final rows = tester.widgetList<EntryRow>(find.byType(EntryRow)).toList();
-    expect(rows.first.title, 'Paddington 2');
-    expect(find.byType(StatusSegmentedControl), findsNothing);
+    final going = fixture.entries
+        .where((e) => !e.seasonalOnly && e.status == EntryStatus.inProgress)
+        .length;
+    await tester.tap(find.text('See all $going'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(libraryFilterProvider),
+      const LibraryFilter(statuses: {EntryStatus.inProgress}),
+    );
+    expect(container.read(homeTypeProvider), isNull);
+    expect(find.bySemanticsLabel('Remove In progress'), findsOneWidget);
+    expect(find.text('Clear all'), findsOneWidget);
+    expect(find.text('$going entries'), findsOneWidget);
+    expect(find.text('SHOWS'), findsOneWidget);
+    expect(find.text('GAMES'), findsOneWidget);
+    expect(find.byType(HomeRow), findsNothing);
+    expect(find.byType(EntryRow), findsNWidgets(going));
+
+    await tester.tap(find.text('Clear all'));
+    await tester.pumpAndSettle();
+    expect(find.text('IN PROGRESS'), findsOneWidget);
+  });
+
+  testWidgets('with nothing coming, going or new the home says so', (
+    tester,
+  ) async {
+    fixHomeDay();
+    final quiet = fixture.copyWith(
+      entries: [
+        for (final e in fixture.entries)
+          if (e.status != EntryStatus.inProgress &&
+              upcomingRelease(e, homeDay) == null)
+            e.copyWith(added: DateTime(2025, 1, 1)),
+      ],
+    );
+    await pumpApp(tester, const LibraryHomeScreen(), library: quiet);
+    expect(find.text('ACTIVE PLAN'), findsOneWidget);
+    expect(find.text(HomeNothingToShow.text), findsOneWidget);
+    expect(find.byType(HomeRow), findsNothing);
+    expect(find.text('Your library is empty'), findsNothing);
   });
 
   testWidgets('a return to the home clears the type, status and filter', (
@@ -123,6 +221,7 @@ void main() {
   });
 
   testWidgets('a return to the home scrolls All to the top', (tester) async {
+    fixHomeDay();
     // Short enough that the All list scrolls.
     final container = await pumpApp(
       tester,
@@ -132,7 +231,7 @@ void main() {
     Finder allList() => find.byWidgetPredicate(
       (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
     );
-    await tester.drag(find.byType(EntryRow).first, const Offset(0, -300));
+    await tester.drag(find.byType(HomeRow).first, const Offset(0, -300));
     await tester.pumpAndSettle();
     expect(
       tester.state<ScrollableState>(allList()).position.pixels,
@@ -164,7 +263,7 @@ void main() {
 
     await pickChip(tester, 'All');
     expect(container.read(homeTypeProvider), isNull);
-    expect(find.text('MOVIES'), findsOneWidget);
+    expect(find.text('IN PROGRESS'), findsOneWidget);
     expect(find.text('ACTIVE PLAN'), findsOneWidget);
   });
 
@@ -271,16 +370,6 @@ void main() {
       expect(find.text('Library'), findsNothing);
       expect(find.text('OCTOBER 2026'), findsOneWidget);
     });
-  });
-
-  testWidgets('a type heading opens that type, like its chip', (tester) async {
-    final container = await pumpApp(tester, const LibraryHomeScreen());
-    await tester.tap(find.bySemanticsLabel('Show all shows'));
-    await tester.pumpAndSettle();
-    expect(container.read(homeTypeProvider), MediaType.shows);
-    final shows = visibleOf(MediaType.shows);
-    expect(find.text('${shows.length} shows'), findsOneWidget);
-    expect(find.byType(EntryRow), findsNWidgets(shows.length));
   });
 
   testWidgets('segments filter by status and reset when the type changes', (
@@ -556,8 +645,19 @@ void main() {
     await tester.tap(find.widgetWithText(PillChip, 'Want'));
     await tester.tap(find.widgetWithText(PillChip, 'Done'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Show '), findsOneWidget);
-    await tester.tap(find.textContaining('Show '));
+    expect(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(container.read(libraryFilterProvider).types, {MediaType.games});
     expect(find.text('GAMES'), findsOneWidget);
@@ -571,7 +671,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(PillChip, 'Games'));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(container.read(libraryFilterProvider).isActive, isFalse);
     expect(container.read(homeTypeProvider), MediaType.games);
@@ -591,7 +696,12 @@ void main() {
     }
 
     Future<void> show(WidgetTester tester) async {
-      await tester.tap(find.textContaining('Show '));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FilterSheet),
+          matching: find.textContaining('Show '),
+        ),
+      );
       await tester.pumpAndSettle();
     }
 

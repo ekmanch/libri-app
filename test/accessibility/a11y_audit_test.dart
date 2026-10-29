@@ -186,7 +186,12 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tap(find.byTooltip('Filters'));
     await a.tap(find.widgetWithText(PillChip, '#horror'));
     await a.check('Library › Filter sheet');
-    await a.tap(find.textContaining('Show '));
+    await a.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await a.check('Library › Filtered results, one type');
     await a.tapText('Clear all');
   });

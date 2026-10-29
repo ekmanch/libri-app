@@ -201,7 +201,12 @@ Future<void> _walk(_Walk w) async {
     await tester.pumpAndSettle();
     await w.tap(horror);
     await w.shot('a2-filter-sheet');
-    await w.tap(find.textContaining('Show '));
+    await w.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await w.shot('l5-filtered-short');
     await w.tapText('Clear all');
   });

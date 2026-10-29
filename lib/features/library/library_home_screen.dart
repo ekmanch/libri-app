@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
 import '../../data/models/entry.dart';
+import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
+import '../../data/models/season.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/plan.dart';
 import '../../theme/app_theme.dart';
@@ -11,7 +13,6 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/empty_state.dart';
-import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/pinned_sliver.dart';
@@ -35,18 +36,20 @@ import 'entry_list_body.dart';
 import 'entry_list_views.dart';
 import 'filter_sheet.dart';
 import 'home_return_provider.dart';
+import 'home_sections.dart';
 import 'home_type_provider.dart';
 import 'library_filter.dart';
 import 'library_filter_provider.dart';
 import 'library_sort.dart';
 import 'library_search.dart';
+import 'recent_changes.dart';
 import 'search_screen.dart';
 import 'series_groups.dart';
 import 'sort_sheet.dart';
 import 'view_menu.dart';
 
-/// The library home (Library › Home). On All it shows the active plan and two
-/// rows per type under tappable headings. With a type chip or heading picked it
+/// The library home (Library › Home). On All it shows the active plan, then
+/// Coming soon, In progress and Recently added. With a type chip picked it
 /// becomes that type's list in place (Library › Movies, text view; Movies, list
 /// with covers; Movies, grid with covers): status segments, count, sort and
 /// view; Music gets its artist, album and song tabs instead (Library › Music:
@@ -281,7 +284,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     } else if (filter.isActive) {
       body = _filtered(header, library, filter, prefs, colors);
     } else if (type == null) {
-      body = _allTypes(header, library, filter, colors);
+      body = _home(header, library, filter, colors);
     } else {
       body = _oneType(header, library, type, filter, prefs);
     }
@@ -330,34 +333,44 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     ]);
   }
 
-  /// All: the active plan, then two rows per type under a heading that
-  /// opens the type.
-  Widget _allTypes(
+  /// All: the active plan, then Coming soon, In progress and Recently added
+  /// (Library › Home), each only when it has something, up to ten rows; the
+  /// hint when none has (Library › Home: nothing to show).
+  Widget _home(
     List<Widget> header,
     Library library,
     LibraryFilter filter,
     LibraryColors colors,
   ) {
     final plan = activePlan(library);
-    final sections = <Widget>[];
-    for (final type in MediaType.values) {
-      final entries = homeOrder(filter.apply(library.entriesOfType(type)));
-      if (entries.isEmpty) continue;
-      sections.add(
+    final visible = filter.apply(library.entries);
+    final sections = homeSections(
+      visible,
+      today: seasonClock(),
+      changes: ref.watch(recentChangesProvider),
+    );
+    final rows = <Widget>[];
+    for (final section in sections) {
+      final seeAll = section.kind == HomeSectionKind.inProgress;
+      rows.add(
         SectionHeading(
-          type.label,
-          color: colors.forType(type),
-          trailing: '${entries.length}',
-          semanticsLabel: 'Show all ${type.label.toLowerCase()}',
-          onTap: () => _pickType(type),
-          padding: const EdgeInsets.only(top: 10),
+          section.kind.title,
+          action: seeAll ? 'See all ${section.total}' : null,
+          onAction: seeAll ? _seeAllInProgress : null,
+          // The same height as the heading with the See all button (its
+          // 48 px, centered), so the three headings line up with their rows
+          // alike (the canvas's 44 px heading rows).
+          padding: seeAll
+              ? const EdgeInsets.only(top: 10)
+              : const EdgeInsets.fromLTRB(0, 26, 0, 16),
         ),
       );
-      for (final entry in entries.take(2)) {
-        sections.add(
-          EntryRow.forEntry(
-            entry,
-            onTap: () => widget.onOpenEntry?.call(entry),
+      for (final row in section.rows) {
+        rows.add(
+          HomeRow(
+            row,
+            key: ValueKey('home-${section.kind.name}-${row.entry.id}'),
+            onTap: () => widget.onOpenEntry?.call(row.entry),
           ),
         );
       }
@@ -376,7 +389,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
             ),
           ),
         ),
-      if (sections.isEmpty)
+      if (visible.isEmpty)
         const SliverFillRemaining(
           hasScrollBody: false,
           child: EmptyState(
@@ -393,10 +406,18 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
             20,
             AppShell.contentBottomPadding,
           ),
-          sliver: SliverList.list(children: sections),
+          sliver: SliverList.list(
+            children: rows.isEmpty ? const [HomeNothingToShow()] : rows,
+          ),
         ),
     ]);
   }
+
+  /// "See all N" on In progress: the filter result with just that status,
+  /// across every type (Library › In progress, all types (See all)).
+  void _seeAllInProgress() => ref
+      .read(libraryFilterProvider.notifier)
+      .set(const LibraryFilter(statuses: {EntryStatus.inProgress}));
 
   /// One type picked: status segments, count, sort, view and the list in
   /// the remembered view, all in one scroll; the count row pins at the top

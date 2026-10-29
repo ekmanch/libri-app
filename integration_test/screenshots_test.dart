@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
@@ -99,6 +100,10 @@ Future<void> scrollFormTo(WidgetTester tester, Finder finder) async {
   );
   await tester.pumpAndSettle();
 }
+
+/// The day the home captures look from: the fixture's newest entry is six
+/// days old then, so Recently added has rows (Library › Home).
+final homeDay = DateTime(2026, 10, 11);
 
 Future<void> capture(WidgetTester tester, String name) async {
   final boundary =
@@ -850,6 +855,10 @@ void main() {
   });
 
   testWidgets('library screens in dark and light', (tester) async {
+    // The home's Recently added looks back 30 days from the app clock, so
+    // the capture is taken from a day the fixture was fresh (Library › Home).
+    seasonClock = () => homeDay;
+    addTearDown(() => seasonClock = DateTime.now);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -863,6 +872,20 @@ void main() {
     );
     await tester.pumpAndSettle();
     await capture(tester, 'a1-home-dark');
+    // Scrolled to the end, for Recently added.
+    await tester.drag(find.byType(HomeRow).first, const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1a-home-scrolled');
+    await revealHeader(tester);
+
+    // Library › In progress, all types (See all): the filter result with
+    // just that status.
+    await tester.tap(find.textContaining('See all '));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1b-home-see-all');
+    await tester.tap(find.text('Clear all'));
+    await tester.pumpAndSettle();
+    seasonClock = DateTime.now;
 
     // Library › Movies, text view and grid with covers.
     await tester.tap(find.widgetWithText(PillChip, 'Movies'));
@@ -876,7 +899,12 @@ void main() {
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await capture(tester, 'a3-filter-from-movies-done');
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     await capture(tester, 'a11-movies-done');
     await tester.tap(segment('All'));
@@ -906,7 +934,12 @@ void main() {
     );
     await tapSheetChip(tester, '#horror');
     await capture(tester, 'a2-filter-sheet');
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     await capture(tester, 'l5-filtered-short');
     await tester.tap(find.text('Clear all'));
@@ -1153,7 +1186,12 @@ void main() {
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await capture(tester, 'a3-filter-from-music-songs');
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     await capture(tester, 'a23-music-songs');
     await tester.tap(find.byTooltip('Filters'));
@@ -1170,7 +1208,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     await capture(tester, 'a24-music-albums');
     await tester.tap(find.text('Songs'));
@@ -1359,6 +1402,8 @@ void main() {
   testWidgets('the phone at a larger text size', (tester) async {
     // 1.3 is a common font setting. The window is already the phone's
     // 360 x 780 dp (see linux/runner/my_application.cc).
+    seasonClock = () => homeDay;
+    addTearDown(() => seasonClock = DateTime.now);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1380,6 +1425,16 @@ void main() {
     );
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1-home');
+    await tester.drag(find.byType(HomeRow).first, const Offset(0, -1600));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1a-home-scrolled');
+    await revealHeader(tester);
+    await tester.tap(find.textContaining('See all '));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1b-home-see-all');
+    await tester.tap(find.text('Clear all'));
+    await tester.pumpAndSettle();
+    seasonClock = DateTime.now;
     await pickChip(tester, 'Movies');
     await capture(tester, 'large-text-a4-movies');
     await tester.ensureVisible(segment('Done'));
@@ -1388,7 +1443,12 @@ void main() {
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a3-filter-from-movies-done');
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a11-movies-done');
     await revealHeader(tester);
@@ -1963,7 +2023,12 @@ void main() {
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await shot('a3-filter-from-movies-done');
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     await shot('a11-movies-done');
     await tester.tap(segment('All'));
@@ -1985,7 +2050,12 @@ void main() {
     await tester.pumpAndSettle();
     await tapSheetChip(tester, '#horror');
     await shot('a2-filter-sheet');
-    await tester.tap(find.textContaining('Show '));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FilterSheet),
+        matching: find.textContaining('Show '),
+      ),
+    );
     await tester.pumpAndSettle();
     await shot('l5-filtered-short');
     await tapText('Clear all');
@@ -2345,6 +2415,52 @@ void main() {
     await tester.tap(find.text('Copy a plan'));
     await tester.pumpAndSettle();
     await capture(tester, 's10-new-plan');
+  });
+
+  testWidgets('the home with nothing to show', (tester) async {
+    // Library › Home: nothing to show. No release ahead, nothing In progress
+    // and nothing added in the last 30 days; the plan card stays.
+    final fixture = decodeLibrary(
+      await File(FixtureLibraryRepository.assetPath).readAsString(),
+    );
+    final quiet = fixture.copyWith(
+      entries: [
+        for (final e in fixture.entries)
+          if (e.status != EntryStatus.inProgress &&
+              upcomingRelease(e, homeDay) == null)
+            e.copyWith(added: DateTime(2025, 1, 1)),
+      ],
+    );
+    seasonClock = () => homeDay;
+    addTearDown(() => seasonClock = DateTime.now);
+    for (final scale in [1.0, 1.3]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: ValueKey(scale),
+          overrides: [
+            ...fakeLookupOverrides(),
+            libraryRepositoryProvider.overrideWithValue(
+              FixtureLibraryRepository(
+                loadJson: () async => encodeLibrary(quiet),
+              ),
+            ),
+          ],
+          child: RepaintBoundary(
+            key: _root,
+            child: MediaQuery(
+              data: MediaQueryData.fromView(tester.view)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: const LibraryApp(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await capture(
+        tester,
+        scale == 1.0 ? 'a1c-home-nothing' : 'large-text-a1c-home-nothing',
+      );
+    }
   });
 
   testWidgets('long lists with the rail and the grid thumb', (tester) async {

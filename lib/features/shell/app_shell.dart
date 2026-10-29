@@ -11,6 +11,7 @@ import '../plans/plan_form_screen.dart';
 import '../library/home_return_provider.dart';
 import '../library/home_type_provider.dart';
 import '../library/library_home_screen.dart';
+import '../library/recent_changes.dart';
 import '../settings/display_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../data/models/plan.dart';
@@ -88,6 +89,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Covers and photos of entries that are gone get cleaned up once per
     // session, a little after the library loads.
     ref.listenManual(artworkPrunerProvider, (_, _) {});
+    // When entries change is recorded from the first change on, for the
+    // home's In progress order (Library › Home).
+    ref.listenManual(recentChangesProvider, (_, _) {});
     // A plan whose first date has come turns its Started switch on, so the
     // switch always shows the real state (Plans › Edit plan). Plans never stop
     // on their own.

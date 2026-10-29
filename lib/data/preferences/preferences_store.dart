@@ -3,9 +3,9 @@ import 'dart:io';
 
 import '../storage/atomic_file.dart';
 
-/// Where the display preferences live on the device. Kept apart from
-/// [LibraryRepository]: preferences are never part of `library.json` and
-/// never synced.
+/// Where a small device-only JSON map lives: the display preferences, and
+/// when entries last changed on this phone (`RecentChanges`). Kept apart from
+/// [LibraryRepository]: neither is ever part of `library.json` or synced.
 abstract class PreferencesStore {
   /// The stored preferences, or an empty map when there are none yet.
   Future<Map<String, Object?>> load();
@@ -27,8 +27,8 @@ class MemoryPreferencesStore implements PreferencesStore {
   Future<void> save(Map<String, Object?> json) async => saved = json;
 }
 
-/// `preferences.json` next to the local library file. A missing or
-/// unreadable file means the defaults.
+/// `preferences.json` (or `changes.json`) next to the local library file. A
+/// missing or unreadable file means the defaults.
 class FilePreferencesStore implements PreferencesStore {
   FilePreferencesStore(this.file);
 

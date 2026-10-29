@@ -5,24 +5,32 @@ import 'app_icons.dart';
 import 'row_ink_well.dart';
 
 /// Uppercase section label, in the type color on the library home, muted
-/// elsewhere. Optional [trailing] text on the right, such as a count. With
-/// [onTap] the heading is a 44 px button with a chevron after the label.
+/// elsewhere. Optional [trailing] text on the right, such as a count, or an
+/// [action] link there in the accent with a chevron ("See all 7" on Library ›
+/// Home), a 44 px button of its own. With [onTap] the heading is a 44 px
+/// button with a chevron after the label.
 class SectionHeading extends StatelessWidget {
   const SectionHeading(
     this.label, {
     super.key,
     this.color,
     this.trailing,
+    this.action,
+    this.onAction,
     this.onTap,
     this.semanticsLabel,
     this.padding = const EdgeInsets.fromLTRB(0, 14, 0, 2),
-  });
+  }) : assert(trailing == null || action == null);
 
   final String label;
 
   /// Defaults to the muted label color.
   final Color? color;
   final String? trailing;
+
+  /// A link at the end of the row, in the accent, with a chevron after it.
+  final String? action;
+  final VoidCallback? onAction;
   final VoidCallback? onTap;
 
   /// Screen reader label for the button, e.g. "Show all movies".
@@ -63,9 +71,36 @@ class SectionHeading extends StatelessWidget {
             trailing!,
             style: theme.textTheme.bodySmall!.copyWith(fontSize: 13),
           ),
+        if (action case final action?)
+          TextButton(
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.primary,
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              textStyle: theme.textTheme.labelMedium,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(action),
+                const SizedBox(width: 2),
+                const StrokeIcon(AppIcons.chevronRightBold, size: 16),
+              ],
+            ),
+          ),
       ],
     );
-    if (onTap == null) return Padding(padding: padding, child: row);
+    if (onTap == null) {
+      return Padding(
+        // The action is a 48 px button that the label centers on, so the
+        // row gives up some top padding to end up where a plain heading does.
+        padding: action == null
+            ? padding
+            : padding.copyWith(top: padding.top - 4, bottom: 0),
+        child: row,
+      );
+    }
     return Semantics(
       button: true,
       label: semanticsLabel,
