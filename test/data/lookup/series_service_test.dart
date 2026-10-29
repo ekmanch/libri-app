@@ -11,6 +11,7 @@ import 'package:library_app/data/lookup/series_store.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
+import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/series.dart';
 import 'package:library_app/dev/fake_lookup.dart';
@@ -34,6 +35,7 @@ const SeriesParts _lotr = (
       number: 1,
       title: 'The Fellowship of the Ring',
       year: 2001,
+      released: null,
       source: _source,
       creator: null,
       extra: false,
@@ -42,6 +44,7 @@ const SeriesParts _lotr = (
       number: 2,
       title: 'The Two Towers',
       year: 2002,
+      released: null,
       source: 'tmdb:movie:121',
       creator: null,
       extra: false,
@@ -207,6 +210,7 @@ void main() {
           number: 7,
           title: 'Hunters of Dune',
           year: 2006,
+          released: null,
           source: 'wikidata:Q7',
           creator: 'Brian Herbert, Kevin J. Anderson',
           extra: true,
@@ -224,5 +228,136 @@ void main() {
     final old = await store.read('openlibrary:OL1W');
     expect(old!.series.parts, dune.parts);
     expect(old.fetched.year, 1970);
+  });
+
+  test('the file store keeps a part\'s date; a list from before version 4 counts as stale', () async {
+    final dir = await Directory.systemTemp.createTemp('series');
+    addTearDown(() => dir.delete(recursive: true));
+    final store = FileSeriesStore(dir);
+    const SeriesParts dated = (
+      name: 'The Lord of the Rings',
+      parts: [
+        (
+          number: 4,
+          title: 'The Hunt for Gollum',
+          year: 2027,
+          released: Released(2027, 12, 17),
+          source: 'tmdb:movie:1',
+          creator: null,
+          extra: false,
+        ),
+      ],
+    );
+    await store.write(_source, dated, fetched: now);
+    final stored = await store.read(_source);
+    expect(stored!.series.parts, dated.parts);
+    expect(stored.fetched.toUtc(), now.toUtc());
+    final file = File(
+      '${dir.path}/series/${FileSeriesStore.fileNameFor(_source)}',
+    );
+    final json = jsonDecode(await file.readAsString()) as Map<String, Object?>;
+    expect(json['version'], 4);
+    await file.writeAsString(jsonEncode({...json, 'version': 3}));
+    final old = await store.read(_source);
+    expect(old!.series.parts, dated.parts);
+    expect(old.fetched, DateTime.utc(1970));
+  });
+
+  group('refresh (the daily series check)', () {
+    const SeriesParts withUpcoming = (
+      name: 'The Lord of the Rings',
+      parts: [
+        (
+          number: 1,
+          title: 'The Fellowship of the Ring',
+          year: 2001,
+          released: Released(2001, 12, 18),
+          source: _source,
+          creator: null,
+          extra: false,
+        ),
+        (
+          number: 4,
+          title: 'The Hunt for Gollum',
+          year: 2027,
+          released: Released(2027, 12, 17),
+          source: 'tmdb:movie:1',
+          creator: null,
+          extra: false,
+        ),
+      ],
+    );
+
+    test(
+      'fetches when nothing is stored, then not again within a day',
+      () async {
+        final b = build(series: {_source: withUpcoming});
+        final first = await b.service.refresh(_fellowship, now: now);
+        expect(first.parts!.parts, withUpcoming.parts);
+        expect(first.failure, isNull);
+        expect(b.fake.calls, ['series:$_source']);
+        final again = await b.service.refresh(
+          _fellowship,
+          now: now.add(const Duration(hours: 20)),
+        );
+        expect(again.parts!.parts, withUpcoming.parts);
+        expect(b.fake.calls, hasLength(1));
+        // A day on, with a part still ahead: due.
+        await b.service.refresh(
+          _fellowship,
+          now: now.add(const Duration(days: 1)),
+        );
+        expect(b.fake.calls, hasLength(2));
+      },
+    );
+
+    test('with nothing ahead it waits a week, as the details do', () async {
+      final b = build();
+      await b.service.refresh(_fellowship, now: now);
+      await b.service.refresh(
+        _fellowship,
+        now: now.add(const Duration(days: 6)),
+      );
+      expect(b.fake.calls, hasLength(1));
+      await b.service.refresh(
+        _fellowship,
+        now: now.add(const Duration(days: 7)),
+      );
+      expect(b.fake.calls, hasLength(2));
+    });
+
+    test('a failed fetch gives the stored list and the failure', () async {
+      final b = build();
+      await b.service.refresh(_fellowship, now: now);
+      final failing = build(failure: LookupFailure.offline);
+      await failing.store.write(
+        _source,
+        _lotr,
+        fetched: now.subtract(const Duration(days: 8)),
+        asked: _lotr.name,
+      );
+      final result = await failing.service.refresh(_fellowship, now: now);
+      expect(result.parts!.parts, _lotr.parts);
+      expect(result.failure!.failure, LookupFailure.offline);
+      // Told not to ask: the stored list, no call, no failure.
+      final quiet = await failing.service.refresh(
+        _fellowship,
+        now: now,
+        askLookup: false,
+      );
+      expect(quiet.parts!.parts, _lotr.parts);
+      expect(quiet.failure, isNull);
+      expect(failing.fake.calls, hasLength(1));
+    });
+
+    test('hasUpcoming: a part dated ahead of today', () {
+      final today = DateTime(2026, 10, 29);
+      expect(SeriesService.hasUpcoming(withUpcoming, today), isTrue);
+      expect(SeriesService.hasUpcoming(_lotr, today), isFalse);
+      expect(
+        SeriesService.hasUpcoming(withUpcoming, DateTime(2027, 12, 17)),
+        isFalse,
+      );
+    });
   });
 }

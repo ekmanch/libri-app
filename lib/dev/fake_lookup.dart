@@ -30,6 +30,7 @@ class FakeLookupSource extends LookupSource implements MusicSource {
     this.kindBySource = const {},
     this.episodesBySeason = const {},
     this.seriesBySource = const {},
+    this.releasedBySource = const {},
   });
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
@@ -50,6 +51,10 @@ class FakeLookupSource extends LookupSource implements MusicSource {
 
   /// Series [seriesParts] answers, by source, ahead of the built-in ones.
   final Map<String, SeriesParts?> seriesBySource;
+
+  /// Release dates [releaseDate] answers, by source; any other source gets
+  /// null, as from a provider with no date.
+  final Map<String, Released?> releasedBySource;
 
   /// Episodes [seasonEpisodes] answers, by show source and season, ahead
   /// of the built-in ones.
@@ -163,6 +168,12 @@ class FakeLookupSource extends LookupSource implements MusicSource {
       }
     }
     return null;
+  }
+
+  @override
+  Future<Released?> releaseDate(String source) async {
+    await _call('released:$source');
+    return releasedBySource[source];
   }
 
   @override
@@ -306,6 +317,7 @@ const _lordOfTheRings = (
       number: 1,
       title: 'The Lord of the Rings: The Fellowship of the Ring',
       year: 2001,
+      released: null,
       source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
       creator: null,
       extra: false,
@@ -314,6 +326,7 @@ const _lordOfTheRings = (
       number: 2,
       title: 'The Lord of the Rings: The Two Towers',
       year: 2002,
+      released: null,
       source: 'fake:the-lord-of-the-rings-the-two-towers',
       creator: null,
       extra: false,
@@ -322,7 +335,19 @@ const _lordOfTheRings = (
       number: 3,
       title: 'The Lord of the Rings: The Return of the King',
       year: 2003,
+      released: null,
       source: 'fake:the-lord-of-the-rings-the-return-of-the-king',
+      creator: null,
+      extra: false,
+    ),
+    // Announced, as TMDB lists it: a part still to come, for the home's
+    // Coming soon (Library › Home).
+    (
+      number: 4,
+      title: 'The Lord of the Rings: The Hunt for Gollum',
+      year: 2027,
+      released: Released(2027, 12, 17),
+      source: 'fake:the-lord-of-the-rings-the-hunt-for-gollum',
       creator: null,
       extra: false,
     ),
@@ -343,6 +368,7 @@ final _berserk = (
           43 => 2025,
           _ => 1990 + ((n - 1) * 27 / 39).round(),
         },
+        released: null,
         source: 'fake:berserk-vol-$n',
         creator: null,
         extra: false,

@@ -759,4 +759,44 @@ void main() {
       expect(await igdb.details(match), match);
     });
   });
+
+  group('releaseDate', () {
+    test('the earliest dated release, as precise as IGDB has it', () async {
+      final igdb = source(
+        (_) async => json(200, [
+          {
+            'id': 1,
+            'first_release_date': 1829001600, // 2027-12-31, year only
+            'release_dates': [
+              {'date': 1829001600, 'date_format': 2},
+              {'date': 1811721600, 'date_format': 1}, // 2027-05-31: May
+            ],
+          },
+        ]),
+      );
+      expect(await igdb.releaseDate('igdb:1'), const Released(2027, 5));
+      expect(sent.last.body, contains('where id = 1'));
+      expect(sent.last.body, contains('release_dates.date_format'));
+    });
+
+    test('without dated releases, the first release date as a day', () async {
+      final igdb = source(
+        (_) async => json(200, [
+          {'id': 1, 'first_release_date': 1371168000},
+        ]),
+      );
+      expect(await igdb.releaseDate('igdb:1'), const Released(2013, 6, 14));
+    });
+
+    test('no date, or no such game, is nothing learned', () async {
+      final igdb = source(
+        (_) async => json(200, [
+          {'id': 1},
+        ]),
+      );
+      expect(await igdb.releaseDate('igdb:1'), isNull);
+      final gone = source((_) async => json(200, []));
+      expect(await gone.releaseDate('igdb:1'), isNull);
+    });
+  });
 }

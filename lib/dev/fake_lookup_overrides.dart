@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/misc.dart';
 import '../data/images/artwork_providers.dart';
 import '../data/images/artwork_resolver.dart';
 import '../data/library_providers.dart';
+import '../data/lookup/check_day_store.dart';
 import '../data/lookup/episode_service.dart';
 import '../data/lookup/episode_store.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_providers.dart';
+import '../data/lookup/release_check.dart';
 import '../data/lookup/season_check.dart';
+import '../data/lookup/series_check.dart';
 import '../data/lookup/series_service.dart';
 import '../data/lookup/series_store.dart';
 import '../data/lookup/track_list_service.dart';
@@ -23,8 +26,9 @@ import 'fake_lookup.dart';
 /// in [cacheDirectory] (a fresh temporary folder when not given).
 /// [latency] shows the loading states, [failure] an error state, and
 /// `configured: false` the "not set up" state; [source] replaces the fake
-/// those three would build, and [seasonStore] the daily season check's
-/// memory.
+/// those three would build, [seasonStore] the daily season check's
+/// memory, and [upcomingParts] the series check's record of parts still to
+/// come (seeded for a test, read back after a run).
 List<Override> fakeLookupOverrides({
   Duration latency = Duration.zero,
   LookupFailure? failure,
@@ -33,6 +37,7 @@ List<Override> fakeLookupOverrides({
   Set<String>? failingImages,
   FakeLookupSource? source,
   SeasonCheckStore? seasonStore,
+  UpcomingPartsStore? upcomingParts,
 }) => [
   lookupSourcesProvider.overrideWithValue([
     source ??
@@ -57,6 +62,19 @@ List<Override> fakeLookupOverrides({
     (ref) => SeasonCheck(
       lookups: ref.watch(lookupServiceProvider),
       store: seasonStore ?? MemorySeasonCheckStore(),
+    ),
+  ),
+  releaseCheckProvider.overrideWith(
+    (ref) => ReleaseCheck(
+      lookups: ref.watch(lookupServiceProvider),
+      store: MemoryCheckDayStore(),
+    ),
+  ),
+  seriesCheckProvider.overrideWith(
+    (ref) => SeriesCheck(
+      series: ref.watch(seriesServiceProvider),
+      store: MemoryCheckDayStore(),
+      upcoming: upcomingParts ?? MemoryUpcomingPartsStore(),
     ),
   ),
   trackListServiceProvider.overrideWith(

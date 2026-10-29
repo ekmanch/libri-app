@@ -1,5 +1,6 @@
 import '../images/artwork_resolver.dart';
 import '../models/entry.dart';
+import '../models/released.dart';
 import '../models/season.dart';
 import 'lookup_failure.dart';
 import 'lookup_service.dart';
@@ -42,6 +43,10 @@ class SeriesService {
 
   /// How long a stored list is trusted before the lookup is asked again.
   static const refreshAfter = Duration(days: 7);
+
+  /// How long a stored list with a part still to come is trusted by the
+  /// daily check ([refresh]): once a day, since its dates move.
+  static const refreshUpcomingAfter = Duration(days: 1);
 
   /// The stored parts first, when there are any, then the fetched ones when
   /// they were fetched. Ends with null when no lookup id could be found or
@@ -87,6 +92,73 @@ class SeriesService {
     }
     await store.write(source, parts, fetched: now, asked: name);
     yield SeriesList(parts, fromCache: false);
+  }
+
+  /// The lookup id the series of [entry] is read by: its `source`, or the
+  /// id its cover was matched to (looked up when needed). Throws
+  /// [LookupException] when that lookup gave no answer.
+  Future<String?> sourceOf(Entry entry) async =>
+      entry.source ?? await resolver.matchedSource(entry);
+
+  /// Whether [parts] has a part whose release is still ahead of [today].
+  static bool hasUpcoming(SeriesParts parts, DateTime today) => parts.parts.any(
+    (p) => switch (seriesPartRelease(p)) {
+      final Released r => !r.isReleasedOn(today),
+      null => false,
+    },
+  );
+
+  /// The daily check's refresh (`SeriesCheck`): the parts of the series
+  /// [entry] is in, fetched again when the stored list is [refreshAfter]
+  /// old, was asked for another name, or has a part still to come and is
+  /// [refreshUpcomingAfter] old; else the stored list. [parts] is null when
+  /// nothing is known; [failure] says why a fetch that was due did not
+  /// work, the stored list standing in meanwhile. With [askLookup] off
+  /// (the check has already found the lookup offline) only the stored list
+  /// is read.
+  Future<({SeriesParts? parts, LookupException? failure})> refresh(
+    Entry entry, {
+    required DateTime now,
+    bool askLookup = true,
+  }) async {
+    const nothing = (parts: null, failure: null);
+    final String? source;
+    try {
+      source = askLookup
+          ? await sourceOf(entry)
+          : entry.source ?? resolver.cachedSource(entry);
+    } on LookupException catch (e) {
+      return (parts: null, failure: e);
+    }
+    if (source == null) return nothing;
+    final name = entry.series?.name;
+    final stored = await store.read(source);
+    if (stored != null && stored.asked == name) {
+      final age = now.difference(stored.fetched);
+      final due =
+          age >= refreshAfter ||
+          (age >= refreshUpcomingAfter &&
+              hasUpcoming(
+                stored.series,
+                DateTime(now.year, now.month, now.day),
+              ));
+      if (!due) return (parts: stored.series, failure: null);
+    }
+    final lookup = lookups.sourceOf(source);
+    if (!askLookup || lookup == null || !lookup.isConfigured) {
+      return (parts: stored?.series, failure: null);
+    }
+    final SeriesParts? parts;
+    try {
+      parts = await lookup.seriesParts(source, name: name);
+    } on LookupException catch (e) {
+      return (parts: stored?.series, failure: e);
+    }
+    if (parts == null || parts.parts.isEmpty) {
+      return (parts: stored?.series, failure: null);
+    }
+    await store.write(source, parts, fetched: now, asked: name);
+    return (parts: parts, failure: null);
   }
 
   /// Drops the series of entries that are gone.

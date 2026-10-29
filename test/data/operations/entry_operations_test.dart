@@ -321,4 +321,32 @@ void main() {
       );
     });
   });
+
+  group('SetReleased', () {
+    test('sets the date; a show or an anime series keeps none', () {
+      final library = sampleLibrary();
+      final result = SetReleased(
+        mummy.id,
+        const Released(2027, 5, 26),
+      ).apply(library);
+      expect(result.entryById(mummy.id)!.released, const Released(2027, 5, 26));
+      expect(result.entries.map((e) => e.id), [mummy.id, dirt.id]);
+      expect(const SetReleased('nope', Released(2027)).apply(library), library);
+      final show = mummy.copyWith(
+        id: 'shows/show',
+        type: MediaType.shows,
+        released: null,
+        seasons: const [Season(season: 1, released: Released(2027))],
+      );
+      final withShow = library.copyWith(entries: [...library.entries, show]);
+      expect(
+        SetReleased(show.id, const Released(2028)).apply(withShow),
+        withShow,
+      );
+      expect(
+        SetReleased(mummy.id, const Released(2027)).summary(library),
+        'Update the release date of The Mummy',
+      );
+    });
+  });
 }

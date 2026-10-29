@@ -8,6 +8,7 @@ import '../library_providers.dart';
 import '../storage/json_file.dart';
 import 'anilist_source.dart';
 import 'anime_link_store.dart';
+import 'check_day_store.dart';
 import 'deezer_source.dart';
 import 'episode_service.dart';
 import 'episode_store.dart';
@@ -19,7 +20,9 @@ import 'lookup_keys.dart';
 import 'lookup_service.dart';
 import 'lookup_source.dart';
 import 'open_library_source.dart';
+import 'release_check.dart';
 import 'season_check.dart';
+import 'series_check.dart';
 import 'series_service.dart';
 import 'series_store.dart';
 import 'tmdb_source.dart';
@@ -88,6 +91,40 @@ final seasonCheckProvider = Provider<SeasonCheck?>((ref) => null);
 SeasonCheck fileSeasonCheck(Ref ref) => SeasonCheck(
   lookups: ref.watch(lookupServiceProvider),
   store: FileSeasonCheckStore(ref.watch(appCacheDirectoryProvider)),
+);
+
+JsonFile _cacheFile(Ref ref, String name) => JsonFile(
+  File(
+    '${ref.watch(appCacheDirectoryProvider).path}${Platform.pathSeparator}$name',
+  ),
+);
+
+/// The daily check of the release dates of entries not out yet (Library ›
+/// Home: Coming soon), or null for none; off by default like
+/// [seasonCheckProvider]. `main` turns on [fileReleaseCheck].
+final releaseCheckProvider = Provider<ReleaseCheck?>((ref) => null);
+
+ReleaseCheck fileReleaseCheck(Ref ref) => ReleaseCheck(
+  lookups: ref.watch(lookupServiceProvider),
+  store: FileCheckDayStore(_cacheFile(ref, 'release_check.json')),
+);
+
+/// The daily check of the series the owner follows, for the parts still to
+/// come (Library › Home: Coming soon), or null for none; off by default
+/// like [seasonCheckProvider]. `main` turns on [fileSeriesCheck].
+final seriesCheckProvider = Provider<SeriesCheck?>((ref) => null);
+
+SeriesCheck fileSeriesCheck(Ref ref) => SeriesCheck(
+  series: ref.watch(seriesServiceProvider),
+  store: FileCheckDayStore(_cacheFile(ref, 'series_check.json')),
+  upcoming: FileUpcomingPartsStore(_cacheFile(ref, 'upcoming_parts.json')),
+);
+
+/// The parts of followed series still to come, as the last series check
+/// recorded them (Library › Home: Coming soon); empty without a check. The
+/// shell invalidates it after each run.
+final upcomingPartsProvider = FutureProvider<List<UpcomingPart>>(
+  (ref) => ref.watch(seriesCheckProvider)?.upcoming.read() ?? Future.value([]),
 );
 
 /// Album track lists (Music › Album with track ratings), stored under the app

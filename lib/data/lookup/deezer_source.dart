@@ -201,6 +201,14 @@ class DeezerSource extends HttpLookupSource implements MusicSource {
     );
   }
 
+  /// The album's release date as Deezer has it now (a song's album's), for
+  /// the daily check of music not out yet.
+  @override
+  Future<Released?> releaseDate(String source) async {
+    final album = await _albumOf(source);
+    return album == null ? null : _released(album);
+  }
+
   @override
   Future<String?> coverUrl(String source, {required MediaType type}) async {
     final album = await _albumOf(source);

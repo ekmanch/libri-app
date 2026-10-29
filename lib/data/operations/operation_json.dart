@@ -10,6 +10,7 @@ Map<String, Object?> encodeOperation(LibraryOperation operation) {
   final (name, json) = switch (operation) {
     SetStatus() => ('setStatus', operation.toJson()),
     SetRating() => ('setRating', operation.toJson()),
+    SetReleased() => ('setReleased', operation.toJson()),
     SetKind() => ('setKind', operation.toJson()),
     SetSeriesCover() => ('setSeriesCover', operation.toJson()),
     AddEntry() => ('addEntry', operation.toJson()),
@@ -49,6 +50,7 @@ LibraryOperation decodeOperation(Map<String, Object?> json) {
   return switch (json['op']) {
     'setStatus' => SetStatus.fromJson(json),
     'setRating' => SetRating.fromJson(json),
+    'setReleased' => SetReleased.fromJson(json),
     'setKind' => SetKind.fromJson(json),
     'setSeriesCover' => SetSeriesCover.fromJson(json),
     'addEntry' => AddEntry.fromJson(json),

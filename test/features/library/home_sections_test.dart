@@ -1,11 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/series.dart';
+import 'package:library_app/features/entry/series.dart';
 import 'package:library_app/features/library/home_sections.dart';
+import 'package:library_app/features/settings/display_preferences.dart';
 
 void main() {
   final today = DateTime(2026, 10, 28);
@@ -115,7 +119,7 @@ void main() {
           HomeSectionKind.comingSoon,
         )!;
         expect(soon.total, 6);
-        expect(soon.rows.map((r) => r.entry.id), [
+        expect(soon.rows.map((r) => r.id), [
           'book',
           'movie',
           'soon-show',
@@ -212,7 +216,7 @@ void main() {
         HomeSectionKind.inProgress,
       )!;
       expect(going.total, 3);
-      expect(going.rows.map((r) => r.entry.id), ['a', 'c', 'b']);
+      expect(going.rows.map((r) => r.id), ['a', 'c', 'b']);
       expect(going.rows.map((r) => r.subtitle), [
         'Book · 1969',
         'Show · Season 2',
@@ -225,7 +229,7 @@ void main() {
         homeSections(entries, today: today),
         HomeSectionKind.inProgress,
       )!;
-      expect(byAdded.rows.map((r) => r.entry.id), ['c', 'b', 'a']);
+      expect(byAdded.rows.map((r) => r.id), ['c', 'b', 'a']);
     });
 
     test('a show with Done and Want seasons names the next to watch', () {
@@ -266,7 +270,7 @@ void main() {
       )!;
       expect(going.rows.length, HomeSection.limit);
       expect(going.total, 12);
-      expect(going.rows.first.entry.id, 'e11');
+      expect(going.rows.first.id, 'e11');
     });
   });
 
@@ -327,7 +331,7 @@ void main() {
         HomeSectionKind.recentlyAdded,
       )!;
       expect(recent.total, 6);
-      expect(recent.rows.map((r) => r.entry.id), [
+      expect(recent.rows.map((r) => r.id), [
         'today',
         'yesterday',
         'three',
@@ -375,5 +379,155 @@ void main() {
     ];
     expect(homeSections(entries, today: today), isEmpty);
     expect(homeSections(const [], today: today), isEmpty);
+  });
+
+  group('Coming soon: parts of followed series', () {
+    final fellowship = entry(
+      'movies/fellowship',
+      MediaType.movies,
+      title: 'The Lord of the Rings: The Fellowship of the Ring',
+      released: const Released(2001),
+      status: EntryStatus.done,
+    ).copyWith(series: const Series(name: 'The Lord of the Rings', number: 1));
+    final towers = fellowship.copyWith(
+      id: 'movies/towers',
+      title: 'The Lord of the Rings: The Two Towers',
+      status: EntryStatus.want,
+      series: const Series(name: 'The Lord of the Rings', number: 2),
+    );
+    const gollum = UpcomingPart(
+      type: MediaType.movies,
+      seriesName: 'The Lord of the Rings',
+      entryId: 'movies/fellowship',
+      title: 'The Lord of the Rings: The Hunt for Gollum',
+      released: Released(2027, 12, 17),
+      number: 4,
+      source: 'tmdb:movie:1',
+    );
+    const prefs = DisplayPreferences();
+
+    test(
+      'a part is a row titled without the series name, dated like an entry',
+      () {
+        final game = entry(
+          'game',
+          MediaType.games,
+          title: 'GTA VI',
+          released: const Released(2027, 12, 18),
+        );
+        final sections = homeSections(
+          [fellowship, towers, game],
+          today: today,
+          upcoming: const [gollum],
+        );
+        final soon = section(sections, HomeSectionKind.comingSoon)!;
+        expect(soon.rows.map((r) => r.title), [
+          'The Hunt for Gollum',
+          'GTA VI',
+        ]);
+        final row = soon.rows.first;
+        expect(row.entry, isNull);
+        expect(row.part, gollum);
+        expect(row.type, MediaType.movies);
+        expect(row.subtitle, 'Movie · The Lord of the Rings');
+        expect(row.right, 'Dec 17, 2027');
+        expect(row.emphasized, isTrue);
+        expect(row.id, 'part:tmdb:movie:1');
+        // A part that has come out is left out.
+        final later = homeSections(
+          [fellowship],
+          today: DateTime(2027, 12, 17),
+          upcoming: const [gollum],
+        );
+        expect(section(later, HomeSectionKind.comingSoon), isNull);
+      },
+    );
+
+    test('upcomingPartsToShow drops unfollowed, owned and hidden parts', () {
+      // Followed and not in the library: shown.
+      expect(
+        upcomingPartsToShow(
+          const [gollum],
+          library: [fellowship, towers],
+          prefs: prefs,
+        ),
+        [gollum],
+      );
+      // No part Done or In progress: not followed.
+      expect(
+        upcomingPartsToShow(const [gollum], library: [towers], prefs: prefs),
+        isEmpty,
+      );
+      // Added since, by id or by title: in the library.
+      final byId = towers.copyWith(id: 'movies/gollum', source: 'tmdb:movie:1');
+      expect(
+        upcomingPartsToShow(
+          const [gollum],
+          library: [fellowship, byId],
+          prefs: prefs,
+        ),
+        isEmpty,
+      );
+      final byTitle = towers.copyWith(
+        id: 'movies/gollum',
+        title: 'The Lord of the Rings: The Hunt for Gollum',
+        series: const Series(name: 'The Lord of the Rings', number: null),
+      );
+      expect(
+        upcomingPartsToShow(
+          const [gollum],
+          library: [fellowship, byTitle],
+          prefs: prefs,
+        ),
+        isEmpty,
+      );
+      // Hidden in Choose what to show, or an extra not shown.
+      final key = seriesKey(MediaType.movies, 'The Lord of the Rings');
+      expect(
+        upcomingPartsToShow(
+          const [gollum],
+          library: [fellowship],
+          prefs: DisplayPreferences(
+            hiddenSeriesParts: {
+              key: {'tmdb:movie:1'},
+            },
+          ),
+        ),
+        isEmpty,
+      );
+      const extra = UpcomingPart(
+        type: MediaType.movies,
+        seriesName: 'The Lord of the Rings',
+        entryId: 'movies/fellowship',
+        title: 'Appendices',
+        released: Released(2027),
+        extra: true,
+      );
+      expect(
+        upcomingPartsToShow(const [extra], library: [fellowship], prefs: prefs),
+        isEmpty,
+      );
+      expect(
+        upcomingPartsToShow(
+          const [extra],
+          library: [fellowship],
+          prefs: DisplayPreferences(
+            shownSeriesParts: {
+              key: {extra.partKey},
+            },
+          ),
+        ),
+        [extra],
+      );
+      // The same part twice is one row.
+      expect(
+        upcomingPartsToShow(
+          const [gollum, gollum],
+          library: [fellowship],
+          prefs: prefs,
+        ),
+        [gollum],
+      );
+    });
   });
 }

@@ -359,11 +359,15 @@ class IgdbSource extends HttpLookupSource {
 
   /// The game's first release on the platform [platformId], as precise as
   /// IGDB has it (a year-only date sits on December 31, so its format
-  /// says what is known); null when it lists none there.
-  static Released? _releasedOn(Map<String, Object?> game, int platformId) {
+  /// says what is known); null when it lists none there. With no platform
+  /// given, its first release anywhere.
+  static Released? _releasedOn(Map<String, Object?> game, int? platformId) {
     Map<String, Object?>? first;
     for (final r in objectsAt(game, 'release_dates')) {
-      if (r['platform'] != platformId || r['date'] is! num) continue;
+      if ((platformId != null && r['platform'] != platformId) ||
+          r['date'] is! num) {
+        continue;
+      }
       if (first == null || (r['date']! as num) < (first['date']! as num)) {
         first = r;
       }
@@ -377,6 +381,31 @@ class IgdbSource extends HttpLookupSource {
       0 => Released(date.year, date.month, date.day),
       1 => Released(date.year, date.month),
       _ => Released(date.year),
+    };
+  }
+
+  /// A unix time as the full date it falls on, in UTC.
+  static Released _dayOf(int epoch) {
+    final date = DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true);
+    return Released(date.year, date.month, date.day);
+  }
+
+  /// The game's first release as IGDB has it now, for the daily check of
+  /// games not out yet: its earliest dated release with that release's
+  /// precision (a game "coming in 2027" stays a year), else its
+  /// `first_release_date` as a full date; null when IGDB has no date.
+  @override
+  Future<Released?> releaseDate(String source) async {
+    final games = await _games(
+      'fields first_release_date,release_dates.date,'
+      'release_dates.date_format; where id = ${_parse(source)}; limit 1;',
+    );
+    final game = games.firstOrNull;
+    if (game == null) return null;
+    if (_releasedOn(game, null) case final released?) return released;
+    return switch (game['first_release_date']) {
+      final num epoch => _dayOf(epoch.toInt()),
+      _ => null,
     };
   }
 
@@ -518,12 +547,8 @@ class IgdbSource extends HttpLookupSource {
           (
             number: i + 1,
             title: p.title,
-            year: p.date == null
-                ? null
-                : DateTime.fromMillisecondsSinceEpoch(
-                    p.date! * 1000,
-                    isUtc: true,
-                  ).year,
+            year: p.date == null ? null : _dayOf(p.date!).year,
+            released: p.date == null ? null : _dayOf(p.date!),
             source: 'igdb:${p.id}',
             creator: null,
             extra: false,

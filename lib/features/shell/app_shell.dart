@@ -120,17 +120,46 @@ class _AppShellState extends ConsumerState<AppShell> {
       (_, _) => unawaited(_warnAboutToken()),
       fireImmediately: true,
     );
-    // New seasons of the shows being watched, once a day: when the
-    // library first loads and when the app comes back to the foreground.
+    // The daily checks (new seasons of the shows being watched, the dates
+    // of entries not out yet, the parts still to come of the series being
+    // followed), once a day: when the library first loads and when the
+    // app comes back to the foreground.
     ref.listenManual(libraryProvider.select((l) => l.hasValue), (_, loaded) {
-      if (loaded) unawaited(_checkSeasons());
+      if (loaded) unawaited(_runDailyChecks());
     }, fireImmediately: true);
     _lifecycle = AppLifecycleListener(
       onResume: () {
         unawaited(_warnAboutToken());
-        unawaited(_checkSeasons());
+        unawaited(_runDailyChecks());
       },
     );
+  }
+
+  /// Runs the daily checks that are due: the season check, then the release
+  /// date check (Library › Home: Coming soon), then the series check, whose
+  /// record the home reads again.
+  Future<void> _runDailyChecks() async {
+    await _checkSeasons();
+    if (!mounted) return;
+    final now = DateTime.now();
+    final releases = ref.read(releaseCheckProvider);
+    final library = ref.read(libraryProvider).value;
+    if (releases != null && library != null) {
+      final operations = await releases.run(library, now);
+      if (!mounted) return;
+      final repository = ref.read(libraryRepositoryProvider);
+      for (final operation in operations) {
+        await repository.apply(operation);
+      }
+    }
+    if (!mounted) return;
+    final series = ref.read(seriesCheckProvider);
+    final current = ref.read(libraryProvider).value;
+    if (series != null && current != null) {
+      if (await series.run(current, now) && mounted) {
+        ref.invalidate(upcomingPartsProvider);
+      }
+    }
   }
 
   /// Applies what the daily season check found, once a day, and asks

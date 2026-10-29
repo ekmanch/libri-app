@@ -326,7 +326,10 @@ void main() {
     expect([for (final s in saved.seasons!) s.season], [1, 2, 3]);
     expect(saved.seasons!.last.fresh, isTrue);
     expect(saved.hasNewSeasonOn(soon), isTrue);
-    expect(fake.calls, ['seasons:tmdb:tv:95396']);
+    // The series check runs after it, for the fixture's followed series.
+    expect(fake.calls.where((c) => c.startsWith('seasons:')), [
+      'seasons:tmdb:tv:95396',
+    ]);
   });
 
   testWidgets('a show from before seasons is moved into seasons on load', (

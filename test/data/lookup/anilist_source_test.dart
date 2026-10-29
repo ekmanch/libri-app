@@ -199,4 +199,19 @@ void main() {
     );
     expect(await failureOf([1, 2]), LookupFailure.other);
   });
+
+  test('releaseDate: the entry\'s start date as it is now', () async {
+    final anilist = source(
+      (_) async => json(200, {
+        'data': {
+          'Media': {
+            ...akira,
+            'startDate': {'year': 2027, 'month': 4, 'day': null},
+          },
+        },
+      }),
+    );
+    expect(await anilist.releaseDate('anilist:47'), const Released(2027, 4));
+    expect(sent.single.body, contains('"id":47'));
+  });
 }

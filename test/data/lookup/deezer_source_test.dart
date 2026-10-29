@@ -285,4 +285,21 @@ void main() {
       );
     },
   );
+
+  test('releaseDate: the album\'s date, also for a track', () async {
+    final deezer = source((request) async {
+      if (request.url.path == '/track/1016551') {
+        return json({...roosterTrack, 'release_date': '1992-09-29'});
+      }
+      return json({...dirtAlbum, 'release_date': '2027-02-05'});
+    });
+    expect(
+      await deezer.releaseDate('deezer:album:91627'),
+      const Released(2027, 2, 5),
+    );
+    expect(
+      await deezer.releaseDate('deezer:track:1016551'),
+      const Released(2027, 2, 5),
+    );
+  });
 }

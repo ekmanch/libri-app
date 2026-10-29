@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../data/lookup/series_check.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
+import '../../data/models/media_type.dart';
 import '../../data/models/released.dart';
 import '../../data/models/season.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/row_ink_well.dart';
+import '../entry/series.dart';
 import '../plans/plan_dates.dart';
+import '../settings/display_preferences.dart';
 import 'library_sort.dart';
 
 /// The three sections of the library home on All (Library › Home), each
@@ -28,26 +32,48 @@ enum HomeSectionKind {
   final String title;
 }
 
-/// One row of a home section: the entry, the detail after its type ("Stephen
-/// King", "Season 2", "2024"), and what stands on the right ("Nov 10",
-/// "Today"), [emphasized] in the text color rather than the muted one.
+/// One row of a home section: an entry, or in Coming soon a part of a
+/// followed series that is not in the library yet ([part]); the detail
+/// after its type ("Stephen King", "Season 2", "2024", the series name),
+/// and what stands on the right ("Nov 10", "Today"), [emphasized] in the
+/// text color rather than the muted one.
 @immutable
 class HomeRowData {
-  const HomeRowData(
-    this.entry, {
+  HomeRowData(
+    Entry this.entry, {
     this.detail,
     this.right = '',
     this.emphasized = false,
-  });
+  }) : part = null,
+       title = entry.title;
 
-  final Entry entry;
+  /// A part still to come of a series the owner follows (Library › Home:
+  /// Coming soon), titled without the series name in front, as the Series
+  /// section lists parts.
+  HomeRowData.part(
+    UpcomingPart this.part, {
+    this.detail,
+    this.right = '',
+    this.emphasized = false,
+  }) : entry = null,
+       title = seriesPartTitle(part.title, seriesDisplayName(part.seriesName));
+
+  final Entry? entry;
+  final UpcomingPart? part;
+  final String title;
   final String? detail;
   final String right;
   final bool emphasized;
 
+  MediaType get type => entry?.type ?? part!.type;
+
+  /// What tells the row apart in its section: the entry's id, or the part's
+  /// key.
+  String get id => entry?.id ?? 'part:${part!.partKey}';
+
   /// "Book · Stephen King", or just "Book".
   String get subtitle =>
-      [entry.type.singular, ?detail].where((s) => s.isNotEmpty).join(' · ');
+      [type.singular, ?detail].where((s) => s.isNotEmpty).join(' · ');
 }
 
 /// A home section with its rows, at most [limit] of [total].
@@ -71,15 +97,18 @@ class HomeSection {
 /// The home's sections for [entries] (seasonal-only ones already left out by
 /// the filter), skipping the empty ones. [changes] says when an entry last
 /// changed on this phone ([RecentChanges]); an entry without a record counts
-/// from the day it was added.
+/// from the day it was added. [upcoming] are the parts of followed series
+/// still to come that Coming soon lists beside the entries, already sifted
+/// by [upcomingPartsToShow].
 List<HomeSection> homeSections(
   Iterable<Entry> entries, {
   required DateTime today,
   Map<String, DateTime> changes = const {},
+  List<UpcomingPart> upcoming = const [],
 }) {
   final list = entries.toList();
   final sections = [
-    _comingSoon(list, today),
+    _comingSoon(list, upcoming, today),
     _inProgress(list, changes),
     _recentlyAdded(list, today),
   ];
@@ -112,11 +141,67 @@ List<HomeSection> homeSections(
   return (released: released, season: null);
 }
 
+/// The parts the daily series check recorded ([SeriesCheck]) that the home
+/// shows in Coming soon: of a series still followed (a part of it in
+/// [library] Done or In progress), not in the library by now (matched to
+/// the library's entries as the Series section matches them), not hidden
+/// by the owner in Choose what to show ([prefs]), and not an extra of the
+/// automatic rules the owner has not shown.
+List<UpcomingPart> upcomingPartsToShow(
+  List<UpcomingPart> parts, {
+  required Iterable<Entry> library,
+  required DisplayPreferences prefs,
+}) {
+  final entries = library.toList();
+  final shown = <UpcomingPart>[];
+  final seen = <String>{};
+  for (final part in parts) {
+    final owned = entriesInSeries(entries, part.type, part.seriesName);
+    if (!SeriesCheck.isFollowed(owned)) continue;
+    final key = '${part.type.name}/${part.seriesName}/${part.partKey}';
+    if (!seen.add(key)) continue;
+    final choices = seriesPartChoices(
+      prefs,
+      seriesKey(part.type, part.seriesName),
+    );
+    if (choices.hidden.contains(part.partKey) ||
+        (part.extra && !choices.shown.contains(part.partKey))) {
+      continue;
+    }
+    final rows = seriesRows(
+      current: owned.first,
+      library: entries,
+      parts: (
+        name: part.seriesName,
+        parts: [
+          (
+            number: part.number,
+            title: part.title,
+            year: part.released.year,
+            released: part.released,
+            source: part.source,
+            creator: null,
+            extra: part.extra,
+          ),
+        ],
+      ),
+    );
+    final row = rows.where((r) => r.partKey == part.partKey).firstOrNull;
+    if (row == null || row.owned) continue;
+    shown.add(part);
+  }
+  return shown;
+}
+
 /// Exact dates sort first, then month-only, then year-only dates; the
 /// nearest first within each.
 int _precision(Released r) => r.day != null ? 0 : (r.month != null ? 1 : 2);
 
-HomeSection _comingSoon(List<Entry> entries, DateTime today) {
+HomeSection _comingSoon(
+  List<Entry> entries,
+  List<UpcomingPart> parts,
+  DateTime today,
+) {
   final rows = <(Released, HomeRowData)>[];
   for (final entry in entries) {
     final upcoming = upcomingRelease(entry, today);
@@ -132,11 +217,24 @@ HomeSection _comingSoon(List<Entry> entries, DateTime today) {
       ),
     ));
   }
+  // A part of a followed series not in the library yet: "Movie · Dune".
+  for (final part in parts) {
+    if (part.released.isReleasedOn(today)) continue;
+    rows.add((
+      part.released,
+      HomeRowData.part(
+        part,
+        detail: seriesDisplayName(part.seriesName),
+        right: comingSoonLabel(part.released, today: today),
+        emphasized: part.released.day != null,
+      ),
+    ));
+  }
   rows.sort((a, b) {
     final c = _precision(a.$1).compareTo(_precision(b.$1));
     if (c != 0) return c;
     final d = a.$1.availableFrom.compareTo(b.$1.availableFrom);
-    return d != 0 ? d : compareTitles(a.$2.entry.title, b.$2.entry.title);
+    return d != 0 ? d : compareTitles(a.$2.title, b.$2.title);
   });
   return HomeSection(HomeSectionKind.comingSoon, [
     for (final (_, row) in rows.take(HomeSection.limit)) row,
@@ -274,7 +372,7 @@ class HomeRow extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    row.entry.title,
+                    row.title,
                     style: theme.textTheme.titleMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -287,7 +385,7 @@ class HomeRow extends StatelessWidget {
                         height: 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: colors.forType(row.entry.type),
+                          color: colors.forType(row.type),
                         ),
                       ),
                       const SizedBox(width: 6),

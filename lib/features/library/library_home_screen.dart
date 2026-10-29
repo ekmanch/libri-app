@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/lookup/lookup_providers.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
@@ -346,10 +347,18 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   ) {
     final plan = activePlan(library);
     final visible = filter.apply(library.entries);
+    // The parts still to come of the series being followed, as the daily
+    // check recorded them, less those in the library by now or hidden.
+    final upcoming = upcomingPartsToShow(
+      ref.watch(upcomingPartsProvider).value ?? const [],
+      library: library.entries,
+      prefs: ref.watch(displayPreferencesProvider),
+    );
     final sections = homeSections(
       visible,
       today: seasonClock(),
       changes: ref.watch(recentChangesProvider),
+      upcoming: upcoming,
     );
     final rows = <Widget>[];
     for (final section in sections) {
@@ -371,8 +380,13 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         rows.add(
           HomeRow(
             row,
-            key: ValueKey('home-${section.kind.name}-${row.entry.id}'),
-            onTap: () => widget.onOpenEntry?.call(row.entry),
+            key: ValueKey('home-${section.kind.name}-${row.id}'),
+            // A part not in the library opens its series page, where "+ Add"
+            // looks it up (Library › Series page (from a series row)).
+            onTap: () => switch (row.entry) {
+              final entry? => widget.onOpenEntry?.call(entry),
+              null => openSeriesPage(context, row.part!.entryId),
+            },
           ),
         );
       }

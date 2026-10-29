@@ -7,6 +7,7 @@ import '../models/entry_kind.dart';
 import '../models/entry_status.dart';
 import '../models/library.dart';
 import '../models/media_type.dart';
+import '../models/released.dart';
 import '../models/season.dart';
 import '../models/tag_category.dart';
 import '../models/track.dart';
@@ -197,6 +198,36 @@ class SetKind extends LibraryOperation {
     };
     return 'Mark ${_title(before, entryId)} as $word';
   }
+}
+
+/// Sets an entry's release date to what the lookup has now, from the daily
+/// check of entries not out yet (Library › Home: Coming soon). A show or an
+/// anime series has no date of its own (its seasons carry them, and
+/// [SetSeasonDates] keeps those), so on one nothing changes.
+@JsonSerializable()
+class SetReleased extends LibraryOperation {
+  const SetReleased(this.entryId, this.released);
+
+  factory SetReleased.fromJson(Map<String, Object?> json) =>
+      _$SetReleasedFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetReleasedToJson(this);
+
+  final String entryId;
+
+  @ReleasedConverter()
+  final Released released;
+
+  @override
+  Library apply(Library library) {
+    final entry = library.entryById(entryId);
+    if (entry == null || entry.usesSeasons) return library;
+    return _replaceEntry(library, entry.copyWith(released: released));
+  }
+
+  @override
+  String summary(Library before) =>
+      'Update the release date of ${_title(before, entryId)}';
 }
 
 @JsonSerializable()

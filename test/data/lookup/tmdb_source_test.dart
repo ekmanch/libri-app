@@ -562,4 +562,55 @@ void main() {
       expect(await tmdb.seriesParts('tmdb:tv:100088'), isNull);
     });
   });
+
+  group('releaseDate', () {
+    test('a movie\'s date as TMDB has it now; a show has none', () async {
+      final tmdb = source(
+        (_) async => json(200, {'id': 120, 'release_date': '2027-12-17'}),
+      );
+      expect(
+        await tmdb.releaseDate('tmdb:movie:120'),
+        const Released(2027, 12, 17),
+      );
+      expect(sent.single.url.path, '/3/movie/120');
+      expect(await tmdb.releaseDate('tmdb:tv:100088'), isNull);
+      expect(sent, hasLength(1));
+    });
+
+    test('an empty date is nothing learned', () async {
+      final tmdb = source(
+        (_) async => json(200, {'id': 120, 'release_date': ''}),
+      );
+      expect(await tmdb.releaseDate('tmdb:movie:120'), isNull);
+    });
+
+    test('collection parts carry their full date', () async {
+      final tmdb = source((request) async {
+        if (request.url.path == '/3/collection/119') {
+          return json(200, {
+            'id': 119,
+            'name': 'The Lord of the Rings Collection',
+            'parts': [
+              {'id': 120, 'title': 'Fellowship', 'release_date': '2001-12-18'},
+              {'id': 1, 'title': 'Gollum', 'release_date': '2027-12-17'},
+              {'id': 2, 'title': 'Untitled', 'release_date': ''},
+            ],
+          });
+        }
+        return json(200, {
+          'id': 120,
+          'belongs_to_collection': {
+            'id': 119,
+            'name': 'The Lord of the Rings Collection',
+          },
+        });
+      });
+      final parts = await tmdb.seriesParts('tmdb:movie:120');
+      expect(parts!.parts.map((p) => p.released), [
+        const Released(2001, 12, 18),
+        const Released(2027, 12, 17),
+        null,
+      ]);
+    });
+  });
 }

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/models/entry.dart';
+import 'package:library_app/data/models/released.dart';
+import 'package:library_app/dev/fake_lookup_overrides.dart';
+import 'package:library_app/features/entry/series.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -96,15 +100,15 @@ void main() {
       expect(find.text('See all ${going.total}'), findsOneWidget);
       final rows = tester.widgetList<HomeRow>(find.byType(HomeRow)).toList();
       // Coming soon: GTA VI's exact date before The Batman Part II's month.
-      expect(rows[0].row.entry.title, 'Grand Theft Auto VI');
+      expect(rows[0].row.title, 'Grand Theft Auto VI');
       expect(rows[0].row.right, 'Nov 19');
-      expect(rows[1].row.entry.title, 'The Batman Part II');
+      expect(rows[1].row.title, 'The Batman Part II');
       expect(rows[1].row.right, 'Oct 2027');
       expect(find.text('Game · Rockstar Games'), findsOneWidget);
       // In progress: newest added first with nothing changed on this phone.
       expect(
-        rows.skip(2).take(going.rows.length).map((r) => r.row.entry.id),
-        going.rows.map((r) => r.entry.id),
+        rows.skip(2).take(going.rows.length).map((r) => r.row.id),
+        going.rows.map((r) => r.id),
       );
       expect(find.text('Show · Season 2'), findsOneWidget);
       // Recently added: the newest in the fixture, added six days before, and
@@ -119,9 +123,7 @@ void main() {
       expect(find.text('RECENTLY ADDED'), findsOneWidget);
       expect(find.text('6 days ago'), findsOneWidget);
       expect(
-        find.byKey(
-          ValueKey('home-recentlyAdded-${recent.rows.first.entry.id}'),
-        ),
+        find.byKey(ValueKey('home-recentlyAdded-${recent.rows.first.id}')),
         findsOneWidget,
       );
     },
@@ -1154,4 +1156,52 @@ void main() {
       expect(find.byKey(EntryListBody.railKey), findsNothing);
     });
   });
+
+  testWidgets(
+    'Coming soon lists a part of a followed series not in the library, and opens its series page',
+    (tester) async {
+      fixHomeDay();
+      const gollum = UpcomingPart(
+        type: MediaType.movies,
+        seriesName: 'The Lord of the Rings',
+        entryId: 'movies/the-lord-of-the-rings-the-fellowship-of-the-ring-2001',
+        title: 'The Lord of the Rings: The Hunt for Gollum',
+        released: Released(2027, 12, 17),
+        number: 4,
+        source: 'fake:the-lord-of-the-rings-the-hunt-for-gollum',
+      );
+      await pumpApp(
+        tester,
+        const LibraryHomeScreen(),
+        lookupOverrides: fakeLookupOverrides(
+          upcomingParts: MemoryUpcomingPartsStore(const [gollum]),
+        ),
+      );
+      final row = find.byKey(
+        const ValueKey(
+          'home-comingSoon-part:fake:the-lord-of-the-rings-the-hunt-for-gollum',
+        ),
+      );
+      expect(row, findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.text('The Hunt for Gollum')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text('Movie · The Lord of the Rings'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('Dec 17, 2027')),
+        findsOneWidget,
+      );
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(find.byType(AllSeriesScreen), findsOneWidget);
+      expect(find.text('4 movies · 2 in your library'), findsOneWidget);
+    },
+  );
 }

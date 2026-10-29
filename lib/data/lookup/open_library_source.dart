@@ -606,6 +606,22 @@ class OpenLibrarySource extends HttpLookupSource {
         : Series(name: volume.name, number: volume.number);
   }
 
+  /// The book's date as its own source has it now, for the daily check of
+  /// books not out yet: Open Library's first publication year for a work,
+  /// Apple's release date for an ebook, Google's for a volume.
+  @override
+  Future<Released?> releaseDate(String source) async {
+    final LookupMatch? book;
+    if (_isApple(source)) {
+      book = await _apple.book(source);
+    } else if (_isGoogle(source)) {
+      book = await _google.volume(source);
+    } else {
+      book = await _byKey(source);
+    }
+    return book?.released;
+  }
+
   /// A book's series with its parts: Wikidata's for the book's title and
   /// author, else the volumes of the manga the title (or [name], the
   /// series the entry carries) names, read from Open Library by that name
@@ -649,6 +665,7 @@ class OpenLibrarySource extends HttpLookupSource {
           number: volume.number,
           title: hit.title,
           year: year,
+          released: hit.released,
           source: hit.source,
           creator: null,
           extra: false,
@@ -658,6 +675,7 @@ class OpenLibrarySource extends HttpLookupSource {
           number: volume.number,
           title: known.title,
           year: year,
+          released: hit.released,
           source: known.source,
           creator: null,
           extra: false,

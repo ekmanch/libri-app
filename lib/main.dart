@@ -92,6 +92,8 @@ Future<Widget> bootstrap(
       if (api != null) gitHubApiFactoryProvider.overrideWithValue(api),
       artworkPrunerProvider.overrideWith(startArtworkPruner),
       seasonCheckProvider.overrideWith(fileSeasonCheck),
+      releaseCheckProvider.overrideWith(fileReleaseCheck),
+      seriesCheckProvider.overrideWith(fileSeriesCheck),
       if (longListsEnabled)
         libraryRepositoryProvider.overrideWithValue(
           FixtureLibraryRepository(loadJson: _loadPaddedFixture),

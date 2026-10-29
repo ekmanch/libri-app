@@ -46,6 +46,17 @@ const _$EntryKindEnumMap = {
   EntryKind.movie: 'movie',
 };
 
+SetReleased _$SetReleasedFromJson(Map<String, dynamic> json) => SetReleased(
+  json['entryId'] as String,
+  const ReleasedConverter().fromJson(json['released'] as String),
+);
+
+Map<String, dynamic> _$SetReleasedToJson(SetReleased instance) =>
+    <String, dynamic>{
+      'entryId': instance.entryId,
+      'released': const ReleasedConverter().toJson(instance.released),
+    };
+
 SetRating _$SetRatingFromJson(Map<String, dynamic> json) =>
     SetRating(json['entryId'] as String, (json['rating'] as num?)?.toInt());
 

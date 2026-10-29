@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../models/released.dart';
 import '../storage/atomic_file.dart';
 import 'lookup_source.dart';
 
@@ -61,10 +62,12 @@ class FileSeriesStore implements SeriesStore {
 
   static const _encoder = JsonEncoder.withIndent('  ');
 
-  /// 3 since 2026-10-24: Wikidata's parts carry their authors, and the
-  /// ones the automatic rules count as extras are kept and marked `extra`
-  /// (version 2 dropped them, and version 1 had no rules at all).
-  static const version = 3;
+  /// 4 since 2026-10-29: the parts carry their release date, for the
+  /// home's Coming soon. 3 (2026-10-24): Wikidata's parts carry their
+  /// authors, and the ones the automatic rules count as extras are kept
+  /// and marked `extra` (version 2 dropped them, and version 1 had no
+  /// rules at all).
+  static const version = 4;
 
   Directory get _series =>
       Directory('${directory.path}${Platform.pathSeparator}series');
@@ -103,6 +106,10 @@ class FileSeriesStore implements SeriesStore {
                   number: item['number'] as int?,
                   title: item['title'] as String,
                   year: item['year'] as int?,
+                  released: switch (item['released']) {
+                    final String text => Released.tryParse(text),
+                    _ => null,
+                  },
                   source: item['source'] as String?,
                   creator: item['creator'] as String?,
                   extra: item['extra'] == true,
@@ -130,7 +137,7 @@ class FileSeriesStore implements SeriesStore {
       'asked': ?asked,
       'name': series.name,
       'parts': [
-        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'source': p.source, 'creator': ?p.creator, if (p.extra) 'extra': true},
+        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'released': ?p.released?.toString(), 'source': p.source, 'creator': ?p.creator, if (p.extra) 'extra': true},
       ],
     })}\n',
   );

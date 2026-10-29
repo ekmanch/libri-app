@@ -116,6 +116,7 @@ void main() {
           number: 1,
           title: 'The Fellowship of the Ring',
           year: 2001,
+          released: null,
           source: 'tmdb:movie:120',
           creator: null,
           extra: false,
@@ -124,6 +125,7 @@ void main() {
           number: 2,
           title: 'The Two Towers',
           year: 2002,
+          released: null,
           source: 'tmdb:movie:121',
           creator: null,
           extra: false,
@@ -132,6 +134,7 @@ void main() {
           number: 3,
           title: 'The Return of the King',
           year: 2003,
+          released: null,
           source: 'tmdb:movie:122',
           creator: null,
           extra: false,
@@ -170,6 +173,7 @@ void main() {
             number: 1,
             title: 'Tomb Raider',
             year: 1996,
+            released: null,
             source: 'igdb:912',
             creator: null,
             extra: false,
@@ -178,6 +182,7 @@ void main() {
             number: 2,
             title: 'Tomb Raider II',
             year: 1997,
+            released: null,
             source: 'igdb:1',
             creator: null,
             extra: false,
@@ -186,6 +191,7 @@ void main() {
             number: 3,
             title: 'Legend',
             year: 2006,
+            released: null,
             source: 'igdb:2',
             creator: null,
             extra: false,
@@ -194,6 +200,7 @@ void main() {
             number: 4,
             title: 'Tomb Raider',
             year: 2013,
+            released: null,
             source: 'igdb:1164',
             creator: null,
             extra: false,
@@ -202,6 +209,7 @@ void main() {
             number: 5,
             title: 'Rise of the Tomb Raider',
             year: 2015,
+            released: null,
             source: 'igdb:7323',
             creator: null,
             extra: false,
@@ -248,6 +256,7 @@ void main() {
             number: 1,
             title: 'Tomb Raider',
             year: 1996,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -256,6 +265,7 @@ void main() {
             number: 2,
             title: 'Tomb Raider',
             year: 2013,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -279,6 +289,7 @@ void main() {
             number: 16,
             title: 'Berserk #16-20',
             year: 2007,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -287,6 +298,7 @@ void main() {
             number: 17,
             title: 'Berserk Volume 17',
             year: 2007,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -315,6 +327,7 @@ void main() {
             number: 6,
             title: 'Whirlwind',
             year: 1986,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -323,6 +336,7 @@ void main() {
             number: null,
             title: 'King Rat',
             year: 1962,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -331,6 +345,7 @@ void main() {
             number: null,
             title: 'Tai-Pan',
             year: 1966,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -339,6 +354,7 @@ void main() {
             number: null,
             title: 'Shōgun',
             year: 1975,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -347,6 +363,7 @@ void main() {
             number: 2,
             title: 'Noble House',
             year: 1981,
+            released: null,
             source: null,
             creator: null,
             extra: false,
@@ -448,7 +465,7 @@ void main() {
     await open(tester, _fellowship);
     await toSeries(tester);
     expect(find.text('SERIES'), findsOneWidget);
-    expect(find.text('2 of 3 in your library'), findsOneWidget);
+    expect(find.text('2 of 4 in your library'), findsOneWidget);
     expect(find.text('The Lord of the Rings'), findsOneWidget);
     expect(find.text('The Fellowship of the Ring'), findsOneWidget);
     expect(find.text('This one'), findsOneWidget);
@@ -569,7 +586,7 @@ void main() {
       await openPage(tester);
       expect(find.byType(AllSeriesScreen), findsOneWidget);
       expect(find.text('The Lord of the Rings'), findsOneWidget);
-      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('4 movies · 2 in your library'), findsOneWidget);
       expect(find.text('This one'), findsNothing);
       expect(
         find.bySemanticsLabel('Open The Fellowship of the Ring, done'),
@@ -614,7 +631,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(EntryDetailsSheet), findsNothing);
       expect(find.byType(AllSeriesScreen), findsOneWidget);
-      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('4 movies · 2 in your library'), findsOneWidget);
     });
 
     testWidgets('Cover picks the part whose cover stands for the series', (
@@ -673,7 +690,7 @@ void main() {
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      expect(find.text('3 movies · 1 in your library'), findsOneWidget);
+      expect(find.text('4 movies · 1 in your library'), findsOneWidget);
       await openMenu(tester);
       expect(find.text('Series cover'), findsNothing);
       expect(find.text('Choose what to show'), findsOneWidget);
@@ -698,7 +715,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Show in this series'), findsNothing);
-        expect(find.text('2 movies · 2 in your library'), findsOneWidget);
+        expect(find.text('3 movies · 2 in your library'), findsOneWidget);
         expect(
           find.bySemanticsLabel('Add The Return of the King'),
           findsNothing,
@@ -718,7 +735,7 @@ void main() {
           findsOneWidget,
         );
         // Still not counted while it shows.
-        expect(find.text('2 movies · 2 in your library'), findsOneWidget);
+        expect(find.text('3 movies · 2 in your library'), findsOneWidget);
         await tester.tap(find.widgetWithText(TextButton, 'Hide'));
         await tester.pumpAndSettle();
         expect(
@@ -734,7 +751,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(AppButton, 'Done'));
         await tester.pumpAndSettle();
-        expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+        expect(find.text('4 movies · 2 in your library'), findsOneWidget);
         expect(find.text('1 hidden part'), findsNothing);
         expect(
           container.read(displayPreferencesProvider).hiddenSeriesParts,
@@ -755,6 +772,7 @@ void main() {
             number: 1,
             title: 'The Lord of the Rings: The Fellowship of the Ring',
             year: 2001,
+            released: null,
             source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
             creator: null,
             extra: false,
@@ -763,6 +781,7 @@ void main() {
             number: 2,
             title: 'The Lord of the Rings: The Two Towers',
             year: 2002,
+            released: null,
             source: 'fake:the-lord-of-the-rings-the-two-towers',
             creator: null,
             extra: false,
@@ -771,6 +790,7 @@ void main() {
             number: null,
             title: 'The Appendices',
             year: 2003,
+            released: null,
             source: 'fake:appendices',
             creator: null,
             extra: true,
@@ -837,7 +857,7 @@ void main() {
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('4 movies · 2 in your library'), findsOneWidget);
       expect(find.text('Couldn’t update this series'), findsNothing);
 
       // A week on, the stored list is asked about again, and the lookup
@@ -849,7 +869,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('4 movies · 2 in your library'), findsOneWidget);
       expect(find.text('Couldn’t update this series'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(TextButton, 'Try again'));
@@ -860,7 +880,7 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, 'Try again'));
       await tester.pumpAndSettle();
       expect(find.text('Couldn’t update this series'), findsNothing);
-      expect(find.text('3 movies · 2 in your library'), findsOneWidget);
+      expect(find.text('4 movies · 2 in your library'), findsOneWidget);
     },
   );
 
@@ -910,6 +930,7 @@ void main() {
             number: 2,
             title: 'The Journey of the Nine Companions',
             year: null,
+            released: null,
             source: 'wikidata:Q2',
             creator: null,
             extra: true,
@@ -918,6 +939,7 @@ void main() {
             number: 2,
             title: 'The Lord of the Rings: The Two Towers',
             year: 2002,
+            released: null,
             source: 'wikidata:Q1',
             creator: null,
             extra: false,

@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 
 import '../net/http_transport.dart';
+import '../models/released.dart';
 import 'http_lookup_source.dart';
 import 'lookup_source.dart';
 import 'rate_limiter.dart';
@@ -188,8 +189,8 @@ LIMIT 5000''';
       final partTitle = _value(row, 'partLabel');
       if (part == null || partTitle == null) continue;
       final parts = partsOf.putIfAbsent(series, () => {});
-      final date = _value(row, 'date') ?? '';
-      final year = date.length >= 4 ? int.tryParse(date.substring(0, 4)) : null;
+      final released = _released(_value(row, 'date'));
+      final year = released?.year;
       final known = parts[part];
       final partOf = _item(row, 'partOf');
       final author = _value(row, 'partAuthorLabel');
@@ -198,6 +199,7 @@ LIMIT 5000''';
         title: partTitle,
         number: _ordinal(_value(row, 'partOrdinal')) ?? known?.number,
         year: _earliest(year, known?.year),
+        released: _earliestDate(released, known?.released),
         partOf: {...?known?.partOf, ?partOf},
         authors: [
           ...?known?.authors,
@@ -231,6 +233,7 @@ LIMIT 5000''';
                 number: p.number,
                 title: p.title,
                 year: p.year,
+                released: p.released,
                 source: 'wikidata:${p.id}',
                 creator: p.authors.isEmpty ? null : p.authors.join(', '),
                 extra: extras.contains(p.id),
@@ -274,6 +277,23 @@ LIMIT 5000''';
     return extras;
   }
 
+  /// A publication date as Wikidata's query gives it ("1954-07-29T00:00:00Z")
+  /// as a release: the full date, or the year alone when it falls on
+  /// January 1, since a date known to the year is written so.
+  static Released? _released(String? value) {
+    final date = value == null ? null : DateTime.tryParse(value);
+    if (date == null) return null;
+    return date.month == 1 && date.day == 1
+        ? Released(date.year)
+        : Released(date.year, date.month, date.day);
+  }
+
+  /// The earlier of two releases, either of which may be missing.
+  static Released? _earliestDate(Released? a, Released? b) {
+    if (a == null || b == null) return a ?? b;
+    return a.availableFrom.isBefore(b.availableFrom) ? a : b;
+  }
+
   static int? _earliest(int? a, int? b) =>
       a == null || b == null ? a ?? b : (a < b ? a : b);
 
@@ -290,6 +310,7 @@ typedef WikidataPart = ({
   String title,
   int? number,
   int? year,
+  Released? released,
   Set<String> partOf,
   List<String> authors,
 });

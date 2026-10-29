@@ -234,6 +234,7 @@ class TmdbSource extends HttpLookupSource {
             number: i + 1,
             title: p.title,
             year: p.released?.year,
+            released: p.released,
             source: 'tmdb:movie:${p.id}',
             creator: null,
             extra: false,
@@ -254,6 +255,17 @@ class TmdbSource extends HttpLookupSource {
     final (kind, id) = _parse(source);
     if (kind != 'movie') return null;
     return _collectionOf(await _get('movie/$id'));
+  }
+
+  /// A movie's release date as TMDB has it now (`/movie/{id}`), for the
+  /// daily check of movies not out yet; null for a show, whose seasons
+  /// carry the dates, and for a movie TMDB has no date for.
+  @override
+  Future<Released?> releaseDate(String source) async {
+    final (kind, id) = _parse(source);
+    if (kind != 'movie') return null;
+    final json = await _get('movie/$id');
+    return Released.tryParse(stringAt(json, 'release_date') ?? '');
   }
 
   /// A show's seasons with their air dates, and with none for a season not

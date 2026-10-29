@@ -372,6 +372,7 @@ void main() {
       title: id,
       number: number,
       year: year,
+      released: null,
       partOf: partOf,
       authors: const [],
     );

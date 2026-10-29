@@ -508,6 +508,16 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     ];
   }
 
+  /// The entry's start date as AniList has it now, for the daily check of
+  /// anime not out yet (an anime movie, or one whose kind is not known
+  /// yet; a series goes by its seasons).
+  @override
+  Future<Released?> releaseDate(String source) async {
+    final data = await _query(_byIdQuery, {'id': _parse(source)});
+    final media = data['Media'] as Map<String, Object?>?;
+    return media == null ? null : _date(media['startDate']);
+  }
+
   @override
   Future<String?> coverUrl(String source, {required MediaType type}) async {
     final data = await _query(_byIdQuery, {'id': _parse(source)});

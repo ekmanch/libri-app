@@ -1,5 +1,6 @@
 import '../models/entry_kind.dart';
 import '../models/media_type.dart';
+import '../models/released.dart';
 import '../models/season.dart';
 import 'episode_info.dart';
 import 'lookup_match.dart';
@@ -79,6 +80,13 @@ abstract class LookupSource {
   /// genres), fetched once when it is picked. Defaults to the match itself.
   Future<LookupMatch> details(LookupMatch match) async => match;
 
+  /// The release date of the title with [source] as the provider has it
+  /// now, for the daily check of entries not out yet (Library › Home:
+  /// Coming soon): as precise as the provider says, or null when it has no
+  /// date or cannot answer by id (a show, whose seasons carry the dates).
+  /// Null means nothing learned: the entry keeps its date.
+  Future<Released?> releaseDate(String source) async => null;
+
   /// The seasons of the show with [source], as in [LookupMatch.seasons],
   /// whether the show is canceled, and for an anime whether it is a series
   /// or a movie, for the daily check. Null from a source without shows.
@@ -129,7 +137,9 @@ abstract class LookupSource {
 typedef ShowSeasons = ({List<Season> seasons, bool canceled, EntryKind? kind});
 
 /// One part of a series as the lookup lists it: its number in the series
-/// (null when the source gives none), its title, its year and its lookup id
+/// (null when the source gives none), its title, its year, its release date
+/// as precise as the source has it (null when it has none; the year then
+/// stands alone, as in a list stored before dates were kept), its lookup id
 /// (so a part in the library is matched to it, and "+ Add" can look it up),
 /// its authors when the source names them (Wikidata does, so Choose what
 /// to show can say which parts someone else wrote), and whether the
@@ -139,10 +149,16 @@ typedef SeriesPart = ({
   int? number,
   String title,
   int? year,
+  Released? released,
   String? source,
   String? creator,
   bool extra,
 });
+
+/// A part's release as a date: its [SeriesPart.released], else its year
+/// alone (a list stored before dates were kept), else null.
+Released? seriesPartRelease(SeriesPart part) =>
+    part.released ?? (part.year == null ? null : Released(part.year!));
 
 /// A series: its name and its parts in the source's order.
 typedef SeriesParts = ({String name, List<SeriesPart> parts});

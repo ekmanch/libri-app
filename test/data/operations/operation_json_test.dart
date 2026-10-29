@@ -11,12 +11,14 @@ import 'package:library_app/data/operations/operations.dart';
 import '../../helpers/sample_library.dart';
 
 import 'package:library_app/data/models/entry_kind.dart';
+import 'package:library_app/data/models/released.dart';
 
 void main() {
   final all = <LibraryOperation>[
     SetStatus(mummy.id, EntryStatus.want),
     SetRating(mummy.id, 7),
     SetRating(mummy.id, null),
+    SetReleased(mummy.id, const Released(2027, 5, 26)),
     SetKind(dirt.id, EntryKind.song),
     SetSeriesCover(mummy.id),
     AddEntry(dirt.copyWith(id: 'music/new-dirt-alice-in-chains')),
