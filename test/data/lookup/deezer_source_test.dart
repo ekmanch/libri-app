@@ -8,6 +8,7 @@ import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/follow_kind.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -301,5 +302,70 @@ void main() {
       await deezer.releaseDate('deezer:track:1016551'),
       const Released(2027, 2, 5),
     );
+  });
+
+  group('followed artists', () {
+    test('finds the artist by exact name and lists the albums ahead', () async {
+      final deezer = source((request) async {
+        switch (request.url.path) {
+          case '/search/artist':
+            expect(request.url.queryParameters['q'], 'Alice in Chains');
+            return json({
+              'data': [
+                {'id': 9, 'name': 'Alice in Chains Tribute'},
+                {'id': 1, 'name': 'Alice in Chains'},
+              ],
+            });
+          case '/artist/1':
+            return json({'id': 1, 'name': 'Alice in Chains'});
+          case '/artist/1/albums':
+            return json({
+              'data': [
+                {
+                  'id': 300,
+                  'title': 'Rainier Fog II',
+                  'release_date': '2026-11-20',
+                  'record_type': 'album',
+                  'cover_medium': 'https://cdn/rf2.jpg',
+                },
+                {
+                  'id': 301,
+                  'title': 'A Single',
+                  'release_date': '2026-11-01',
+                  'record_type': 'single',
+                },
+                {
+                  'id': 302,
+                  'title': 'An EP',
+                  'release_date': '2026-10-15',
+                  'record_type': 'ep',
+                },
+                {
+                  'id': 91627,
+                  'title': 'Dirt',
+                  'release_date': '1992-09-29',
+                  'record_type': 'album',
+                },
+              ],
+            });
+        }
+        return json({
+          'error': {'code': 800, 'message': 'no data'},
+        });
+      });
+      expect(await deezer.findCreator(FollowKind.artists, 'Alice in Chains'), (
+        providerId: 'deezer:artist:1',
+        inactive: null,
+      ));
+      final albums = await deezer.creatorReleases(
+        'deezer:artist:1',
+        FollowKind.artists,
+        today: DateTime(2026, 10, 30),
+      );
+      expect(albums.map((m) => m.title), ['An EP', 'Rainier Fog II']);
+      expect(albums.last.source, 'deezer:album:300');
+      expect(albums.last.creator, 'Alice in Chains');
+      expect(albums.last.released, const Released(2026, 11, 20));
+    });
   });
 }

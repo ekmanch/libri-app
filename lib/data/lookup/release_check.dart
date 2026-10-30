@@ -3,6 +3,7 @@ import '../models/library.dart';
 import '../models/released.dart';
 import '../operations/entry_operations.dart';
 import '../operations/library_operation.dart';
+import '../upcoming/check_control.dart';
 import 'check_day_store.dart';
 import 'lookup_failure.dart';
 import 'lookup_service.dart';
@@ -36,16 +37,32 @@ class ReleaseCheck {
     return released == null || !released.isReleasedOn(today);
   }
 
-  Future<List<LibraryOperation>> run(Library library, DateTime now) async {
+  /// Runs the check when it is due today (always with [force]), asking
+  /// about every entry [isAsked], or with [include] only those it says.
+  /// [control] hears of each entry asked and can stop the run, which then
+  /// records no day.
+  Future<List<LibraryOperation>> run(
+    Library library,
+    DateTime now, {
+    bool force = false,
+    bool Function(Entry entry)? include,
+    CheckControl? control,
+  }) async {
     if (_running) return const [];
     final today = DateTime(now.year, now.month, now.day);
-    if (!checkDueOn(await store.lastRun(), now)) return const [];
+    if (!force && !checkDueOn(await store.lastRun(), now)) return const [];
+    final ctl = control ?? CheckControl.none;
     _running = true;
     try {
       final operations = <LibraryOperation>[];
       var complete = true;
       for (final entry in library.entries) {
         if (!isAsked(entry, today)) continue;
+        if (include != null && !include(entry)) continue;
+        if (ctl.cancelled) {
+          complete = false;
+          break;
+        }
         final source = lookups.sourceOf(entry.source!);
         if (source == null || !source.isConfigured) continue;
         final Released? released;
@@ -60,8 +77,10 @@ class ReleaseCheck {
           // A server error is no answer and leaves the day to run again; a
           // 404 or a bad answer is nothing learned about this entry.
           if (e.isTransient) complete = false;
+          ctl.tick();
           continue;
         }
+        ctl.tick();
         if (released != null && released != entry.released) {
           operations.add(SetReleased(entry.id, released));
         }

@@ -6,6 +6,7 @@ import '../models/library.dart';
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../storage/json_file.dart';
+import '../upcoming/check_control.dart';
 import 'check_day_store.dart';
 import 'lookup_failure.dart';
 import 'lookup_source.dart';
@@ -196,16 +197,30 @@ class SeriesCheck {
 
   /// Runs the check when it is due. True when the record of upcoming parts
   /// was written, so the home reads it again.
-  Future<bool> run(Library library, DateTime now) async {
+  /// Runs the check when it is due today (always with [force]), asking the
+  /// lookup about every followed series, or with [include] only those it
+  /// says (by the key of [seriesOf]); the rest keep their stored lists.
+  /// [control] hears of each series asked and can stop the run, which then
+  /// records no day.
+  Future<bool> run(
+    Library library,
+    DateTime now, {
+    bool force = false,
+    bool Function(String key, List<Entry> parts)? include,
+    CheckControl? control,
+  }) async {
     if (_running) return false;
     final today = DateTime(now.year, now.month, now.day);
-    if (!checkDueOn(await store.lastRun(), now)) return false;
+    if (!force && !checkDueOn(await store.lastRun(), now)) return false;
+    final ctl = control ?? CheckControl.none;
     _running = true;
     try {
       final found = <UpcomingPart>[];
       var complete = true;
-      for (final parts in seriesOf(library).values) {
+      for (final MapEntry(:key, value: parts) in seriesOf(library).entries) {
         if (!isFollowed(parts)) continue;
+        final asked = include == null || include(key, parts);
+        if (asked && ctl.cancelled) complete = false;
         // The part the lookup knows best: one linked to it, else the first.
         final through = parts.firstWhere(
           (e) => e.source != null,
@@ -214,8 +229,9 @@ class SeriesCheck {
         final result = await series.refresh(
           through,
           now: now,
-          askLookup: complete,
+          askLookup: asked && complete,
         );
+        if (asked && complete) ctl.tick();
         final listed = result.parts;
         if (result.failure case final failure?) {
           if (failure.failure == LookupFailure.offline ||

@@ -12,6 +12,8 @@ import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/series.dart';
+import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/upcoming/creator_status.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -611,6 +613,162 @@ void main() {
         const Released(2027, 12, 17),
         null,
       ]);
+    });
+  });
+
+  group('followed creators', () {
+    test(
+      'a person: the most popular hit, with deathday; then their credits ahead',
+      () async {
+        final tmdb = source((request) async {
+          switch (request.url.path) {
+            case '/3/search/person':
+              return json(200, {
+                'results': [
+                  {'id': 190, 'name': 'Clint Eastwood'},
+                  {'id': 191, 'name': 'Clint Eastwood Jr.'},
+                ],
+              });
+            case '/3/person/190':
+              return json(200, {
+                'id': 190,
+                'name': 'Clint Eastwood',
+                'deathday': null,
+              });
+            case '/3/person/190/combined_credits':
+              return json(200, {
+                'cast': [
+                  {
+                    'id': 1,
+                    'media_type': 'movie',
+                    'title': 'Old Role',
+                    'release_date': '1992-08-07',
+                  },
+                  {
+                    'id': 2,
+                    'media_type': 'movie',
+                    'title': 'Coming Role',
+                    'release_date': '2027-02-12',
+                    'poster_path': '/c.jpg',
+                  },
+                ],
+                'crew': [
+                  {
+                    'id': 2,
+                    'media_type': 'movie',
+                    'title': 'Coming Role',
+                    'release_date': '2027-02-12',
+                    'job': 'Director',
+                  },
+                  {
+                    'id': 3,
+                    'media_type': 'tv',
+                    'name': 'A Show',
+                    'first_air_date': '2026-12-01',
+                    'job': 'Creator',
+                  },
+                  {
+                    'id': 4,
+                    'media_type': 'movie',
+                    'title': 'Produced Only',
+                    'release_date': '2027-01-01',
+                    'job': 'Producer',
+                  },
+                  {
+                    'id': 5,
+                    'media_type': 'movie',
+                    'title': 'Just Out',
+                    'release_date': '2026-10-10',
+                    'job': 'Director',
+                  },
+                ],
+              });
+          }
+          return json(404, {'status_message': 'not found'});
+        });
+        final found = await tmdb.findCreator(
+          FollowKind.directors,
+          'Clint Eastwood',
+        );
+        expect(found, (providerId: 'tmdb:person:190', inactive: null));
+        expect(sent.map((r) => r.url.path), [
+          '/3/search/person',
+          '/3/person/190',
+        ]);
+
+        final today = DateTime(2026, 10, 30);
+        final directed = await tmdb.creatorReleases(
+          'tmdb:person:190',
+          FollowKind.directors,
+          today: today,
+        );
+        expect(directed.map((m) => m.title), [
+          'Just Out',
+          'A Show',
+          'Coming Role',
+        ]);
+        expect(directed.last.source, 'tmdb:movie:2');
+        expect(directed[1].source, 'tmdb:tv:3');
+        expect(directed[1].type, MediaType.shows);
+        final acted = await tmdb.creatorReleases(
+          'tmdb:person:190',
+          FollowKind.actors,
+          today: today,
+        );
+        expect(acted.map((m) => m.title), ['Coming Role']);
+        expect(acted.single.coverUrl, endsWith('/w185/c.jpg'));
+      },
+    );
+
+    test('a dead person says so', () async {
+      final tmdb = source((request) async {
+        if (request.url.path == '/3/search/person') {
+          return json(200, {
+            'results': [
+              {'id': 3, 'name': 'Sean Connery'},
+            ],
+          });
+        }
+        return json(200, {'id': 3, 'deathday': '2020-10-31'});
+      });
+      final found = await tmdb.findCreator(FollowKind.actors, 'Sean Connery');
+      expect(found!.inactive, const Inactive(InactiveReason.died, year: 2020));
+      final none = source((_) async => json(200, {'results': []}));
+      expect(await none.findCreator(FollowKind.actors, 'Nobody'), isNull);
+    });
+
+    test('a company: the exact name, then its movies by discover', () async {
+      final tmdb = source((request) async {
+        if (request.url.path == '/3/search/company') {
+          return json(200, {
+            'results': [
+              {'id': 1, 'name': 'Pixar Animation Studios'},
+              {'id': 3, 'name': 'Pixar'},
+            ],
+          });
+        }
+        expect(request.url.path, '/3/discover/movie');
+        expect(request.url.queryParameters['with_companies'], '3');
+        expect(
+          request.url.queryParameters['primary_release_date.gte'],
+          '2026-09-30',
+        );
+        return json(200, {
+          'results': [
+            {'id': 9, 'title': 'Toy Story 5', 'release_date': '2026-06-19'},
+          ],
+        });
+      });
+      expect(await tmdb.findCreator(FollowKind.studios, 'Pixar'), (
+        providerId: 'tmdb:company:3',
+        inactive: null,
+      ));
+      final movies = await tmdb.creatorReleases(
+        'tmdb:company:3',
+        FollowKind.studios,
+        today: DateTime(2026, 10, 30),
+      );
+      expect(movies.single.source, 'tmdb:movie:9');
     });
   });
 }

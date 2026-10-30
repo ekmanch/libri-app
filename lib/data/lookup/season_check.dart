@@ -10,6 +10,7 @@ import '../operations/entry_operations.dart';
 import '../operations/library_operation.dart';
 import '../operations/season_operations.dart';
 import '../storage/json_file.dart';
+import '../upcoming/check_control.dart';
 import 'lookup_failure.dart';
 import 'lookup_service.dart';
 import 'lookup_source.dart';
@@ -142,11 +143,25 @@ class SeasonCheck {
 
   static String _key(String entryId, int season) => '$entryId#$season';
 
-  Future<SeasonCheckResult> run(Library library, DateTime now) async {
+  /// Runs the check when it is due today (always with [force]: Check now),
+  /// asking about every show [isAsked], or with [include] only those it
+  /// says (the scheduler's daily and weekly shares, DESIGN.md 10c: the
+  /// rest keep what the last run knew). [control] hears of each show asked
+  /// and can stop the run, which then records no day.
+  Future<SeasonCheckResult> run(
+    Library library,
+    DateTime now, {
+    bool force = false,
+    bool Function(Entry show)? include,
+    CheckControl? control,
+  }) async {
     if (_running) return _none;
     final today = DateTime(now.year, now.month, now.day);
-    final last = await store.lastRun();
-    if (last != null && !last.isBefore(today)) return _none;
+    if (!force) {
+      final last = await store.lastRun();
+      if (last != null && !last.isBefore(today)) return _none;
+    }
+    final ctl = control ?? CheckControl.none;
     _running = true;
     try {
       final previous = await store.missing();
@@ -156,6 +171,15 @@ class SeasonCheck {
       final touched = <String>{};
       var complete = true;
       for (final show in library.entries.where(isAsked)) {
+        if (include != null && !include(show)) {
+          // Not this show's day: what was missing stays missing.
+          missing.addAll(previous.where((k) => k.startsWith('${show.id}#')));
+          continue;
+        }
+        if (ctl.cancelled) {
+          complete = false;
+          break;
+        }
         final source = lookups.sourceOf(show.source!);
         if (source == null || !source.isConfigured) continue;
         final ShowSeasons? fetched;
@@ -172,8 +196,10 @@ class SeasonCheck {
           // answer either, and leaves the day's check to run again.
           if (e.isTransient) complete = false;
           missing.addAll(previous.where((k) => k.startsWith('${show.id}#')));
+          ctl.tick();
           continue;
         }
+        ctl.tick();
         if (fetched == null) continue;
         // An anime stored without a kind: the lookup's. A movie has no
         // seasons to add; a series goes on like a show.

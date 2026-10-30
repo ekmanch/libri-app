@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/wikidata_series.dart';
+import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/upcoming/creator_status.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -460,5 +462,113 @@ void main() {
         ),
       ),
     );
+  });
+
+  group('who is no longer active', () {
+    Map<String, Object?> who(
+      String name,
+      String id, {
+      String cls = 'Q5',
+      String? death,
+      String? dissolved,
+    }) => {
+      'name': cell(name),
+      'item': item(id),
+      'class': item(cls),
+      if (death != null) 'death': cell(death),
+      if (dissolved != null) 'dissolved': cell(dissolved),
+    };
+
+    test('asks one query for every name and reads the dates', () async {
+      sent = [];
+      final wikidata = WikidataSeries(
+        MockClient((request) async {
+          sent.add(request);
+          return json(200, {
+            'results': {
+              'bindings': [
+                who('J. R. R. Tolkien', 'Q892', death: '1973-09-02T00:00:00Z'),
+                who('Stephen King', 'Q39829'),
+                // A living namesake keeps the author active.
+                who('John Smith', 'Q1', death: '1900-01-01T00:00:00Z'),
+                who('John Smith', 'Q2'),
+                // Everyone of that name is dead: the latest year.
+                who('Jane Doe', 'Q3', death: '1950-01-01T00:00:00Z'),
+                who('Jane Doe', 'Q4', death: '1980-01-01T00:00:00Z'),
+              ],
+            },
+          });
+        }),
+      );
+      final gone = await wikidata.inactiveOf(FollowKind.authors, [
+        'J. R. R. Tolkien',
+        'Stephen King',
+        'John Smith',
+        'Jane Doe',
+        'Unknown Person',
+      ]);
+      expect(gone, {
+        'J. R. R. Tolkien': const Inactive(InactiveReason.died, year: 1973),
+        'Jane Doe': const Inactive(InactiveReason.died, year: 1980),
+      });
+      final query = sent.single.url.queryParameters['query']!;
+      expect(query, contains('"J. R. R. Tolkien"@en'));
+      expect(query, contains('wd:Q5'));
+      expect(query, contains('wdt:P570'));
+      expect(query, contains('wdt:P576'));
+    });
+
+    test('a band disbanded, a studio dissolved', () async {
+      final rows = [
+        who(
+          'Creedence Clearwater Revival',
+          'Q10',
+          cls: 'Q215380',
+          dissolved: '1972-10-16T00:00:00Z',
+        ),
+        who(
+          'Telltale Games',
+          'Q11',
+          cls: 'Q210167',
+          dissolved: '2018-10-11T00:00:00Z',
+        ),
+      ];
+      // Only the names asked for come back, as Wikidata would answer.
+      final wikidata = WikidataSeries(
+        MockClient((request) async {
+          final query = request.url.queryParameters['query'] ?? '';
+          return json(200, {
+            'results': {
+              'bindings': [
+                for (final row in rows)
+                  if (query.contains((row['name'] as Map)['value'] as String))
+                    row,
+              ],
+            },
+          });
+        }),
+      );
+      expect(
+        await wikidata.inactiveOf(FollowKind.artists, [
+          'Creedence Clearwater Revival',
+        ]),
+        {
+          'Creedence Clearwater Revival': const Inactive(
+            InactiveReason.disbanded,
+            year: 1972,
+          ),
+        },
+      );
+      expect(
+        await wikidata.inactiveOf(FollowKind.studios, ['Telltale Games']),
+        {
+          'Telltale Games': const Inactive(
+            InactiveReason.dissolved,
+            year: 2018,
+          ),
+        },
+      );
+      expect(await wikidata.inactiveOf(FollowKind.shows, ['x']), isEmpty);
+    });
   });
 }

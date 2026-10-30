@@ -17,6 +17,9 @@ import '../data/lookup/series_service.dart';
 import '../data/lookup/series_store.dart';
 import '../data/lookup/track_list_service.dart';
 import '../data/lookup/track_list_store.dart';
+import '../data/upcoming/creator_check.dart';
+import '../data/upcoming/creator_lookup.dart';
+import '../data/upcoming/creator_status.dart';
 import 'fake_images.dart';
 import 'fake_lookup.dart';
 
@@ -28,7 +31,8 @@ import 'fake_lookup.dart';
 /// `configured: false` the "not set up" state; [source] replaces the fake
 /// those three would build, [seasonStore] the daily season check's
 /// memory, and [upcomingParts] the series check's record of parts still to
-/// come (seeded for a test, read back after a run).
+/// come (seeded for a test, read back after a run); [creatorStatuses] and
+/// [foundReleases] the creator check's records the same way.
 List<Override> fakeLookupOverrides({
   Duration latency = Duration.zero,
   LookupFailure? failure,
@@ -38,6 +42,8 @@ List<Override> fakeLookupOverrides({
   FakeLookupSource? source,
   SeasonCheckStore? seasonStore,
   UpcomingPartsStore? upcomingParts,
+  CreatorStatusStore? creatorStatuses,
+  FoundReleaseStore? foundReleases,
 }) => [
   lookupSourcesProvider.overrideWithValue([
     source ??
@@ -75,6 +81,14 @@ List<Override> fakeLookupOverrides({
       series: ref.watch(seriesServiceProvider),
       store: MemoryCheckDayStore(),
       upcoming: upcomingParts ?? MemoryUpcomingPartsStore(),
+    ),
+  ),
+  creatorCheckProvider.overrideWith(
+    (ref) => CreatorCheck(
+      lookups: ref.watch(lookupServiceProvider),
+      statuses: creatorStatuses ?? MemoryCreatorStatusStore(),
+      releases: foundReleases ?? MemoryFoundReleaseStore(),
+      store: MemoryCheckDayStore(),
     ),
   ),
   trackListServiceProvider.overrideWith(

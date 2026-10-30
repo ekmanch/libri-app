@@ -14,6 +14,7 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/lookup/wikidata_series.dart';
 import 'package:library_app/data/models/series.dart';
+import 'package:library_app/data/models/follow_kind.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -1423,6 +1424,63 @@ void main() {
         await ol.pickedCoverUrl('itunes:1', type: MediaType.books),
         artwork600,
       );
+    });
+  });
+
+  group('followed authors', () {
+    test('finds the author key and lists the newest works', () async {
+      sent = [];
+      final ol = OpenLibrarySource(
+        MockClient((request) async {
+          sent.add(request);
+          if (request.url.path == '/search/authors.json') {
+            expect(request.url.queryParameters['q'], 'Stephen King');
+            return json(200, {
+              'docs': [
+                {'key': 'OL19981A', 'name': 'Stephen King', 'work_count': 900},
+                {'key': 'OL1A', 'name': 'Stephen King Jr.'},
+              ],
+            });
+          }
+          expect(request.url.path, '/search.json');
+          expect(request.url.queryParameters['author_key'], 'OL19981A');
+          expect(request.url.queryParameters['sort'], 'new');
+          return json(200, {
+            'docs': [
+              {
+                'key': '/works/OL1W',
+                'title': 'Never Flinch',
+                'author_name': ['Stephen King'],
+                'first_publish_year': 2027,
+              },
+              {
+                'key': '/works/OL2W',
+                'title': 'This Year',
+                'author_name': ['Stephen King'],
+                'first_publish_year': 2026,
+              },
+              {
+                'key': '/works/OL3W',
+                'title': 'It',
+                'author_name': ['Stephen King'],
+                'first_publish_year': 1986,
+              },
+            ],
+          });
+        }),
+      );
+      expect(await ol.findCreator(FollowKind.authors, 'Stephen King'), (
+        providerId: 'openlibrary:author:OL19981A',
+        inactive: null,
+      ));
+      final works = await ol.creatorReleases(
+        'openlibrary:author:OL19981A',
+        FollowKind.authors,
+        today: DateTime(2026, 10, 30),
+      );
+      expect(works.map((m) => m.title), ['Never Flinch', 'This Year']);
+      expect(works.first.source, 'openlibrary:OL1W');
+      expect(works.first.released, const Released(2027));
     });
   });
 }

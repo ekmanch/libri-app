@@ -1,7 +1,10 @@
 import '../models/media_type.dart';
 import '../models/released.dart';
+import '../models/follow_kind.dart';
 import '../models/season.dart';
 import '../models/series.dart';
+import '../upcoming/creator_lookup.dart';
+import '../upcoming/creator_status.dart';
 import 'episode_info.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
@@ -14,7 +17,7 @@ import 'text_clean.dart';
 /// show's creators, the genres, a show's seasons and a movie's collection
 /// (its series, Library › Movie in a series) come with [details], fetched
 /// when a match is picked.
-class TmdbSource extends HttpLookupSource {
+class TmdbSource extends HttpLookupSource implements CreatorLookup {
   TmdbSource(super.client, {required this.token, Uri? baseUrl, super.timeout})
     : _baseUrl = baseUrl ?? Uri.https('api.themoviedb.org', '/3/'),
       super(minGap: const Duration(milliseconds: 50));
@@ -330,5 +333,117 @@ class TmdbSource extends HttpLookupSource {
     final (kind, id) = _parse(source);
     final poster = stringAt(await _get('$kind/$id'), 'poster_path');
     return poster == null ? null : '$_images$coverPosterWidth$poster';
+  }
+
+  // Followed creators (Settings › Upcoming releases; DESIGN.md 10c).
+
+  @override
+  Set<FollowKind> get creatorKinds => const {
+    FollowKind.directors,
+    FollowKind.actors,
+    FollowKind.studios,
+  };
+
+  /// Directors and actors are people: the most popular person of that name
+  /// (TMDB's own order), with `deathday` saying whether they have died.
+  /// Studios are companies, named exactly where one is, else the first;
+  /// Wikidata says whether a company was dissolved.
+  @override
+  Future<CreatorMatch?> findCreator(FollowKind kind, String name) async {
+    if (kind == FollowKind.studios) {
+      final json = await _get('search/company', {'query': name});
+      final hits = objectsAt(json, 'results');
+      final exact = hits.where(
+        (c) => (stringAt(c, 'name') ?? '').toLowerCase() == name.toLowerCase(),
+      );
+      final company = exact.firstOrNull ?? hits.firstOrNull;
+      final id = company?['id'];
+      if (id is! num) return null;
+      return (providerId: 'tmdb:company:${id.toInt()}', inactive: null);
+    }
+    final json = await _get('search/person', {
+      'query': name,
+      'include_adult': 'false',
+    });
+    final id = objectsAt(json, 'results').firstOrNull?['id'];
+    if (id is! num) return null;
+    final person = await _get('person/${id.toInt()}');
+    final deathday = stringAt(person, 'deathday');
+    return (
+      providerId: 'tmdb:person:${id.toInt()}',
+      inactive: deathday == null
+          ? null
+          : Inactive(
+              InactiveReason.died,
+              year: Released.tryParse(deathday)?.year,
+            ),
+    );
+  }
+
+  /// A person's credits: the movies and shows they directed (or created, for
+  /// a show) or acted in; a company's movies by discover, from thirty days
+  /// ago on, soonest first.
+  @override
+  Future<List<LookupMatch>> creatorReleases(
+    String providerId,
+    FollowKind kind, {
+    required DateTime today,
+  }) async {
+    final parts = providerId.split(':');
+    if (parts.length != 3 || parts[0] != 'tmdb') {
+      throw LookupException(
+        LookupFailure.other,
+        message: 'not a TMDB creator id: $providerId',
+      );
+    }
+    final id = parts[2];
+    if (parts[1] == 'company') {
+      final from = today.subtract(const Duration(days: 30));
+      final json = await _get('discover/movie', {
+        'with_companies': id,
+        'sort_by': 'primary_release_date.asc',
+        'primary_release_date.gte':
+            '${from.year}-${from.month.toString().padLeft(2, '0')}-'
+            '${from.day.toString().padLeft(2, '0')}',
+        'include_adult': 'false',
+      });
+      return [
+        for (final item in objectsAt(json, 'results'))
+          ?_match(item, MediaType.movies),
+      ];
+    }
+    if (parts[1] != 'person') {
+      throw LookupException(
+        LookupFailure.other,
+        message: 'not a TMDB creator id: $providerId',
+      );
+    }
+    final json = await _get('person/$id/combined_credits');
+    final credits = kind == FollowKind.actors
+        ? objectsAt(json, 'cast')
+        : [
+            for (final c in objectsAt(json, 'crew'))
+              if (const {
+                'Director',
+                'Creator',
+                'Showrunner',
+              }.contains(c['job']))
+                c,
+          ];
+    final seen = <Object?>{};
+    return [
+      for (final credit in credits)
+        if (seen.add('${credit['media_type']}:${credit['id']}'))
+          if (credit['media_type'] case final String media
+              when media == 'movie' || media == 'tv')
+            if (_match(
+                  credit,
+                  media == 'tv' ? MediaType.shows : MediaType.movies,
+                )
+                case final match? when isRecentOrAhead(match.released, today))
+              match,
+    ]..sort(
+      (a, b) => a.released!.availableFrom.compareTo(b.released!.availableFrom),
+    );
   }
 }

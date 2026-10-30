@@ -1,4 +1,6 @@
+import '../models/follow_kind.dart';
 import '../models/media_type.dart';
+import '../upcoming/creator_lookup.dart';
 import '../models/released.dart';
 import '../models/series.dart';
 import 'book_match.dart';
@@ -26,7 +28,7 @@ import 'wikidata_series.dart';
 /// Wikidata ([wikidata]) by title and author, else from a volume number in
 /// the title ("Berserk, Vol. 43"); the volumes of such a series are then
 /// Open Library's works of that name by that author.
-class OpenLibrarySource extends HttpLookupSource {
+class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
   OpenLibrarySource(
     super.client, {
     this.apple,
@@ -814,5 +816,65 @@ class OpenLibrarySource extends HttpLookupSource {
     }
     final work = await _work(id);
     return work.coverId == null ? null : _cover(work.coverId!, '-L');
+  }
+
+  // Followed authors (Settings › Upcoming releases; DESIGN.md 10c).
+
+  @override
+  Set<FollowKind> get creatorKinds => const {FollowKind.authors};
+
+  /// Wikidata, when the source has it, says when an author died.
+  @override
+  InactiveLookup? get inactiveLookup => wikidata;
+
+  /// The author named exactly [name] among the author search's hits, else
+  /// the first (the search ranks by how many works they have).
+  @override
+  Future<CreatorMatch?> findCreator(FollowKind kind, String name) async {
+    final json = await _get('/search/authors.json', {'q': name, 'limit': '5'});
+    final hits = objectsAt(json, 'docs');
+    final exact = hits.where(
+      (a) => (stringAt(a, 'name') ?? '').toLowerCase() == name.toLowerCase(),
+    );
+    final key = stringAt(
+      exact.firstOrNull ?? hits.firstOrNull ?? const {},
+      'key',
+    );
+    if (key == null) return null;
+    return (providerId: 'openlibrary:author:$key', inactive: null);
+  }
+
+  /// The author's newest works (the search sorted newest first), those
+  /// first published this year or later, or last year within thirty days.
+  /// Open Library dates by year, so a book of this year counts as coming
+  /// until the year is out (the release rule of DESIGN.md section 8).
+  @override
+  Future<List<LookupMatch>> creatorReleases(
+    String providerId,
+    FollowKind kind, {
+    required DateTime today,
+  }) async {
+    final parts = providerId.split(':');
+    if (parts.length != 3 ||
+        parts[0] != 'openlibrary' ||
+        parts[1] != 'author') {
+      throw LookupException(
+        LookupFailure.other,
+        message: 'not an Open Library author id: $providerId',
+      );
+    }
+    final json = await _get('/search.json', {
+      'author_key': parts[2],
+      'sort': 'new',
+      'limit': '20',
+      'fields': _fields,
+      'lang': 'en',
+    });
+    return [
+      for (final doc in objectsAt(json, 'docs'))
+        if (_match(doc) case final match?
+            when isRecentOrAhead(match.released, today))
+          match,
+    ];
   }
 }

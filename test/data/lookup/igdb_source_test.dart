@@ -13,6 +13,7 @@ import 'package:library_app/data/storage/json_file.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
 import 'package:library_app/data/models/series.dart';
+import 'package:library_app/data/models/follow_kind.dart';
 
 void main() {
   late Directory dir;
@@ -798,5 +799,44 @@ void main() {
       final gone = source((_) async => json(200, []));
       expect(await gone.releaseDate('igdb:1'), isNull);
     });
+  });
+
+  group('followed studios', () {
+    test(
+      'finds the company and lists its games from thirty days ago on',
+      () async {
+        final igdb = source((request) async {
+          if (request.url.path.endsWith('/companies')) {
+            expect(request.body, contains('search "FromSoftware"'));
+            return json(200, [
+              {'id': 71, 'name': 'FromSoftware Tokyo'},
+              {'id': 70, 'name': 'FromSoftware'},
+            ]);
+          }
+          expect(request.body, contains('involved_companies.company = 70'));
+          // 2026-09-30, thirty days before the day asked.
+          expect(request.body, contains('first_release_date >= 1790726400'));
+          return json(200, [
+            {
+              ...tlou,
+              'id': 5000,
+              'name': 'The Duskbloods',
+              'first_release_date': 1796947200,
+            },
+          ]);
+        });
+        expect(await igdb.findCreator(FollowKind.studios, 'FromSoftware'), (
+          providerId: 'igdb:company:70',
+          inactive: null,
+        ));
+        final games = await igdb.creatorReleases(
+          'igdb:company:70',
+          FollowKind.studios,
+          today: DateTime.utc(2026, 10, 30),
+        );
+        expect(games.single.source, 'igdb:5000');
+        expect(games.single.title, 'The Duskbloods');
+      },
+    );
   });
 }

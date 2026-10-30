@@ -6,9 +6,10 @@
 /// chips.
 library;
 
-import '../../data/models/entry_id.dart';
-import '../../data/models/library.dart';
 import '../../data/models/tag_category.dart';
+
+export '../../data/models/creator_names.dart'
+    show splitCreators, tagDisplayName;
 
 /// A group with more tags than this is shown as a row that opens Library ›
 /// Filter: all Authors.
@@ -27,33 +28,6 @@ List<String> sortedTags(Iterable<String> tags) {
   });
   return list;
 }
-
-/// "Stephen King" for #stephen-king: the creator text of an entry that
-/// carries the tag and whose creator slugs to it, so the name keeps its
-/// dots and accents ("Ursula K. Le Guin", "Jo Nesbø"); else the tag's words
-/// with capitals ("Mike Flanagan", "Team Cherry").
-String tagDisplayName(String tag, Library library) {
-  for (final entry in library.entries) {
-    final creator = entry.creator;
-    if (creator == null || !entry.tags.contains(tag)) continue;
-    for (final part in splitCreators(creator)) {
-      if (slugify(part) == tag) return part;
-    }
-  }
-  return tag
-      .split('-')
-      .where((w) => w.isNotEmpty)
-      .map((w) => w[0].toUpperCase() + w.substring(1))
-      .join(' ');
-}
-
-/// The names in a creator field: "Stephen King & Peter Straub", "Craig
-/// Mazin, Neil Druckmann".
-List<String> splitCreators(String creator) => creator
-    .split(RegExp(r'\s*(?:,|&|/|\band\b)\s*'))
-    .map((p) => p.trim())
-    .where((p) => p.isNotEmpty)
-    .toList();
 
 /// "author", "authors" for the creator groups, "tag", "tags" for the rest: the
 /// noun Library › Filter: all Authors counts in ("64 authors · 1 selected",

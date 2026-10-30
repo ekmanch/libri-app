@@ -5,6 +5,9 @@ import '../data/lookup/igdb_source.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_match.dart';
 import '../data/lookup/lookup_source.dart';
+import '../data/models/follow_kind.dart';
+import '../data/upcoming/creator_lookup.dart';
+import '../data/upcoming/creator_status.dart';
 import '../data/lookup/music_source.dart';
 import '../data/lookup/track_info.dart';
 import '../data/models/entry_id.dart';
@@ -20,7 +23,8 @@ import '../data/models/season.dart';
 /// entry gets a (fake) cover in a photo view. [latency] shows the loading
 /// state, [failure] makes every call fail that way, and `configured:
 /// false` is a provider without its key.
-class FakeLookupSource extends LookupSource implements MusicSource {
+class FakeLookupSource extends LookupSource
+    implements MusicSource, CreatorLookup, InactiveLookup {
   FakeLookupSource({
     this.latency = Duration.zero,
     this.failure,
@@ -31,6 +35,8 @@ class FakeLookupSource extends LookupSource implements MusicSource {
     this.episodesBySeason = const {},
     this.seriesBySource = const {},
     this.releasedBySource = const {},
+    this.inactiveByName = const {},
+    this.releasesByCreator = const {},
   });
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
@@ -59,6 +65,14 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   /// Episodes [seasonEpisodes] answers, by show source and season, ahead
   /// of the built-in ones.
   final Map<(String, int), List<EpisodeInfo>> episodesBySeason;
+
+  /// Who is no longer active, by name in lowercase, ahead of the built-in
+  /// ones ([fakeInactive]).
+  final Map<String, Inactive> inactiveByName;
+
+  /// Releases [creatorReleases] answers, by creator id (`fake:creator:<slug>`),
+  /// ahead of the built-in ones ([fakeCreatorReleases]).
+  final Map<String, List<LookupMatch>> releasesByCreator;
 
   /// Every call made, for the tests: "search:carrie:movies",
   /// "match:Dirt:music", "details:deezer:album:91627", "cover:igdb:1009".
@@ -236,6 +250,58 @@ class FakeLookupSource extends LookupSource implements MusicSource {
   Future<List<TrackInfo>> albumTracks(String albumSource) async {
     await _call('tracks:$albumSource');
     return _trackListsBySource[albumSource] ?? const [];
+  }
+
+  // Followed creators (Settings › Upcoming releases).
+
+  @override
+  Set<FollowKind> get creatorKinds => const {
+    FollowKind.authors,
+    FollowKind.artists,
+    FollowKind.directors,
+    FollowKind.studios,
+    FollowKind.actors,
+  };
+
+  /// Every name is a creator, `fake:creator:<slug>`; the built-in table says
+  /// who died (for the people TMDB would say it for; the rest come through
+  /// [inactiveOf], as Wikidata's do).
+  @override
+  Future<CreatorMatch?> findCreator(FollowKind kind, String name) async {
+    await _call('creator:${kind.key}:$name');
+    final slug = slugify(name);
+    if (slug.isEmpty) return null;
+    final inactive = kind == FollowKind.directors || kind == FollowKind.actors
+        ? _inactiveOf(name)
+        : null;
+    return (providerId: 'fake:creator:$slug', inactive: inactive);
+  }
+
+  Inactive? _inactiveOf(String name) =>
+      inactiveByName[name.toLowerCase()] ?? fakeInactive[name.toLowerCase()];
+
+  @override
+  Future<Map<String, Inactive>> inactiveOf(
+    FollowKind kind,
+    List<String> names,
+  ) async {
+    await _call('inactive:${kind.key}:${names.length}');
+    return {for (final name in names) name: ?_inactiveOf(name)};
+  }
+
+  @override
+  Future<List<LookupMatch>> creatorReleases(
+    String providerId,
+    FollowKind kind, {
+    required DateTime today,
+  }) async {
+    await _call('releases:$providerId');
+    final releases =
+        releasesByCreator[providerId] ?? fakeCreatorReleases()[providerId];
+    return [
+      for (final match in releases ?? const <LookupMatch>[])
+        if (isRecentOrAhead(match.released, today)) match,
+    ];
   }
 
   /// Every artist but "Various Artists" has a photo.
@@ -941,3 +1007,75 @@ const fakeCatalog = <LookupMatch>[
     tags: ['fighting', 'arcade'],
   ),
 ];
+
+/// Who is no longer active, by name in lowercase: the fixture's artists and
+/// a few people, for Settings › Follow: authors and Follow: actors.
+const fakeInactive = <String, Inactive>{
+  'miles davis': Inactive(InactiveReason.died, year: 1991),
+  '2pac': Inactive(InactiveReason.died, year: 1996),
+  "screamin' jay hawkins": Inactive(InactiveReason.died, year: 2000),
+  'creedence clearwater revival': Inactive(
+    InactiveReason.disbanded,
+    year: 1972,
+  ),
+  'j. r. r. tolkien': Inactive(InactiveReason.died, year: 1973),
+  'sean connery': Inactive(InactiveReason.died, year: 2020),
+};
+
+/// What the fixture's followed creators have coming, dated from the app
+/// clock so the rows read "coming" whatever the day: an Alice in Chains
+/// album in three weeks, a FromSoftware game in two months, a Clint
+/// Eastwood movie in six weeks (he directs and stars), a Studio Ghibli film
+/// next spring.
+Map<String, List<LookupMatch>> fakeCreatorReleases() {
+  final today = seasonClock();
+  Released inDays(int days) {
+    final d = today.add(Duration(days: days));
+    return Released(d.year, d.month, d.day);
+  }
+
+  final eastwood = LookupMatch(
+    source: 'fake:creator-release:eastwood-next',
+    coverUrl: 'fake://cover/poster/fake:creator-release:eastwood-next',
+    type: MediaType.movies,
+    title: 'The Last Round',
+    released: inDays(42),
+    creator: 'Clint Eastwood',
+    description: 'A retired fighter takes one more case.',
+  );
+  return {
+    'fake:creator:alice-in-chains': [
+      LookupMatch(
+        source: 'fake:creator-release:aic-next',
+        coverUrl: 'fake://cover/square/fake:creator-release:aic-next',
+        type: MediaType.music,
+        title: 'Rainier Fog II',
+        released: inDays(21),
+        creator: 'Alice in Chains',
+      ),
+    ],
+    'fake:creator:fromsoftware': [
+      LookupMatch(
+        source: 'fake:creator-release:duskbloods',
+        coverUrl: 'fake://cover/poster/fake:creator-release:duskbloods',
+        type: MediaType.games,
+        title: 'The Duskbloods',
+        released: inDays(60),
+        creator: 'FromSoftware',
+        description: 'Bloodhunters fight over the First Blood.',
+        platforms: ['Switch 2'],
+      ),
+    ],
+    'fake:creator:clint-eastwood': [eastwood],
+    'fake:creator:studio-ghibli': [
+      LookupMatch(
+        source: 'fake:creator-release:ghibli-next',
+        coverUrl: 'fake://cover/poster/fake:creator-release:ghibli-next',
+        type: MediaType.movies,
+        title: 'The Boy and the River',
+        released: Released(today.year + 1, 4),
+        creator: 'Studio Ghibli',
+      ),
+    ],
+  };
+}

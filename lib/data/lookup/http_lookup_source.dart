@@ -16,14 +16,50 @@ mixin LookupHttp {
   String get userAgent;
   RateLimiter get limiter;
 
+  /// How many times a request refused with 429 is sent again after a pause
+  /// (DESIGN.md 10c: back off, never silently drop a result). The pause is
+  /// the provider's `Retry-After` when it gives one, else 2 s, then 4 s;
+  /// a pause the provider asks for beyond [maxBackoff] is not waited for,
+  /// and the 429 goes to the caller as rate limited.
+  int get rateLimitRetries => 2;
+
+  /// The first pause without a `Retry-After`; the next doubles it.
+  Duration get backoffBase => const Duration(seconds: 2);
+
+  Duration get maxBackoff => const Duration(seconds: 30);
+
+  /// Whether [response] is the provider refusing for now (Apple also says
+  /// 403 for it; its source overrides this).
+  bool isRateLimited(http.Response response) => response.statusCode == 429;
+
   /// Runs [request] under the rate limiter; transport errors become
-  /// [LookupFailure.offline].
+  /// [LookupFailure.offline]. A 429 pauses the whole source and tries
+  /// again, up to [rateLimitRetries] times.
   Future<http.Response> send(Future<http.Response> Function() request) async {
-    try {
-      return await limiter.run(() => sendOrOffline(request, timeout: timeout));
-    } on NetworkUnreachable catch (e) {
-      throw LookupException(LookupFailure.offline, message: e.message);
+    for (var attempt = 0; ; attempt++) {
+      final http.Response response;
+      try {
+        response = await limiter.run(
+          () => sendOrOffline(request, timeout: timeout),
+        );
+      } on NetworkUnreachable catch (e) {
+        throw LookupException(LookupFailure.offline, message: e.message);
+      }
+      if (!isRateLimited(response) || attempt >= rateLimitRetries) {
+        return response;
+      }
+      final pause = retryAfter(response) ?? backoffBase * (1 << attempt);
+      if (pause > maxBackoff) return response;
+      limiter.holdFor(pause);
     }
+  }
+
+  /// The `Retry-After` header as a pause, when it is in seconds (a date
+  /// form is rare and ignored).
+  static Duration? retryAfter(http.Response response) {
+    final value = response.headers['retry-after'];
+    final seconds = value == null ? null : int.tryParse(value.trim());
+    return seconds == null || seconds < 0 ? null : Duration(seconds: seconds);
   }
 
   /// Throws unless the status is in [ok]: 429 is rate limited, anything

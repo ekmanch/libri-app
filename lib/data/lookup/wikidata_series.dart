@@ -4,6 +4,9 @@ import '../net/http_transport.dart';
 import '../models/released.dart';
 import 'http_lookup_source.dart';
 import 'lookup_source.dart';
+import '../models/follow_kind.dart';
+import '../upcoming/creator_lookup.dart';
+import '../upcoming/creator_status.dart';
 import 'rate_limiter.dart';
 
 /// Which series a book belongs to, and its number, from Wikidata (Library ›
@@ -15,7 +18,7 @@ import 'rate_limiter.dart';
 /// author (P50) tells the book from a film or a game of the same name.
 /// The parts the series page should not list at first are marked as extras
 /// ([extraParts]).
-class WikidataSeries with LookupHttp {
+class WikidataSeries with LookupHttp implements InactiveLookup {
   WikidataSeries(
     this.client, {
     Uri? apiUrl,
@@ -300,6 +303,85 @@ LIMIT 5000''';
   /// "3" as 3; "3.5" or "III" as nothing.
   static int? _ordinal(String? text) =>
       text == null ? null : int.tryParse(text.trim());
+
+  // Who is no longer active (Settings › Follow: authors, "No longer active").
+
+  /// The classes a name of [kind] may be: a human for authors; a human or a
+  /// music group for artists; a business, company, developer or studio for
+  /// studios.
+  static List<String> inactiveClasses(FollowKind kind) => switch (kind) {
+    FollowKind.authors ||
+    FollowKind.directors ||
+    FollowKind.actors => const ['Q5'],
+    FollowKind.artists => const ['Q5', 'Q215380', 'Q2088357', 'Q5741069'],
+    FollowKind.studios => const [
+      'Q4830453',
+      'Q783794',
+      'Q210167',
+      'Q1137109',
+      'Q1107679',
+      'Q18388277',
+    ],
+    FollowKind.shows || FollowKind.series => const [],
+  };
+
+  /// One query for every name: each item with that English label, of the
+  /// kind's classes, with its date of death (P570) or dissolution (P576).
+  static String inactiveQuery(FollowKind kind, List<String> names) =>
+      '''
+SELECT ?name ?item ?class ?death ?dissolved WHERE {
+  VALUES ?name { ${names.map((n) => '"${n.replaceAll(r'\\', r'\\\\').replaceAll('"', r'\\"')}"@en').join(' ')} }
+  ?item rdfs:label ?name .
+  ?item wdt:P31 ?class .
+  VALUES ?class { ${inactiveClasses(kind).map((c) => 'wd:$c').join(' ')} }
+  OPTIONAL { ?item wdt:P570 ?death }
+  OPTIONAL { ?item wdt:P576 ?dissolved }
+}
+LIMIT 1000''';
+
+  /// For each of [names] that Wikidata knows as one of the kind's classes,
+  /// why they are no longer active: only when every item of that name has
+  /// a date of death or dissolution, so a living namesake keeps a creator
+  /// active rather than the other way round. The year is the latest date's.
+  @override
+  Future<Map<String, Inactive>> inactiveOf(
+    FollowKind kind,
+    List<String> names,
+  ) async {
+    if (names.isEmpty || inactiveClasses(kind).isEmpty) return const {};
+    final rows = await _sparql(inactiveQuery(kind, names));
+    final byName = <String, Map<String, Inactive?>>{};
+    for (final row in rows) {
+      final name = _value(row, 'name');
+      final item = _item(row, 'item');
+      if (name == null || item == null) continue;
+      final death = _value(row, 'death');
+      final dissolved = _value(row, 'dissolved');
+      final isPerson = _item(row, 'class') == 'Q5';
+      final Inactive? inactive = death != null
+          ? Inactive(InactiveReason.died, year: _released(death)?.year)
+          : dissolved != null
+          ? Inactive(
+              kind == FollowKind.artists && !isPerson
+                  ? InactiveReason.disbanded
+                  : InactiveReason.dissolved,
+              year: _released(dissolved)?.year,
+            )
+          : null;
+      final items = byName.putIfAbsent(name, () => {});
+      // An item seen with and without a date (two class rows) keeps its date.
+      items[item] = inactive ?? items[item];
+    }
+    final result = <String, Inactive>{};
+    for (final MapEntry(key: name, value: items) in byName.entries) {
+      if (items.values.any((i) => i == null)) continue;
+      final latest = items.values.whereType<Inactive>().reduce(
+        (a, b) => (b.year ?? 0) > (a.year ?? 0) ? b : a,
+      );
+      result[name] = latest;
+    }
+    return result;
+  }
 }
 
 /// One part of a series as Wikidata has it, before [WikidataSeries.extraParts]:

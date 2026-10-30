@@ -37,6 +37,11 @@ class ITunesBooks with LookupHttp {
   @override
   final RateLimiter limiter;
 
+  /// Apple says 403, not 429, when it refuses for its rate limit.
+  @override
+  bool isRateLimited(http.Response response) =>
+      response.statusCode == 429 || response.statusCode == 403;
+
   final Uri _baseUrl;
 
   /// The provider part of the ids it issues.

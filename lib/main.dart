@@ -11,6 +11,7 @@ import 'data/github/token_store.dart';
 import 'data/library_codec.dart';
 import 'data/library_providers.dart';
 import 'data/lookup/lookup_providers.dart';
+import 'data/net/network_kind.dart';
 import 'data/preferences/preferences_store.dart';
 import 'data/repository/fixture_library_repository.dart';
 import 'data/storage/app_files.dart';
@@ -94,6 +95,9 @@ Future<Widget> bootstrap(
       seasonCheckProvider.overrideWith(fileSeasonCheck),
       releaseCheckProvider.overrideWith(fileReleaseCheck),
       seriesCheckProvider.overrideWith(fileSeriesCheck),
+      creatorCheckProvider.overrideWith(fileCreatorCheck),
+      upcomingScheduleStoreProvider.overrideWith(fileUpcomingScheduleStore),
+      networkKindProvider.overrideWithValue(const InterfaceNetworkKind()),
       if (longListsEnabled)
         libraryRepositoryProvider.overrideWithValue(
           FixtureLibraryRepository(loadJson: _loadPaddedFixture),

@@ -13,6 +13,15 @@ class RateLimiter {
   Future<void> _tail = Future.value();
   DateTime? _nextAllowed;
 
+  /// Holds every request back for [duration] from now, whatever the gap:
+  /// a provider that answered 429 asked for a pause, and the rest of its
+  /// queue waits with the request that got it.
+  void holdFor(Duration duration) {
+    final until = _now().add(duration);
+    final next = _nextAllowed;
+    if (next == null || until.isAfter(next)) _nextAllowed = until;
+  }
+
   Future<T> run<T>(Future<T> Function() action) {
     final gate = _tail.then((_) async {
       final next = _nextAllowed;

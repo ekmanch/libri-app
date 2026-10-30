@@ -32,6 +32,11 @@ import 'wikidata_series.dart';
 import '../images/artwork_providers.dart';
 import '../models/entry.dart';
 import '../models/entry_status.dart';
+import '../net/network_kind.dart';
+import '../upcoming/creator_check.dart';
+import '../upcoming/creator_lookup.dart';
+import '../upcoming/creator_status.dart';
+import '../upcoming/upcoming_scheduler.dart';
 
 /// The sources this build looks titles up in. The FIRST_RUN dev switch,
 /// the widget tests and the screenshot walks get the fake instead (see
@@ -127,6 +132,62 @@ SeriesCheck fileSeriesCheck(Ref ref) => SeriesCheck(
 /// and the place that lists everything coming is still to be built.
 final upcomingPartsProvider = FutureProvider<List<UpcomingPart>>(
   (ref) => ref.watch(seriesCheckProvider)?.upcoming.read() ?? Future.value([]),
+);
+
+/// The check of the creators the owner follows (Settings › Upcoming
+/// releases; DESIGN.md 10c), or null for none; off by default like
+/// [seasonCheckProvider]. `main` turns on [fileCreatorCheck].
+final creatorCheckProvider = Provider<CreatorCheck?>((ref) => null);
+
+CreatorCheck fileCreatorCheck(Ref ref) => CreatorCheck(
+  lookups: ref.watch(lookupServiceProvider),
+  statuses: FileCreatorStatusStore(_cacheFile(ref, 'creator_status.json')),
+  releases: FileFoundReleaseStore(_cacheFile(ref, 'found_releases.json')),
+  store: FileCheckDayStore(_cacheFile(ref, 'creator_check.json')),
+);
+
+/// The scheduler that runs the four checks on their days (DESIGN.md 10c),
+/// built from whichever checks this scope has. Its progress is what
+/// Settings › Upcoming releases shows while Check now runs.
+final upcomingSchedulerProvider = Provider<UpcomingScheduler>((ref) {
+  final scheduler = UpcomingScheduler(
+    seasons: ref.watch(seasonCheckProvider),
+    releases: ref.watch(releaseCheckProvider),
+    series: ref.watch(seriesCheckProvider),
+    creators: ref.watch(creatorCheckProvider),
+    store: ref.watch(upcomingScheduleStoreProvider),
+    network: ref.watch(networkKindProvider),
+  );
+  ref.onDispose(scheduler.dispose);
+  return scheduler;
+});
+
+/// Where the scheduler keeps its last run; in memory unless `main` gives it
+/// the file.
+final upcomingScheduleStoreProvider = Provider<UpcomingScheduleStore>(
+  (ref) => MemoryUpcomingScheduleStore(),
+);
+
+UpcomingScheduleStore fileUpcomingScheduleStore(Ref ref) =>
+    FileUpcomingScheduleStore(_cacheFile(ref, 'check_schedule.json'));
+
+/// Whether the phone is on mobile data (Only on Wi-Fi). Never says mobile
+/// unless `main` gives it the interfaces to look at.
+final networkKindProvider = Provider<NetworkKind>(
+  (ref) => const FixedNetworkKind(),
+);
+
+/// What the creator check knows about the followed creators (who is no
+/// longer active), as last recorded; empty without a check. The shell
+/// invalidates it after each run.
+final creatorStatusesProvider = FutureProvider<Map<String, CreatorStatus>>(
+  (ref) => ref.watch(creatorCheckProvider)?.statuses.read() ?? Future.value({}),
+);
+
+/// The releases the creator check found, as last recorded; empty without a
+/// check. The shell invalidates it after each run.
+final foundReleasesProvider = FutureProvider<List<FoundRelease>>(
+  (ref) => ref.watch(creatorCheckProvider)?.releases.read() ?? Future.value([]),
 );
 
 /// Album track lists (Music › Album with track ratings), stored under the app

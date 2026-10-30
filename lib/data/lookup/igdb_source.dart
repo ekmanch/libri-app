@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import '../models/follow_kind.dart';
 import '../models/media_type.dart';
+import '../upcoming/creator_lookup.dart';
 import '../models/platform_names.dart';
 import '../models/released.dart';
 import '../models/series.dart';
@@ -18,7 +20,7 @@ import 'text_clean.dart';
 /// name, release date, summary, developers, platforms, genres and cover;
 /// the game's collection (its series, Library › Movie in a series) comes
 /// with [details].
-class IgdbSource extends HttpLookupSource {
+class IgdbSource extends HttpLookupSource implements CreatorLookup {
   IgdbSource(
     super.client, {
     required this.clientId,
@@ -661,5 +663,53 @@ class IgdbSource extends HttpLookupSource {
     final cover = games.first['cover'] as Map<String, Object?>?;
     final imageId = cover == null ? null : stringAt(cover, 'image_id');
     return imageId == null ? null : coverUrlFor(imageId);
+  }
+
+  // Followed studios (Settings › Upcoming releases; DESIGN.md 10c).
+
+  @override
+  Set<FollowKind> get creatorKinds => const {FollowKind.studios};
+
+  /// The company named exactly [name] among IGDB's hits, else the first.
+  /// Wikidata says whether a studio was dissolved.
+  @override
+  Future<CreatorMatch?> findCreator(FollowKind kind, String name) async {
+    final hits = await _games(
+      'search ${_quote(name)}; fields id,name; limit 5;',
+      endpoint: 'companies',
+    );
+    final exact = hits.where(
+      (c) => (stringAt(c, 'name') ?? '').toLowerCase() == name.toLowerCase(),
+    );
+    final id = (exact.firstOrNull ?? hits.firstOrNull)?['id'];
+    if (id is! num) return null;
+    return (providerId: 'igdb:company:${id.toInt()}', inactive: null);
+  }
+
+  /// The games the company is involved in that came out from thirty days
+  /// ago on, soonest first; packs and updates left out.
+  @override
+  Future<List<LookupMatch>> creatorReleases(
+    String providerId,
+    FollowKind kind, {
+    required DateTime today,
+  }) async {
+    final parts = providerId.split(':');
+    if (parts.length != 3 || parts[0] != 'igdb' || parts[1] != 'company') {
+      throw LookupException(
+        LookupFailure.other,
+        message: 'not an IGDB company id: $providerId',
+      );
+    }
+    final from =
+        today.subtract(const Duration(days: 30)).millisecondsSinceEpoch ~/ 1000;
+    final games = await _games(
+      'fields $_searchFields; '
+      'where involved_companies.company = ${parts[2]} & '
+      'first_release_date >= $from & version_parent = null & '
+      'game_type != (13, 14); '
+      'sort first_release_date asc; limit 50;',
+    );
+    return [for (final game in games) ?_match(game)];
   }
 }

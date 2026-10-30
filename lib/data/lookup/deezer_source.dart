@@ -1,5 +1,7 @@
+import '../models/follow_kind.dart';
 import '../models/media_type.dart';
 import '../models/released.dart';
+import '../upcoming/creator_lookup.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
@@ -13,7 +15,8 @@ import 'track_info.dart';
 /// search has no release date or genres, so [details] fetches the album
 /// when a match is picked. Deezer answers errors as 200 with an `error`
 /// object, which [_data] turns into failures.
-class DeezerSource extends HttpLookupSource implements MusicSource {
+class DeezerSource extends HttpLookupSource
+    implements MusicSource, CreatorLookup {
   DeezerSource(super.client, {Uri? baseUrl, super.timeout})
     : _baseUrl = baseUrl ?? Uri.https('api.deezer.com'),
       super(minGap: const Duration(milliseconds: 120));
@@ -244,5 +247,53 @@ class DeezerSource extends HttpLookupSource implements MusicSource {
       }
     }
     return null;
+  }
+
+  // Followed artists (Settings › Upcoming releases; DESIGN.md 10c).
+
+  @override
+  Set<FollowKind> get creatorKinds => const {FollowKind.artists};
+
+  /// The artist named exactly [name] among Deezer's hits, else the first.
+  /// Deezer does not say when a band broke up; Wikidata does.
+  @override
+  Future<CreatorMatch?> findCreator(FollowKind kind, String name) async {
+    final hits = await _list('/search/artist', {'q': name, 'limit': '5'});
+    final exact = hits.where(
+      (a) => (stringAt(a, 'name') ?? '').toLowerCase() == name.toLowerCase(),
+    );
+    final id = (exact.firstOrNull ?? hits.firstOrNull)?['id'];
+    if (id is! num) return null;
+    return (providerId: 'deezer:artist:${id.toInt()}', inactive: null);
+  }
+
+  /// The artist's newest albums and EPs (singles and compilations left
+  /// out), each dated as Deezer lists it, soonest first.
+  @override
+  Future<List<LookupMatch>> creatorReleases(
+    String providerId,
+    FollowKind kind, {
+    required DateTime today,
+  }) async {
+    final parts = providerId.split(':');
+    if (parts.length != 3 || parts[0] != 'deezer' || parts[1] != 'artist') {
+      throw LookupException(
+        LookupFailure.other,
+        message: 'not a Deezer artist id: $providerId',
+      );
+    }
+    final artist = await _data('/artist/${parts[2]}');
+    final name = artist == null ? null : stringAt(artist, 'name');
+    final albums = await _list('/artist/${parts[2]}/albums', {'limit': '50'});
+    return [
+      for (final item in albums)
+        if (const {'album', 'ep'}.contains(item['record_type']))
+          if (_album(item) case final match?)
+            if (_released(item) case final released?
+                when isRecentOrAhead(released, today))
+              match.copyWith(released: released, creator: name),
+    ]..sort(
+      (a, b) => a.released!.availableFrom.compareTo(b.released!.availableFrom),
+    );
   }
 }

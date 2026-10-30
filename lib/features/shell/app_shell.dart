@@ -23,10 +23,10 @@ import '../sync/sync_scheduler.dart';
 import '../sync/sync_state.dart';
 import '../sync/token_expiry.dart';
 import '../sync/token_expiry_dialog.dart';
+import '../upcoming/upcoming_checks.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
 import '../../data/operations/operations.dart';
-import '../../data/lookup/lookup_providers.dart';
 import 'fab_action.dart';
 import 'floating_nav_bar.dart';
 
@@ -127,6 +127,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.listenManual(libraryProvider.select((l) => l.hasValue), (_, loaded) {
       if (loaded) unawaited(_runDailyChecks());
     }, fireImmediately: true);
+    ref.listenManual(droppedSeasonsProvider, (_, dropped) {
+      if (dropped.isNotEmpty) unawaited(_askAboutDroppedSeasons());
+    });
     _lifecycle = AppLifecycleListener(
       onResume: () {
         unawaited(_warnAboutToken());
@@ -135,67 +138,41 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  /// Runs the daily checks that are due: the season check, then the release
-  /// date check (Library › Home: Coming soon), then the series check, whose
-  /// record [upcomingPartsProvider] reads again.
+  /// Runs the checks for new releases that are due (DESIGN.md 10c; the
+  /// scheduler decides what today asks about), then asks about the seasons
+  /// the lookup dropped, one at a time.
   Future<void> _runDailyChecks() async {
-    await _checkSeasons();
+    await ref.read(upcomingChecksProvider).run();
     if (!mounted) return;
-    final now = DateTime.now();
-    final releases = ref.read(releaseCheckProvider);
-    final library = ref.read(libraryProvider).value;
-    if (releases != null && library != null) {
-      final operations = await releases.run(library, now);
-      if (!mounted) return;
-      final repository = ref.read(libraryRepositoryProvider);
-      for (final operation in operations) {
-        await repository.apply(operation);
-      }
-    }
-    if (!mounted) return;
-    final series = ref.read(seriesCheckProvider);
-    final current = ref.read(libraryProvider).value;
-    if (series != null && current != null) {
-      if (await series.run(current, now) && mounted) {
-        ref.invalidate(upcomingPartsProvider);
-      }
-    }
+    await _askAboutDroppedSeasons();
   }
 
-  /// Applies what the daily season check found, once a day, and asks
-  /// about dropped seasons the user gave a status.
-  Future<void> _checkSeasons() async {
-    final library = ref.read(libraryProvider).value;
-    final check = ref.read(seasonCheckProvider);
-    if (library == null || check == null) return;
-    final result = await check.run(library, DateTime.now());
-    if (!mounted) return;
+  /// Seasons TMDB dropped that the user gave a status: ask, one at a time
+  /// (Show & seasons › Announced season dropped). One left unanswered is asked
+  /// again after the next check.
+  Future<void> _askAboutDroppedSeasons() async {
+    final dropped = ref.read(droppedSeasonsProvider.notifier).take();
+    if (dropped.isEmpty) return;
     final repository = ref.read(libraryRepositoryProvider);
-    for (final operation in result.operations) {
-      await repository.apply(operation);
-    }
-    // Seasons TMDB dropped that the user gave a status: ask, one at a time
-    // (Show & seasons › Announced season dropped). One left unanswered is asked
-    // again after the next check.
-    for (final dropped in result.dropped) {
+    for (final season in dropped) {
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
-      final show = ref.read(libraryProvider).value?.entryById(dropped.entryId);
+      final show = ref.read(libraryProvider).value?.entryById(season.entryId);
       if (show == null ||
-          !(show.seasons?.any((s) => s.season == dropped.season) ?? false)) {
+          !(show.seasons?.any((s) => s.season == season.season) ?? false)) {
         continue;
       }
       final choice = await showDroppedSeasonDialog(
         context,
         show: show,
-        season: dropped.season,
-        status: dropped.status,
+        season: season.season,
+        status: season.status,
       );
       switch (choice) {
         case DroppedSeasonChoice.keep:
-          await repository.apply(KeepSeason(show.id, dropped.season));
+          await repository.apply(KeepSeason(show.id, season.season));
         case DroppedSeasonChoice.remove:
-          await repository.apply(RemoveSeason(show.id, dropped.season));
+          await repository.apply(RemoveSeason(show.id, season.season));
         case null:
           break;
       }

@@ -2,6 +2,7 @@ import '../models/entry_kind.dart';
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
+import '../upcoming/creator_lookup.dart';
 import 'episode_info.dart';
 import 'lookup_match.dart';
 
@@ -24,6 +25,15 @@ abstract class LookupSource {
   /// Whether [source] ("tmdb:movie:603") is one of this source's ids. The
   /// fake answers for every provider.
   bool issued(String source) => LookupMatch.providerOf(source) == id;
+
+  /// The lookup that says when a creator died or a band or studio
+  /// dissolved (Settings › Follow: authors, "No longer active"): the source
+  /// itself when it is one (the fake), Wikidata behind Open Library, else
+  /// null.
+  InactiveLookup? get inactiveLookup => switch (this) {
+    final InactiveLookup lookup => lookup,
+    _ => null,
+  };
 
   /// Candidates for what the user typed (Add / edit entry › New entry: pick a
   /// match), in the provider's order.
