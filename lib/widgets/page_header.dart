@@ -9,12 +9,17 @@ class PageHeader extends StatelessWidget {
   const PageHeader({
     super.key,
     required this.title,
+    this.subtitle,
     this.onBack,
     this.leading,
     this.actions = const [],
   });
 
   final String title;
+
+  /// A muted line under the title ("5 entries you want" on Library › Coming
+  /// soon: your wants).
+  final String? subtitle;
 
   /// When set, a back arrow is shown and the title is one step smaller.
   final VoidCallback? onBack;
@@ -52,18 +57,34 @@ class PageHeader extends StatelessWidget {
             ),
           if (leading != null) ...[leading!, const SizedBox(width: 6)],
           Expanded(
-            // "Library connection" at a large text size on a narrow phone:
-            // shrink a little before cutting off.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                title,
-                style: hasBack
-                    ? textTheme.headlineMedium
-                    : textTheme.headlineLarge,
-                maxLines: 1,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // "Library connection" at a large text size on a narrow
+                // phone: shrink a little before cutting off.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    title,
+                    style: hasBack
+                        ? textTheme.headlineMedium
+                        : textTheme.headlineLarge,
+                    maxLines: 1,
+                  ),
+                ),
+                if (subtitle case final subtitle?) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: textTheme.bodySmall!.copyWith(fontSize: 14),
+                    // Two lines at a large text size ("3 upcoming · 1 not
+                    // in your library" at 1.3 on a 360 dp phone).
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
             ),
           ),
           ...actions,

@@ -9,6 +9,7 @@ import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/features/music/music_tab.dart';
+import 'package:library_app/features/library/coming_soon_screen.dart';
 import 'package:library_app/features/library/cover_grid_tile.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
 import 'package:library_app/features/library/entry_list_body.dart';
@@ -162,6 +163,18 @@ void main() {
     await tester.tap(find.text('Clear all'));
     await tester.pumpAndSettle();
     expect(find.text('IN PROGRESS'), findsOneWidget);
+
+    // "See all" on Coming soon opens the Coming soon screen on Your wants
+    // (Library › Coming soon: your wants).
+    await tester.tap(find.text('See all'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ComingSoonScreen), findsOneWidget);
+    expect(find.text('Coming soon'), findsOneWidget);
+    expect(find.text('Your wants'), findsOneWidget);
+    expect(find.text('Grand Theft Auto VI'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ComingSoonScreen), findsNothing);
   });
 
   testWidgets('with nothing coming, going or new the home says so', (
@@ -1182,7 +1195,7 @@ void main() {
       expect(find.text('The Hunt for Gollum'), findsNothing);
       expect(find.text('Movie · The Lord of the Rings'), findsNothing);
       for (final row in tester.widgetList<HomeRow>(find.byType(HomeRow))) {
-        expect(row.row.entry.status, isNot(EntryStatus.done));
+        expect(row.row.entry!.status, isNot(EntryStatus.done));
       }
     },
   );

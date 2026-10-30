@@ -77,6 +77,7 @@ void main() {
     shownSeriesParts: const {
       'books:the lord of the rings': {'wikidata:Q334335'},
     },
+    hiddenUpcoming: const {'shows/stranger-things-2016#5', 'games/silksong'},
   );
 
   test('preferences survive the stored form', () {
@@ -97,8 +98,10 @@ void main() {
       'timeline_default': 'yes',
       'default_platform': 5,
       'hidden_series_parts': {'books:dune': 'wikidata:Q7', 'movies:x': []},
+      'hidden_upcoming': 'shows/x#2',
     });
     expect(prefs.themeMode, ThemeMode.dark);
+    expect(prefs.hiddenUpcoming, isEmpty);
     expect(prefs.accent, Accents.hotPink);
     expect(prefs.viewByType, {MediaType.books: EntryView.grid});
     expect(prefs.sortByType, isEmpty);

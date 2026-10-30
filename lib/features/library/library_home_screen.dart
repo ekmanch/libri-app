@@ -32,6 +32,7 @@ import '../settings/entry_view.dart';
 import '../shell/app_shell.dart';
 import '../shell/floating_nav_bar.dart';
 import 'active_plan_card.dart';
+import 'coming_soon_screen.dart';
 import 'entry_list_body.dart';
 import 'entry_list_views.dart';
 import 'filter_sheet.dart';
@@ -353,16 +354,23 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     );
     final rows = <Widget>[];
     for (final section in sections) {
-      final seeAll = section.kind == HomeSectionKind.inProgress;
+      final seeAll = switch (section.kind) {
+        HomeSectionKind.comingSoon => ('See all', _seeAllComingSoon),
+        HomeSectionKind.inProgress => (
+          'See all ${section.total}',
+          _seeAllInProgress,
+        ),
+        HomeSectionKind.recentlyAdded => null,
+      };
       rows.add(
         SectionHeading(
           section.kind.title,
-          action: seeAll ? 'See all ${section.total}' : null,
-          onAction: seeAll ? _seeAllInProgress : null,
+          action: seeAll?.$1,
+          onAction: seeAll?.$2,
           // The same height as the heading with the See all button (its
           // 48 px, centered), so the three headings line up with their rows
           // alike (the canvas's 44 px heading rows).
-          padding: seeAll
+          padding: seeAll != null
               ? const EdgeInsets.only(top: 10)
               : const EdgeInsets.fromLTRB(0, 26, 0, 16),
         ),
@@ -372,7 +380,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
           HomeRow(
             row,
             key: ValueKey('home-${section.kind.name}-${row.id}'),
-            onTap: () => widget.onOpenEntry?.call(row.entry),
+            onTap: () => widget.onOpenEntry?.call(row.entry!),
           ),
         );
       }
@@ -414,6 +422,10 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         ),
     ]);
   }
+
+  /// "See all" on Coming soon: the Coming soon screen on Your wants
+  /// (Library › Coming soon: your wants).
+  void _seeAllComingSoon() => openComingSoon(context);
 
   /// "See all N" on In progress: the filter result with just that status,
   /// across every type (Library › In progress, all types (See all)).

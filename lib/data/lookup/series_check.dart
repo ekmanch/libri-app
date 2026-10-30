@@ -13,8 +13,8 @@ import 'series_service.dart';
 import 'text_clean.dart';
 
 /// A part of a series the owner follows whose release is still ahead, as
-/// the daily check found it (for the place that will list everything
-/// coming; the home's Coming soon lists only entries set Want): the series
+/// the daily check found it (for Library › Coming soon: everything
+/// upcoming; the home's Coming soon lists only entries set Want): the series
 /// as the library's entry names it, a part in the library the series page
 /// opens by, and the part as the lookup lists it. Kept on the device in
 /// `upcoming_parts.json`, never in `library.json`. The reader drops the ones
@@ -154,7 +154,8 @@ class MemoryUpcomingPartsStore implements UpcomingPartsStore {
 /// the check asks the lookup for each followed series' parts, through
 /// [SeriesService.refresh] (a list with a part still to come is fetched
 /// again daily, the rest weekly), and records every part whose release is
-/// still ahead in [upcoming], for the home to show. Nothing is written to
+/// still ahead in [upcoming], for Library › Coming soon: everything upcoming
+/// to show. Nothing is written to
 /// `library.json`.
 ///
 /// Offline or rate limited, the lookup is not asked further; the stored

@@ -36,26 +36,45 @@ enum HomeSectionKind {
 /// One row of a home section: the entry, the detail after its type
 /// ("Stephen King", "Season 2", "2024"), and what stands on the right ("Nov
 /// 10", "Today"), [emphasized] in the text color rather than the muted one.
+/// Library › Coming soon: everything upcoming puts an [action] under it
+/// ("Want" in the accent when [actionEmphasized], else "Add" muted), and
+/// rows there for a part not in the library have no entry ([HomeRowData.text]).
 @immutable
 class HomeRowData {
-  const HomeRowData(
-    this.entry, {
+  HomeRowData(
+    Entry this.entry, {
     this.detail,
     this.right = '',
     this.emphasized = false,
-  });
+    this.action,
+    this.actionEmphasized = false,
+  }) : id = entry.id,
+       title = entry.title,
+       type = entry.type;
 
-  final Entry entry;
+  const HomeRowData.text({
+    required this.id,
+    required this.title,
+    required this.type,
+    this.detail,
+    this.right = '',
+    this.emphasized = false,
+    this.action,
+    this.actionEmphasized = false,
+  }) : entry = null;
+
+  /// The entry the row stands for; null for a part not in the library.
+  final Entry? entry;
+
+  /// What tells the row apart in its section.
+  final String id;
+  final String title;
+  final MediaType type;
   final String? detail;
   final String right;
   final bool emphasized;
-
-  String get title => entry.title;
-
-  MediaType get type => entry.type;
-
-  /// What tells the row apart in its section.
-  String get id => entry.id;
+  final String? action;
+  final bool actionEmphasized;
 
   /// "Book · Stephen King", or just "Book".
   String get subtitle =>
@@ -138,8 +157,8 @@ bool wantsRelease(Entry entry, Season? season) =>
 /// entries as the Series section matches them), not hidden by the owner in
 /// Choose what to show ([prefs]), and not an extra of the automatic rules
 /// the owner has not shown. The home does not list them (only entries set
-/// Want, [wantsRelease]); the place that will list everything coming (see
-/// TODO.md) does, so the sifting is kept for it.
+/// Want, [wantsRelease]); Library › Coming soon: everything upcoming does
+/// (`upcomingItems` in `upcoming.dart`).
 List<UpcomingPart> upcomingPartsToShow(
   List<UpcomingPart> parts, {
   required Iterable<Entry> library,
@@ -322,12 +341,17 @@ String addedLabel(DateTime added, {required DateTime today}) {
 }
 
 /// One row of a home section (Library › Home): the title, a dot in the
-/// type's color before "Type · detail", and the date or when on the right.
+/// type's color before "Type · detail", and the date or when on the right,
+/// with the row's action under it when it has one (Library › Coming soon:
+/// everything upcoming). No chevron.
 class HomeRow extends StatelessWidget {
-  const HomeRow(this.row, {super.key, this.onTap});
+  const HomeRow(this.row, {super.key, this.onTap, this.minHeight = 56});
 
   final HomeRowData row;
   final VoidCallback? onTap;
+
+  /// 56 on the home, 60 on the Coming soon screen, as the canvas draws them.
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +361,7 @@ class HomeRow extends StatelessWidget {
     return RowInkWell(
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 56),
+        constraints: BoxConstraints(minHeight: minHeight),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: colors.divider)),
         ),
@@ -379,16 +403,36 @@ class HomeRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (row.right.isNotEmpty) ...[
+            if (row.right.isNotEmpty || row.action != null) ...[
               const SizedBox(width: 12),
-              Text(
-                row.right,
-                style: subtitleStyle.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: row.emphasized
-                      ? theme.textTheme.bodyMedium!.color
-                      : null,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (row.right.isNotEmpty)
+                    Text(
+                      row.right,
+                      style: subtitleStyle.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: row.emphasized
+                            ? theme.textTheme.bodyMedium!.color
+                            : null,
+                      ),
+                    ),
+                  if (row.action case final action?) ...[
+                    if (row.right.isNotEmpty) const SizedBox(height: 3),
+                    Text(
+                      action,
+                      style: subtitleStyle.copyWith(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: row.actionEmphasized
+                            ? theme.colorScheme.primary
+                            : null,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ],

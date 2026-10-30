@@ -29,6 +29,7 @@ import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
 import 'package:library_app/widgets/tag_group.dart';
+import 'package:library_app/features/library/coming_soon_screen.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
 
 import '../helpers/fonts.dart';
@@ -170,6 +171,20 @@ class _Audit {
 Future<void> _walk(_Audit a, ProviderContainer container) async {
   final tester = a.tester;
   await a.step('home', () => a.check('Library › Home'));
+  await a.step('coming soon', () async {
+    await a.tapText('See all');
+    await a.check('Library › Coming soon: your wants');
+    await a.tapText('Everything upcoming');
+    await a.check('Library › Coming soon: everything upcoming');
+    await a.tapText('The Hunt for Gollum');
+    await a.check('Library › Coming soon: add an upcoming entry');
+    Navigator.of(
+      tester.element(find.byType(UpcomingAddSheet)),
+      rootNavigator: true,
+    ).pop();
+    await tester.pumpAndSettle();
+    await a.back();
+  });
   await a.step('movies', () async {
     await a.pickChip('Movies');
     await a.check('Library › Movies, text view');

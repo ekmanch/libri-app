@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:library_app/features/library/coming_soon_screen.dart';
 import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
@@ -885,6 +886,27 @@ void main() {
     await capture(tester, 'a1b-home-see-all');
     await tester.tap(find.text('Clear all'));
     await tester.pumpAndSettle();
+
+    // Library › Coming soon: your wants, everything upcoming and the add
+    // sheet, from "See all" on the home's Coming soon heading. The series
+    // check has recorded The Hunt for Gollum by now (the fake's The Lord
+    // of the Rings), the one row not in the library.
+    await tester.tap(find.text('See all'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1d-coming-soon-wants');
+    await tester.tap(find.text('Everything upcoming'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1e-coming-soon-everything');
+    await tester.tap(find.text('The Hunt for Gollum'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1f-coming-soon-add');
+    Navigator.of(
+      tester.element(find.byType(UpcomingAddSheet)),
+      rootNavigator: true,
+    ).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
     seasonClock = DateTime.now;
 
     // Library › Movies, text view and grid with covers.
@@ -1433,6 +1455,22 @@ void main() {
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1b-home-see-all');
     await tester.tap(find.text('Clear all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('See all'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1d-coming-soon-wants');
+    await tester.tap(find.text('Everything upcoming'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1e-coming-soon-everything');
+    await tester.tap(find.text('The Hunt for Gollum'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1f-coming-soon-add');
+    Navigator.of(
+      tester.element(find.byType(UpcomingAddSheet)),
+      rootNavigator: true,
+    ).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     seasonClock = DateTime.now;
     await pickChip(tester, 'Movies');

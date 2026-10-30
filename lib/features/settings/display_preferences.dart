@@ -28,6 +28,7 @@ class DisplayPreferences {
     this.defaultPlatform = 'PC',
     this.hiddenSeriesParts = const {},
     this.shownSeriesParts = const {},
+    this.hiddenUpcoming = const {},
   });
 
   final ThemeMode themeMode;
@@ -69,6 +70,12 @@ class DisplayPreferences {
   /// see after all (Library › Book series after the automatic rules), in
   /// the same form.
   final Map<String, Set<String>> shownSeriesParts;
+
+  /// The rows of Library › Coming soon: everything upcoming the owner
+  /// marked Not interested, by [UpcomingItem.id]: an entry's id, or
+  /// `"<entry id>#<season>"` for a show's season. Parts of a series are
+  /// hidden through [hiddenSeriesParts] instead.
+  final Set<String> hiddenUpcoming;
 
   Set<String> hiddenPartsOf(String seriesKey) =>
       hiddenSeriesParts[seriesKey] ?? const {};
@@ -113,6 +120,7 @@ class DisplayPreferences {
     Object? defaultPlatform = _keep,
     Map<String, Set<String>>? hiddenSeriesParts,
     Map<String, Set<String>>? shownSeriesParts,
+    Set<String>? hiddenUpcoming,
   }) => DisplayPreferences(
     themeMode: themeMode ?? this.themeMode,
     accent: accent ?? this.accent,
@@ -128,6 +136,7 @@ class DisplayPreferences {
         : defaultPlatform as String?,
     hiddenSeriesParts: hiddenSeriesParts ?? this.hiddenSeriesParts,
     shownSeriesParts: shownSeriesParts ?? this.shownSeriesParts,
+    hiddenUpcoming: hiddenUpcoming ?? this.hiddenUpcoming,
   );
 
   /// Sentinel for [copyWith], so a null [defaultPlatform] can be set.
@@ -151,6 +160,7 @@ class DisplayPreferences {
     'default_platform': defaultPlatform,
     'hidden_series_parts': _partsJson(hiddenSeriesParts),
     'shown_series_parts': _partsJson(shownSeriesParts),
+    'hidden_upcoming': [...hiddenUpcoming]..sort(),
   };
 
   static Map<String, List<String>> _partsJson(Map<String, Set<String>> parts) =>
@@ -221,6 +231,13 @@ class DisplayPreferences {
           : null,
       hiddenSeriesParts: _partsFromJson(json['hidden_series_parts']),
       shownSeriesParts: _partsFromJson(json['shown_series_parts']),
+      hiddenUpcoming: switch (json['hidden_upcoming']) {
+        final List<Object?> keys => {
+          for (final k in keys)
+            if (k is String) k,
+        },
+        _ => const {},
+      },
     );
   }
 
@@ -238,7 +255,8 @@ class DisplayPreferences {
       other.seasonalThemeDefault == seasonalThemeDefault &&
       other.defaultPlatform == defaultPlatform &&
       _sameParts(other.hiddenSeriesParts, hiddenSeriesParts) &&
-      _sameParts(other.shownSeriesParts, shownSeriesParts);
+      _sameParts(other.shownSeriesParts, shownSeriesParts) &&
+      setEquals(other.hiddenUpcoming, hiddenUpcoming);
 
   static bool _sameParts(
     Map<String, Set<String>> a,
@@ -263,6 +281,7 @@ class DisplayPreferences {
     defaultPlatform,
     _partsHash(hiddenSeriesParts),
     _partsHash(shownSeriesParts),
+    Object.hashAllUnordered(hiddenUpcoming),
   );
 
   static int _partsHash(Map<String, Set<String>> parts) =>
@@ -352,6 +371,11 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
       shownSeriesParts: put(state.shownSeriesParts, shown),
     );
   }
+
+  /// Not interested on a row of Library › Coming soon: everything upcoming
+  /// (an entry or a season; a part goes through [setSeriesParts]).
+  void hideUpcoming(String key) =>
+      state = state.copyWith(hiddenUpcoming: {...state.hiddenUpcoming, key});
 }
 
 final displayPreferencesProvider =
