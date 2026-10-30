@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app_info.dart';
+import '../../data/library_providers.dart';
+import '../../data/models/app_settings.dart';
+import '../../data/models/follow_kind.dart';
+import '../../data/operations/settings_operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/chips.dart';
@@ -14,6 +20,8 @@ import '../sync/sync_state.dart';
 import 'about_screen.dart';
 import 'connection_screen.dart';
 import 'display_preferences.dart';
+import 'follow_list_screen.dart';
+import 'upcoming_releases_screen.dart';
 
 /// Opens Settings above everything, so the floating navigation is covered.
 Future<void> openSettingsScreen(BuildContext context) {
@@ -40,6 +48,10 @@ class SettingsScreen extends ConsumerWidget {
     final colors = LibraryColors.of(context);
     final prefs = ref.watch(displayPreferencesProvider);
     final notifier = ref.read(displayPreferencesProvider.notifier);
+    final settings =
+        ref.watch(appSettingsProvider).value ?? AppSettings.defaults;
+    void set(SettingsOperation operation) =>
+        unawaited(ref.read(libraryRepositoryProvider).applySettings(operation));
     final groupStyle = theme.textTheme.bodySmall!.copyWith(
       fontSize: 12.5,
       fontWeight: FontWeight.w500,
@@ -90,10 +102,10 @@ class SettingsScreen extends ConsumerWidget {
                   const SectionHeading('Plans', padding: _lineHeading),
                   SwitchRow(
                     label: 'Timeline',
-                    value: prefs.timelineDefault,
-                    onChanged: notifier.setTimelineDefault,
+                    value: settings.timelineDefault,
+                    onChanged: (on) => set(SetTimelineDefault(on)),
                     style: SwitchRowStyle.line,
-                    help: prefs.timelineDefault
+                    help: settings.timelineDefault
                         ? 'New plans place entries on a timeline. '
                               'You can change it per plan.'
                         : 'New plans are a plain checklist without dates. '
@@ -101,10 +113,10 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   SwitchRow(
                     label: 'Seasonal touches',
-                    value: prefs.seasonalThemeDefault,
-                    onChanged: notifier.setSeasonalThemeDefault,
+                    value: settings.seasonalThemeDefault,
+                    onChanged: (on) => set(SetSeasonalThemeDefault(on)),
                     style: SwitchRowStyle.line,
-                    help: prefs.seasonalThemeDefault
+                    help: settings.seasonalThemeDefault
                         ? 'New Halloween and Christmas plans get themed '
                               'artwork and colors. You can change it per plan.'
                         : 'New plans all look the same. '
@@ -140,22 +152,20 @@ class SettingsScreen extends ConsumerWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            for (final platform
-                                in DisplayPreferences.platformChoices)
+                            for (final platform in AppSettings.platformChoices)
                               PillChip(
                                 label: platform,
                                 height: 40,
                                 style: PillChipStyle.accent,
-                                selected: prefs.defaultPlatform == platform,
-                                onTap: () =>
-                                    notifier.setDefaultPlatform(platform),
+                                selected: settings.defaultPlatform == platform,
+                                onTap: () => set(SetDefaultPlatform(platform)),
                               ),
                             PillChip(
                               label: 'None',
                               height: 40,
                               style: PillChipStyle.accent,
-                              selected: prefs.defaultPlatform == null,
-                              onTap: () => notifier.setDefaultPlatform(null),
+                              selected: settings.defaultPlatform == null,
+                              onTap: () => set(const SetDefaultPlatform(null)),
                             ),
                           ],
                         ),
@@ -174,6 +184,21 @@ class SettingsScreen extends ConsumerWidget {
                         ? 'This phone only'
                         : 'GitHub, private repo',
                     onTap: () => openConnectionScreen(context),
+                  ),
+                  const SectionHeading(
+                    'Upcoming releases',
+                    padding: _laterLineHeading,
+                  ),
+                  // Two lines, like Check for changes in Settings › Library
+                  // connection: the label and the value do not fit one line
+                  // on a 360 dp phone.
+                  SettingRow(
+                    label: 'Check for new releases',
+                    detail: settings.upcomingEnabled
+                        ? 'Daily · ${ref.watch(followsProvider).kindsFollowed} '
+                              'of ${FollowKind.values.length} kinds'
+                        : 'Off',
+                    onTap: () => openUpcomingReleasesScreen(context),
                   ),
                   const SectionHeading('About', padding: _laterLineHeading),
                   SettingRow(

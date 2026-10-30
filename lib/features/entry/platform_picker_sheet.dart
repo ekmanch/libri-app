@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/lookup_source.dart';
 import '../../data/models/entry.dart';
@@ -15,7 +16,6 @@ import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/touch_target.dart';
-import '../settings/display_preferences.dart';
 
 /// What the platform picker resolved with: the platform, or null for "Any
 /// platform". The sheet itself resolves with null when dismissed.
@@ -146,7 +146,9 @@ class _PlatformPickerSheetState extends ConsumerState<PlatformPickerSheet> {
           final yours = yourPlatforms(
             value,
             defaultPlatform: ref.watch(
-              displayPreferencesProvider.select((p) => p.defaultPlatform),
+              appSettingsProvider.select(
+                (s) => (s.value ?? AppSettings.defaults).defaultPlatform,
+              ),
             ),
             entries: ref.watch(libraryProvider).value?.entries ?? const [],
           );

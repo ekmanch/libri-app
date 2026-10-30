@@ -487,6 +487,17 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tapText('Libri');
     await a.check('Settings › About Libri');
     await a.back();
+    await tester.ensureVisible(find.text('Check for new releases'));
+    await tester.pumpAndSettle();
+    await a.tapText('Check for new releases');
+    await a.check('Settings › Upcoming releases');
+    await a.tap(find.byKey(const ValueKey('kind-artists')));
+    await a.check('Settings › Follow: authors (the artists list)');
+    await a.back();
+    await a.tap(find.byKey(const ValueKey('kind-actors')));
+    await a.check('Settings › Follow: actors');
+    await a.back();
+    await a.back();
     await a.tapText('Library source');
     await a.check('Settings › Library connection');
     await a.tapText('Disconnect');

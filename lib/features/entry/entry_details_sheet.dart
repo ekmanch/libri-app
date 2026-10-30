@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,7 +11,10 @@ import '../../data/lookup/track_info.dart';
 import '../../data/lookup/track_list_service.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_kind.dart';
+import '../../data/models/follow_kind.dart';
+import '../../data/models/tag_category.dart';
 import '../../data/models/track.dart';
+import '../../data/upcoming/follows.dart';
 import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
@@ -21,6 +26,7 @@ import '../../widgets/segmented_control.dart';
 import '../../widgets/sheet_frame.dart';
 import '../plans/plan_progress.dart';
 import '../settings/display_preferences.dart';
+import '../settings/follow_list_screen.dart';
 import '../settings/entry_view.dart';
 import '../../widgets/bordered_row.dart';
 import 'add_to_plan_sheet.dart';
@@ -242,18 +248,46 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
               runSpacing: 8,
               children: [
                 // A tag in more than one category says which it has here:
-                // "#clint-eastwood · Director, Actor".
+                // "#clint-eastwood · Director, Actor". A creator's tag
+                // (Authors, Directors, Studios, Actors) carries whether the
+                // creator is followed for new releases, and a tap on that
+                // mark toggles it (Settings › Upcoming releases).
                 for (final tag in entry.tags)
-                  TagChip(
-                    tag,
-                    mutedDetail: true,
-                    detail: library.isMultiCategory(tag)
-                        ? library
-                              .categoriesOn(entry, tag)
-                              .map((c) => c.roleLabel)
-                              .join(', ')
-                        : null,
-                  ),
+                  if (_followOf(ref, entry, tag) case final follow?)
+                    FollowTagChip(
+                      tag: tag,
+                      follow: follow,
+                      detail: library.isMultiCategory(tag)
+                          ? library
+                                .categoriesOn(entry, tag)
+                                .map((c) => c.roleLabel)
+                                .join(', ')
+                          : null,
+                      onToggle: () => unawaited(
+                        ref
+                            .read(libraryRepositoryProvider)
+                            .applySettings(
+                              SetFollow(
+                                follow.kind,
+                                follow.id,
+                                name: follow.name,
+                                on: !follow.followed,
+                                defaultOn: follow.defaultOn,
+                              ),
+                            ),
+                      ),
+                    )
+                  else
+                    TagChip(
+                      tag,
+                      mutedDetail: true,
+                      detail: library.isMultiCategory(tag)
+                          ? library
+                                .categoriesOn(entry, tag)
+                                .map((c) => c.roleLabel)
+                                .join(', ')
+                          : null,
+                    ),
               ],
             ),
           ],
@@ -469,4 +503,26 @@ class _TrackListState extends State<_TrackList> {
       ],
     );
   }
+}
+
+/// The follow a creator's tag stands for on [entry]: the first of the tag's
+/// categories on the entry that is a creator kind (Authors, Directors,
+/// Studios, Actors), when the library follows it. Null for any other tag.
+Follow? _followOf(WidgetRef ref, Entry entry, String tag) {
+  final library = ref.watch(libraryProvider).value;
+  if (library == null) return null;
+  final follows = ref.watch(followsProvider);
+  for (final category in library.categoriesOn(entry, tag)) {
+    final kind = switch (category) {
+      TagCategory.authors => FollowKind.authors,
+      TagCategory.directors => FollowKind.directors,
+      TagCategory.studios => FollowKind.studios,
+      TagCategory.actors => FollowKind.actors,
+      _ => null,
+    };
+    if (kind == null) continue;
+    final follow = follows.find(kind, tag);
+    if (follow != null) return follow;
+  }
+  return null;
 }

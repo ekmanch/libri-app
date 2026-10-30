@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/models/book_format.dart';
 import '../../data/lookup/lookup_match.dart';
 import '../../data/models/entry.dart';
@@ -32,7 +35,6 @@ import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/segmented_control.dart';
 import '../../widgets/touch_target.dart';
-import '../settings/display_preferences.dart';
 import 'cover_picker_sheet.dart';
 import 'new_entry_screen.dart';
 import 'released_sheet.dart';
@@ -241,13 +243,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     _platformsOn.addAll(splitPlatforms(entry?.platform));
     // A new game starts with the default platform from Settings picked,
-    // when the game came out on it.
+    // when the game came out on it. The settings come with the library
+    // (`settings.json`), so they are read as the form opens.
     if (entry == null && _type == MediaType.games) {
-      final wanted = ref.read(displayPreferencesProvider).defaultPlatform;
-      final name = wanted == null ? null : normalizePlatform(wanted);
-      _platformsOn.addAll(
-        _platformOptions.where((p) => p.toLowerCase() == name?.toLowerCase()),
-      );
+      unawaited(_pickDefaultPlatform());
     }
     // A game found on one platform starts with that one picked too.
     if (match?.searchedPlatform case final platform?) {
@@ -500,6 +499,25 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   /// Adds a chip unless one with the same platform is there already.
   /// Returns the chip's name.
+  /// Ticks the default platform from Settings among a new game's platforms,
+  /// once the settings are read; nothing when the user already picked one.
+  Future<void> _pickDefaultPlatform() async {
+    final AppSettings settings;
+    try {
+      settings = await ref.read(libraryRepositoryProvider).loadSettings();
+    } on Object {
+      return;
+    }
+    if (!mounted || _platformsOn.isNotEmpty) return;
+    final wanted = settings.defaultPlatform;
+    final name = wanted == null ? null : normalizePlatform(wanted);
+    final picked = _platformOptions.where(
+      (p) => p.toLowerCase() == name?.toLowerCase(),
+    );
+    if (picked.isEmpty) return;
+    setState(() => _platformsOn.addAll(picked));
+  }
+
   String _addPlatformOption(String platform) {
     final name = normalizePlatform(platform);
     for (final p in _platformOptions) {

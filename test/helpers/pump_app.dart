@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/data/repository/library_repository.dart';
@@ -21,13 +22,15 @@ Library loadFixture() =>
 
 /// Pumps [home] inside a MaterialApp with the app theme and a provider
 /// container whose repository serves [library] and whose lookups are the
-/// fake (or [lookupOverrides]). Returns the container.
+/// fake (or [lookupOverrides]), and whose settings start as [settings].
+/// Returns the container.
 Future<ProviderContainer> pumpApp(
   WidgetTester tester,
   Widget home, {
   Library? library,
   Size size = const Size(360, 780),
   DisplayPreferences? prefs,
+  AppSettings? settings,
   LibraryRepository? repository,
   List<Override> overrides = const [],
   List<Override>? lookupOverrides,
@@ -38,7 +41,10 @@ Future<ProviderContainer> pumpApp(
     overrides: [
       libraryRepositoryProvider.overrideWithValue(
         repository ??
-            FixtureLibraryRepository(loadJson: () async => encodeLibrary(lib)),
+            FixtureLibraryRepository(
+              loadJson: () async => encodeLibrary(lib),
+              settings: settings ?? AppSettings.defaults,
+            ),
       ),
       ...lookupOverrides ?? fakeLookupOverrides(),
       ...overrides,

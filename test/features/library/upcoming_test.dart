@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/lookup/series_check.dart';
+import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -250,10 +251,14 @@ void main() {
         released: const Released(2027),
         status: EntryStatus.done,
       );
-      List<String> titles(DisplayPreferences prefs) => upcomingItems(
+      List<String> titles(
+        DisplayPreferences prefs, {
+        AppSettings settings = AppSettings.defaults,
+      }) => upcomingItems(
         [show, movie, fellowship, towers],
         parts: const [gollum],
         prefs: prefs,
+        settings: settings,
         today: today,
       ).map((i) => i.title).toList();
       expect(titles(const DisplayPreferences()), [
@@ -262,7 +267,10 @@ void main() {
         'movie',
       ]);
       expect(
-        titles(const DisplayPreferences(hiddenUpcoming: {'show#2', 'movie'})),
+        titles(
+          const DisplayPreferences(),
+          settings: const AppSettings(notInterested: {'show#2', 'movie'}),
+        ),
         ['The Hunt for Gollum'],
       );
       expect(

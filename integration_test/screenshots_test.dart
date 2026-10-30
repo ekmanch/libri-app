@@ -897,6 +897,10 @@ void main() {
     await tester.tap(find.text('Everything upcoming'));
     await tester.pumpAndSettle();
     await capture(tester, 'a1e-coming-soon-everything');
+    // The found releases sit above it now: scroll the row into view.
+    await tester.scrollUntilVisible(find.text('The Hunt for Gollum'), 200);
+    await tester.ensureVisible(find.text('The Hunt for Gollum'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('The Hunt for Gollum'));
     await tester.pumpAndSettle();
     await capture(tester, 'a1f-coming-soon-add');
@@ -1462,6 +1466,10 @@ void main() {
     await tester.tap(find.text('Everything upcoming'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1e-coming-soon-everything');
+    // The found releases sit above it now: scroll the row into view.
+    await tester.scrollUntilVisible(find.text('The Hunt for Gollum'), 200);
+    await tester.ensureVisible(find.text('The Hunt for Gollum'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('The Hunt for Gollum'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1f-coming-soon-add');
@@ -1603,6 +1611,26 @@ void main() {
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-s6-settings-bottom');
+    await tester.ensureVisible(find.text('Check for new releases'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Check for new releases'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-s9-upcoming-releases');
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('kind-artists')),
+      200,
+    );
+    await tester.ensureVisible(find.byKey(const ValueKey('kind-artists')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('kind-artists')));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-s10-follow-artists');
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    // Back on Settings, the list may be laid out afresh: find the row again.
+    await tester.scrollUntilVisible(find.text('Libri'), 300);
     await tester.ensureVisible(find.text('Libri'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Libri'));
@@ -1711,6 +1739,44 @@ void main() {
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
     await tester.pumpAndSettle();
     await capture(tester, 's6-settings-bottom');
+    // Settings › Upcoming releases, Follow: authors (the fixture has no
+    // authors tagged, so Artists stands in; the list is the same) and
+    // Follow: actors.
+    await tester.ensureVisible(find.text('Check for new releases'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Check for new releases'));
+    await tester.pumpAndSettle();
+    await capture(tester, 's9-upcoming-releases');
+    await tester.tap(find.byKey(const ValueKey('kind-artists')));
+    await tester.pumpAndSettle();
+    await capture(tester, 's10-follow-artists');
+    await tester.scrollUntilVisible(
+      find.text('NO LONGER ACTIVE'),
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await capture(tester, 's10-follow-artists-inactive');
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('kind-actors')),
+      200,
+    );
+    await tester.ensureVisible(find.byKey(const ValueKey('kind-actors')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('kind-actors')));
+    await tester.pumpAndSettle();
+    await capture(tester, 's10-follow-actors');
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    // Back on Settings, the list may be laid out afresh: find the row again.
+    await tester.scrollUntilVisible(find.text('Libri'), 300);
     await tester.ensureVisible(find.text('Libri'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Libri'));

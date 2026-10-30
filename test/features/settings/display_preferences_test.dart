@@ -68,9 +68,7 @@ void main() {
     sortByType: const {MediaType.books: LibrarySort.titleAz},
     filteredSort: LibrarySort.yearNewest,
     artistSort: LibrarySort.titleAz,
-    timelineDefault: true,
-    seasonalThemeDefault: false,
-    defaultPlatform: null,
+    upcomingWifiOnly: true,
     hiddenSeriesParts: const {
       'books:dune': {'wikidata:Q7', 'wikidata:Q8'},
     },
@@ -105,9 +103,34 @@ void main() {
     expect(prefs.accent, Accents.hotPink);
     expect(prefs.viewByType, {MediaType.books: EntryView.grid});
     expect(prefs.sortByType, isEmpty);
-    expect(prefs.timelineDefault, isFalse);
-    expect(prefs.defaultPlatform, isNull);
     expect(prefs.hiddenSeriesParts, isEmpty);
+    expect(prefs.upcomingWifiOnly, isFalse);
+    // Broken legacy values are no values.
+    expect(prefs.legacy.timelineDefault, isNull);
+    expect(prefs.legacy.hasDefaultPlatform, isTrue, reason: 'the key is there');
+    expect(prefs.legacy.platform, isNull);
+  });
+
+  test('a file from before settings.json keeps its plan and game settings '
+      'as legacy values, which are never written back', () {
+    final prefs = DisplayPreferences.fromJson(const {
+      'timeline_default': true,
+      'seasonal_theme_default': false,
+      'default_platform': 'Steam Deck',
+      'hidden_upcoming': ['games/silksong'],
+    });
+    expect(prefs.legacy.isEmpty, isFalse);
+    expect(prefs.legacy.timelineDefault, isTrue);
+    expect(prefs.legacy.seasonalThemeDefault, isFalse);
+    expect(prefs.legacy.platform, 'Steam Deck');
+    expect(prefs.hiddenUpcoming, {'games/silksong'});
+    final json = prefs.toJson();
+    expect(json.containsKey('timeline_default'), isFalse);
+    expect(json.containsKey('default_platform'), isFalse);
+    expect(DisplayPreferences.fromJson(json).legacy.isEmpty, isTrue);
+    // A file with none of the keys has nothing to carry over.
+    expect(const DisplayPreferences().legacy.isEmpty, isTrue);
+    expect(DisplayPreferences.fromJson(const {}).legacy.isEmpty, isTrue);
   });
 
   test('choosing parts replaces the series\' sets; none removes them', () {

@@ -22,6 +22,7 @@ class SettingRow extends StatelessWidget {
     this.onTap,
     this.minHeight = 52,
     this.labelWidth,
+    this.emphasizedValue = false,
   });
 
   final String label;
@@ -37,6 +38,11 @@ class SettingRow extends StatelessWidget {
   /// Width of the label column. Null lets the label take its natural width
   /// and pushes the value to the right edge.
   final double? labelWidth;
+
+  /// The value in the text color rather than the muted one: the counts on
+  /// the kind rows of Settings › Upcoming releases, where muted reads as
+  /// "nothing followed".
+  final bool emphasizedValue;
 
   @override
   Widget build(BuildContext context) {
@@ -78,25 +84,43 @@ class SettingRow extends StatelessWidget {
           // its natural width and the value all the rest, so the value
           // reaches the right edge. A row without a value (the two-line
           // detail rows) lets the text wrap across the width.
+          // A two-line label with a short value (the kind rows of Settings ›
+          // Upcoming releases, "Shows and anime / New seasons · 119") gives
+          // the label the width and the value its natural size.
           if (fixedLabel)
             SizedBox(width: labelWidth, child: labelText)
-          else if (value != null)
+          else if (value != null && detail == null)
             labelText
           else
             Expanded(child: labelText),
           if (value != null) ...[
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(
+            if (detail != null && !fixedLabel)
+              Text(
                 value!,
-                textAlign: fixedLabel ? TextAlign.start : TextAlign.end,
+                textAlign: TextAlign.end,
                 style: theme.textTheme.bodyMedium!.copyWith(
                   fontSize: 14,
                   height: 1.3,
-                  color: colors.muted,
+                  color: emphasizedValue
+                      ? theme.colorScheme.onSurface
+                      : colors.muted,
+                ),
+              )
+            else
+              Expanded(
+                child: Text(
+                  value!,
+                  textAlign: fixedLabel ? TextAlign.start : TextAlign.end,
+                  style: theme.textTheme.bodyMedium!.copyWith(
+                    fontSize: 14,
+                    height: 1.3,
+                    color: emphasizedValue
+                        ? theme.colorScheme.onSurface
+                        : colors.muted,
+                  ),
                 ),
               ),
-            ),
           ],
           if (onTap != null) ...[
             const SizedBox(width: 6),

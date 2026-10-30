@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:library_app/data/images/artwork_providers.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/models/app_settings.dart';
+import 'package:library_app/data/images/artwork_providers.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/models/book_format.dart';
 import 'package:library_app/data/models/entry.dart';
@@ -17,7 +18,6 @@ import 'package:library_app/features/entry/tag_picker_sheet.dart';
 import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/seasons.dart';
-import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
@@ -1104,11 +1104,15 @@ void main() {
       final container = await pumpApp(
         tester,
         EntryFormScreen.create(match: match),
-        prefs: const DisplayPreferences(defaultPlatform: null),
+        settings: const AppSettings(defaultPlatform: null),
       );
       await scrollTo(tester, find.widgetWithText(PillChip, 'PC'));
       expect(isSelected(tester, find.widgetWithText(PillChip, 'PC')), isFalse);
-      expect(container.read(displayPreferencesProvider).defaultPlatform, null);
+      expect(
+        (await container.read(libraryRepositoryProvider).loadSettings())
+            .defaultPlatform,
+        null,
+      );
     });
 
     testWidgets('a removed match comes back as a suggestion', (tester) async {

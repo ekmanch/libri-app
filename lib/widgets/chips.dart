@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/upcoming/follows.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'touch_target.dart';
@@ -369,6 +370,92 @@ class RemovableChip extends StatelessWidget {
                   color: theme.colorScheme.onSurface,
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A creator's tag in Library › Entry details with its follow state after
+/// the name: "#stephen-king · Following" in the accent, "· Follow" muted
+/// when not followed, "· Died 1973" for a creator no longer active (still
+/// tappable, to follow anyway). A tap on the chip toggles the follow
+/// (Settings › Upcoming releases; DESIGN.md 10c).
+class FollowTagChip extends StatelessWidget {
+  const FollowTagChip({
+    super.key,
+    required this.tag,
+    required this.follow,
+    required this.onToggle,
+    this.detail,
+  });
+
+  final String tag;
+  final Follow follow;
+  final VoidCallback onToggle;
+
+  /// The role, for a tag in more than one category ("Director, Actor").
+  final String? detail;
+
+  /// The mark's words.
+  String get mark =>
+      follow.followed ? 'Following' : follow.inactive?.label ?? 'Follow';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    final accent = theme.colorScheme.primary;
+    final label = detail == null ? '#$tag' : '#$tag · $detail';
+    return Semantics(
+      button: true,
+      toggled: follow.followed,
+      label:
+          '$label, ${follow.followed ? 'following' : 'not following'} '
+          '${follow.name}',
+      excludeSemantics: true,
+      child: TouchTarget(
+        child: Material(
+          color: colors.surfaceHigh,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text.rich(
+                      TextSpan(
+                        text: '#$tag',
+                        children: [
+                          if (detail != null)
+                            TextSpan(
+                              text: ' · $detail',
+                              style: TextStyle(color: colors.muted),
+                            ),
+                          TextSpan(
+                            text: ' · $mark',
+                            style: TextStyle(
+                              color: follow.followed ? accent : colors.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium!.copyWith(
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

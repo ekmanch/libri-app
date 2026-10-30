@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
@@ -10,6 +11,10 @@ import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/series.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
+import 'package:library_app/data/lookup/lookup_match.dart';
+import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/upcoming/creator_lookup.dart';
+import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/entry_details_sheet.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/series.dart';
@@ -247,7 +252,103 @@ void main() {
     );
     await tester.tap(find.text('Add to library'));
     await tester.pumpAndSettle();
+    // The part has a lookup id, so the form opens prefilled from it, as
+    // Want; nothing is looked up again by hand.
+    expect(find.byType(NewEntryScreen), findsNothing);
+    expect(find.byType(EntryFormScreen), findsOneWidget);
+    expect(
+      find.widgetWithText(
+        TextField,
+        'The Lord of the Rings: The Hunt for Gollum',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a part without a lookup id is looked up by its title', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      const ComingSoonScreen(startEverything: true),
+      library: library(),
+      lookupOverrides: fakeLookupOverrides(
+        upcomingParts: MemoryUpcomingPartsStore(const [
+          UpcomingPart(
+            type: MediaType.movies,
+            seriesName: 'The Lord of the Rings',
+            entryId: 'movies/fellowship',
+            title: 'The Lord of the Rings: The War of the Rohirrim',
+            released: Released(2027, 6),
+            number: 3,
+          ),
+        ]),
+      ),
+    );
+    await tester.tap(row('The War of the Rohirrim'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to library'));
+    await tester.pumpAndSettle();
     expect(find.byType(NewEntryScreen), findsOneWidget);
+  });
+
+  testWidgets('a followed creator\'s release is an Add row; the form opens '
+      'prefilled; Not interested hides it through the settings', (
+    tester,
+  ) async {
+    final found = FoundRelease(
+      kind: FollowKind.artists,
+      creatorId: 'alice in chains',
+      creatorName: 'Alice in Chains',
+      match: const LookupMatch(
+        type: MediaType.music,
+        title: 'Rainier Fog II',
+        source: 'fake:aic-next',
+        released: Released(2026, 11, 20),
+        creator: 'Alice in Chains',
+        description: 'The eighth album.',
+      ),
+      foundOn: DateTime(2026, 10, 28),
+    );
+    final container = await pumpApp(
+      tester,
+      const ComingSoonScreen(startEverything: true),
+      library: library(),
+      lookupOverrides: fakeLookupOverrides(
+        upcomingParts: MemoryUpcomingPartsStore(const [gollum]),
+        foundReleases: MemoryFoundReleaseStore([found]),
+      ),
+    );
+    expect(find.text('5 upcoming · 3 not in your library'), findsOneWidget);
+    expect(find.text('Rainier Fog II'), findsOneWidget);
+    expect(find.text('Music · Alice in Chains'), findsOneWidget);
+    expect(find.text('Nov 20'), findsOneWidget);
+    await tester.tap(row('Rainier Fog II'));
+    await tester.pumpAndSettle();
+    expect(find.text('MUSIC · NOV 20'), findsOneWidget);
+    expect(
+      find.text(
+        'Why it’s here: A new album by Alice in Chains, whom you follow.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Add to library'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EntryFormScreen), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Rainier Fog II'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(row('Rainier Fog II'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Not interested'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rainier Fog II'), findsNothing);
+    expect(
+      (await container.read(libraryRepositoryProvider).loadSettings())
+          .notInterested,
+      {'fake:aic-next'},
+    );
   });
 
   testWidgets('Not interested hides the row: a part through its series', (
@@ -273,9 +374,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Stranger Things'), findsNothing);
     expect(find.text('2 upcoming · 0 not in your library'), findsOneWidget);
-    expect(container.read(displayPreferencesProvider).hiddenUpcoming, {
-      'shows/stranger-things#5',
-    });
+    expect(
+      (await container.read(libraryRepositoryProvider).loadSettings())
+          .notInterested,
+      {'shows/stranger-things#5'},
+    );
   });
 
   testWidgets('says when nothing is coming', (tester) async {

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/models/library.dart';
 import '../../data/models/plan.dart';
 import '../../data/operations/operations.dart';
@@ -18,7 +19,6 @@ import '../../widgets/segmented_control.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/switch_row.dart';
-import '../settings/display_preferences.dart';
 import 'plan_builders.dart';
 import 'plan_dialogs.dart';
 import 'plan_progress.dart';
@@ -208,13 +208,14 @@ class _PlanFormScreenState extends ConsumerState<PlanFormScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final prefs = ref.watch(displayPreferencesProvider);
+    final settings =
+        ref.watch(appSettingsProvider).value ?? AppSettings.defaults;
     final library = ref.watch(libraryProvider).value;
     if (!_defaultsApplied) {
       // A fresh plan starts with the switches as set in Settings.
       _defaultsApplied = true;
-      _timeline = prefs.timelineDefault;
-      _seasonal = prefs.seasonalThemeDefault;
+      _timeline = settings.timelineDefault;
+      _seasonal = settings.seasonalThemeDefault;
     }
     final editing = widget.isEditing;
     final season = seasonForTags(_tags);
@@ -413,7 +414,7 @@ class _PlanFormScreenState extends ConsumerState<PlanFormScreen> {
                           ? 'Entries sit on a timeline, each with a day or a '
                                 'period.'
                           : 'A plain checklist without dates.',
-                      if (!editing && _timeline == prefs.timelineDefault)
+                      if (!editing && _timeline == settings.timelineDefault)
                         'Starts ${_timeline ? 'on' : 'off'}, as set in '
                             'Settings.',
                     ].join(' '),

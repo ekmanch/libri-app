@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/lookup/series_check.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/models/entry.dart';
+import '../../data/models/follow_kind.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/released.dart';
 import '../../data/models/season.dart';
+import '../../data/upcoming/creator_lookup.dart';
 import '../../widgets/labels.dart';
 import '../entry/series.dart';
 import '../settings/display_preferences.dart';
@@ -24,6 +27,10 @@ enum UpcomingKind {
   /// A part of a followed series that is not in the library, as the daily
   /// series check recorded it.
   part,
+
+  /// A new release of a followed creator that is not in the library, as the
+  /// creator check recorded it (Settings › Upcoming releases).
+  release,
 }
 
 /// One row of Library › Coming soon: your wants and Coming soon: everything
@@ -46,6 +53,7 @@ class UpcomingItem {
     this.entry,
     this.season,
     this.part,
+    this.release,
   });
 
   /// An entry with a release ahead, or set Want with no date.
@@ -95,11 +103,26 @@ class UpcomingItem {
         part: part,
       );
 
+  /// A release of a followed creator not in the library.
+  factory UpcomingItem.release(FoundRelease release) => UpcomingItem._(
+    kind: UpcomingKind.release,
+    id: release.key,
+    type: release.match.type,
+    title: release.match.title,
+    released: release.match.released,
+    detail: release.match.creator ?? release.creatorName,
+    creator: release.match.creator ?? release.creatorName,
+    description: release.match.description,
+    wanted: false,
+    reason: releaseReason(release),
+    release: release,
+  );
+
   final UpcomingKind kind;
 
-  /// Tells the row apart, and is the key Not interested hides an entry or
-  /// a season by ([DisplayPreferences.hiddenUpcoming]); a part is hidden
-  /// through its series' Choose what to show instead.
+  /// Tells the row apart, and is the key Not interested hides an entry, a
+  /// season or a found release by (`AppSettings.notInterested`); a part is
+  /// hidden through its series' Choose what to show instead.
   final String id;
 
   final MediaType type;
@@ -120,6 +143,11 @@ class UpcomingItem {
   final Entry? entry;
   final Season? season;
   final UpcomingPart? part;
+  final FoundRelease? release;
+
+  /// The lookup id Add to library starts the entry form from, for a part
+  /// or a found release; null when the source gave none.
+  String? get source => release?.match.source ?? part?.source;
 
   /// "Nov 10", "Jan 2027", "2027", or "Date not set".
   String rightLabel(DateTime today) => switch (released) {
@@ -153,15 +181,18 @@ class UpcomingGroup {
 
 /// Everything coming for [entries] (seasonal-only ones already left out),
 /// nearest first: every entry with a release ahead, the coming season of
-/// every show and anime series, every Want entry without a date, and the
-/// parts of followed series the series check recorded ([parts], sifted by
-/// [upcomingPartsToShow]). Rows the owner marked Not interested are left
-/// out ([DisplayPreferences.hiddenUpcoming]). Your wants is
-/// [wantedUpcoming] of this.
+/// every show and anime series, every Want entry without a date, the parts
+/// of followed series the series check recorded ([parts], sifted by
+/// [upcomingPartsToShow]), and the [releases] of followed creators the
+/// creator check recorded that are not in the library. Rows the owner
+/// marked Not interested are left out ([AppSettings.notInterested]; a part
+/// through its series in [prefs]). Your wants is [wantedUpcoming] of this.
 List<UpcomingItem> upcomingItems(
   Iterable<Entry> entries, {
   required List<UpcomingPart> parts,
+  List<FoundRelease> releases = const [],
   required DisplayPreferences prefs,
+  AppSettings settings = AppSettings.defaults,
   required DateTime today,
 }) {
   final list = entries.toList();
@@ -187,9 +218,35 @@ List<UpcomingItem> upcomingItems(
       ),
     );
   }
-  items.removeWhere((item) => prefs.hiddenUpcoming.contains(item.id));
+  final owned = {for (final e in list) ?e.source};
+  final seen = <String>{};
+  for (final release in releases) {
+    if (owned.contains(release.key) || !seen.add(release.key)) continue;
+    if (!isRecentOrAhead(release.match.released, today)) continue;
+    items.add(UpcomingItem.release(release));
+  }
+  items.removeWhere((item) => settings.notInterested.contains(item.id));
   items.sort(compareUpcoming);
   return items;
+}
+
+/// "A new album by Alice in Chains, whom you follow (2 albums in your
+/// library)."
+String releaseReason(FoundRelease release) {
+  final what = switch (release.match.type) {
+    MediaType.movies => 'movie',
+    MediaType.shows => 'show',
+    MediaType.books => 'book',
+    MediaType.games => 'game',
+    MediaType.music => 'album',
+    MediaType.anime => 'anime',
+  };
+  final by = switch (release.kind) {
+    FollowKind.actors => 'with',
+    FollowKind.studios => 'from',
+    _ => 'by',
+  };
+  return 'A new $what $by ${release.creatorName}, whom you follow.';
 }
 
 /// The rows of Your wants: those the owner asked for.

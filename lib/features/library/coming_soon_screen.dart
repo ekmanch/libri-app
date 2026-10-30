@@ -1,13 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/lookup/lookup_failure.dart';
+import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/lookup_providers.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/season.dart';
 import '../../data/operations/entry_operations.dart';
 import '../../data/operations/season_operations.dart';
+import '../../data/operations/settings_operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/cover_image.dart';
@@ -18,6 +24,7 @@ import '../../widgets/section_heading.dart';
 import '../../widgets/segmented_control.dart';
 import '../../widgets/sheet_frame.dart';
 import '../entry/entry_details_sheet.dart';
+import '../entry/entry_form_screen.dart';
 import '../entry/new_entry_screen.dart';
 import '../entry/series.dart';
 import '../settings/display_preferences.dart';
@@ -52,8 +59,8 @@ class ComingSoonScreen extends ConsumerStatefulWidget {
   final bool startEverything;
 
   static const hint =
-      'New seasons, parts and releases from the shows and series in your '
-      'library. Tap one to add it.';
+      'New seasons, parts and releases from the shows, series, authors and '
+      'artists in your library. Tap one to add it.';
   static const emptyWants = 'Nothing you want is coming up.';
   static const emptyEverything = 'Nothing upcoming in your library.';
 
@@ -70,6 +77,9 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
     final library = ref.watch(libraryProvider).value;
     final prefs = ref.watch(displayPreferencesProvider);
     final parts = ref.watch(upcomingPartsProvider).value ?? const [];
+    final releases = ref.watch(foundReleasesProvider).value ?? const [];
+    final settings =
+        ref.watch(appSettingsProvider).value ?? AppSettings.defaults;
     final filter = ref.watch(libraryFilterProvider);
     final today = seasonClock();
     final all = library == null
@@ -77,7 +87,9 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
         : upcomingItems(
             filter.apply(library.entries),
             parts: parts,
+            releases: releases,
             prefs: prefs,
+            settings: settings,
             today: today,
           );
     final wanted = wantedUpcoming(all);
@@ -194,17 +206,27 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
     }
   }
 
-  /// Add to library: a part starts a new entry looked up for its title, as
-  /// "+ Add" on the series page does; a season or an entry is set Want.
+  /// Add to library: a part or a found release opens the entry form
+  /// prefilled from its lookup id with status Want (the match is known, so
+  /// nothing is asked twice); a part without an id starts a new entry looked
+  /// up for its title, as "+ Add" on the series page does; a season or an
+  /// entry is set Want.
   Future<void> _add(UpcomingItem item) async {
     final repository = ref.read(libraryRepositoryProvider);
     switch (item.kind) {
       case UpcomingKind.part:
-        await openNewEntryScreen(
-          context,
-          type: item.type,
-          title: item.part!.title,
-        );
+      case UpcomingKind.release:
+        final match = await _matchFor(item);
+        if (!mounted) return;
+        if (match == null) {
+          await openNewEntryScreen(
+            context,
+            type: item.type,
+            title: item.part?.title ?? item.title,
+          );
+        } else {
+          await openNewEntryForm(context, match: match);
+        }
       case UpcomingKind.season:
         await repository.apply(
           SetSeasonStatus(
@@ -218,11 +240,39 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
     }
   }
 
+  /// The row as a match the form can start from: the lookup id with what
+  /// the record knows, filled in by the source's details (the director, the
+  /// genres, a game's platforms) when it answers; the record alone when it
+  /// does not. Null for a part without a lookup id.
+  Future<LookupMatch?> _matchFor(UpcomingItem item) async {
+    final LookupMatch known;
+    if (item.release case final release?) {
+      known = release.match;
+    } else if (item.part case final part? when part.source != null) {
+      known = LookupMatch(
+        type: part.type,
+        title: part.title,
+        source: part.source!,
+        released: part.released,
+      );
+    } else {
+      return null;
+    }
+    final source = ref.read(lookupServiceProvider).sourceOf(known.source);
+    if (source == null || !source.isConfigured) return known;
+    try {
+      return await source.details(known);
+    } on LookupException {
+      return known;
+    }
+  }
+
   /// Not interested: a part is hidden the way Choose what to show hides it,
-  /// so the series page agrees; an entry or a season by its own key.
+  /// so the series page agrees; an entry, a season or a found release by its
+  /// own key in the settings (`settings.json`, so a desktop agrees).
   void _hide(UpcomingItem item) {
-    final prefs = ref.read(displayPreferencesProvider.notifier);
     if (item.kind == UpcomingKind.part) {
+      final prefs = ref.read(displayPreferencesProvider.notifier);
       final part = item.part!;
       final key = seriesKey(part.type, part.seriesName);
       final current = ref.read(displayPreferencesProvider);
@@ -232,7 +282,11 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
         shown: current.shownPartsOf(key),
       );
     } else {
-      prefs.hideUpcoming(item.id);
+      unawaited(
+        ref
+            .read(libraryRepositoryProvider)
+            .applySettings(SetNotInterested(item.id, title: item.sheetTitle)),
+      );
     }
   }
 }

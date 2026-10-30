@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/features/settings/about_screen.dart';
 import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
@@ -40,6 +42,8 @@ void main() {
     (tester) async {
       final container = await pumpApp(tester, const SettingsScreen());
       DisplayPreferences prefs() => container.read(displayPreferencesProvider);
+      Future<AppSettings> settings() =>
+          container.read(libraryRepositoryProvider).loadSettings();
 
       await tester.tap(find.text('Light'));
       await tester.pumpAndSettle();
@@ -55,7 +59,7 @@ void main() {
       expect(find.textContaining('plain checklist'), findsOneWidget);
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
-      expect(prefs().timelineDefault, isTrue);
+      expect((await settings()).timelineDefault, isTrue);
       expect(
         find.textContaining('place entries on a timeline'),
         findsOneWidget,
@@ -65,16 +69,22 @@ void main() {
       expect(find.textContaining('themed artwork'), findsOneWidget);
       await tester.tap(find.byType(Switch).at(1));
       await tester.pumpAndSettle();
-      expect(prefs().seasonalThemeDefault, isFalse);
+      expect((await settings()).seasonalThemeDefault, isFalse);
+      // The list's extent is re-measured on the rebuild (the test font is
+      // wide), so the row may have left the viewport: scroll back to it.
+      await tester.scrollUntilVisible(
+        find.textContaining('all look the same'),
+        -150,
+      );
       expect(find.textContaining('all look the same'), findsOneWidget);
 
       await tester.scrollUntilVisible(find.text('None'), 200);
       await tester.tap(find.text('None'));
       await tester.pumpAndSettle();
-      expect(prefs().defaultPlatform, isNull);
+      expect((await settings()).defaultPlatform, isNull);
       await tester.tap(find.text('Steam Deck'));
       await tester.pumpAndSettle();
-      expect(prefs().defaultPlatform, 'Steam Deck');
+      expect((await settings()).defaultPlatform, 'Steam Deck');
     },
   );
 

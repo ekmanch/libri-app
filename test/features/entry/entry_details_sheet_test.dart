@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/models/follow_kind.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -80,19 +81,50 @@ void main() {
     expect(find.byType(CoverPlaceholder), findsNothing);
   });
 
-  testWidgets('a tag in more than one category shows its roles here', (
-    tester,
-  ) async {
+  testWidgets('a tag in more than one category shows its roles here, and a '
+      'creator\'s tag its follow state', (tester) async {
     await open(tester, entryId: 'movies/million-dollar-baby-2004');
-    expect(find.text('#clint-eastwood · Director, Actor'), findsOneWidget);
-    expect(find.text('#hilary-swank'), findsOneWidget);
+    // Eastwood is followed as a director (on by default); actors are off
+    // until ticked.
+    expect(
+      find.text('#clint-eastwood · Director, Actor · Following'),
+      findsOneWidget,
+    );
+    expect(find.text('#hilary-swank · Follow'), findsOneWidget);
+    expect(find.text('#drama'), findsOneWidget);
   });
 
   testWidgets('a tag picked in one of its categories shows that one', (
     tester,
   ) async {
     await open(tester, entryId: 'movies/the-good-the-bad-and-the-ugly-1966');
-    expect(find.text('#clint-eastwood · Actor'), findsOneWidget);
+    expect(find.text('#clint-eastwood · Actor · Follow'), findsOneWidget);
+  });
+
+  testWidgets('tapping the follow mark toggles the follow', (tester) async {
+    final container = await open(
+      tester,
+      entryId: 'movies/million-dollar-baby-2004',
+    );
+    await tester.ensureVisible(find.text('#hilary-swank · Follow'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('#hilary-swank · Follow'));
+    await tester.pumpAndSettle();
+    expect(find.text('#hilary-swank · Following'), findsOneWidget);
+    var settings = await container
+        .read(libraryRepositoryProvider)
+        .loadSettings();
+    expect(settings.followedOf(FollowKind.actors), {'hilary-swank'});
+    await tester.tap(
+      find.text('#clint-eastwood · Director, Actor · Following'),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('#clint-eastwood · Director, Actor · Follow'),
+      findsOneWidget,
+    );
+    settings = await container.read(libraryRepositoryProvider).loadSettings();
+    expect(settings.unfollowedOf(FollowKind.directors), {'clint-eastwood'});
   });
 
   testWidgets('empty note and about are left out; no plans says so', (

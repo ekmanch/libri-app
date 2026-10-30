@@ -23,12 +23,11 @@ class DisplayPreferences {
     this.sortByType = const {},
     this.filteredSort = LibrarySort.newestAdded,
     this.artistSort = LibrarySort.yearOldest,
-    this.timelineDefault = false,
-    this.seasonalThemeDefault = true,
-    this.defaultPlatform = 'PC',
     this.hiddenSeriesParts = const {},
     this.shownSeriesParts = const {},
     this.hiddenUpcoming = const {},
+    this.upcomingWifiOnly = false,
+    this.legacy = const LegacySettings(),
   });
 
   final ThemeMode themeMode;
@@ -52,15 +51,6 @@ class DisplayPreferences {
   /// view).
   final LibrarySort artistSort;
 
-  /// What a new plan's Timeline and Seasonal theme switches start as (Plans ›
-  /// New plan); set in Settings.
-  final bool timelineDefault;
-  final bool seasonalThemeDefault;
-
-  /// Pre-selected on a new game that came out on it (Add / edit entry); null
-  /// means none. The choices are listed in Settings.
-  final String? defaultPlatform;
-
   /// The parts not in the library that the owner chose not to see, per
   /// series (Library › Series page: choose what to show): the series'
   /// [seriesKey] to the parts' lookup ids. A series with none is left out.
@@ -77,19 +67,20 @@ class DisplayPreferences {
   /// hidden through [hiddenSeriesParts] instead.
   final Set<String> hiddenUpcoming;
 
+  /// Only on Wi-Fi (Settings › Upcoming releases): the scheduled checks
+  /// skip a day on mobile data. About this phone, so kept here.
+  final bool upcomingWifiOnly;
+
+  /// Values read from a `preferences.json` written before `settings.json`
+  /// existed, to be carried over into the synced settings once
+  /// (`carryOverLegacySettings`); never written back.
+  final LegacySettings legacy;
+
   Set<String> hiddenPartsOf(String seriesKey) =>
       hiddenSeriesParts[seriesKey] ?? const {};
 
   Set<String> shownPartsOf(String seriesKey) =>
       shownSeriesParts[seriesKey] ?? const {};
-
-  static const platformChoices = [
-    'PC',
-    'PlayStation 5',
-    'Xbox Series X|S',
-    'Switch 2',
-    'Steam Deck',
-  ];
 
   EntryView viewFor(MediaType type) => viewByType[type] ?? EntryView.text;
 
@@ -115,12 +106,11 @@ class DisplayPreferences {
     Map<MediaType, LibrarySort>? sortByType,
     LibrarySort? filteredSort,
     LibrarySort? artistSort,
-    bool? timelineDefault,
-    bool? seasonalThemeDefault,
-    Object? defaultPlatform = _keep,
     Map<String, Set<String>>? hiddenSeriesParts,
     Map<String, Set<String>>? shownSeriesParts,
     Set<String>? hiddenUpcoming,
+    bool? upcomingWifiOnly,
+    LegacySettings? legacy,
   }) => DisplayPreferences(
     themeMode: themeMode ?? this.themeMode,
     accent: accent ?? this.accent,
@@ -129,18 +119,12 @@ class DisplayPreferences {
     sortByType: sortByType ?? this.sortByType,
     filteredSort: filteredSort ?? this.filteredSort,
     artistSort: artistSort ?? this.artistSort,
-    timelineDefault: timelineDefault ?? this.timelineDefault,
-    seasonalThemeDefault: seasonalThemeDefault ?? this.seasonalThemeDefault,
-    defaultPlatform: defaultPlatform == _keep
-        ? this.defaultPlatform
-        : defaultPlatform as String?,
     hiddenSeriesParts: hiddenSeriesParts ?? this.hiddenSeriesParts,
     shownSeriesParts: shownSeriesParts ?? this.shownSeriesParts,
     hiddenUpcoming: hiddenUpcoming ?? this.hiddenUpcoming,
+    upcomingWifiOnly: upcomingWifiOnly ?? this.upcomingWifiOnly,
+    legacy: legacy ?? this.legacy,
   );
-
-  /// Sentinel for [copyWith], so a null [defaultPlatform] can be set.
-  static const _keep = Object();
 
   /// The stored form. Enums are written by name and the accent by its id,
   /// so reordering an enum never changes a saved choice.
@@ -155,12 +139,12 @@ class DisplayPreferences {
     'sort': {for (final e in sortByType.entries) e.key.name: e.value.name},
     'filtered_sort': filteredSort.name,
     'artist_sort': artistSort.name,
-    'timeline_default': timelineDefault,
-    'seasonal_theme_default': seasonalThemeDefault,
-    'default_platform': defaultPlatform,
     'hidden_series_parts': _partsJson(hiddenSeriesParts),
     'shown_series_parts': _partsJson(shownSeriesParts),
     'hidden_upcoming': [...hiddenUpcoming]..sort(),
+    'upcoming_wifi_only': upcomingWifiOnly,
+    // The legacy values are read from an older file and never written: once
+    // carried over they are gone.
   };
 
   static Map<String, List<String>> _partsJson(Map<String, Set<String>> parts) =>
@@ -196,7 +180,6 @@ class DisplayPreferences {
           ?byName(keys, key): ?byName(values, value),
     };
 
-    final platform = json['default_platform'];
     return DisplayPreferences(
       themeMode: byName(ThemeMode.values, json['theme']) ?? defaults.themeMode,
       accent: switch (json['accent']) {
@@ -216,19 +199,6 @@ class DisplayPreferences {
       artistSort:
           byName(LibrarySort.values, json['artist_sort']) ??
           defaults.artistSort,
-      timelineDefault: switch (json['timeline_default']) {
-        final bool on => on,
-        _ => defaults.timelineDefault,
-      },
-      seasonalThemeDefault: switch (json['seasonal_theme_default']) {
-        final bool on => on,
-        _ => defaults.seasonalThemeDefault,
-      },
-      defaultPlatform: !json.containsKey('default_platform')
-          ? defaults.defaultPlatform
-          : platform is String
-          ? platform
-          : null,
       hiddenSeriesParts: _partsFromJson(json['hidden_series_parts']),
       shownSeriesParts: _partsFromJson(json['shown_series_parts']),
       hiddenUpcoming: switch (json['hidden_upcoming']) {
@@ -238,6 +208,8 @@ class DisplayPreferences {
         },
         _ => const {},
       },
+      upcomingWifiOnly: json['upcoming_wifi_only'] == true,
+      legacy: LegacySettings.fromJson(json),
     );
   }
 
@@ -251,12 +223,11 @@ class DisplayPreferences {
       mapEquals(other.sortByType, sortByType) &&
       other.filteredSort == filteredSort &&
       other.artistSort == artistSort &&
-      other.timelineDefault == timelineDefault &&
-      other.seasonalThemeDefault == seasonalThemeDefault &&
-      other.defaultPlatform == defaultPlatform &&
       _sameParts(other.hiddenSeriesParts, hiddenSeriesParts) &&
       _sameParts(other.shownSeriesParts, shownSeriesParts) &&
-      setEquals(other.hiddenUpcoming, hiddenUpcoming);
+      setEquals(other.hiddenUpcoming, hiddenUpcoming) &&
+      other.upcomingWifiOnly == upcomingWifiOnly &&
+      other.legacy == legacy;
 
   static bool _sameParts(
     Map<String, Set<String>> a,
@@ -276,12 +247,11 @@ class DisplayPreferences {
     Object.hashAllUnordered(sortByType.entries.map((e) => (e.key, e.value))),
     filteredSort,
     artistSort,
-    timelineDefault,
-    seasonalThemeDefault,
-    defaultPlatform,
     _partsHash(hiddenSeriesParts),
     _partsHash(shownSeriesParts),
     Object.hashAllUnordered(hiddenUpcoming),
+    upcomingWifiOnly,
+    legacy,
   );
 
   static int _partsHash(Map<String, Set<String>> parts) =>
@@ -333,15 +303,6 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
     musicViewByTab: {...state.musicViewByTab, tab: view},
   );
 
-  void setTimelineDefault(bool on) =>
-      state = state.copyWith(timelineDefault: on);
-
-  void setSeasonalThemeDefault(bool on) =>
-      state = state.copyWith(seasonalThemeDefault: on);
-
-  void setDefaultPlatform(String? platform) =>
-      state = state.copyWith(defaultPlatform: platform);
-
   void setArtistSort(LibrarySort sort) =>
       state = state.copyWith(artistSort: sort);
 
@@ -373,9 +334,80 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
   }
 
   /// Not interested on a row of Library › Coming soon: everything upcoming
-  /// (an entry or a season; a part goes through [setSeriesParts]).
+  /// (an entry or a season; a part goes through [setSeriesParts]). Since
+  /// `settings.json` the keys live there (`SetNotInterested`); this stays
+  /// for the carry-over of an older file.
   void hideUpcoming(String key) =>
       state = state.copyWith(hiddenUpcoming: {...state.hiddenUpcoming, key});
+
+  void setUpcomingWifiOnly(bool on) =>
+      state = state.copyWith(upcomingWifiOnly: on);
+
+  /// The legacy values were carried over into `settings.json`: forget them,
+  /// which saves the file without them.
+  void clearLegacy() => state = state.copyWith(
+    legacy: const LegacySettings(),
+    hiddenUpcoming: const {},
+  );
+}
+
+/// The settings a `preferences.json` from before `settings.json` may hold
+/// (the plan defaults, the default platform; Not interested rows are in
+/// `hiddenUpcoming`), each null when the file has no such key. Carried over
+/// once into the synced settings, then cleared.
+@immutable
+class LegacySettings {
+  const LegacySettings({
+    this.timelineDefault,
+    this.seasonalThemeDefault,
+    this.defaultPlatform = _absent,
+  });
+
+  final bool? timelineDefault;
+  final bool? seasonalThemeDefault;
+
+  /// The platform, null for None, or [_absent] when the file has no key.
+  final Object? defaultPlatform;
+
+  static const _absent = Object();
+
+  bool get hasDefaultPlatform => defaultPlatform != _absent;
+
+  String? get platform =>
+      hasDefaultPlatform ? defaultPlatform as String? : null;
+
+  bool get isEmpty =>
+      timelineDefault == null &&
+      seasonalThemeDefault == null &&
+      !hasDefaultPlatform;
+
+  factory LegacySettings.fromJson(Map<String, Object?> json) {
+    final platform = json['default_platform'];
+    return LegacySettings(
+      timelineDefault: json['timeline_default'] is bool
+          ? json['timeline_default'] as bool
+          : null,
+      seasonalThemeDefault: json['seasonal_theme_default'] is bool
+          ? json['seasonal_theme_default'] as bool
+          : null,
+      defaultPlatform: !json.containsKey('default_platform')
+          ? _absent
+          : platform is String
+          ? platform
+          : null,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is LegacySettings &&
+      other.timelineDefault == timelineDefault &&
+      other.seasonalThemeDefault == seasonalThemeDefault &&
+      other.defaultPlatform == defaultPlatform;
+
+  @override
+  int get hashCode =>
+      Object.hash(timelineDefault, seasonalThemeDefault, defaultPlatform);
 }
 
 final displayPreferencesProvider =
