@@ -3,10 +3,13 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/github/github_api.dart';
 import 'package:library_app/data/library_codec.dart';
+import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/entry_status.dart';
+import 'package:library_app/data/models/follow_kind.dart';
 import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/data/repository/github_library_repository.dart';
 import 'package:library_app/data/repository/local_library_repository.dart';
+import 'package:library_app/data/settings_codec.dart';
 import 'package:library_app/data/sync/sync_status.dart';
 import 'package:library_app/dev/fake_github_api.dart';
 
@@ -60,7 +63,9 @@ void main() {
     expect(File('${dir.path}/sync.json').existsSync(), isTrue);
     expect(github.requests, [
       'GET library.json',
+      'GET settings.json', // Not there: the defaults, with no file created.
       startsWith('GET library.json "'), // Conditional: answered 304.
+      'GET settings.json', // A missing file has no ETag to ask with.
     ]);
     expect(repo.status.phase, SyncPhase.idle);
     expect(repo.status.lastSynced, isNotNull);
@@ -91,7 +96,10 @@ void main() {
     final second = repository();
     expect(await second.load(), sampleLibrary());
     await second.flush();
-    expect(github.requests, [startsWith('GET library.json "')]);
+    expect(github.requests, [
+      startsWith('GET library.json "'),
+      'GET settings.json',
+    ]);
     second.dispose();
   });
 
@@ -581,6 +589,7 @@ void main() {
     await Future<void>.delayed(debounce * 2);
     expect(dir.listSync().map((f) => f.uri.pathSegments.last).toSet(), {
       'library.json',
+      'settings.json',
       'sync.json',
     });
     expect(github.putCount, 0);
@@ -618,4 +627,273 @@ void main() {
       repo.dispose();
     },
   );
+
+  group('settings.json', () {
+    const unfollowRowling = SetFollow(
+      FollowKind.authors,
+      'j-k-rowling',
+      name: 'J. K. Rowling',
+      on: false,
+      defaultOn: true,
+    );
+    final rowlingUnfollowed = encodeSettings(
+      const AppSettings(
+        unfollowed: {
+          FollowKind.authors: {'j-k-rowling'},
+        },
+      ),
+    );
+
+    test(
+      'missing on GitHub means the defaults, created on the first save',
+      () async {
+        final repo = repository();
+        await repo.load();
+        await repo.flush();
+        expect(await repo.loadSettings(), AppSettings.defaults);
+        expect(github.text('settings.json'), isNull);
+        expect(
+          File('${dir.path}/settings.json').readAsStringSync(),
+          emptySettingsText,
+        );
+
+        await repo.applySettings(unfollowRowling);
+        expect(repo.status.pendingCount, 1);
+        await settle(repo);
+        expect(github.putCount, 1);
+        expect(github.text('settings.json'), rowlingUnfollowed);
+        expect(
+          (await github.commits('settings.json', branch: 'main')).first.message,
+          'Unfollow J. K. Rowling',
+        );
+        expect(repo.status.pendingCount, 0);
+        expect(repo.status.phase, SyncPhase.idle);
+        // The base knows the file now: the next check is conditional and cheap.
+        github.requests.clear();
+        await repo.syncNow();
+        expect(github.requests, [
+          startsWith('GET library.json "'),
+          startsWith('GET settings.json "'),
+        ]);
+        expect(github.text('library.json'), seedText, reason: 'untouched');
+        repo.dispose();
+      },
+    );
+
+    test('a file on GitHub is downloaded, and its changes pulled', () async {
+      github.setFile('settings.json', rowlingUnfollowed);
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      final settings = await repo.loadSettings();
+      expect(settings.unfollowedOf(FollowKind.authors), {'j-k-rowling'});
+      expect(
+        File('${dir.path}/settings.json').readAsStringSync(),
+        rowlingUnfollowed,
+      );
+
+      // Someone else (the desktop app) changes it: pulled on the next check.
+      final emitted = <AppSettings>[];
+      final sub = repo.watchSettings().listen(emitted.add);
+      github.setFile(
+        'settings.json',
+        encodeSettings(const AppSettings(timelineDefault: true)),
+      );
+      await repo.syncNow();
+      await repo.flush();
+      await pumpEventQueue();
+      await sub.cancel();
+      expect(emitted.last.timelineDefault, isTrue);
+      expect(emitted.last.unfollowed, isEmpty);
+      expect(github.putCount, 0);
+      repo.dispose();
+    });
+
+    test('quick ticks go out as one commit, each file its own', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      SettingsOperation unfollow(String id, String name) => SetFollow(
+        FollowKind.authors,
+        id,
+        name: name,
+        on: false,
+        defaultOn: true,
+      );
+      await repo.applySettings(unfollow('a', 'Ann Author'));
+      await repo.applySettings(unfollow('b', 'Bob Books'));
+      await repo.applySettings(unfollow('c', 'Cy Codex'));
+      await repo.apply(SetStatus(mummy.id, EntryStatus.want));
+      expect(repo.status.pendingCount, 4);
+      await settle(repo);
+
+      expect(github.putCount, 2);
+      expect(
+        (await github.commits('settings.json', branch: 'main')).first.message,
+        'Unfollow 3 authors\n\n'
+        '- Unfollow Ann Author\n- Unfollow Bob Books\n- Unfollow Cy Codex',
+      );
+      expect(
+        (await github.commits('library.json', branch: 'main')).first.message,
+        'Mark The Mummy as want',
+      );
+      expect(repo.status.pendingCount, 0);
+      final settings = decodeSettings(github.text('settings.json')!);
+      expect(settings.unfollowedOf(FollowKind.authors), {'a', 'b', 'c'});
+      repo.dispose();
+    });
+
+    test('a change that leaves the settings as they are is dropped', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      // Ticking what is on by default changes nothing.
+      await repo.applySettings(
+        const SetFollow(
+          FollowKind.authors,
+          'stephen-king',
+          name: 'Stephen King',
+          on: true,
+          defaultOn: true,
+        ),
+      );
+      expect(repo.status.pendingCount, 0);
+      await settle(repo);
+      expect(github.putCount, 0);
+      expect(github.text('settings.json'), isNull);
+      repo.dispose();
+    });
+
+    test(
+      'changed on both sides is a conflict; keep GitHub\'s drops the tick',
+      () async {
+        github.setFile('settings.json', emptySettingsText);
+        final repo = repository();
+        await repo.load();
+        await repo.flush();
+        github.failure = GitHubFailure.offline;
+        await repo.applySettings(unfollowRowling);
+        await settle(repo);
+        expect(repo.status.phase, SyncPhase.offline);
+        github.failure = null;
+        github.setFile(
+          'settings.json',
+          encodeSettings(const AppSettings(timelineDefault: true)),
+        );
+        await repo.syncNow();
+        expect(repo.status.phase, SyncPhase.conflict);
+        expect(github.putCount, 0);
+
+        await repo.resolveConflict(keepMine: false);
+        await repo.flush();
+        expect(repo.status.phase, SyncPhase.idle);
+        final settings = await repo.loadSettings();
+        expect(settings.timelineDefault, isTrue);
+        expect(settings.unfollowed, isEmpty, reason: 'the queued tick is gone');
+        expect(repo.status.pendingCount, 0);
+        expect(github.putCount, 0);
+        repo.dispose();
+      },
+    );
+
+    test('keep mine puts the phone\'s settings over GitHub\'s', () async {
+      github.setFile('settings.json', emptySettingsText);
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      github.failure = GitHubFailure.offline;
+      await repo.applySettings(unfollowRowling);
+      await settle(repo);
+      github.failure = null;
+      github.setFile(
+        'settings.json',
+        encodeSettings(const AppSettings(timelineDefault: true)),
+      );
+      await repo.syncNow();
+      expect(repo.status.phase, SyncPhase.conflict);
+
+      await repo.resolveConflict(keepMine: true);
+      await repo.flush();
+      expect(repo.status.phase, SyncPhase.idle);
+      expect(github.text('settings.json'), rowlingUnfollowed);
+      expect(
+        (await github.commits('settings.json', branch: 'main')).first.message,
+        "Keep this phone's copy of the settings\n\n- Unfollow J. K. Rowling",
+      );
+      // The library did not differ, so it was not written.
+      expect(github.putCount, 1);
+      expect(repo.status.pendingCount, 0);
+      repo.dispose();
+    });
+
+    test('a settings save whose answer was lost is not sent twice', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      github.loseNextPutResponse = GitHubFailure.offline;
+      await repo.applySettings(unfollowRowling);
+      await settle(repo);
+      expect(github.text('settings.json'), rowlingUnfollowed);
+      expect(repo.status.phase, SyncPhase.offline);
+      expect(repo.status.pendingCount, 1);
+      expect(pendingFile(), contains('"path": "settings.json"'));
+
+      await repo.syncNow();
+      await repo.flush();
+      expect(repo.status.phase, SyncPhase.idle);
+      expect(repo.status.pendingCount, 0);
+      expect(github.putCount, 1, reason: 'the save landed; nothing goes again');
+      repo.dispose();
+    });
+
+    test(
+      'a start offline keeps the defaults and fetches the file later',
+      () async {
+        github.setFile('settings.json', rowlingUnfollowed);
+        final first = repository();
+        await first.load();
+        await first.flush();
+        first.dispose();
+
+        // A second install (no files on the phone) that is offline when the
+        // settings would be fetched: the library downloaded, then the line
+        // dropped.
+        final other = Directory.systemTemp.createTempSync('libri-github-2-');
+        addTearDown(() => other.deleteSync(recursive: true));
+        github.failAfter = 1;
+        github.failure = GitHubFailure.offline;
+        final repo = GitHubLibraryRepository(
+          directory: other,
+          api: github,
+          repository: 'ekmanch/library',
+          path: 'library.json',
+          branch: 'main',
+          debounce: debounce,
+          log: logged.add,
+        );
+        await repo.load();
+        await repo.flush();
+        expect(await repo.loadSettings(), AppSettings.defaults);
+        expect(repo.status.phase, SyncPhase.offline);
+
+        github.failure = null;
+        await repo.syncNow();
+        await repo.flush();
+        expect(repo.status.phase, SyncPhase.idle);
+        expect((await repo.loadSettings()).unfollowedOf(FollowKind.authors), {
+          'j-k-rowling',
+        });
+        repo.dispose();
+      },
+    );
+
+    test('discard removes the settings cache too', () async {
+      final repo = repository();
+      await repo.load();
+      await repo.flush();
+      await repo.discard();
+      expect(File('${dir.path}/settings.json').existsSync(), isFalse);
+      repo.dispose();
+    });
+  });
 }

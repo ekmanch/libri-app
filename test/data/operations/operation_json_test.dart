@@ -48,7 +48,9 @@ void main() {
     for (final operation in all) {
       // Through text, as pending.json stores it.
       final text = jsonEncode(encodeOperation(operation));
-      final decoded = decodeOperation(jsonDecode(text) as Map<String, Object?>);
+      final decoded = decodeOperation(
+        jsonDecode(text) as Map<String, Object?>,
+      ) as LibraryOperation;
       expect(decoded.runtimeType, operation.runtimeType, reason: text);
       expect(
         jsonEncode(encodeOperation(decoded)),

@@ -2,23 +2,39 @@ import 'dart:async';
 import 'dart:io';
 
 import '../library_codec.dart';
+import '../models/app_settings.dart';
 import '../models/library.dart';
 import '../operations/library_operation.dart';
+import '../operations/settings_operations.dart';
+import '../settings_codec.dart';
 import '../storage/atomic_file.dart';
 import 'library_repository.dart';
+import 'local_cache.dart';
 
 /// Keeps the library in a `library.json` on the device, so changes survive
 /// a restart. The file is written in the canonical form after every change
-/// that alters it.
+/// that alters it. The settings live in a `settings.json` beside it
+/// ([settingsFile]; in memory when none is given), kept the same way.
 ///
 /// On the first start there is no file yet; it is created from [seed] (the
 /// bundled fixture until the GitHub connection exists). A file that cannot
 /// be read is never overwritten: it is renamed aside with an `.unreadable`
 /// suffix and the library starts again from [seed].
 class LocalLibraryRepository implements LibraryRepository {
-  LocalLibraryRepository(this.file, {required this.seed});
+  LocalLibraryRepository(this.file, {required this.seed, File? settingsFile})
+    : _settings = settingsFile == null
+          ? null
+          : LocalCache<AppSettings>(
+              settingsFile,
+              seed: () async => emptySettingsText,
+              encode: encodeSettings,
+              decode: decodeSettings,
+            );
 
   final File file;
+  final LocalCache<AppSettings>? _settings;
+  final _settingsChanges = StreamController<AppSettings>.broadcast();
+  AppSettings _memorySettings = AppSettings.defaults;
 
   /// The library text for a new install.
   final Future<String> Function() seed;
@@ -97,7 +113,31 @@ class LocalLibraryRepository implements LibraryRepository {
     return library;
   }
 
-  /// Removes the file (Disconnect). The in-memory library stays until the
+  @override
+  Future<AppSettings> loadSettings() =>
+      _settings?.load() ?? Future.value(_memorySettings);
+
+  @override
+  Stream<AppSettings> watchSettings() =>
+      _settings?.watch() ?? _watchMemorySettings();
+
+  Stream<AppSettings> _watchMemorySettings() async* {
+    yield _memorySettings;
+    yield* _settingsChanges.stream;
+  }
+
+  @override
+  Future<AppSettings> applySettings(SettingsOperation operation) async {
+    if (_settings case final settings?) return settings.update(operation.apply);
+    final next = operation.apply(_memorySettings);
+    if (next != _memorySettings) {
+      _memorySettings = next;
+      _settingsChanges.add(next);
+    }
+    return next;
+  }
+
+  /// Removes the files (Disconnect). The in-memory library stays until the
   /// repository is disposed.
   Future<void> delete() {
     final deletion = _writing.then((_) async {
@@ -105,7 +145,7 @@ class LocalLibraryRepository implements LibraryRepository {
       _written = null;
     });
     _writing = deletion.catchError((Object _) {});
-    return deletion;
+    return Future.wait([deletion, ?_settings?.delete()]);
   }
 
   Future<void> _save(Library library) {
@@ -125,7 +165,11 @@ class LocalLibraryRepository implements LibraryRepository {
   Library? get current => _library;
 
   /// Waits for every pending write.
-  Future<void> flush() => _writing;
+  Future<void> flush() => Future.wait([_writing, ?_settings?.flush()]);
 
-  void dispose() => _changes.close();
+  void dispose() {
+    _changes.close();
+    _settingsChanges.close();
+    _settings?.dispose();
+  }
 }

@@ -1,5 +1,7 @@
+import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/operations/library_operation.dart';
+import 'package:library_app/data/operations/settings_operations.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/data/repository/library_repository.dart';
 
@@ -30,4 +32,14 @@ class SlowSaveRepository implements LibraryRepository {
     await Future<void>.delayed(delay);
     return next;
   }
+
+  @override
+  Future<AppSettings> loadSettings() => inner.loadSettings();
+
+  @override
+  Stream<AppSettings> watchSettings() => inner.watchSettings();
+
+  @override
+  Future<AppSettings> applySettings(SettingsOperation operation) =>
+      inner.applySettings(operation);
 }

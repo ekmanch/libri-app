@@ -457,7 +457,8 @@ void main() {
         Season(season: 3, released: Released(2026, 10), fresh: true),
       ]),
     ]) {
-      final decoded = decodeOperation(encodeOperation(operation));
+      final decoded =
+          decodeOperation(encodeOperation(operation)) as LibraryOperation;
       expect(decoded.apply(library), operation.apply(library));
       expect(decoded.summary(library), operation.summary(library));
     }

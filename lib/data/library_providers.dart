@@ -10,8 +10,10 @@ import '../features/sync/sync_state.dart';
 import 'github/github_api.dart';
 import 'github/github_http_api.dart';
 import 'library_codec.dart';
+import 'models/app_settings.dart';
 import 'models/library.dart';
 import 'operations/library_operation.dart';
+import 'operations/settings_operations.dart';
 import 'repository/fixture_library_repository.dart';
 import 'repository/github_library_repository.dart';
 import 'repository/library_repository.dart';
@@ -88,6 +90,9 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
       // The file is there after a disconnect; should it be gone, start
       // empty rather than fail.
       seed: () async => encodeLibrary(const Library()),
+      settingsFile: File(
+        '${directory.path}${Platform.pathSeparator}settings.json',
+      ),
     );
     ref.onDispose(repository.dispose);
     return repository;
@@ -114,6 +119,13 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
 /// starts clean.
 final libraryProvider = StreamProvider.autoDispose<Library>(
   (ref) => ref.watch(libraryRepositoryProvider).watch(),
+);
+
+/// The settings kept with the library (`settings.json`), updated after every
+/// applied settings operation. Screens read `.value ?? AppSettings.defaults`
+/// while it loads.
+final appSettingsProvider = StreamProvider.autoDispose<AppSettings>(
+  (ref) => ref.watch(libraryRepositoryProvider).watchSettings(),
 );
 
 /// The sync side of the repository, or null when it has none.
@@ -148,4 +160,14 @@ class _Disconnected implements LibraryRepository {
 
   @override
   Future<Library> apply(LibraryOperation operation) => Future.error(_error);
+
+  @override
+  Future<AppSettings> loadSettings() => Future.error(_error);
+
+  @override
+  Stream<AppSettings> watchSettings() => Stream.error(_error);
+
+  @override
+  Future<AppSettings> applySettings(SettingsOperation operation) =>
+      Future.error(_error);
 }

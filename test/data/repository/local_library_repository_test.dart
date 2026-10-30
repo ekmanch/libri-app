@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_codec.dart';
+import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/data/repository/local_library_repository.dart';
+import 'package:library_app/data/settings_codec.dart';
 
 import '../../helpers/sample_library.dart';
 
@@ -19,8 +21,43 @@ void main() {
   });
   tearDown(() => dir.deleteSync(recursive: true));
 
-  LocalLibraryRepository repository() =>
-      LocalLibraryRepository(file, seed: () async => seedText);
+  LocalLibraryRepository repository({bool settings = false}) =>
+      LocalLibraryRepository(
+        file,
+        seed: () async => seedText,
+        settingsFile: settings ? File('${dir.path}/settings.json') : null,
+      );
+
+  test('settings live in settings.json beside the library', () async {
+    final repo = repository(settings: true);
+    expect(await repo.loadSettings(), AppSettings.defaults);
+    final settingsFile = File('${dir.path}/settings.json');
+    expect(settingsFile.readAsStringSync(), emptySettingsText);
+    await repo.applySettings(const SetTimelineDefault(true));
+    await repo.flush();
+    expect(
+      settingsFile.readAsStringSync(),
+      contains('"timeline_default": true'),
+    );
+
+    final reopened = repository(settings: true);
+    expect((await reopened.loadSettings()).timelineDefault, isTrue);
+    final emitted = <AppSettings>[];
+    final sub = reopened.watchSettings().listen(emitted.add);
+    await reopened.applySettings(const SetDefaultPlatform(null));
+    await pumpEventQueue();
+    await sub.cancel();
+    expect(emitted.map((s) => s.defaultPlatform), ['PC', null]);
+    await reopened.delete();
+    expect(settingsFile.existsSync(), isFalse);
+  });
+
+  test('without a settings file the settings stay in memory', () async {
+    final repo = repository();
+    await repo.applySettings(const SetTimelineDefault(true));
+    expect((await repo.loadSettings()).timelineDefault, isTrue);
+    expect(File('${dir.path}/settings.json').existsSync(), isFalse);
+  });
 
   test('a new install starts from the seed and writes it out', () async {
     final library = await repository().load();
