@@ -1675,7 +1675,7 @@ void main() {
           ],
           {'en', 'sv'},
         ),
-        (inLanguages: true, released: const Released(2027, 2, 10)),
+        (inLanguages: true, title: null, released: const Released(2027, 2, 10)),
       );
       expect(
         sifted(
@@ -1685,7 +1685,7 @@ void main() {
           ],
           {'en'},
         ),
-        (inLanguages: false, released: null),
+        (inLanguages: false, title: null, released: null),
       );
       // An edition with no language is kept, and dates the book when none
       // in the languages is dated.
@@ -1697,7 +1697,7 @@ void main() {
           ],
           {'en'},
         ),
-        (inLanguages: true, released: const Released(2027)),
+        (inLanguages: true, title: null, released: const Released(2027)),
       );
       expect(
         sifted(
@@ -1707,14 +1707,45 @@ void main() {
           ],
           {'en'},
         ),
-        (inLanguages: true, released: const Released(2027)),
+        (inLanguages: true, title: null, released: const Released(2027)),
       );
       // A work whose editions name no language at all is in them.
       expect(sifted([edition([], '2026'), edition([], null)], {'en'}), (
         inLanguages: true,
+        title: null,
         released: const Released(2026),
       ));
-      expect(sifted([], {'en'}), (inLanguages: true, released: null));
+      expect(sifted([], {'en'}), (
+        inLanguages: true,
+        title: null,
+        released: null,
+      ));
+    });
+
+    test('the edition that dates the book in the languages read gives its '
+        'title', () {
+      Map<String, Object?> titled(String title, String lang, String date) => {
+        'title': title,
+        'languages': [
+          {'key': '/languages/$lang'},
+        ],
+        'publish_date': date,
+      };
+      expect(
+        OpenLibrarySource.editionReleaseFrom(
+          [
+            titled('ベルセルク 43', 'jpn', '2026-06-26'),
+            titled('Berserk 43 (Deluxe)', 'eng', '2027-03-01'),
+            titled('Berserk 43', 'eng', '2026-10-26'),
+          ],
+          {'en'},
+        ),
+        (
+          inLanguages: true,
+          title: 'Berserk 43',
+          released: const Released(2026, 10, 26),
+        ),
+      );
     });
 
     test('editionRelease reads the work\'s editions; an Apple id and no '
@@ -1730,6 +1761,7 @@ void main() {
       });
       expect(await ol.editionRelease('openlibrary:OL44W', languages: {'en'}), (
         inLanguages: true,
+        title: null,
         released: const Released(2027, 3, 10),
       ));
       expect(await ol.editionRelease('itunes:1', languages: {'en'}), isNull);

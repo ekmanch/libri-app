@@ -4,6 +4,7 @@ import '../lookup/lookup_match.dart';
 import '../lookup/lookup_service.dart';
 import '../lookup/lookup_source.dart';
 import '../lookup/movie_dates.dart';
+import '../lookup/text_clean.dart';
 import '../models/follow_kind.dart';
 import '../models/media_type.dart';
 import 'check_control.dart';
@@ -186,10 +187,13 @@ class CreatorCheck {
               );
               if (edition != null) {
                 if (!edition.inLanguages) continue;
+                final named = inEditionScript(m, edition.title, f.name);
                 if (edition.released case final released?) {
-                  sifted.add(m.copyWith(released: released));
+                  sifted.add(named.copyWith(released: released));
                   continue;
                 }
+                sifted.add(named);
+                continue;
               }
             } else if (m.type == MediaType.movies) {
               final found = await source?.movieDates(m.source);
@@ -299,4 +303,18 @@ class CreatorCheck {
       for (final f in follows.of(kind))
         if (f.followed) ...?kept[f.key],
   ];
+}
+
+/// [match] named as its edition in the owner's languages is: a work whose
+/// title is in another script than that edition's ("ベルセルク 43" for
+/// Dark Horse's "Berserk 43") takes the edition's title, and then the
+/// followed creator's [name] when its creator line is in another script
+/// too ("スタジオ我画, 三浦建太郎"). Otherwise [match] as it is.
+LookupMatch inEditionScript(LookupMatch match, String? title, String name) {
+  if (title == null || !otherScript(match.title, title)) return match;
+  final creator = match.creator;
+  return match.copyWith(
+    title: title,
+    creator: creator == null || otherScript(creator, title) ? name : null,
+  );
 }

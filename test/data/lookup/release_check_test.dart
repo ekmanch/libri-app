@@ -210,9 +210,14 @@ void main() {
         editions: {
           'openlibrary:OL44W': (
             inLanguages: true,
+            title: null,
             released: const Released(2027, 3, 10),
           ),
-          'openlibrary:OL45W': (inLanguages: false, released: null),
+          'openlibrary:OL45W': (
+            inLanguages: false,
+            title: null,
+            released: null,
+          ),
         },
         released: {'openlibrary:OL45W': const Released(2027)},
       );

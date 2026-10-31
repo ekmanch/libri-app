@@ -236,9 +236,13 @@ void main() {
       },
       editionsBySource: {
         // Only in Japanese: not listed.
-        'fake:nf': (inLanguages: false, released: null),
+        'fake:nf': (inLanguages: false, title: null, released: null),
         // The English edition comes later than the work's year.
-        'fake:jo': (inLanguages: true, released: const Released(2026, 11, 3)),
+        'fake:jo': (
+          inLanguages: true,
+          title: null,
+          released: const Released(2026, 11, 3),
+        ),
       },
       movieDatesBySource: {'fake:last-round': dates},
     );
@@ -409,5 +413,29 @@ void main() {
     );
     expect(isRecentOrAhead(const Released(2026, 9, 29), today), isFalse);
     expect(isRecentOrAhead(null, today), isFalse);
+  });
+
+  test('a book Open Library titles in another script than its edition in '
+      'the languages read takes the edition\'s title and the followed '
+      'name (Berserk 43, found 2026-10-31)', () {
+    const work = LookupMatch(
+      type: MediaType.books,
+      title: 'ベルセルク 43',
+      source: 'openlibrary:OL45045598W',
+      creator: 'スタジオ我画, 三浦建太郎',
+    );
+    final named = inEditionScript(work, 'Berserk 43', 'Kentaro Miura');
+    expect(named.title, 'Berserk 43');
+    expect(named.creator, 'Kentaro Miura');
+    expect(named.source, work.source);
+    // The same script, or no edition title: as it is.
+    const english = LookupMatch(
+      type: MediaType.books,
+      title: 'Berserk, Vol. 43',
+      source: 'openlibrary:OL1W',
+      creator: 'Kentaro Miura',
+    );
+    expect(inEditionScript(english, 'Berserk 43', 'Kentaro Miura'), english);
+    expect(inEditionScript(work, null, 'Kentaro Miura'), work);
   });
 }

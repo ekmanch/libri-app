@@ -106,3 +106,44 @@ bool isTagLike(String subject) =>
     subject.length <= 24 &&
     !subject.contains(RegExp(r'[:=,(){}\[\]/]')) &&
     subject.trim().split(RegExp(r'\s+')).length <= 3;
+
+/// The writing system most of [text]'s letters are in: "latin",
+/// "cyrillic", "greek", "cjk" (kana and Chinese characters), "hangul",
+/// "arabic", "hebrew", "other", or null when it has no letters. Digits and
+/// punctuation do not count.
+String? scriptOf(String text) {
+  final counts = <String, int>{};
+  for (final rune in text.runes) {
+    final ch = String.fromCharCode(rune);
+    if (!_letter.hasMatch(ch)) continue;
+    final script = switch (rune) {
+      < 0x0250 => 'latin',
+      >= 0x1E00 && < 0x1F00 => 'latin',
+      >= 0x0370 && < 0x0400 => 'greek',
+      >= 0x1F00 && < 0x2000 => 'greek',
+      >= 0x0400 && < 0x0530 => 'cyrillic',
+      >= 0x0590 && < 0x0600 => 'hebrew',
+      >= 0x0600 && < 0x0780 => 'arabic',
+      >= 0x1100 && < 0x1200 => 'hangul',
+      >= 0xAC00 && < 0xD7B0 => 'hangul',
+      >= 0x3040 && < 0x3100 => 'cjk',
+      >= 0x3400 && < 0xA000 => 'cjk',
+      >= 0xF900 && < 0xFB00 => 'cjk',
+      >= 0xFF66 && < 0xFFA0 => 'cjk',
+      >= 0x20000 && < 0x30000 => 'cjk',
+      _ => 'other',
+    };
+    counts[script] = (counts[script] ?? 0) + 1;
+  }
+  if (counts.isEmpty) return null;
+  return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+}
+
+final _letter = RegExp(r'\p{L}', unicode: true);
+
+/// Whether [a] and [b] are written in different scripts ([scriptOf]); a
+/// text without letters differs from none.
+bool otherScript(String a, String b) {
+  final sa = scriptOf(a), sb = scriptOf(b);
+  return sa != null && sb != null && sa != sb;
+}

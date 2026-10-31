@@ -280,13 +280,15 @@ void main() {
       editionsBySource: {
         'openlibrary:OL43W': (
           inLanguages: true,
+          title: null,
           released: const Released(2025, 12, 2),
         ),
         'openlibrary:OL44W': (
           inLanguages: true,
+          title: null,
           released: const Released(2027, 1, 12),
         ),
-        'openlibrary:OL45W': (inLanguages: false, released: null),
+        'openlibrary:OL45W': (inLanguages: false, title: null, released: null),
         // Nothing learned: kept as listed.
         'openlibrary:OL46W': null,
       },

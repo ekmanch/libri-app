@@ -682,6 +682,7 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
     var anyNamed = false;
     var inLanguages = false;
     Released? named, unnamed;
+    String? title;
     for (final edition in editions) {
       final codes = [
         for (final l in objectsAt(edition, 'languages'))
@@ -696,13 +697,22 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
       if (codes.any((c) => languages.contains(isoLanguageCode(c)))) {
         inLanguages = true;
         named = earliest(named, date);
+        // The title of the edition that dates the book, else the first.
+        final name = stringAt(edition, 'title')?.trim();
+        if (name != null &&
+            name.isNotEmpty &&
+            (title == null || (date != null && identical(named, date)))) {
+          title = name;
+        }
       }
     }
-    if (!anyNamed) return (inLanguages: true, released: unnamed);
-    if (inLanguages) return (inLanguages: true, released: named ?? unnamed);
+    if (!anyNamed) return (inLanguages: true, released: unnamed, title: null);
+    if (inLanguages) {
+      return (inLanguages: true, released: named ?? unnamed, title: title);
+    }
     // Only editions in other languages, or some the source gives no
     // language for: those are kept, by the owner's rule.
-    return (inLanguages: unnamed != null, released: unnamed);
+    return (inLanguages: unnamed != null, released: unnamed, title: null);
   }
 
   /// A book's series with its parts: Wikidata's for the book's title and

@@ -371,6 +371,163 @@ void main() {
     });
   });
 
+  group('one title found two ways (2026-10-31)', () {
+    FoundRelease found(
+      String source,
+      String title, {
+      MediaType type = MediaType.movies,
+      Released? released,
+      String? creator,
+      String creatorName = 'Pixar',
+      FollowKind kind = FollowKind.studios,
+    }) => FoundRelease(
+      kind: kind,
+      creatorId: creatorName.toLowerCase(),
+      creatorName: creatorName,
+      match: LookupMatch(
+        type: type,
+        title: title,
+        source: source,
+        released: released,
+        creator: creator,
+        description: 'Gollum is hunted.',
+      ),
+      foundOn: today,
+    );
+
+    List<UpcomingItem> items(
+      List<FoundRelease> releases, {
+      List<Entry>? library,
+      DisplayPreferences prefs = const DisplayPreferences(),
+    }) => upcomingItems(
+      library ?? [fellowship, towers],
+      parts: const [gollum],
+      releases: releases,
+      prefs: prefs,
+      today: today,
+    );
+
+    test('a followed creator\'s release that is a part of a followed series '
+        'is one row: the series detail, the release\'s creator and '
+        'description, both reasons', () {
+      for (final release in [
+        // The same lookup id.
+        found('fake:gollum', 'The Lord of the Rings: The Hunt for Gollum'),
+        // Another id, the same title and year.
+        found(
+          'tmdb:movie:9',
+          'The Lord of the Rings: The Hunt for Gollum',
+          released: const Released(2027, 12, 17),
+        ),
+      ]) {
+        final list = items([release]);
+        expect(list, hasLength(1));
+        final row = list.single;
+        expect(row.kind, UpcomingKind.part);
+        expect(row.title, 'The Hunt for Gollum');
+        expect(row.detail, 'The Lord of the Rings');
+        expect(row.creator, 'Pixar');
+        expect(row.description, 'Gollum is hunted.');
+        expect(
+          row.reason,
+          endsWith('A new movie from Pixar, whom you follow.'),
+        );
+        expect(row.reason, startsWith('Part 4 of The Lord of the Rings'));
+        expect(row.source, release.key);
+      }
+    });
+
+    test('a release whose part the owner hid stays hidden', () {
+      final prefs = DisplayPreferences(
+        hiddenSeriesParts: {
+          seriesKey(MediaType.movies, 'The Lord of the Rings'): {'fake:gollum'},
+        },
+      );
+      expect(
+        items([found('fake:gollum', 'The Hunt for Gollum')], prefs: prefs),
+        isEmpty,
+      );
+    });
+
+    test('a release of the same title in another year is its own row', () {
+      final list = items([
+        found(
+          'tmdb:movie:10',
+          'The Lord of the Rings: The Hunt for Gollum',
+          released: const Released(2031, 5, 1),
+        ),
+      ]);
+      expect(list.map((i) => i.kind), [
+        UpcomingKind.part,
+        UpcomingKind.release,
+      ]);
+    });
+
+    test('a book in the library is not listed again as an author\'s new '
+        'book, "Vol." aside', () {
+      final berserk = entry(
+        'berserk-43',
+        MediaType.books,
+        title: 'Berserk Vol. 43',
+        released: const Released(2026, 11, 24),
+        creator: 'Kentaro Miura, Studio Gaga, Kouji Mori',
+      );
+      final release = found(
+        'openlibrary:OL45045598W',
+        'Berserk 43',
+        type: MediaType.books,
+        released: const Released(2026, 10, 26),
+        creator: 'Kentaro Miura',
+        creatorName: 'Kentaro Miura',
+        kind: FollowKind.authors,
+      );
+      expect(items([release], library: [berserk]).map((i) => i.id), [
+        'berserk-43',
+      ]);
+      // Another author's book of that title is listed.
+      final other = found(
+        'openlibrary:OL2W',
+        'Berserk 43',
+        type: MediaType.books,
+        released: const Released(2026, 10, 26),
+        creator: 'Someone Else',
+        creatorName: 'Someone Else',
+        kind: FollowKind.authors,
+      );
+      expect(items([other], library: [berserk]), hasLength(2));
+    });
+
+    test('two releases of one title from two creators are one row', () {
+      final list = items([
+        found(
+          'tmdb:movie:11',
+          'Toy Story 5',
+          released: const Released(2027, 6, 19),
+        ),
+        found(
+          'tmdb:movie:12',
+          'Toy Story 5',
+          released: const Released(2027, 6, 19),
+          creatorName: 'Andrew Stanton',
+          kind: FollowKind.directors,
+        ),
+      ], library: const []);
+      expect(list.map((i) => i.title), ['Toy Story 5']);
+    });
+
+    test('volumeTitleKey sets "Vol." aside', () {
+      expect(volumeTitleKey('Berserk Vol. 43'), volumeTitleKey('Berserk 43'));
+      expect(
+        volumeTitleKey('Berserk, Volume 43'),
+        volumeTitleKey('berserk 43'),
+      );
+      expect(
+        volumeTitleKey('Berserk 42') == volumeTitleKey('Berserk 43'),
+        isFalse,
+      );
+    });
+  });
+
   group('covers', () {
     test('a part and a found release carry the cover the check recorded, at '
         'the cache size; an entry has the entry\'s own', () {

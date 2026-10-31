@@ -146,6 +146,7 @@ class LookupMatch {
       source.substring(0, source.indexOf(':').clamp(0, source.length));
 
   LookupMatch copyWith({
+    String? title,
     Released? released,
     bool? releasedFromEbook,
     String? creator,
@@ -171,7 +172,7 @@ class LookupMatch {
     String? searchedPlatform,
   }) => LookupMatch(
     type: type,
-    title: title,
+    title: title ?? this.title,
     source: source,
     released: released ?? this.released,
     releasedFromEbook: releasedFromEbook ?? this.releasedFromEbook,

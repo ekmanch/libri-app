@@ -28,4 +28,16 @@ void main() {
     expect(sameTitle('WALL·E', 'Wall-E'), isTrue);
     expect(sameTitle('Dune', 'Dune: Part Two'), isFalse);
   });
+
+  test('scriptOf names the script most letters are in', () {
+    expect(scriptOf('Berserk 43'), 'latin');
+    expect(scriptOf('Shōgun'), 'latin');
+    expect(scriptOf('ベルセルク 43'), 'cjk');
+    expect(scriptOf('三浦建太郎'), 'cjk');
+    expect(scriptOf('Война и мир'), 'cyrillic');
+    expect(scriptOf('43'), isNull);
+    expect(otherScript('ベルセルク 43', 'Berserk 43'), isTrue);
+    expect(otherScript('Berserk, Vol. 43', 'Berserk 43'), isFalse);
+    expect(otherScript('43', 'Berserk 43'), isFalse);
+  });
 }

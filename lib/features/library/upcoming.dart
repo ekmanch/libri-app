@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/lookup/movie_dates.dart';
+import '../../data/lookup/book_match.dart';
+import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/series_check.dart';
+import '../../data/lookup/text_clean.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/release_dates.dart';
 import '../../data/models/entry.dart';
@@ -99,19 +102,37 @@ class UpcomingItem {
       );
 
   /// A part of a followed series not in the library; [owned] are the
-  /// library's entries of that series.
-  factory UpcomingItem.part(UpcomingPart part, {required List<Entry> owned}) =>
-      UpcomingItem._(
-        kind: UpcomingKind.part,
-        id: 'part:${part.type.name}/${part.seriesName}/${part.partKey}',
-        type: part.type,
-        title: seriesPartTitle(part.title, part.seriesName),
-        released: part.released,
-        detail: seriesDisplayName(part.seriesName),
-        wanted: false,
-        reason: partReason(part, owned: owned),
-        part: part,
-      );
+  /// library's entries of that series. A [release] of a followed creator
+  /// that is the same title ([sameUpcoming]) is folded in: one row, the
+  /// series as its detail, with the release's creator, description, cover
+  /// and movie [dates], and both reasons.
+  factory UpcomingItem.part(
+    UpcomingPart part, {
+    required List<Entry> owned,
+    FoundRelease? release,
+    MovieDates? dates,
+    ReleaseDates releaseDates = ReleaseDates.both,
+  }) {
+    final match = release?.match;
+    return UpcomingItem._(
+      kind: UpcomingKind.part,
+      id: 'part:${part.type.name}/${part.seriesName}/${part.partKey}',
+      type: part.type,
+      title: seriesPartTitle(part.title, part.seriesName),
+      released: shownRelease(part.released, dates, releaseDates),
+      dates: dates,
+      detail: seriesDisplayName(part.seriesName),
+      creator: release == null ? null : match!.creator ?? release.creatorName,
+      description: match?.description ?? '',
+      wanted: false,
+      reason: [
+        partReason(part, owned: owned),
+        if (release != null) releaseReason(release),
+      ].join(' '),
+      part: part,
+      release: release,
+    );
+  }
 
   /// A release of a followed creator not in the library; a movie listed by
   /// the date Settings › Movies › Release dates picks from its [dates].
@@ -250,18 +271,52 @@ List<UpcomingItem> upcomingItems(
       items.add(UpcomingItem.entry(entry));
     }
   }
-  for (final part in upcomingPartsToShow(parts, library: list, prefs: prefs)) {
+  // A release that is a recorded part of a followed series is that part's
+  // row (or nothing, when the owner hid the part); one that is an entry of
+  // the library, or another release already listed, is left out.
+  final shown = upcomingPartsToShow(parts, library: list, prefs: prefs);
+  final followed = [
+    for (final part in parts)
+      if (SeriesCheck.isFollowed(
+        entriesInSeries(list, part.type, part.seriesName),
+      ))
+        part,
+  ];
+  final folded = <UpcomingPart, FoundRelease>{};
+  final owned = {for (final e in list) ?e.source};
+  final seen = <String>{};
+  final listed = <FoundRelease>[];
+  for (final release in releases) {
+    if (owned.contains(release.key) || !seen.add(release.key)) continue;
+    final match = release.match;
+    if (list.any((e) => sameUpcoming(match, entryUpcoming(e)))) continue;
+    final part = followed
+        .where(
+          (p) =>
+              p.source == release.key || sameUpcoming(match, partUpcoming(p)),
+        )
+        .firstOrNull;
+    if (part != null) {
+      final row = shown.where((p) => _samePart(p, part)).firstOrNull;
+      if (row != null) folded.putIfAbsent(row, () => release);
+      continue;
+    }
+    if (listed.any((r) => sameUpcoming(match, releaseUpcoming(r)))) continue;
+    listed.add(release);
+  }
+  for (final part in shown) {
+    final release = folded[part];
     items.add(
       UpcomingItem.part(
         part,
         owned: entriesInSeries(list, part.type, part.seriesName),
+        release: release,
+        dates: movieDates[release?.key ?? part.source],
+        releaseDates: releaseDates,
       ),
     );
   }
-  final owned = {for (final e in list) ?e.source};
-  final seen = <String>{};
-  for (final release in releases) {
-    if (owned.contains(release.key) || !seen.add(release.key)) continue;
+  for (final release in listed) {
     final item = UpcomingItem.release(
       release,
       dates: movieDates[release.key],
@@ -274,6 +329,62 @@ List<UpcomingItem> upcomingItems(
   items.sort(compareUpcoming);
   return items;
 }
+
+bool _samePart(UpcomingPart a, UpcomingPart b) =>
+    a.type == b.type && a.seriesName == b.seriesName && a.partKey == b.partKey;
+
+/// What [sameUpcoming] compares of a title found by a check.
+typedef UpcomingTitle = ({
+  MediaType type,
+  String title,
+  Released? released,
+  String? creator,
+});
+
+UpcomingTitle entryUpcoming(Entry e) =>
+    (type: e.type, title: e.title, released: e.released, creator: e.creator);
+
+UpcomingTitle releaseUpcoming(FoundRelease r) => (
+  type: r.match.type,
+  title: r.match.title,
+  released: r.match.released,
+  creator: r.match.creator,
+);
+
+UpcomingTitle partUpcoming(UpcomingPart p) =>
+    (type: p.type, title: p.title, released: p.released, creator: null);
+
+/// Whether [match], found for a followed creator, is the same title as
+/// [other], an entry, a recorded part or another release that came by
+/// another path (Incredibles 3 as part 3 of the series and as Pixar's new
+/// movie; Berserk volume 43 in the library and as Kentaro Miura's new
+/// book): the same type and title, "Vol." aside ([volumeTitleKey]), dated
+/// within a year of each other when both are dated, and for a book an
+/// author in common when both name one.
+bool sameUpcoming(LookupMatch match, UpcomingTitle other) {
+  if (match.type != other.type) return false;
+  if (volumeTitleKey(match.title) != volumeTitleKey(other.title)) {
+    return false;
+  }
+  final a = match.released, b = other.released;
+  if (a != null && b != null && (a.year - b.year).abs() > 1) return false;
+  final x = match.creator, y = other.creator;
+  if (match.type == MediaType.books &&
+      x != null &&
+      x.isNotEmpty &&
+      y != null &&
+      y.isNotEmpty &&
+      !shareAuthor(x, y)) {
+    return false;
+  }
+  return true;
+}
+
+/// [titleKey] without the word "Vol." or "Volume": "Berserk Vol. 43",
+/// "Berserk, Volume 43" and "Berserk 43" are one key.
+String volumeTitleKey(String title) => titleKey(
+  title.replaceAll(RegExp(r'\b(vol(ume)?|v)\b\.?', caseSensitive: false), ' '),
+);
 
 /// "A new album by Alice in Chains, whom you follow (2 albums in your
 /// library)."

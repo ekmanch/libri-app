@@ -71,8 +71,15 @@ Released? shownRelease(
 /// (Settings › Books › Languages you read; DESIGN.md 10c): whether any
 /// edition is in them (an edition the source gives no language for counts,
 /// and a work whose editions have no languages at all is in them), and the
-/// earliest date of those editions, null when none of them is dated.
-typedef EditionRelease = ({bool inLanguages, Released? released});
+/// earliest date of those editions, null when none of them is dated; and
+/// the [title] of that edition when it names one of the languages, since a
+/// work can carry another language's title than its editions ("ベルセルク
+/// 43" for Dark Horse's "Berserk 43"), null when no such edition has one.
+typedef EditionRelease = ({
+  bool inLanguages,
+  Released? released,
+  String? title,
+});
 
 /// Where the movie dates are kept, by lookup id ("tmdb:movie:1234").
 abstract class MovieDateStore {
