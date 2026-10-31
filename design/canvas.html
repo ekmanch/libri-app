@@ -1278,7 +1278,7 @@ var isAll = picked === 'All';
 // In progress: entries with that status, most recently touched first; See all opens a filter result with status In progress across all types.
 // Recently added: entries added in the last 30 days, newest first.
 var homeStyle = this.props.homeStyle ?? 'rows';
-function hr(type, title, sub, right, rightOn, i) { return { title: title, sub: type.replace(/s$/, '') + (sub ? ' \u00b7 ' + sub : ''), dot: MC[type], right: right, rightColor: rightOn ? T.text : T.sub, cover: COVERS[(i * 3 + type.length) % COVERS.length], go: type === 'Shows' || type === 'Anime' ? 'Lib-Details.dc.html' : 'Lib-Details.dc.html' }; }
+function hr(type, title, sub, right, rightOn, i) { return { title: title, sub: type.replace(/s$/, '') + (sub ? ' \u00b7 ' + sub : ''), dot: MC[type], right: right, rightColor: T.text, cover: COVERS[(i * 3 + type.length) % COVERS.length], go: type === 'Shows' || type === 'Anime' ? 'Lib-Details.dc.html' : 'Lib-Details.dc.html' }; }
 var SOON = [hr('Books', 'Other Worlds Than These', 'Stephen King', 'Nov 10', true, 0), hr('Movies', 'Werwulf', 'Robert Eggers', 'Dec 25', true, 1), hr('Anime', 'Strange: Junji Ito', '', 'Jan 2027', false, 2), hr('Shows', 'Wednesday', 'Season 3', '2027', false, 3), hr('Games', "Castlevania: Belmont's Curse", 'Konami', '2027', false, 4)];
 var PROG = [hr('Shows', 'Haunted Hotel', 'Season 2, episode 4', '', false, 5), hr('Games', 'Hollow Knight: Silksong', 'Team Cherry', '', false, 6), hr('Anime', 'Frieren', 'Season 2, episode 9', '', false, 7), hr('Books', 'Dune Messiah', 'Frank Herbert', '', false, 8), hr('Shows', 'Carrie', 'Season 1, episode 6', '', false, 9)];
 var NEW = [hr('Movies', 'Nosferatu', '2024', 'Today', true, 10), hr('Shows', 'Haunted Hotel', '2025\u20132026', 'Yesterday', true, 11), hr('Shows', 'Carrie', '2026', '3 days ago', false, 12), hr('Music', 'Goo Goo Muck', 'The Cramps \u00b7 1981', 'Oct 20', false, 13), hr('Movies', 'The Mist', '2007', 'Oct 12', false, 14), hr('Books', 'Dune Messiah', 'Frank Herbert \u00b7 1969', 'Oct 3', false, 15)];
@@ -1609,7 +1609,7 @@ var order = ['November', 'December', 'January 2027', 'March 2027', '2027', 'Date
 var groups = order.map(function (g) {
 var rows = list.filter(function (r) { return monthOf(r[3]) === g; }).map(function (r) {
 var wanted = r[5], all = mode === 'all';
-return { title: r[1], sub: r[0].replace(/s$/, '') + (r[2] ? ' \u00b7 ' + r[2] : ''), dot: MC[r[0]], right: r[3], rightColor: r[4] ? '#EEF0F2' : '#A3A8AE',
+return { title: r[1], sub: r[0].replace(/s$/, '') + (r[2] ? ' \u00b7 ' + r[2] : ''), dot: MC[r[0]], right: r[3], rightColor: r[3] === 'Date not set' ? '#A3A8AE' : '#EEF0F2',   // every date the same color; only a missing date is gray
 hasAct: all, act: wanted ? 'Want' : 'Add', actColor: wanted ? accent : '#A3A8AE', isLink: wanted, isBtn: !wanted, go: 'Lib-Details.dc.html', open: function () { self.setState({ add: true, pick: r }); } };
 });
 return { name: g, rows: rows };
