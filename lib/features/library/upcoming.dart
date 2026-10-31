@@ -231,7 +231,8 @@ class UpcomingGroup {
 /// every show and anime series, every Want entry without a date, the parts
 /// of followed series the series check recorded ([parts], sifted by
 /// [upcomingPartsToShow]), and the [releases] of followed creators the
-/// creator check recorded that are not in the library. Rows the owner
+/// creator check recorded that are not in the library, each only while its
+/// date is still ahead, as for an entry. Rows the owner
 /// marked Not interested are left out ([AppSettings.notInterested]; a part
 /// through its series in [prefs]). Movies are listed by the date
 /// [settings]' Release dates picks from their [movieDates] (by lookup id).
@@ -306,15 +307,14 @@ List<UpcomingItem> upcomingItems(
   }
   for (final part in shown) {
     final release = folded[part];
-    items.add(
-      UpcomingItem.part(
-        part,
-        owned: entriesInSeries(list, part.type, part.seriesName),
-        release: release,
-        dates: movieDates[release?.key ?? part.source],
-        releaseDates: releaseDates,
-      ),
+    final item = UpcomingItem.part(
+      part,
+      owned: entriesInSeries(list, part.type, part.seriesName),
+      release: release,
+      dates: movieDates[release?.key ?? part.source],
+      releaseDates: releaseDates,
     );
+    if (_isAhead(item.released, today)) items.add(item);
   }
   for (final release in listed) {
     final item = UpcomingItem.release(
@@ -322,13 +322,20 @@ List<UpcomingItem> upcomingItems(
       dates: movieDates[release.key],
       releaseDates: releaseDates,
     );
-    if (!isRecentOrAhead(item.released, today)) continue;
-    items.add(item);
+    if (_isAhead(item.released, today)) items.add(item);
   }
   items.removeWhere((item) => settings.notInterested.contains(item.id));
   items.sort(compareUpcoming);
   return items;
 }
+
+/// Whether a part or a found release is still ahead on [today] by the
+/// release rule, as an entry must be ([upcomingRelease]). The checks keep
+/// what came out in the last thirty days ([isRecentOrAhead]), so that it is
+/// still matched to the library and to other paths, but Coming soon lists
+/// only what is still to come (owner's decision, 2026-10-31).
+bool _isAhead(Released? released, DateTime today) =>
+    released != null && !released.isReleasedOn(today);
 
 bool _samePart(UpcomingPart a, UpcomingPart b) =>
     a.type == b.type && a.seriesName == b.seriesName && a.partKey == b.partKey;

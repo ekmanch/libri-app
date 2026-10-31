@@ -449,6 +449,61 @@ void main() {
       );
     });
 
+    test('only what is still ahead is listed: a release or a part out '
+        'already stays out, as an entry does (2026-10-31)', () {
+      const outPart = UpcomingPart(
+        type: MediaType.movies,
+        seriesName: 'The Lord of the Rings',
+        entryId: 'fellowship',
+        title: 'The Lord of the Rings: The War of the Rohirrim',
+        released: Released(2026, 10, 10),
+        number: 5,
+        source: 'fake:rohirrim',
+      );
+      final list = upcomingItems(
+        [
+          fellowship,
+          towers,
+          // Klara and the Sun once set Want: an entry out on Oct 21.
+          entry('klara', MediaType.movies, released: Released(2026, 10, 21)),
+        ],
+        parts: const [gollum, outPart],
+        releases: [
+          found(
+            'tmdb:movie:1',
+            'Out three weeks ago',
+            released: const Released(2026, 10, 6),
+          ),
+          found(
+            'tmdb:movie:2',
+            'Out today',
+            released: const Released(2026, 10, 28),
+          ),
+          found(
+            'tmdb:movie:3',
+            'Out tomorrow',
+            released: const Released(2026, 10, 29),
+          ),
+          found(
+            'ol:work:4',
+            'A book of this year',
+            type: MediaType.books,
+            creatorName: 'Stephen King',
+            kind: FollowKind.authors,
+            released: const Released(2026),
+          ),
+          found('tmdb:movie:5', 'No date'),
+        ],
+        prefs: const DisplayPreferences(),
+        today: today,
+      );
+      expect(
+        [for (final item in list) item.title],
+        // A book dated to this year counts as coming until the year is out.
+        ['Out tomorrow', 'A book of this year', 'The Hunt for Gollum'],
+      );
+    });
+
     test('a release of the same title in another year is its own row', () {
       final list = items([
         found(
@@ -489,7 +544,7 @@ void main() {
         'openlibrary:OL2W',
         'Berserk 43',
         type: MediaType.books,
-        released: const Released(2026, 10, 26),
+        released: const Released(2026, 11, 26),
         creator: 'Someone Else',
         creatorName: 'Someone Else',
         kind: FollowKind.authors,
