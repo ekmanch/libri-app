@@ -71,9 +71,30 @@ class ComingSoonScreen extends ConsumerStatefulWidget {
 class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
   late bool _everything = widget.startEverything;
 
+  /// The two segments are pages, so a swipe moves between them as a tap on
+  /// a segment does.
+  late final PageController _pages = PageController(
+    initialPage: widget.startEverything ? 1 : 0,
+  );
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _show(bool everything) {
+    if (everything == _everything) return;
+    setState(() => _everything = everything);
+    _pages.animateToPage(
+      everything ? 1 : 0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final library = ref.watch(libraryProvider).value;
     final prefs = ref.watch(displayPreferencesProvider);
     final parts = ref.watch(upcomingPartsProvider).value ?? const [];
@@ -93,13 +114,11 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
             today: today,
           );
     final wanted = wantedUpcoming(all);
-    final items = _everything ? all : wanted;
     final notInLibrary = all.length - wanted.length;
     final subtitle = _everything
         ? '${all.length} upcoming · $notInLibrary not in your library'
         : '${wanted.length} ${wanted.length == 1 ? 'entry' : 'entries'} '
               'you want';
-    final groups = upcomingGroups(items, today: today);
 
     return Scaffold(
       body: SafeArea(
@@ -119,66 +138,29 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
                   SegmentOption(true, 'Everything upcoming'),
                 ],
                 selected: _everything,
-                onChanged: (value) => setState(() => _everything = value),
+                onChanged: _show,
               ),
             ),
-            if (_everything)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                child: Text(
-                  ComingSoonScreen.hint,
-                  style: theme.textTheme.bodySmall!.copyWith(height: 1.4),
-                ),
-              ),
             Expanded(
-              child: items.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
-                      child: Text(
-                        _everything
-                            ? ComingSoonScreen.emptyEverything
-                            : ComingSoonScreen.emptyWants,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall!.copyWith(
-                          fontSize: 15,
-                          height: 1.45,
-                        ),
-                      ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(
-                        20,
-                        4,
-                        20,
-                        AppShell.contentBottomPadding,
-                      ),
-                      children: [
-                        for (final group in groups) ...[
-                          SectionHeading(
-                            group.name,
-                            padding: const EdgeInsets.fromLTRB(0, 18, 0, 4),
-                          ),
-                          for (final item in group.items)
-                            HomeRow(
-                              HomeRowData.text(
-                                id: item.id,
-                                title: item.title,
-                                type: item.type,
-                                detail: item.detail,
-                                right: item.rightLabel(today),
-                                emphasized: item.emphasized,
-                                action: _everything
-                                    ? (item.wanted ? 'Want' : 'Add')
-                                    : null,
-                                actionEmphasized: item.wanted,
-                              ),
-                              key: ValueKey('upcoming-${item.id}'),
-                              minHeight: 60,
-                              onTap: () => _open(item),
-                            ),
-                        ],
-                      ],
-                    ),
+              child: PageView(
+                controller: _pages,
+                onPageChanged: (page) =>
+                    setState(() => _everything = page == 1),
+                children: [
+                  _UpcomingPage(
+                    wanted,
+                    everything: false,
+                    today: today,
+                    onOpen: _open,
+                  ),
+                  _UpcomingPage(
+                    all,
+                    everything: true,
+                    today: today,
+                    onOpen: _open,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -288,6 +270,91 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
             .applySettings(SetNotInterested(item.id, title: item.sheetTitle)),
       );
     }
+  }
+}
+
+/// One segment's page: on Everything upcoming the hint, then the rows under
+/// their month headings, or the empty text.
+class _UpcomingPage extends StatelessWidget {
+  const _UpcomingPage(
+    this.items, {
+    required this.everything,
+    required this.today,
+    required this.onOpen,
+  });
+
+  final List<UpcomingItem> items;
+  final bool everything;
+  final DateTime today;
+  final ValueChanged<UpcomingItem> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final groups = upcomingGroups(items, today: today);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (everything)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+            child: Text(
+              ComingSoonScreen.hint,
+              style: theme.textTheme.bodySmall!.copyWith(height: 1.4),
+            ),
+          ),
+        Expanded(
+          child: items.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+                  child: Text(
+                    everything
+                        ? ComingSoonScreen.emptyEverything
+                        : ComingSoonScreen.emptyWants,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 15,
+                      height: 1.45,
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    20,
+                    4,
+                    20,
+                    AppShell.contentBottomPadding,
+                  ),
+                  children: [
+                    for (final group in groups) ...[
+                      SectionHeading(
+                        group.name,
+                        padding: const EdgeInsets.fromLTRB(0, 18, 0, 4),
+                      ),
+                      for (final item in group.items)
+                        HomeRow(
+                          HomeRowData.text(
+                            id: item.id,
+                            title: item.title,
+                            type: item.type,
+                            detail: item.detail,
+                            right: item.rightLabel(today),
+                            emphasized: item.emphasized,
+                            action: everything
+                                ? (item.wanted ? 'Want' : 'Add')
+                                : null,
+                            actionEmphasized: item.wanted,
+                          ),
+                          key: ValueKey('upcoming-${item.id}'),
+                          minHeight: 60,
+                          onTap: () => onOpen(item),
+                        ),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
   }
 }
 

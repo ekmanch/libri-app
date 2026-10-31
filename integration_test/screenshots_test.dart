@@ -897,8 +897,16 @@ void main() {
     await tester.tap(find.text('Everything upcoming'));
     await tester.pumpAndSettle();
     await capture(tester, 'a1e-coming-soon-everything');
-    // The found releases sit above it now: scroll the row into view.
-    await tester.scrollUntilVisible(find.text('The Hunt for Gollum'), 200);
+    // The found releases sit above it now: scroll the row into view (the
+    // page's list, not the page view the two segments swipe in).
+    await tester.scrollUntilVisible(
+      find.text('The Hunt for Gollum'),
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
     await tester.ensureVisible(find.text('The Hunt for Gollum'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('The Hunt for Gollum'));
@@ -1466,8 +1474,16 @@ void main() {
     await tester.tap(find.text('Everything upcoming'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1e-coming-soon-everything');
-    // The found releases sit above it now: scroll the row into view.
-    await tester.scrollUntilVisible(find.text('The Hunt for Gollum'), 200);
+    // The found releases sit above it now: scroll the row into view (the
+    // page's list, not the page view the two segments swipe in).
+    await tester.scrollUntilVisible(
+      find.text('The Hunt for Gollum'),
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
     await tester.ensureVisible(find.text('The Hunt for Gollum'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('The Hunt for Gollum'));

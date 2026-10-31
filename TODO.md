@@ -257,6 +257,7 @@ Features found missing and bugs found while using the app day to day, in the ord
 
 
 - [ ] Upcoming releases follow-ups (found while building, 2026-10-30): Open Library dates works by year, so a followed author's book of this year counts as coming all year; a TV credit on TMDB carries the show's first air date, so a new season of a show an actor is in surfaces only through the season check when the show is in the library; Only on Wi-Fi reads the interface names (`wlan…`, `rmnet…`), which is a best effort without a package (ask before adding `connectivity_plus`); First run › Create a new library does not create `settings.json` (it is created on the first saved setting); hidden series parts stay on the device
+- [x] Library › Coming soon: a swipe moves between Your wants and Everything upcoming, as a tap on a segment does (owner's request, 2026-10-31): the two lists are pages of a `PageView` under the segments, the hint swiping with the Everything page; the segment follows the swipe and a tap animates to its page; a test for the swipe
 
 ## Later
 

@@ -192,6 +192,28 @@ void main() {
     expect(find.text('2 entries you want'), findsOneWidget);
   });
 
+  testWidgets('a swipe moves between the segments', (tester) async {
+    await pump(tester);
+    expect(find.text('2 entries you want'), findsOneWidget);
+    expect(find.text('Stranger Things'), findsNothing);
+
+    // Left: Everything upcoming, with the hint and the Add rows.
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
+    expect(find.text(ComingSoonScreen.hint), findsOneWidget);
+    expect(find.text('Stranger Things'), findsOneWidget);
+
+    // Right: back to Your wants. Nothing past the ends.
+    await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('2 entries you want'), findsOneWidget);
+    expect(find.text(ComingSoonScreen.hint), findsNothing);
+    await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('2 entries you want'), findsOneWidget);
+  });
+
   testWidgets(
     'an Add row opens the add sheet; Add to library sets a season Want',
     (tester) async {
