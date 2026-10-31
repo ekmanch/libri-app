@@ -235,6 +235,94 @@ void main() {
     },
   );
 
+  test('a book part still to come is recorded only with an edition in the '
+      'languages read, dated by it (DESIGN.md 10c)', () async {
+    final berserk43 = part(
+      'books/berserk-43',
+      'Berserk',
+      43,
+      type: MediaType.books,
+      source: 'openlibrary:OL43W',
+    );
+    final SeriesParts berserk = (
+      name: 'Berserk',
+      parts: [
+        // Out in Japanese in March, in English since: asked, then skipped.
+        listed(
+          43,
+          'Berserk, Vol. 43',
+          released: const Released(2026, 3, 10),
+          source: 'openlibrary:OL43W',
+        ),
+        listed(
+          44,
+          'Berserk, Vol. 44',
+          released: const Released(2026, 9, 24),
+          source: 'openlibrary:OL44W',
+        ),
+        listed(
+          45,
+          'Berserk, Vol. 45',
+          released: const Released(2027, 3),
+          source: 'openlibrary:OL45W',
+        ),
+        listed(
+          46,
+          'Berserk, Vol. 46',
+          released: const Released(2027, 9),
+          source: 'openlibrary:OL46W',
+        ),
+      ],
+    );
+    setUpCheck(lists: {'openlibrary:OL43W': berserk});
+    fake = FakeLookupSource(
+      seriesBySource: {'openlibrary:OL43W': berserk},
+      editionsBySource: {
+        'openlibrary:OL43W': (
+          inLanguages: true,
+          released: const Released(2025, 12, 2),
+        ),
+        'openlibrary:OL44W': (
+          inLanguages: true,
+          released: const Released(2027, 1, 12),
+        ),
+        'openlibrary:OL45W': (inLanguages: false, released: null),
+        // Nothing learned: kept as listed.
+        'openlibrary:OL46W': null,
+      },
+    );
+    final lookups = LookupService([fake]);
+    check = SeriesCheck(
+      series: SeriesService(
+        lookups: lookups,
+        resolver: ArtworkResolver(lookups: lookups),
+        store: MemorySeriesStore(),
+      ),
+      store: days,
+      upcoming: upcoming,
+    );
+    await check.run(
+      Library(entries: [berserk43]),
+      DateTime(2026, 10, 29, 9),
+      languages: {'en'},
+    );
+    final recorded = await upcoming.read();
+    // Volume 44 is out in Japanese, its English edition still to come;
+    // volume 43 is out in English too; 45 has no edition in English.
+    expect(recorded.map((p) => p.title), [
+      'Berserk, Vol. 44',
+      'Berserk, Vol. 46',
+    ]);
+    expect(recorded.first.released, const Released(2027, 1, 12));
+    expect(recorded.last.released, const Released(2027, 9));
+    expect(fake.calls.where((c) => c.startsWith('editions:')), [
+      'editions:openlibrary:OL43W:en',
+      'editions:openlibrary:OL44W:en',
+      'editions:openlibrary:OL45W:en',
+      'editions:openlibrary:OL46W:en',
+    ]);
+  });
+
   test('a part that came out, or has no date, is not recorded', () async {
     setUpCheck();
     await check.run(

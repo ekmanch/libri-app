@@ -74,6 +74,16 @@ class LookupService {
 
   final _cache = <String, LookupResult>{};
 
+  /// The languages the owner reads, passed on to every source
+  /// ([LookupSource.readingLanguages]); the remembered answers go, since a
+  /// book search ranks by them.
+  set readingLanguages(Set<String> codes) {
+    for (final source in sources) {
+      source.readingLanguages = codes;
+    }
+    _cache.clear();
+  }
+
   /// The configured sources for [type].
   List<LookupSource> sourcesFor(MediaType type) => [
     for (final source in sources)

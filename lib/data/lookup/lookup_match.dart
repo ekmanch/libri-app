@@ -31,6 +31,7 @@ class LookupMatch {
     this.kind,
     this.series,
     this.language,
+    this.languages = const [],
     this.network,
     this.coverUrl,
     this.largeCoverUrl,
@@ -101,6 +102,12 @@ class LookupMatch {
   /// of origin on AniList. The form suggests its tag (see `languages.dart`).
   final String? language;
 
+  /// For a book: the languages its editions are in, as the lookup gives
+  /// them (Open Library's three-letter codes), translations included;
+  /// empty when the lookup does not say. The add-a-book search ranks the
+  /// works with an edition in the languages the owner reads first.
+  final List<String> languages;
+
   /// The network a show first aired on, as TMDB names it ("Netflix",
   /// "HBO"): the first of its networks. The form suggests its Streaming tag
   /// when the library has one (see `streamingTags`).
@@ -154,6 +161,7 @@ class LookupMatch {
     EntryKind? kind,
     Series? series,
     String? language,
+    List<String>? languages,
     String? network,
     String? coverUrl,
     String? largeCoverUrl,
@@ -180,6 +188,7 @@ class LookupMatch {
     kind: kind ?? this.kind,
     series: series ?? this.series,
     language: language ?? this.language,
+    languages: languages ?? this.languages,
     network: network ?? this.network,
     coverUrl: coverUrl ?? this.coverUrl,
     largeCoverUrl: largeCoverUrl ?? this.largeCoverUrl,
@@ -210,6 +219,7 @@ class LookupMatch {
       other.kind == kind &&
       other.series == series &&
       other.language == language &&
+      listEquals(other.languages, languages) &&
       other.network == network &&
       other.coverUrl == coverUrl &&
       other.largeCoverUrl == largeCoverUrl &&

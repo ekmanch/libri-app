@@ -7,10 +7,12 @@ import '../models/series.dart';
 import 'book_match.dart';
 import 'google_books.dart';
 import 'http_lookup_source.dart';
+import 'iso_languages.dart';
 import 'itunes_books.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'lookup_source.dart';
+import 'movie_dates.dart';
 import 'text_clean.dart';
 import 'wikidata_series.dart';
 
@@ -48,6 +50,9 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
 
   /// How many works are read when listing a series' volumes by name.
   static const volumesLimit = 100;
+
+  /// How many of a work's editions are read for their languages and dates.
+  static const editionsLimit = 100;
   final Uri _baseUrl;
   final Uri _coversUrl;
 
@@ -150,6 +155,7 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
       ],
       pages: pages is num && pages > 0 ? pages.toInt() : null,
       language: languages.length == 1 ? languages.single : null,
+      languages: languages.toList()..sort(),
       coverUrl: coverId is num && coverId > 0
           ? _cover(coverId.toInt(), '-M')
           : null,
@@ -213,7 +219,7 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
     required MediaType type,
     int limit = 10,
   }) async* {
-    final openLibrary = _search({'q': query}, limit);
+    final openLibrary = _search({'q': query}, limit).then(rankByLanguage);
     final appleHits = apple?.search(query, limit: limit);
     if (appleHits != null) {
       final appleFirst = await Future.any([
@@ -238,6 +244,24 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
     }
     yield hits;
   }
+
+  /// Whether a work with editions in [languages] (a lookup's codes) has one
+  /// in the languages the owner reads ([readingLanguages]); a work whose
+  /// languages are not known, or no preference, counts as having one.
+  bool inReadingLanguages(Iterable<String> languages) =>
+      readingLanguages.isEmpty ||
+      languages.isEmpty ||
+      languages.any((l) => readingLanguages.contains(isoLanguageCode(l)));
+
+  /// [hits] with the works that have an edition in the languages the owner
+  /// reads first, each group in its own order (Add / edit entry › New
+  /// entry: pick a match; DESIGN.md 10c).
+  List<LookupMatch> rankByLanguage(List<LookupMatch> hits) => [
+    for (final hit in hits)
+      if (inReadingLanguages(hit.languages)) hit,
+    for (final hit in hits)
+      if (!inReadingLanguages(hit.languages)) hit,
+  ];
 
   /// No match while one source failed is not a miss: the failure is
   /// thrown, so the cover is asked for again rather than given up on.
@@ -625,6 +649,62 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
     return book?.released;
   }
 
+  /// The work's editions (`/works/{id}/editions.json`) sifted by the
+  /// [languages] the owner reads (DESIGN.md 10c): in them when an edition
+  /// names one of them, or names no language, or no edition names any;
+  /// the date is the earliest of those editions' (Berserk volume 44 gets
+  /// its English date, not the Japanese one). Null for an Apple or Google
+  /// id, whose records carry no edition languages.
+  @override
+  Future<EditionRelease?> editionRelease(
+    String source, {
+    required Set<String> languages,
+  }) async {
+    if (_isApple(source) || _isGoogle(source) || languages.isEmpty) {
+      return null;
+    }
+    final json = await _get('/works/${_workId(source)}/editions.json', {
+      'limit': '$editionsLimit',
+    });
+    return editionReleaseFrom(objectsAt(json, 'entries'), languages);
+  }
+
+  /// [editionRelease] from the editions as Open Library lists them.
+  static EditionRelease editionReleaseFrom(
+    List<Map<String, Object?>> editions,
+    Set<String> languages,
+  ) {
+    Released? earliest(Released? a, Released? b) {
+      if (a == null || b == null) return a ?? b;
+      return b.availableFrom.isBefore(a.availableFrom) ? b : a;
+    }
+
+    var anyNamed = false;
+    var inLanguages = false;
+    Released? named, unnamed;
+    for (final edition in editions) {
+      final codes = [
+        for (final l in objectsAt(edition, 'languages'))
+          ?stringAt(l, 'key')?.split('/').last,
+      ];
+      final date = parsePublishDate(stringAt(edition, 'publish_date'));
+      if (codes.isEmpty) {
+        unnamed = earliest(unnamed, date);
+        continue;
+      }
+      anyNamed = true;
+      if (codes.any((c) => languages.contains(isoLanguageCode(c)))) {
+        inLanguages = true;
+        named = earliest(named, date);
+      }
+    }
+    if (!anyNamed) return (inLanguages: true, released: unnamed);
+    if (inLanguages) return (inLanguages: true, released: named ?? unnamed);
+    // Only editions in other languages, or some the source gives no
+    // language for: those are kept, by the owner's rule.
+    return (inLanguages: unnamed != null, released: unnamed);
+  }
+
   /// A book's series with its parts: Wikidata's for the book's title and
   /// author, else the volumes of the manga the title (or [name], the
   /// series the entry carries) names, read from Open Library by that name
@@ -895,8 +975,10 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
   /// The author's newest works (the search sorted newest first), those
   /// first published this year or later, or last year within thirty days.
   /// Open Library dates by year, so a book of this year counts as coming
-  /// until the year is out (the release rule of DESIGN.md section 8). Each
-  /// takes Apple's cover and description when Apple knows the book
+  /// until the year is out (the release rule of DESIGN.md section 8). Only
+  /// new works (DESIGN.md 10c): a work that is a new edition or a
+  /// translation of an older one is skipped ([isNewWorkOf]). Each takes
+  /// Apple's cover and description when Apple knows the book
   /// ([withApple]): Apple lists a new title long before Open Library has a
   /// cover for it, and the add sheet shows the cover.
   @override
@@ -929,7 +1011,41 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
     ];
     return [
       for (final match in found)
-        withApple(match, await _appleFill(match.title, match.creator)),
+        if (await isNewWorkOf(match, today))
+          withApple(match, await _appleFill(match.title, match.creator)),
     ];
+  }
+
+  /// Whether [match], a work dated this year or later, is itself new and
+  /// not a new edition or a translation of an older work that Open Library
+  /// holds as a work of its own: no older work of the same title by the
+  /// author in Open Library's index, and Wikidata, when it knows the work,
+  /// dates its first publication within the last year ([isNewWork]).
+  /// Either source not answering is not held against the book.
+  Future<bool> isNewWorkOf(LookupMatch match, DateTime today) async {
+    final released = match.released;
+    if (released == null) return true;
+    final core = WikidataSeries.coreTitle(match.title);
+    final author = match.creator;
+    try {
+      final hits = await _search({'title': core, 'author': ?author}, 10);
+      for (final hit in hits) {
+        if (hit.source == match.source || hit.released == null) continue;
+        if (!sameTitle(WikidataSeries.coreTitle(hit.title), core)) continue;
+        if (author != null && !shareAuthor(author, hit.creator)) continue;
+        if (!isNewWork(hit.released!, today)) return false;
+      }
+    } on LookupException {
+      // Not known either way.
+    }
+    if (wikidata case final wikidata?) {
+      try {
+        final first = await wikidata.firstPublished(core, author);
+        if (first != null && !isNewWork(first, today)) return false;
+      } on LookupException {
+        // Left to Open Library's answer.
+      }
+    }
+    return true;
   }
 }

@@ -7,8 +7,11 @@ import '../models/media_type.dart';
 import '../models/released.dart';
 import '../storage/json_file.dart';
 import '../upcoming/check_control.dart';
+import '../upcoming/creator_lookup.dart';
 import 'check_day_store.dart';
 import 'lookup_failure.dart';
+import 'lookup_service.dart';
+import 'movie_dates.dart';
 import 'lookup_source.dart';
 import 'series_service.dart';
 import 'text_clean.dart';
@@ -192,6 +195,12 @@ class SeriesCheck {
   final CheckDayStore store;
   final UpcomingPartsStore upcoming;
 
+  LookupService get lookups => series.lookups;
+
+  /// How long after its listed release a book part is still asked for its
+  /// edition in the languages read.
+  static const editionWindow = 365;
+
   bool _running = false;
 
   /// Whether the series [parts] belong to is followed: a part of it in the
@@ -219,13 +228,16 @@ class SeriesCheck {
   /// Runs the check when it is due today (always with [force]), asking the
   /// lookup about every followed series, or with [include] only those it
   /// says (by the key of [seriesOf]); the rest keep their stored lists.
-  /// [control] hears of each series asked and can stop the run, which then
-  /// records no day.
+  /// A book part is recorded only when it has an edition in the
+  /// [languages] the owner reads, dated by that edition (DESIGN.md 10c);
+  /// the series page keeps listing it. [control] hears of each series
+  /// asked and can stop the run, which then records no day.
   Future<bool> run(
     Library library,
     DateTime now, {
     bool force = false,
     bool Function(String key, List<Entry> parts)? include,
+    Set<String> languages = const {},
     CheckControl? control,
   }) async {
     if (_running) return false;
@@ -261,8 +273,26 @@ class SeriesCheck {
         }
         if (listed == null) continue;
         for (final part in listed.parts) {
-          final released = seriesPartRelease(part);
-          if (released == null || released.isReleasedOn(today)) continue;
+          var released = seriesPartRelease(part);
+          if (released == null) continue;
+          final out = released.isReleasedOn(today);
+          // A book out within the last year may still be to come in the
+          // languages read: an English volume follows the Japanese one by
+          // months.
+          final asksEdition =
+              through.type == MediaType.books &&
+              languages.isNotEmpty &&
+              part.source != null &&
+              (!out || isRecentOrAhead(released, today, days: editionWindow));
+          if (out && !asksEdition) continue;
+          if (asksEdition) {
+            final edition = await _edition(part.source!, languages);
+            if (edition != null) {
+              if (!edition.inLanguages) continue;
+              released = edition.released ?? released;
+            }
+            if (released.isReleasedOn(today)) continue;
+          }
           found.add(
             UpcomingPart(
               type: through.type,
@@ -283,6 +313,18 @@ class SeriesCheck {
       return true;
     } finally {
       _running = false;
+    }
+  }
+
+  /// A part's edition in the owner's languages; null when the lookup
+  /// cannot say or does not answer, which keeps the part as listed.
+  Future<EditionRelease?> _edition(String source, Set<String> languages) async {
+    final lookup = lookups.sourceOf(source);
+    if (lookup == null || !lookup.isConfigured) return null;
+    try {
+      return await lookup.editionRelease(source, languages: languages);
+    } on LookupException {
+      return null;
     }
   }
 }

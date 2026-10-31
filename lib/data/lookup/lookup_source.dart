@@ -5,6 +5,7 @@ import '../models/season.dart';
 import '../upcoming/creator_lookup.dart';
 import 'episode_info.dart';
 import 'lookup_match.dart';
+import 'movie_dates.dart';
 
 /// One provider of matches: TMDB, AniList, Open Library, IGDB, Deezer, or
 /// the fake. Every method throws [LookupException] on failure and never
@@ -25,6 +26,12 @@ abstract class LookupSource {
   /// Whether [source] ("tmdb:movie:603") is one of this source's ids. The
   /// fake answers for every provider.
   bool issued(String source) => LookupMatch.providerOf(source) == id;
+
+  /// The languages the owner reads (Settings › Books › Languages you read;
+  /// DESIGN.md 10c), as ISO 639-1 codes, set by [LookupService]: a book
+  /// search ranks the works with an edition in them first. Empty means no
+  /// preference.
+  Set<String> readingLanguages = const {};
 
   /// The lookup that says when a creator died or a band or studio
   /// dissolved (Settings › Follow: authors, "No longer active"): the source
@@ -96,6 +103,22 @@ abstract class LookupSource {
   /// date or cannot answer by id (a show, whose seasons carry the dates).
   /// Null means nothing learned: the entry keeps its date.
   Future<Released?> releaseDate(String source) async => null;
+
+  /// A movie's release dates by kind (in cinemas, digital), for the daily
+  /// check and Settings › Movies › Release dates (DESIGN.md 10c); null from
+  /// a source without movies, or for anything that is not a movie. Null
+  /// means nothing learned.
+  Future<MovieDates?> movieDates(String source) async => null;
+
+  /// A book's release among its editions in the [languages] the owner reads
+  /// (DESIGN.md 10c): whether any edition is in them, and the earliest date
+  /// of those. Null from a source without books, for a book whose editions
+  /// the source cannot list, or with no [languages]. Null means nothing
+  /// learned: the book keeps its date and is listed.
+  Future<EditionRelease?> editionRelease(
+    String source, {
+    required Set<String> languages,
+  }) async => null;
 
   /// The seasons of the show with [source], as in [LookupMatch.seasons],
   /// whether the show is canceled, and for an anime whether it is a series

@@ -136,6 +136,44 @@ LIMIT 5000''';
     return false;
   }
 
+  /// One query for the candidates' publication dates (P577) and authors.
+  static String publishedQuery(List<String> ids) =>
+      '''
+SELECT ?book ?date ?authorLabel WHERE {
+  VALUES ?book { ${ids.map((id) => 'wd:$id').join(' ')} }
+  ?book wdt:P577 ?date .
+  OPTIONAL { ?book wdt:P50 ?author }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+LIMIT 500''';
+
+  /// When the work [title] by [creator] was first published, as Wikidata
+  /// has it (the earliest P577 of the first candidate the entity search
+  /// finds whose author is [creator]), for telling a new work from a new
+  /// edition of an old one (DESIGN.md 10c); null when Wikidata knows no
+  /// such work, or no date for it.
+  Future<Released?> firstPublished(String title, String? creator) async {
+    final ids = await _search(title);
+    if (ids.isEmpty) return null;
+    final rows = await _sparql(publishedQuery(ids));
+    final authorsOf = <String, Set<String>>{};
+    final dateOf = <String, Released?>{};
+    for (final row in rows) {
+      final id = _item(row, 'book');
+      if (id == null) continue;
+      if (_value(row, 'authorLabel') case final author?) {
+        authorsOf.putIfAbsent(id, () => {}).add(author);
+      }
+      dateOf[id] = _earliestDate(dateOf[id], _released(_value(row, 'date')));
+    }
+    for (final id in ids) {
+      if (!dateOf.containsKey(id)) continue;
+      if (!sameAuthor(creator, authorsOf[id] ?? const {})) continue;
+      return dateOf[id];
+    }
+    return null;
+  }
+
   /// The series the book [title] by [creator] is in, with its parts in
   /// ordinal order (a part without an ordinal by date, after the rest),
   /// and the book's own number; null when Wikidata knows no series for it.

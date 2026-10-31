@@ -1,3 +1,4 @@
+import '../models/released.dart';
 import 'lookup_match.dart';
 import 'text_clean.dart';
 
@@ -99,3 +100,47 @@ final _volume = RegExp(
   r'^(.+?)[\s,:–-]+(?:vol\.?|volume|#)\s*(\d+)\b',
   caseSensitive: false,
 );
+
+/// An edition's publish date as Open Library has it ("2026", "Oct 7, 2026",
+/// "October 2026", "7 October 2026", "2026-10-07") as a release, as precise
+/// as the text; null when there is no year in it.
+Released? parsePublishDate(String? text) {
+  if (text == null) return null;
+  final clean = text.trim();
+  if (Released.tryParse(clean) case final iso?) return iso;
+  final year = RegExp(r'\b(1[5-9]\d{2}|20\d{2})\b').firstMatch(clean);
+  if (year == null) return null;
+  final y = int.parse(year.group(1)!);
+  final lower = clean.toLowerCase();
+  int? month;
+  for (final (i, name) in _monthNames.indexed) {
+    if (RegExp('\\b${name.substring(0, 3)}').hasMatch(lower)) {
+      month = i + 1;
+      break;
+    }
+  }
+  if (month == null) return Released(y);
+  final rest = clean.replaceFirst(year.group(0)!, '');
+  final day = RegExp(r'\b(\d{1,2})\b').firstMatch(rest);
+  final d = day == null ? null : int.parse(day.group(1)!);
+  return Released.tryParse(
+        '$y-${month.toString().padLeft(2, '0')}'
+        '${d == null ? '' : '-${d.toString().padLeft(2, '0')}'}',
+      ) ??
+      Released(y, month);
+}
+
+const _monthNames = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+];

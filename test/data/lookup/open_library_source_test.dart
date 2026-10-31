@@ -9,6 +9,7 @@ import 'package:library_app/data/lookup/google_books.dart';
 import 'package:library_app/data/lookup/itunes_books.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
+import 'package:library_app/data/lookup/book_match.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
@@ -124,6 +125,7 @@ void main() {
   OpenLibrarySource source(
     Future<http.Response> Function(http.Request) handler, {
     bool withApple = true,
+    bool withWikidata = false,
   }) {
     sent = [];
     final client = MockClient((request) {
@@ -134,6 +136,7 @@ void main() {
       client,
       apple: withApple ? ITunesBooks(client, minGap: Duration.zero) : null,
       google: GoogleBooks(client, key: 'g-key'),
+      wikidata: withWikidata ? WikidataSeries(client) : null,
     );
   }
 
@@ -1504,6 +1507,12 @@ void main() {
           });
         }
         expect(request.url.path, '/search.json');
+        if (request.url.queryParameters['title'] case final title?) {
+          // The new-work check looks for older works of the same title:
+          // there are none.
+          expect(['Never Flinch', 'This Year'], contains(title));
+          return json(200, {'docs': []});
+        }
         expect(request.url.queryParameters['author_key'], 'OL19981A');
         expect(request.url.queryParameters['sort'], 'new');
         return json(200, {
@@ -1555,6 +1564,229 @@ void main() {
         'Never Flinch Stephen King',
         'This Year Stephen King',
       ]);
+    });
+
+    test(
+      'only new works: a work of this year that is a new edition of an '
+      'older one by the title search, or by Wikidata\'s date, is skipped',
+      () async {
+        final ol = source((request) async {
+          if (isApple(request)) return json(200, {'results': []});
+          if (request.url.host == 'www.wikidata.org') {
+            final q = request.url.queryParameters['search'];
+            return json(200, {
+              'search': [
+                if (q == 'The Stand') {'id': 'Q1'},
+              ],
+            });
+          }
+          if (request.url.host == 'query.wikidata.org') {
+            return json(200, {
+              'results': {
+                'bindings': [
+                  {
+                    'book': {
+                      'type': 'uri',
+                      'value': 'http://www.wikidata.org/entity/Q1',
+                    },
+                    'date': {
+                      'type': 'literal',
+                      'value': '1978-10-03T00:00:00Z',
+                    },
+                    'authorLabel': {'type': 'literal', 'value': 'Stephen King'},
+                  },
+                ],
+              },
+            });
+          }
+          expect(request.url.path, '/search.json');
+          final q = request.url.queryParameters;
+          if (q['title'] == 'Carrie') {
+            return json(200, {
+              'docs': [
+                {
+                  'key': '/works/OL9W',
+                  'title': 'Carrie',
+                  'author_name': ['Stephen King'],
+                  'first_publish_year': 1974,
+                },
+                {
+                  'key': '/works/OL8W',
+                  'title': 'Carrie',
+                  'author_name': ['Stephen King'],
+                  'first_publish_year': 2026,
+                },
+              ],
+            });
+          }
+          if (q['title'] != null) return json(200, {'docs': []});
+          return json(200, {
+            'docs': [
+              {
+                'key': '/works/OL8W',
+                'title': 'Carrie',
+                'author_name': ['Stephen King'],
+                'first_publish_year': 2026,
+              },
+              {
+                'key': '/works/OL7W',
+                'title': 'The Stand',
+                'author_name': ['Stephen King'],
+                'first_publish_year': 2026,
+              },
+              {
+                'key': '/works/OL1W',
+                'title': 'Never Flinch',
+                'author_name': ['Stephen King'],
+                'first_publish_year': 2027,
+              },
+            ],
+          });
+        }, withWikidata: true);
+        final works = await ol.creatorReleases(
+          'openlibrary:author:OL19981A',
+          FollowKind.authors,
+          today: DateTime(2026, 10, 30),
+        );
+        expect(works.map((m) => m.title), ['Never Flinch']);
+      },
+    );
+  });
+
+  group('editions in the languages read (Settings › Books)', () {
+    Map<String, Object?> edition(List<String> languages, String? date) => {
+      'key': '/books/OL1M',
+      'languages': [
+        for (final l in languages) {'key': '/languages/$l'},
+      ],
+      'publish_date': ?date,
+    };
+
+    test('the earliest edition in the languages gives the date; none in '
+        'them is not listed; unnamed editions are kept', () {
+      final sifted = OpenLibrarySource.editionReleaseFrom;
+      expect(
+        sifted(
+          [
+            edition(['jpn'], 'Sep 24, 2026'),
+            edition(['eng'], 'March 2027'),
+            edition(['eng'], '2027-02-10'),
+            edition(['swe'], null),
+          ],
+          {'en', 'sv'},
+        ),
+        (inLanguages: true, released: const Released(2027, 2, 10)),
+      );
+      expect(
+        sifted(
+          [
+            edition(['jpn'], '2026'),
+            edition(['ger'], '2027'),
+          ],
+          {'en'},
+        ),
+        (inLanguages: false, released: null),
+      );
+      // An edition with no language is kept, and dates the book when none
+      // in the languages is dated.
+      expect(
+        sifted(
+          [
+            edition(['jpn'], '2026'),
+            edition([], '2027'),
+          ],
+          {'en'},
+        ),
+        (inLanguages: true, released: const Released(2027)),
+      );
+      expect(
+        sifted(
+          [
+            edition(['eng'], null),
+            edition([], '2027'),
+          ],
+          {'en'},
+        ),
+        (inLanguages: true, released: const Released(2027)),
+      );
+      // A work whose editions name no language at all is in them.
+      expect(sifted([edition([], '2026'), edition([], null)], {'en'}), (
+        inLanguages: true,
+        released: const Released(2026),
+      ));
+      expect(sifted([], {'en'}), (inLanguages: true, released: null));
+    });
+
+    test('editionRelease reads the work\'s editions; an Apple id and no '
+        'languages are nothing learned', () async {
+      final ol = source((request) async {
+        expect(request.url.path, '/works/OL44W/editions.json');
+        return json(200, {
+          'entries': [
+            edition(['jpn'], '2026-09-24'),
+            edition(['eng'], 'Mar 10, 2027'),
+          ],
+        });
+      });
+      expect(await ol.editionRelease('openlibrary:OL44W', languages: {'en'}), (
+        inLanguages: true,
+        released: const Released(2027, 3, 10),
+      ));
+      expect(await ol.editionRelease('itunes:1', languages: {'en'}), isNull);
+      expect(
+        await ol.editionRelease('openlibrary:OL44W', languages: {}),
+        isNull,
+      );
+      expect(sent, hasLength(1));
+    });
+
+    test('parsePublishDate', () {
+      expect(parsePublishDate('2026'), const Released(2026));
+      expect(parsePublishDate('Oct 7, 2026'), const Released(2026, 10, 7));
+      expect(parsePublishDate('October 2026'), const Released(2026, 10));
+      expect(parsePublishDate('7 October 2026'), const Released(2026, 10, 7));
+      expect(parsePublishDate('2026-10-07'), const Released(2026, 10, 7));
+      expect(parsePublishDate('2026-10'), const Released(2026, 10));
+      expect(parsePublishDate('Sept 2026'), const Released(2026, 9));
+      expect(parsePublishDate('n.d.'), isNull);
+      expect(parsePublishDate(null), isNull);
+    });
+
+    test('the search ranks works with an edition in the languages first, '
+        'those without languages among them', () async {
+      final ol = source((request) async {
+        if (isApple(request)) return json(200, {'results': []});
+        return json(200, {
+          'docs': [
+            {
+              'key': '/works/OL1W',
+              'title': 'Berserk, Vol. 44',
+              'language': ['jpn'],
+            },
+            {'key': '/works/OL2W', 'title': 'Berserk, Vol. 43'},
+            {
+              'key': '/works/OL3W',
+              'title': 'Berserk Deluxe, Vol. 1',
+              'language': ['jpn', 'eng'],
+            },
+          ],
+        });
+      });
+      ol.readingLanguages = {'en'};
+      final hits = await ol.search('berserk', type: MediaType.books);
+      expect(hits.map((h) => h.source), [
+        'openlibrary:OL2W',
+        'openlibrary:OL3W',
+        'openlibrary:OL1W',
+      ]);
+      ol.readingLanguages = const {};
+      expect(
+        (await ol.search(
+          'berserk',
+          type: MediaType.books,
+        )).map((h) => h.source),
+        ['openlibrary:OL1W', 'openlibrary:OL2W', 'openlibrary:OL3W'],
+      );
     });
   });
 }

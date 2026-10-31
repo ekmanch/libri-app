@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/wikidata_series.dart';
 import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/upcoming/creator_status.dart';
 
 void main() {
@@ -226,6 +227,51 @@ void main() {
       expect(sent.length, 1);
     },
   );
+
+  test('firstPublished: the earliest P577 of the first candidate by the '
+      'author; none without a date or by another author', () async {
+    final wikidata = source(
+      search: [
+        {'id': 'Q10'},
+        {'id': 'Q11'},
+        {'id': 'Q12'},
+      ],
+      rows: [
+        // A film of the same name, by nobody the entry names.
+        {
+          'book': item('Q10'),
+          'date': cell('2013-10-03T00:00:00Z'),
+          'authorLabel': cell('Kimberly Peirce'),
+        },
+        {
+          'book': item('Q11'),
+          'date': cell('1974-04-05T00:00:00Z'),
+          'authorLabel': cell('Stephen King'),
+        },
+        {
+          'book': item('Q11'),
+          'date': cell('1974-01-01T00:00:00Z'),
+          'authorLabel': cell('Stephen King'),
+        },
+      ],
+    );
+    // The exact date is the earlier: a year alone counts from its end.
+    expect(
+      await wikidata.firstPublished('Carrie', 'Stephen King'),
+      const Released(1974, 4, 5),
+    );
+    expect(
+      sent.last.url.queryParameters['query'],
+      allOf(contains('wd:Q10 wd:Q11 wd:Q12'), contains('wdt:P577')),
+    );
+    expect(await wikidata.firstPublished('Carrie', 'Nobody Known'), isNull);
+    // Without an author the first dated candidate counts.
+    expect(
+      await wikidata.firstPublished('Carrie', null),
+      const Released(2013, 10, 3),
+    );
+    expect(await source().firstPublished('Nothing', null), isNull);
+  });
 
   test('coreTitle cuts a parenthesis, a colon or a part before it', () {
     expect(WikidataSeries.coreTitle('Tai-Pan (Asian Saga'), 'Tai-Pan');

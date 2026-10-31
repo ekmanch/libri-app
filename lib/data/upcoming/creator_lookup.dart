@@ -43,13 +43,22 @@ abstract interface class InactiveLookup {
 }
 
 /// Whether a release found for a creator is worth listing: still ahead on
-/// [today] by the release rule, or out within the last thirty days.
-bool isRecentOrAhead(Released? released, DateTime today) {
+/// [today] by the release rule, or out within the last thirty [days].
+bool isRecentOrAhead(Released? released, DateTime today, {int days = 30}) {
   if (released == null) return false;
   final from = released.availableFrom;
   final day = DateTime(today.year, today.month, today.day);
   return from.isAfter(day) ||
-      !from.isBefore(day.subtract(const Duration(days: 30)));
+      !from.isBefore(day.subtract(Duration(days: days)));
+}
+
+/// Whether a work is new (DESIGN.md 10c, only new works for books): [first]
+/// published within the last year before [today], or still to come. A date
+/// known to the year counts from the year's end, so a book of last year is
+/// new through this one.
+bool isNewWork(Released first, DateTime today) {
+  final day = DateTime(today.year, today.month, today.day);
+  return first.availableFrom.isAfter(day.subtract(const Duration(days: 365)));
 }
 
 /// A release the creator check found (Library › Coming soon: everything
