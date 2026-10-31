@@ -328,29 +328,45 @@ class DashedStadiumPainter extends CustomPainter {
   bool shouldRepaint(DashedStadiumPainter old) => old.color != color;
 }
 
-/// A 44 px chip for an active filter, with a cross that removes it.
+/// A 44 px chip for an active filter, with a cross that removes it. With
+/// no [onRemove] it is just the chip, without the cross: the last language
+/// of Settings › Books › Languages you read, which cannot be removed. The
+/// [accent] style fills it with the accent (the languages read); the
+/// default is the neutral fill of the filter chips.
 class RemovableChip extends StatelessWidget {
-  const RemovableChip({super.key, required this.label, required this.onRemove});
+  const RemovableChip({
+    super.key,
+    required this.label,
+    this.onRemove,
+    this.style = PillChipStyle.neutral,
+  });
 
   final String label;
-  final VoidCallback onRemove;
+  final VoidCallback? onRemove;
+  final PillChipStyle style;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final removable = onRemove != null;
+    final accent = style == PillChipStyle.accent;
+    final foreground = accent ? scheme.onPrimaryContainer : scheme.onSurface;
     return Semantics(
-      button: true,
-      label: 'Remove $label',
+      button: removable,
+      label: removable ? 'Remove $label' : label,
       excludeSemantics: true,
       child: Material(
-        color: LibraryColors.of(context).selectedFill,
+        color: accent
+            ? scheme.primaryContainer
+            : LibraryColors.of(context).selectedFill,
         shape: const StadiumBorder(),
         child: InkWell(
           onTap: onRemove,
           customBorder: const StadiumBorder(),
           child: Container(
             height: 44,
-            padding: const EdgeInsets.only(left: 14, right: 10),
+            padding: EdgeInsets.only(left: 14, right: removable ? 10 : 14),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -360,15 +376,15 @@ class RemovableChip extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium,
+                    style: theme.textTheme.labelMedium!.copyWith(
+                      color: foreground,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                StrokeIcon(
-                  AppIcons.closeBold,
-                  size: 14,
-                  color: theme.colorScheme.onSurface,
-                ),
+                if (removable) ...[
+                  const SizedBox(width: 6),
+                  StrokeIcon(AppIcons.closeBold, size: 14, color: foreground),
+                ],
               ],
             ),
           ),

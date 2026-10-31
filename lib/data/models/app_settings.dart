@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'follow_kind.dart';
+import 'release_dates.dart';
 
 /// `settings.json`, version 1 (DESIGN.md section 8): the settings that are
 /// about the library rather than one phone, kept next to `library.json` in
@@ -16,6 +17,8 @@ class AppSettings {
     this.timelineDefault = false,
     this.seasonalThemeDefault = true,
     this.defaultPlatform = defaultPlatformDefault,
+    this.languages,
+    this.releaseDates = ReleaseDates.both,
     this.upcomingEnabled = true,
     this.unfollowed = const {},
     this.followed = const {},
@@ -44,6 +47,18 @@ class AppSettings {
   /// Pre-selected on a new game that came out on it (Add / edit entry);
   /// null means none.
   final String? defaultPlatform;
+
+  /// The languages the owner reads, as ISO 639-1 codes, sorted (Settings ›
+  /// Books › Languages you read): Coming soon lists only the book editions
+  /// in them and the add-a-book search ranks those first. Null until the
+  /// list is first written: the first run with the library writes the
+  /// phone's system languages plus English (`defaultReadingLanguages`), so
+  /// every device reads the same list from then on.
+  final List<String>? languages;
+
+  /// Which of a movie's release dates Coming soon and the details show
+  /// (Settings › Movies › Release dates). `released` is never changed by it.
+  final ReleaseDates releaseDates;
 
   /// The master switch of Settings › Upcoming releases: off, nothing is
   /// followed and nothing is fetched.
@@ -113,6 +128,8 @@ class AppSettings {
     bool? timelineDefault,
     bool? seasonalThemeDefault,
     Object? defaultPlatform = _keep,
+    List<String>? languages,
+    ReleaseDates? releaseDates,
     bool? upcomingEnabled,
     Map<FollowKind, Set<String>>? unfollowed,
     Map<FollowKind, Set<String>>? followed,
@@ -123,6 +140,8 @@ class AppSettings {
     defaultPlatform: defaultPlatform == _keep
         ? this.defaultPlatform
         : defaultPlatform as String?,
+    languages: languages ?? this.languages,
+    releaseDates: releaseDates ?? this.releaseDates,
     upcomingEnabled: upcomingEnabled ?? this.upcomingEnabled,
     unfollowed: unfollowed ?? this.unfollowed,
     followed: followed ?? this.followed,
@@ -141,6 +160,13 @@ class AppSettings {
       if (defaultPlatform != d.defaultPlatform)
         'default_platform': defaultPlatform,
     };
+    final books = <String, Object?>{
+      if (languages case final languages?)
+        'languages': [...languages.map((c) => c.toLowerCase()).toSet()]..sort(),
+    };
+    final movies = <String, Object?>{
+      if (releaseDates != d.releaseDates) 'release_dates': releaseDates.key,
+    };
     final upcoming = <String, Object?>{
       if (upcomingEnabled != d.upcomingEnabled) 'enabled': upcomingEnabled,
       if (unfollowed.values.any((s) => s.isNotEmpty))
@@ -157,6 +183,8 @@ class AppSettings {
       if (seasonalThemeDefault != d.seasonalThemeDefault)
         'seasonal_theme_default': seasonalThemeDefault,
       if (games.isNotEmpty) 'games': games,
+      if (books.isNotEmpty) 'books': books,
+      if (movies.isNotEmpty) 'movies': movies,
       if (upcoming.isNotEmpty) 'upcoming': upcoming,
     };
   }
@@ -182,9 +210,17 @@ class AppSettings {
   factory AppSettings.fromJson(Map<String, Object?> json) {
     const d = defaults;
     final games = json['games'];
+    final books = json['books'];
+    final movies = json['movies'];
     final upcoming = json['upcoming'];
     final gamesMap = games is Map<String, Object?>
         ? games
+        : const <String, Object?>{};
+    final booksMap = books is Map<String, Object?>
+        ? books
+        : const <String, Object?>{};
+    final moviesMap = movies is Map<String, Object?>
+        ? movies
         : const <String, Object?>{};
     final upcomingMap = upcoming is Map<String, Object?>
         ? upcoming
@@ -204,6 +240,16 @@ class AppSettings {
           : platform is String
           ? platform
           : null,
+      languages: switch (booksMap['languages']) {
+        final List<Object?> codes => [
+          for (final c in codes)
+            if (c is String && c.isNotEmpty) c.toLowerCase(),
+        ],
+        _ => null,
+      },
+      releaseDates:
+          ReleaseDates.byKey(moviesMap['release_dates'] as String?) ??
+          d.releaseDates,
       upcomingEnabled: switch (upcomingMap['enabled']) {
         final bool on => on,
         _ => d.upcomingEnabled,
@@ -226,6 +272,8 @@ class AppSettings {
       other.timelineDefault == timelineDefault &&
       other.seasonalThemeDefault == seasonalThemeDefault &&
       other.defaultPlatform == defaultPlatform &&
+      listEquals(other.languages, languages) &&
+      other.releaseDates == releaseDates &&
       other.upcomingEnabled == upcomingEnabled &&
       _sameIds(other.unfollowed, unfollowed) &&
       _sameIds(other.followed, followed) &&
@@ -246,6 +294,8 @@ class AppSettings {
     timelineDefault,
     seasonalThemeDefault,
     defaultPlatform,
+    languages == null ? null : Object.hashAll(languages!),
+    releaseDates,
     upcomingEnabled,
     _idsHash(unfollowed),
     _idsHash(followed),

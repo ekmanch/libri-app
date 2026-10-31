@@ -66,11 +66,20 @@ void main() {
     expect(find.byType(ConnectionScreen), findsOneWidget);
     await tester.tap(find.text('Disconnect'));
     await tester.pumpAndSettle();
+    // The first run writes the languages read to settings.json; that change
+    // may still be waiting to be saved, which makes the button "Disconnect
+    // anyway".
+    final anyway = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.text('Disconnect anyway'),
+    );
     await tester.tap(
-      find.descendant(
-        of: find.byType(Dialog),
-        matching: find.text('Disconnect'),
-      ),
+      anyway.evaluate().isNotEmpty
+          ? anyway
+          : find.descendant(
+              of: find.byType(Dialog),
+              matching: find.text('Disconnect'),
+            ),
     );
     await tester.pumpAndSettle();
     expect(find.text('Keep your library on this phone?'), findsOneWidget);

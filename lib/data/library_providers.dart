@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart' show rootBundle;
+
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,6 +13,7 @@ import '../features/sync/sync_state.dart';
 import 'github/github_api.dart';
 import 'github/github_http_api.dart';
 import 'library_codec.dart';
+import 'lookup/iso_languages.dart';
 import 'models/app_settings.dart';
 import 'models/library.dart';
 import 'operations/library_operation.dart';
@@ -127,6 +131,30 @@ final libraryProvider = StreamProvider.autoDispose<Library>(
 final appSettingsProvider = StreamProvider.autoDispose<AppSettings>(
   (ref) => ref.watch(libraryRepositoryProvider).watchSettings(),
 );
+
+/// The phone's system languages, as locale codes in the phone's order
+/// ("sv-SE", "en"): what Settings › Books › Languages you read starts from,
+/// and the Suggested group of its sheet. The tests override it.
+final systemLanguagesProvider = Provider<List<String>>(
+  (ref) => [
+    for (final locale in PlatformDispatcher.instance.locales)
+      locale.toLanguageTag(),
+  ],
+);
+
+/// The languages the owner reads (DESIGN.md 10c), as ISO 639-1 codes: the
+/// list in `settings.json`, or until the first run has written one, the
+/// phone's languages plus English ([defaultReadingLanguages]).
+final readingLanguagesProvider = Provider.autoDispose<Set<String>>((ref) {
+  final settings = ref.watch(appSettingsProvider).value;
+  return readingLanguages(settings, ref.watch(systemLanguagesProvider));
+});
+
+/// [readingLanguagesProvider] for a [settings] already in hand.
+Set<String> readingLanguages(
+  AppSettings? settings,
+  List<String> systemLanguages,
+) => {...settings?.languages ?? defaultReadingLanguages(systemLanguages)};
 
 /// The sync side of the repository, or null when it has none.
 final librarySyncProvider = Provider<LibrarySync?>((ref) {

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 
+import '../lookup/iso_languages.dart';
 import '../models/app_settings.dart';
 import '../models/follow_kind.dart';
+import '../models/release_dates.dart';
 
 /// One small change to `settings.json`, the counterpart of
 /// `LibraryOperation` for the settings (DESIGN.md section 8). Queued in
@@ -88,6 +90,64 @@ class SetDefaultPlatform extends SettingsOperation {
 
   @override
   Map<String, Object?> toJson() => {'platform': platform};
+}
+
+/// The languages the owner reads (Settings › Books › Languages you read),
+/// as ISO 639-1 codes; also what the first run writes when the file has
+/// none yet. Never empty: the last language cannot be removed.
+@immutable
+class SetReadingLanguages extends SettingsOperation {
+  SetReadingLanguages(Iterable<String> codes)
+    : codes = ([
+        ...{for (final c in codes) c.toLowerCase()},
+      ]..sort());
+
+  final List<String> codes;
+
+  factory SetReadingLanguages.fromJson(Map<String, Object?> json) =>
+      SetReadingLanguages([
+        for (final c in json['codes'] as List<Object?>? ?? const [])
+          if (c is String) c,
+      ]);
+
+  @override
+  AppSettings apply(AppSettings settings) =>
+      codes.isEmpty ? settings : settings.copyWith(languages: codes);
+
+  @override
+  String summary(AppSettings before) =>
+      'Set the languages you read to ${isoLanguageNames(codes)}';
+
+  @override
+  Map<String, Object?> toJson() => {'codes': codes};
+}
+
+/// Which release date Coming soon and the details show for a movie
+/// (Settings › Movies › Release dates). Changes nothing in `library.json`.
+@immutable
+class SetReleaseDates extends SettingsOperation {
+  const SetReleaseDates(this.dates);
+
+  final ReleaseDates dates;
+
+  factory SetReleaseDates.fromJson(Map<String, Object?> json) =>
+      SetReleaseDates(
+        ReleaseDates.byKey(json['dates'] as String?) ?? ReleaseDates.both,
+      );
+
+  @override
+  AppSettings apply(AppSettings settings) =>
+      settings.copyWith(releaseDates: dates);
+
+  @override
+  String summary(AppSettings before) => switch (dates) {
+    ReleaseDates.cinema => 'Show movies by their cinema release dates',
+    ReleaseDates.digital => 'Show movies by their digital release dates',
+    ReleaseDates.both => 'Show both release dates for movies',
+  };
+
+  @override
+  Map<String, Object?> toJson() => {'dates': dates.key};
 }
 
 /// The master switch of Settings › Upcoming releases.

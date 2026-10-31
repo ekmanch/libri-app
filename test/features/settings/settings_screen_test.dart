@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/app_settings.dart';
+import 'package:library_app/data/models/release_dates.dart';
 import 'package:library_app/features/settings/about_screen.dart';
 import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
+import 'package:library_app/features/settings/language_picker_sheet.dart';
 import 'package:library_app/features/settings/settings_screen.dart';
 import 'package:library_app/theme/app_theme.dart';
 import 'package:library_app/widgets/app_icons.dart';
@@ -82,11 +84,82 @@ void main() {
       await tester.tap(find.text('None'));
       await tester.pumpAndSettle();
       expect((await settings()).defaultPlatform, isNull);
+      await tester.ensureVisible(find.text('Steam Deck'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Steam Deck'));
       await tester.pumpAndSettle();
       expect((await settings()).defaultPlatform, 'Steam Deck');
     },
   );
+
+  testWidgets('Books lists the languages read as chips, the last one not '
+      'removable, and + Add language opens the sheet', (tester) async {
+    final container = await pumpApp(tester, const SettingsScreen());
+    Future<AppSettings> settings() =>
+        container.read(libraryRepositoryProvider).loadSettings();
+    await tester.scrollUntilVisible(find.text('BOOKS'), 150);
+    expect(find.text('Languages you read'), findsOneWidget);
+    expect(find.text(SettingsScreen.languagesHelp), findsOneWidget);
+    // The fake phone speaks Swedish and English.
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('Swedish'), findsOneWidget);
+    expect(find.bySemanticsLabel('Remove Swedish'), findsOneWidget);
+    await tester.ensureVisible(find.bySemanticsLabel('Remove Swedish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Remove Swedish'));
+    await tester.pumpAndSettle();
+    expect((await settings()).languages, ['en']);
+    expect(find.text('Swedish'), findsNothing);
+    // The last one has no cross and is no button.
+    expect(find.bySemanticsLabel('Remove English'), findsNothing);
+    expect(find.text('English'), findsOneWidget);
+
+    await tester.ensureVisible(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LanguagePickerSheet), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'turk');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('language-tr')));
+    await tester.pumpAndSettle();
+    expect((await settings()).languages, ['en', 'tr']);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LanguagePickerSheet), findsNothing);
+    expect(find.text('Turkish'), findsOneWidget);
+  });
+
+  testWidgets('Movies picks the release dates shown, with a help line per '
+      'pick', (tester) async {
+    final container = await pumpApp(tester, const SettingsScreen());
+    Future<AppSettings> settings() =>
+        container.read(libraryRepositoryProvider).loadSettings();
+    await tester.scrollUntilVisible(find.text('Release dates'), 150);
+    await tester.pumpAndSettle();
+    expect(find.text('MOVIES'), findsOneWidget);
+    expect(isSelected(tester, find.text('Both')), isTrue);
+    expect(
+      find.text(SettingsScreen.releaseDatesHelp(ReleaseDates.both)),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Digital'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Digital'));
+    await tester.pumpAndSettle();
+    expect((await settings()).releaseDates, ReleaseDates.digital);
+    expect(isSelected(tester, find.text('Digital')), isTrue);
+    expect(
+      find.text(SettingsScreen.releaseDatesHelp(ReleaseDates.digital)),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Cinema'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cinema'));
+    await tester.pumpAndSettle();
+    expect((await settings()).releaseDates, ReleaseDates.cinema);
+    expect(find.textContaining('opens in cinemas'), findsOneWidget);
+  });
 
   testWidgets('a single row puts its value at the right edge', (tester) async {
     await pumpApp(tester, const SettingsScreen());

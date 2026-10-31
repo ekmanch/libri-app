@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/models/release_dates.dart';
 import 'package:library_app/data/operations/operations.dart';
 
 void main() {
@@ -46,6 +47,26 @@ void main() {
     expect(
       const SetUpcomingEnabled(false).summary(defaults),
       'Turn off the checks for new releases',
+    );
+    final languages = SetReadingLanguages(['tr', 'EN', 'sv', 'sv']);
+    expect(languages.apply(defaults).languages, ['en', 'sv', 'tr']);
+    expect(
+      languages.summary(defaults),
+      'Set the languages you read to English, Swedish, Turkish',
+    );
+    // Never empty: the last language cannot be removed.
+    expect(SetReadingLanguages(const []).apply(defaults), defaults);
+    expect(
+      const SetReleaseDates(ReleaseDates.cinema).apply(defaults).releaseDates,
+      ReleaseDates.cinema,
+    );
+    expect(
+      const SetReleaseDates(ReleaseDates.cinema).summary(defaults),
+      'Show movies by their cinema release dates',
+    );
+    expect(
+      const SetReleaseDates(ReleaseDates.both).summary(defaults),
+      'Show both release dates for movies',
     );
   });
 
@@ -120,22 +141,24 @@ void main() {
   });
 
   test('every operation survives the queue\'s JSON form', () {
-    const operations = <SettingsOperation>[
-      SetTimelineDefault(true),
-      SetSeasonalThemeDefault(false),
-      SetDefaultPlatform('PC'),
-      SetDefaultPlatform(null),
-      SetUpcomingEnabled(false),
-      SetFollow(
+    final operations = <SettingsOperation>[
+      const SetTimelineDefault(true),
+      const SetSeasonalThemeDefault(false),
+      const SetDefaultPlatform('PC'),
+      const SetDefaultPlatform(null),
+      SetReadingLanguages(const ['sv', 'en']),
+      const SetReleaseDates(ReleaseDates.digital),
+      const SetUpcomingEnabled(false),
+      const SetFollow(
         FollowKind.studios,
         'pixar',
         name: 'Pixar',
         on: false,
         defaultOn: true,
       ),
-      SetFollows(FollowKind.actors, {'a': false, 'b': true}, on: true),
-      SetNotInterested('tmdb:movie:1', title: 'The Hunt for Gollum'),
-      SetNotInterested('shows/x#2', title: 'X, Season 2', hidden: false),
+      const SetFollows(FollowKind.actors, {'a': false, 'b': true}, on: true),
+      const SetNotInterested('tmdb:movie:1', title: 'The Hunt for Gollum'),
+      const SetNotInterested('shows/x#2', title: 'X, Season 2', hidden: false),
     ];
     const start = AppSettings(
       followed: {

@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app_info.dart';
 import '../../data/library_providers.dart';
+import '../../data/lookup/iso_languages.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/follow_kind.dart';
+import '../../data/models/release_dates.dart';
 import '../../data/operations/settings_operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
@@ -21,6 +23,7 @@ import 'about_screen.dart';
 import 'connection_screen.dart';
 import 'display_preferences.dart';
 import 'follow_list_screen.dart';
+import 'language_picker_sheet.dart';
 import 'upcoming_releases_screen.dart';
 
 /// Opens Settings above everything, so the floating navigation is covered.
@@ -33,9 +36,26 @@ Future<void> openSettingsScreen(BuildContext context) {
 
 /// Settings: a preview of the accent, theme, accent color in the Vivid and
 /// Pastel groups, the defaults for new plans, the default game platform, the
+/// languages read (Books), the release dates shown for movies (Movies), the
 /// library connection and the About row that opens Settings › About Libri.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  static const languagesHelp =
+      'Books and manga. Only editions in these languages show under Coming '
+      'soon, and they come first when you add a book.';
+
+  /// The help line under Release dates, for the pick.
+  static String releaseDatesHelp(ReleaseDates dates) => switch (dates) {
+    ReleaseDates.cinema =>
+      'Coming soon uses the date a movie opens in cinemas.',
+    ReleaseDates.digital =>
+      'Coming soon uses the date a movie can be rented or bought at home. '
+          'Streaming premieres count as digital.',
+    ReleaseDates.both =>
+      'Coming soon uses the first date; details show both, '
+          '“In cinemas Dec 18 · Digital Feb 2027”.',
+  };
 
   static const _firstHeading = EdgeInsets.fromLTRB(0, 8, 0, 8);
   static const _heading = EdgeInsets.fromLTRB(0, 16, 0, 8);
@@ -57,6 +77,15 @@ class SettingsScreen extends ConsumerWidget {
       fontWeight: FontWeight.w500,
       fontStyle: FontStyle.normal,
     );
+    final labelStyle = theme.textTheme.bodyLarge!.copyWith(fontSize: 16);
+    final helpStyle = theme.textTheme.bodySmall!.copyWith(
+      fontSize: 13,
+      fontStyle: FontStyle.normal,
+      height: 1.4,
+    );
+    final languages = ref.watch(readingLanguagesProvider);
+    final chosen = [for (final c in languages) ?isoLanguage(c)]
+      ..sort((a, b) => a.name.compareTo(b.name));
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -131,21 +160,12 @@ class SettingsScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Default platform',
-                          style: theme.textTheme.bodyLarge!.copyWith(
-                            fontSize: 16,
-                          ),
-                        ),
+                        Text('Default platform', style: labelStyle),
                         const SizedBox(height: 2),
                         Text(
                           'Selected automatically when you add a game that '
                           'came out on it.',
-                          style: theme.textTheme.bodySmall!.copyWith(
-                            fontSize: 13,
-                            fontStyle: FontStyle.normal,
-                            height: 1.4,
-                          ),
+                          style: helpStyle,
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -168,6 +188,77 @@ class SettingsScreen extends ConsumerWidget {
                               onTap: () => set(const SetDefaultPlatform(null)),
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SectionHeading('Books', padding: _laterLineHeading),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(0, 6, 0, 12),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: colors.divider)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Languages you read', style: labelStyle),
+                        const SizedBox(height: 2),
+                        Text(languagesHelp, style: helpStyle),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            for (final language in chosen)
+                              RemovableChip(
+                                key: ValueKey('language-${language.code}'),
+                                label: language.name,
+                                style: PillChipStyle.accent,
+                                // The last one cannot be removed.
+                                onRemove: chosen.length == 1
+                                    ? null
+                                    : () => set(
+                                        SetReadingLanguages(
+                                          languages.difference({language.code}),
+                                        ),
+                                      ),
+                              ),
+                            DashedChip(
+                              label: 'Add language',
+                              height: 44,
+                              semanticsLabel: 'Add language',
+                              onTap: () => showLanguagePicker(context),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SectionHeading('Movies', padding: _laterLineHeading),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(0, 6, 0, 12),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: colors.divider)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Release dates', style: labelStyle),
+                        const SizedBox(height: 2),
+                        Text(
+                          releaseDatesHelp(settings.releaseDates),
+                          style: helpStyle,
+                        ),
+                        const SizedBox(height: 10),
+                        SegmentedControl<ReleaseDates>(
+                          segments: [
+                            for (final dates in ReleaseDates.values)
+                              SegmentOption(dates, dates.label),
+                          ],
+                          selected: settings.releaseDates,
+                          onChanged: (dates) => set(SetReleaseDates(dates)),
+                          equalWidths: true,
                         ),
                       ],
                     ),

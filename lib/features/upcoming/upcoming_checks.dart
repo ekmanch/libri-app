@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/lookup/iso_languages.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/season_check.dart';
 import '../../data/models/app_settings.dart';
@@ -50,11 +51,13 @@ class UpcomingChecks {
       settings: settings,
       wifiOnly: _ref.read(displayPreferencesProvider).upcomingWifiOnly,
       everything: everything,
+      languages: readingLanguages(settings, _ref.read(systemLanguagesProvider)),
       apply: (operation) => repository.apply(operation),
     );
     if (result.outcome == UpcomingRunOutcome.ran) {
       if (result.partsChanged) _ref.invalidate(upcomingPartsProvider);
       if (result.releasesChanged) _ref.invalidate(foundReleasesProvider);
+      _ref.invalidate(movieDatesProvider);
       _ref.invalidate(creatorStatusesProvider);
       _ref.invalidate(upcomingScheduleProvider);
       if (result.dropped.isNotEmpty) {
@@ -91,16 +94,31 @@ class UpcomingChecks {
 
   /// Once per session: the plan defaults, the default platform and the Not
   /// interested rows a `preferences.json` from before `settings.json` holds
-  /// go into the synced settings, then leave the preferences.
+  /// go into the synced settings, then leave the preferences; and a
+  /// `settings.json` with no languages yet gets the phone's languages plus
+  /// English (Settings › Books › Languages you read; DESIGN.md section 8),
+  /// so every device reads the same list from then on.
   Future<void> carryOver() async {
     if (_carriedOver) return;
     final prefs = _ref.read(displayPreferencesProvider);
+    final repository = _ref.read(libraryRepositoryProvider);
+    final library = _ref.read(libraryProvider).value;
+    try {
+      if ((await repository.loadSettings()).languages == null) {
+        await repository.applySettings(
+          SetReadingLanguages(
+            defaultReadingLanguages(_ref.read(systemLanguagesProvider)),
+          ),
+        );
+      }
+    } on Object {
+      // Not connected yet: tried again on the next run.
+      return;
+    }
     if (prefs.legacy.isEmpty && prefs.hiddenUpcoming.isEmpty) {
       _carriedOver = true;
       return;
     }
-    final repository = _ref.read(libraryRepositoryProvider);
-    final library = _ref.read(libraryProvider).value;
     try {
       final legacy = prefs.legacy;
       if (legacy.timelineDefault case final on?) {

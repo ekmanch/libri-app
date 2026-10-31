@@ -26,6 +26,7 @@ import '../sync/token_expiry_dialog.dart';
 import '../upcoming/upcoming_checks.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
+import '../../data/lookup/lookup_providers.dart';
 import '../../data/operations/operations.dart';
 import 'fab_action.dart';
 import 'floating_nav_bar.dart';
@@ -89,6 +90,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Covers and photos of entries that are gone get cleaned up once per
     // session, a little after the library loads.
     ref.listenManual(artworkPrunerProvider, (_, _) {});
+    // The book search ranks by the languages read (DESIGN.md 10c).
+    ref.listenManual(readingLanguagesProvider, (_, languages) {
+      ref.read(lookupServiceProvider).readingLanguages = languages;
+    }, fireImmediately: true);
     // When entries change is recorded from the first change on, for the
     // home's In progress order (Library › Home).
     ref.listenManual(recentChangesProvider, (_, _) {});

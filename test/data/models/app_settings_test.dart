@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/models/release_dates.dart';
 import 'package:library_app/data/settings_codec.dart';
 
 void main() {
@@ -13,6 +14,8 @@ void main() {
     const settings = AppSettings(
       timelineDefault: true,
       defaultPlatform: null,
+      languages: ['sv', 'en'],
+      releaseDates: ReleaseDates.digital,
       upcomingEnabled: false,
       unfollowed: {
         FollowKind.authors: {'stephen-king', 'dan-simmons'},
@@ -27,12 +30,19 @@ void main() {
       'version',
       'timeline_default',
       'games',
+      'books',
+      'movies',
       'upcoming',
     ]);
     expect(json['timeline_default'], isTrue);
     expect(json.containsKey('seasonal_theme_default'), isFalse);
     // None differs from PC, so the key is written as null.
     expect(json['games'], {'default_platform': null});
+    // The languages read, sorted; the release dates pick when not Both.
+    expect(json['books'], {
+      'languages': ['en', 'sv'],
+    });
+    expect(json['movies'], {'release_dates': 'digital'});
     expect(json['upcoming'], {
       'enabled': false,
       'unfollowed': {
@@ -43,8 +53,14 @@ void main() {
       },
       'not_interested': ['games/silksong', 'shows/stranger-things-2016#5'],
     });
-    expect(AppSettings.fromJson(json), settings);
-    expect(decodeSettings(encodeSettings(settings)), settings);
+    expect(
+      AppSettings.fromJson(json),
+      settings.copyWith(languages: const ['en', 'sv']),
+    );
+    expect(
+      decodeSettings(encodeSettings(settings)),
+      settings.copyWith(languages: const ['en', 'sv']),
+    );
     expect(
       encodeSettings(decodeSettings(encodeSettings(settings))),
       encodeSettings(settings),
@@ -65,6 +81,16 @@ void main() {
     });
     expect(settings, AppSettings.defaults);
     expect(settings.defaultPlatform, 'PC');
+    // No languages yet (the first run writes them), Both until picked.
+    expect(settings.languages, isNull);
+    expect(settings.releaseDates, ReleaseDates.both);
+    expect(
+      AppSettings.fromJson({
+        'books': {'languages': []},
+        'movies': {'release_dates': 'laserdisc'},
+      }),
+      const AppSettings(languages: []),
+    );
   });
 
   test('a file of another version is refused, as is a non-object', () {
