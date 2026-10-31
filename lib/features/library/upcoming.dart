@@ -149,6 +149,12 @@ class UpcomingItem {
   /// or a found release; null when the source gave none.
   String? get source => release?.match.source ?? part?.source;
 
+  /// The cover of a part or a found release not in the library, as the
+  /// daily check recorded it from the lookup's list, at the size the cache
+  /// keeps; null while the title has no art yet (the add sheet then shows
+  /// the placeholder). An entry or a season has the entry's own cover.
+  String? get coverUrl => release?.match.cacheCoverUrl ?? part?.cover;
+
   /// "Nov 10", "Jan 2027", "2027", or "Date not set".
   String rightLabel(DateTime today) => switch (released) {
     final released? => comingSoonLabel(released, today: today),

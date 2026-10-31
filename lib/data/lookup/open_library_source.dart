@@ -2,6 +2,7 @@ import '../models/follow_kind.dart';
 import '../models/media_type.dart';
 import '../upcoming/creator_lookup.dart';
 import '../models/released.dart';
+import '../models/season.dart';
 import '../models/series.dart';
 import 'book_match.dart';
 import 'google_books.dart';
@@ -639,14 +640,59 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
       book = await _byKey(source);
     }
     if (book == null) return null;
+    SeriesParts? parts;
     if (wikidata case final wikidata?) {
       final found = await wikidata.seriesOf(book.title, book.creator);
-      if (found != null) return found.parts;
+      if (found != null) parts = found.parts;
     }
-    final volume = volumeOf(book.title);
-    final seriesName = name ?? volume?.name;
-    if (seriesName == null) return null;
-    return _volumes(seriesName, book.creator);
+    if (parts == null) {
+      final volume = volumeOf(book.title);
+      final seriesName = name ?? volume?.name;
+      if (seriesName == null) return null;
+      parts = await _volumes(seriesName, book.creator);
+    }
+    if (parts == null) return null;
+    return _withUpcomingCovers(parts, author: book.creator);
+  }
+
+  /// [parts] with Apple's artwork as the cover of every part still to come
+  /// (by the app clock), asked for by title and author: Apple lists a new
+  /// title long before Open Library has a cover for it, and Wikidata's
+  /// parts carry none. A part out already, or one Apple does not know or
+  /// has no art for, keeps what its list gave. For Library › Coming soon:
+  /// add an upcoming entry; each daily series check asks again, so art
+  /// that appears closer to release is picked up.
+  Future<SeriesParts> _withUpcomingCovers(
+    SeriesParts parts, {
+    String? author,
+  }) async {
+    final now = seasonClock();
+    final today = DateTime(now.year, now.month, now.day);
+    final out = <SeriesPart>[];
+    for (final part in parts.parts) {
+      final released = seriesPartRelease(part);
+      if (released == null || released.isReleasedOn(today)) {
+        out.add(part);
+        continue;
+      }
+      final apple = await _appleFill(part.title, part.creator ?? author);
+      final cover = apple?.cacheCoverUrl;
+      out.add(
+        cover == null
+            ? part
+            : (
+                number: part.number,
+                title: part.title,
+                year: part.year,
+                released: part.released,
+                source: part.source,
+                creator: part.creator,
+                cover: cover,
+                extra: part.extra,
+              ),
+      );
+    }
+    return (name: parts.name, parts: out);
   }
 
   /// The works titled `<name>, Vol. N` (or "Volume N", "#N") by [author] in
@@ -670,6 +716,7 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
           released: hit.released,
           source: hit.source,
           creator: null,
+          cover: hit.cacheCoverUrl,
           extra: false,
         );
       } else if (year != null && (known.year == null || year < known.year!)) {
@@ -680,6 +727,7 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
           released: hit.released,
           source: known.source,
           creator: null,
+          cover: known.cover,
           extra: false,
         );
       }
@@ -847,7 +895,10 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
   /// The author's newest works (the search sorted newest first), those
   /// first published this year or later, or last year within thirty days.
   /// Open Library dates by year, so a book of this year counts as coming
-  /// until the year is out (the release rule of DESIGN.md section 8).
+  /// until the year is out (the release rule of DESIGN.md section 8). Each
+  /// takes Apple's cover and description when Apple knows the book
+  /// ([withApple]): Apple lists a new title long before Open Library has a
+  /// cover for it, and the add sheet shows the cover.
   @override
   Future<List<LookupMatch>> creatorReleases(
     String providerId,
@@ -870,11 +921,15 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
       'fields': _fields,
       'lang': 'en',
     });
-    return [
+    final found = [
       for (final doc in objectsAt(json, 'docs'))
         if (_match(doc) case final match?
             when isRecentOrAhead(match.released, today))
           match,
+    ];
+    return [
+      for (final match in found)
+        withApple(match, await _appleFill(match.title, match.creator)),
     ];
   }
 }

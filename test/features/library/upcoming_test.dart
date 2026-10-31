@@ -1,13 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/entry_status.dart';
+import 'package:library_app/data/models/follow_kind.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/series.dart';
+import 'package:library_app/data/upcoming/creator_lookup.dart';
 import 'package:library_app/features/entry/series.dart';
 import 'package:library_app/features/library/upcoming.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
@@ -284,6 +287,57 @@ void main() {
           ),
         ),
         ['show', 'movie'],
+      );
+    });
+  });
+
+  group('covers', () {
+    test('a part and a found release carry the cover the check recorded, at '
+        'the cache size; an entry has the entry\'s own', () {
+      const part = UpcomingPart(
+        type: MediaType.movies,
+        seriesName: 'The Lord of the Rings',
+        entryId: 'movies/fellowship',
+        title: 'The Hunt for Gollum',
+        released: Released(2027, 12, 17),
+        cover: 'https://image.tmdb.org/t/p/w342/gollum.jpg',
+      );
+      expect(
+        UpcomingItem.part(part, owned: const []).coverUrl,
+        'https://image.tmdb.org/t/p/w342/gollum.jpg',
+      );
+      expect(
+        UpcomingItem.part(
+          const UpcomingPart(
+            type: MediaType.books,
+            seriesName: 'Dune',
+            entryId: 'books/dune',
+            title: 'Dune: Part Eight',
+            released: Released(2028),
+          ),
+          owned: const [],
+        ).coverUrl,
+        isNull,
+      );
+      final release = FoundRelease(
+        kind: FollowKind.artists,
+        creatorId: 'alice in chains',
+        creatorName: 'Alice in Chains',
+        match: const LookupMatch(
+          type: MediaType.music,
+          title: 'Rainier Fog II',
+          source: 'deezer:album:1',
+          coverUrl: 'https://cdn/medium.jpg',
+          largeCoverUrl: 'https://cdn/big.jpg',
+        ),
+        foundOn: DateTime(2026, 10, 31),
+      );
+      expect(UpcomingItem.release(release).coverUrl, 'https://cdn/big.jpg');
+      expect(
+        UpcomingItem.entry(
+          entry('a', MediaType.movies, released: const Released(2027)),
+        ).coverUrl,
+        isNull,
       );
     });
   });

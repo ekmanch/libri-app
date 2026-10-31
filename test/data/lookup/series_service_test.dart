@@ -38,6 +38,7 @@ const SeriesParts _lotr = (
       released: null,
       source: _source,
       creator: null,
+      cover: null,
       extra: false,
     ),
     (
@@ -47,6 +48,7 @@ const SeriesParts _lotr = (
       released: null,
       source: 'tmdb:movie:121',
       creator: null,
+      cover: null,
       extra: false,
     ),
   ],
@@ -213,6 +215,7 @@ void main() {
           released: null,
           source: 'wikidata:Q7',
           creator: 'Brian Herbert, Kevin J. Anderson',
+          cover: null,
           extra: true,
         ),
       ],
@@ -230,7 +233,7 @@ void main() {
     expect(old.fetched.year, 1970);
   });
 
-  test('the file store keeps a part\'s date; a list from before version 4 counts as stale', () async {
+  test('the file store keeps a part\'s date and cover; a list from before version 5 counts as stale', () async {
     final dir = await Directory.systemTemp.createTemp('series');
     addTearDown(() => dir.delete(recursive: true));
     final store = FileSeriesStore(dir);
@@ -244,6 +247,7 @@ void main() {
           released: Released(2027, 12, 17),
           source: 'tmdb:movie:1',
           creator: null,
+          cover: 'https://image.tmdb.org/t/p/w342/gollum.jpg',
           extra: false,
         ),
       ],
@@ -256,8 +260,8 @@ void main() {
       '${dir.path}/series/${FileSeriesStore.fileNameFor(_source)}',
     );
     final json = jsonDecode(await file.readAsString()) as Map<String, Object?>;
-    expect(json['version'], 4);
-    await file.writeAsString(jsonEncode({...json, 'version': 3}));
+    expect(json['version'], 5);
+    await file.writeAsString(jsonEncode({...json, 'version': 4}));
     final old = await store.read(_source);
     expect(old!.series.parts, dated.parts);
     expect(old.fetched, DateTime.utc(1970));
@@ -274,6 +278,7 @@ void main() {
           released: Released(2001, 12, 18),
           source: _source,
           creator: null,
+          cover: null,
           extra: false,
         ),
         (
@@ -283,6 +288,7 @@ void main() {
           released: Released(2027, 12, 17),
           source: 'tmdb:movie:1',
           creator: null,
+          cover: null,
           extra: false,
         ),
       ],

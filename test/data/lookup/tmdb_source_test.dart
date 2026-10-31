@@ -479,6 +479,7 @@ void main() {
           'id': 122,
           'title': 'The Lord of the Rings: The Return of the King',
           'release_date': '2003-12-17',
+          'poster_path': '/rotk.jpg',
         },
         {
           'id': 120,
@@ -543,6 +544,14 @@ void main() {
           'tmdb:movie:122',
         ),
         (4, 'The Lord of the Rings: Untitled', null, 'tmdb:movie:999'),
+      ]);
+      // A part's poster at the cache size, for the add sheet; none for a
+      // part without one.
+      expect(parts.parts.map((p) => p.cover), [
+        null,
+        null,
+        'https://image.tmdb.org/t/p/w342/rotk.jpg',
+        null,
       ]);
     });
 

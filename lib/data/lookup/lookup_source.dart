@@ -152,7 +152,11 @@ typedef ShowSeasons = ({List<Season> seasons, bool canceled, EntryKind? kind});
 /// stands alone, as in a list stored before dates were kept), its lookup id
 /// (so a part in the library is matched to it, and "+ Add" can look it up),
 /// its authors when the source names them (Wikidata does, so Choose what
-/// to show can say which parts someone else wrote), and whether the
+/// to show can say which parts someone else wrote), its cover image at the
+/// size the cache keeps when the source's list carries one (TMDB's poster,
+/// IGDB's cover, Open Library's; Apple's artwork first for a book still to
+/// come; null when it has none yet, so Library › Coming soon: add an
+/// upcoming entry shows the placeholder), and whether the
 /// automatic rules count it as an extra (Library › Book series after the
 /// automatic rules): hidden until the owner shows it.
 typedef SeriesPart = ({
@@ -162,6 +166,7 @@ typedef SeriesPart = ({
   Released? released,
   String? source,
   String? creator,
+  String? cover,
   bool extra,
 });
 

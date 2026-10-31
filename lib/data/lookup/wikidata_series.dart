@@ -239,6 +239,7 @@ LIMIT 5000''';
                 released: p.released,
                 source: 'wikidata:${p.id}',
                 creator: p.authors.isEmpty ? null : p.authors.join(', '),
+                cover: null,
                 extra: extras.contains(p.id),
               ),
           ],

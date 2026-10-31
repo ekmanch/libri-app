@@ -193,6 +193,7 @@ List<UpcomingPart> upcomingPartsToShow(
             released: part.released,
             source: part.source,
             creator: null,
+            cover: part.cover,
             extra: part.extra,
           ),
         ],

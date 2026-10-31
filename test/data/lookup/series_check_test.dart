@@ -45,6 +45,7 @@ void main() {
     String title, {
     Released? released,
     String? source,
+    String? cover,
     bool extra = false,
   }) => (
     number: number,
@@ -53,6 +54,7 @@ void main() {
     released: released,
     source: source,
     creator: null,
+    cover: cover,
     extra: extra,
   );
 
@@ -96,6 +98,7 @@ void main() {
         'The Hunt for Gollum',
         released: const Released(2027, 12, 17),
         source: 'tmdb:movie:1',
+        cover: 'https://image.tmdb.org/t/p/w342/gollum.jpg',
       ),
       listed(4, 'Untitled'),
     ],
@@ -170,6 +173,9 @@ void main() {
           released: Released(2027, 12, 17),
           number: 3,
           source: 'tmdb:movie:1',
+          // The cover's URL only: the image is fetched when the add sheet
+          // opens, never by the check.
+          cover: 'https://image.tmdb.org/t/p/w342/gollum.jpg',
         ),
       ]);
       expect(await days.lastRun(), today);
@@ -251,6 +257,7 @@ void main() {
         title: 'Berserk, Vol. 44',
         released: Released(2027),
         number: 44,
+        cover: 'https://covers.openlibrary.org/b/id/44-L.jpg',
         extra: true,
       ),
     ];

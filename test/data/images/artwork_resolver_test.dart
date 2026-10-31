@@ -12,7 +12,10 @@ import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
 import 'package:library_app/data/lookup/music_source.dart';
+import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/lookup/track_info.dart';
+import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/upcoming/creator_lookup.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
@@ -432,5 +435,49 @@ void main() {
     expect(images.cachedFile('fake://cover/poster/a'), isNotNull);
     expect(images.cachedFile('fake://cover/poster/b'), isNull);
     expect(r.cachedCoverUrl(b), isNull);
+  });
+
+  test('the pruner keeps the covers of the upcoming parts and found releases '
+      'on record (the add sheet fetched them)', () async {
+    final r = resolver();
+    final images = ImageCacheStore(dir, fetcher: FakeImageFetcher());
+    const gollum = 'fake://cover/poster/gollum';
+    const album = 'fake://cover/square/aic-next';
+    const stale = 'fake://cover/poster/stale';
+    for (final url in [gollum, album, stale]) {
+      await images.get(url);
+    }
+    await ArtworkPruner(
+      resolver: r,
+      images: images,
+      upcoming: MemoryUpcomingPartsStore(const [
+        UpcomingPart(
+          type: MediaType.movies,
+          seriesName: 'The Lord of the Rings',
+          entryId: 'movies/fellowship',
+          title: 'The Hunt for Gollum',
+          released: Released(2027, 12, 17),
+          cover: gollum,
+        ),
+      ]),
+      releases: MemoryFoundReleaseStore([
+        FoundRelease(
+          kind: FollowKind.artists,
+          creatorId: 'alice in chains',
+          creatorName: 'Alice in Chains',
+          match: const LookupMatch(
+            type: MediaType.music,
+            title: 'Rainier Fog II',
+            source: 'deezer:album:1',
+            coverUrl: 'fake://cover/square/aic-small',
+            largeCoverUrl: album,
+          ),
+          foundOn: DateTime(2026, 10, 31),
+        ),
+      ]),
+    ).run(const Library(entries: []));
+    expect(images.cachedFile(gollum), isNotNull);
+    expect(images.cachedFile(album), isNotNull);
+    expect(images.cachedFile(stale), isNull);
   });
 }

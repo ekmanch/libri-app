@@ -524,7 +524,12 @@ void main() {
               'first_release_date': 1415577600,
               'version_parent': 22,
             },
-            {'id': 26, 'name': 'BioShock 4', 'game_type': 0},
+            {
+              'id': 26,
+              'name': 'BioShock 4',
+              'game_type': 0,
+              'cover': {'image_id': 'co4'},
+            },
           ],
         },
       ],
@@ -576,7 +581,8 @@ void main() {
         sent.last.body,
         'fields name,parent_game,collections.name,collections.games.name,'
         'collections.games.first_release_date,collections.games.game_type,'
-        'collections.games.version_parent; where id = 20; limit 1;',
+        'collections.games.version_parent,collections.games.cover.image_id; '
+        'where id = 20; limit 1;',
       );
       final parts = await igdb.seriesParts('igdb:20');
       expect(parts!.parts.map((p) => (p.number, p.title, p.year, p.source)), [
@@ -584,6 +590,13 @@ void main() {
         (2, 'BioShock 2', 2010, 'igdb:21'),
         (3, 'BioShock Infinite', 2013, 'igdb:22'),
         (4, 'BioShock 4', null, 'igdb:26'),
+      ]);
+      // A part's cover, for the add sheet.
+      expect(parts.parts.map((p) => p.cover), [
+        null,
+        null,
+        null,
+        'https://images.igdb.com/igdb/image/upload/t_cover_big/co4.jpg',
       ]);
     });
 

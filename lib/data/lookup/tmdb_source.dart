@@ -221,6 +221,7 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
                   released: Released.tryParse(
                     stringAt(p, 'release_date') ?? '',
                   ),
+                  poster: stringAt(p, 'poster_path'),
                 ),
         ]..sort((a, b) {
           final x = a.released, y = b.released;
@@ -240,6 +241,9 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
             released: p.released,
             source: 'tmdb:movie:${p.id}',
             creator: null,
+            cover: p.poster == null
+                ? null
+                : '$_images$coverPosterWidth${p.poster}',
             extra: false,
           ),
       ],

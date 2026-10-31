@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/images/artwork_providers.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/models/entry.dart';
@@ -10,6 +11,7 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/series.dart';
+import 'package:library_app/dev/fake_images.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/models/follow_kind.dart';
@@ -21,6 +23,8 @@ import 'package:library_app/features/entry/series.dart';
 import 'package:library_app/features/library/coming_soon_screen.dart';
 import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
+import 'package:library_app/widgets/cached_image.dart';
+import 'package:library_app/widgets/cover_placeholder.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -52,6 +56,8 @@ void main() {
     description: description,
   );
 
+  const gollumCover =
+      'fake://cover/poster/fake:the-lord-of-the-rings-the-hunt-for-gollum';
   const gollum = UpcomingPart(
     type: MediaType.movies,
     seriesName: 'The Lord of the Rings',
@@ -60,6 +66,7 @@ void main() {
     released: Released(2027, 12, 17),
     number: 4,
     source: 'fake:the-lord-of-the-rings-the-hunt-for-gollum',
+    cover: gollumCover,
   );
 
   Library library() => Library(
@@ -125,6 +132,9 @@ void main() {
 
   Finder row(String title) =>
       find.ancestor(of: find.text(title), matching: find.byType(HomeRow));
+
+  Finder cover(String? url) =>
+      find.byWidgetPredicate((w) => w is CachedImage && w.url == url);
 
   testWidgets('Your wants lists what the owner wants, by month', (
     tester,
@@ -287,6 +297,36 @@ void main() {
     );
   });
 
+  testWidgets(
+    'the sheet shows the cover the check recorded, fetched when it opens, '
+    'and the form starts with it',
+    (tester) async {
+      final container = await pump(tester, everything: true);
+      final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
+      // The list is text rows: nothing is fetched for it.
+      expect(fetcher.fetched, isEmpty);
+      await tester.tap(row('The Hunt for Gollum'));
+      await tester.pumpAndSettle();
+      expect(cover(gollumCover), findsOneWidget);
+      // The fake fetcher writes the file off the frame clock.
+      for (var i = 0; i < 40 && find.byType(Image).evaluate().isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+      }
+      expect(fetcher.fetched, [gollumCover]);
+      expect(find.byType(Image), findsOneWidget);
+
+      await tester.tap(find.text('Add to library'));
+      await tester.pumpAndSettle();
+      expect(find.byType(EntryFormScreen), findsOneWidget);
+      // The same image, already on the device: not fetched again.
+      expect(cover(gollumCover), findsOneWidget);
+      expect(fetcher.fetched, [gollumCover]);
+    },
+  );
+
   testWidgets('a part without a lookup id is looked up by its title', (
     tester,
   ) async {
@@ -309,6 +349,9 @@ void main() {
     );
     await tester.tap(row('The War of the Rohirrim'));
     await tester.pumpAndSettle();
+    // No cover recorded yet: the placeholder, and nothing fetched.
+    expect(cover(null), findsOneWidget);
+    expect(find.byType(CoverPlaceholder), findsOneWidget);
     await tester.tap(find.text('Add to library'));
     await tester.pumpAndSettle();
     expect(find.byType(NewEntryScreen), findsOneWidget);

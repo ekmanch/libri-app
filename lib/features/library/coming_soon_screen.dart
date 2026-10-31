@@ -16,6 +16,7 @@ import '../../data/operations/season_operations.dart';
 import '../../data/operations/settings_operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/cover_placeholder.dart';
 import '../../widgets/labels.dart';
@@ -223,9 +224,10 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
   }
 
   /// The row as a match the form can start from: the lookup id with what
-  /// the record knows, filled in by the source's details (the director, the
-  /// genres, a game's platforms) when it answers; the record alone when it
-  /// does not. Null for a part without a lookup id.
+  /// the record knows, the cover the sheet showed among it, filled in by
+  /// the source's details (the director, the genres, a game's platforms)
+  /// when it answers; the record alone when it does not. Null for a part
+  /// without a lookup id.
   Future<LookupMatch?> _matchFor(UpcomingItem item) async {
     final LookupMatch known;
     if (item.release case final release?) {
@@ -236,6 +238,7 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
         title: part.title,
         source: part.source!,
         released: part.released,
+        coverUrl: part.cover,
       );
     } else {
       return null;
@@ -243,7 +246,16 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
     final source = ref.read(lookupServiceProvider).sourceOf(known.source);
     if (source == null || !source.isConfigured) return known;
     try {
-      return await source.details(known);
+      final full = await source.details(known);
+      // The details may not carry a cover (the fake's do not); the one the
+      // sheet showed, already on the device, stays with the form then.
+      if (full.cacheCoverUrl == null && known.cacheCoverUrl != null) {
+        return full.copyWith(
+          coverUrl: known.coverUrl,
+          largeCoverUrl: known.largeCoverUrl,
+        );
+      }
+      return full;
     } on LookupException {
       return known;
     }
@@ -362,7 +374,10 @@ class _UpcomingPage extends StatelessWidget {
 enum UpcomingAddResult { add, notInterested }
 
 /// Library › Coming soon: add an upcoming entry: a sheet with the cover
-/// spot, the type and date in the type's color, the title and creator, the
+/// (the entry's for an entry or a season; for a part or a found release
+/// the cover the daily check recorded, fetched and cached when the sheet
+/// opens, the placeholder while the title has no art yet), the type and
+/// date in the type's color, the title and creator, the
 /// description when the source has one, "Why it's here", then Not
 /// interested and Add to library, with "Added as Want. Not interested hides
 /// it from this list." under them. Pops with an [UpcomingAddResult].
@@ -394,7 +409,18 @@ class UpcomingAddSheet extends StatelessWidget {
               if (entry != null)
                 CoverImage(entry: entry, width: 72, fontSize: 9, labeled: true)
               else
-                CoverPlaceholder(entry: _standIn(item), width: 72, fontSize: 9),
+                CachedImage(
+                  url: item.coverUrl,
+                  width: 72,
+                  height: 72 / CoverPlaceholder.aspectRatio(item.type),
+                  placeholder: CoverPlaceholder(
+                    entry: _standIn(item),
+                    width: 72,
+                    fontSize: 9,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  semanticLabel: item.sheetTitle,
+                ),
               const SizedBox(width: 14),
               Expanded(
                 child: Padding(

@@ -102,7 +102,7 @@ class IgdbSource extends HttpLookupSource implements CreatorLookup {
   static const _collectionFields =
       'name,parent_game,collections.name,collections.games.name,'
       'collections.games.first_release_date,collections.games.game_type,'
-      'collections.games.version_parent';
+      'collections.games.version_parent,collections.games.cover.image_id';
 
   /// IGDB's game types that count as a part of a series: 0 is a main game,
   /// 8 a remake.
@@ -534,6 +534,13 @@ class IgdbSource extends HttpLookupSource implements CreatorLookup {
                       final num epoch => epoch.toInt(),
                       _ => null,
                     },
+                    imageId: switch (g['cover']) {
+                      final Map<String, Object?> cover => stringAt(
+                        cover,
+                        'image_id',
+                      ),
+                      _ => null,
+                    },
                   ),
         ]..sort((a, b) {
           final x = a.date, y = b.date;
@@ -553,6 +560,7 @@ class IgdbSource extends HttpLookupSource implements CreatorLookup {
             released: p.date == null ? null : _dayOf(p.date!),
             source: 'igdb:${p.id}',
             creator: null,
+            cover: p.imageId == null ? null : coverUrlFor(p.imageId!),
             extra: false,
           ),
       ],

@@ -11,8 +11,10 @@ import '../lookup/lookup_providers.dart';
 import '../models/library.dart';
 import '../models/entry_kind.dart';
 import '../lookup/episode_service.dart';
+import '../lookup/series_check.dart';
 import '../lookup/series_service.dart';
 import '../lookup/track_list_service.dart';
+import '../upcoming/creator_lookup.dart';
 import '../storage/json_file.dart';
 import 'artwork_resolver.dart';
 import 'image_cache_store.dart';
@@ -67,13 +69,18 @@ void startArtworkPruner(Ref ref) {
         tracks: ref.read(trackListServiceProvider),
         episodes: ref.read(episodeServiceProvider),
         series: ref.read(seriesServiceProvider),
+        upcoming: ref.read(seriesCheckProvider)?.upcoming,
+        releases: ref.read(creatorCheckProvider)?.releases,
       ).run(current);
     });
   }, fireImmediately: true);
   ref.onDispose(() => timer?.cancel());
 }
 
-/// The prune itself, also run by the tests.
+/// The prune itself, also run by the tests. The covers of the upcoming
+/// parts and found releases on record ([upcoming], [releases]) are kept
+/// too, so a cover the add sheet fetched (Library › Coming soon: add an
+/// upcoming entry) stays until the row is gone.
 class ArtworkPruner {
   const ArtworkPruner({
     required this.resolver,
@@ -81,6 +88,8 @@ class ArtworkPruner {
     this.tracks,
     this.episodes,
     this.series,
+    this.upcoming,
+    this.releases,
   });
 
   final ArtworkResolver resolver;
@@ -88,6 +97,8 @@ class ArtworkPruner {
   final TrackListService? tracks;
   final EpisodeService? episodes;
   final SeriesService? series;
+  final UpcomingPartsStore? upcoming;
+  final FoundReleaseStore? releases;
 
   static const delay = Duration(seconds: 15);
 
@@ -96,6 +107,12 @@ class ArtworkPruner {
       entries: library.entries,
       artists: [for (final artist in artistIndex(library.entries)) artist.name],
     );
+    for (final part in await upcoming?.read() ?? const <UpcomingPart>[]) {
+      if (part.cover case final cover?) keep.add(cover);
+    }
+    for (final release in await releases?.read() ?? const <FoundRelease>[]) {
+      if (release.match.cacheCoverUrl case final cover?) keep.add(cover);
+    }
     await images.prune(keep);
     await tracks?.prune([
       for (final e in library.entries)

@@ -12,6 +12,7 @@ import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/lookup/wikidata_series.dart';
 import 'package:library_app/data/models/series.dart';
 import 'package:library_app/data/models/follow_kind.dart';
@@ -1260,6 +1261,52 @@ void main() {
       },
     );
 
+    test('a volume still to come takes Apple\'s artwork as its cover; one out '
+        'keeps Open Library\'s', () async {
+      seasonClock = () => DateTime(2026, 10, 31);
+      addTearDown(() => seasonClock = DateTime.now);
+      final ol = source((request) async {
+        if (isApple(request)) {
+          final term = request.url.queryParameters['term'];
+          return json(200, {
+            'results': [
+              if (term!.contains('Vol. 44'))
+                ebook(
+                  44,
+                  'Berserk, Vol. 44',
+                  author: 'Kentaro Miura',
+                  art: artwork,
+                ),
+            ],
+          });
+        }
+        final q = request.url.queryParameters;
+        if (q['q'] == 'key:/works/OL43W') {
+          return json(200, {
+            'docs': [volume('OL43W', 'Berserk, Vol. 43', 2025)],
+          });
+        }
+        if (q['title'] == 'Berserk') {
+          return json(200, {
+            'docs': [
+              {...volume('OL43W', 'Berserk, Vol. 43', 2025), 'cover_i': 43},
+              {...volume('OL44W', 'Berserk, Vol. 44', 2027), 'cover_i': 44},
+            ],
+          });
+        }
+        return json(200, {'docs': []});
+      });
+      final parts = await ol.seriesParts('openlibrary:OL43W');
+      expect(parts!.parts.map((p) => (p.number, p.cover)), [
+        (43, 'https://covers.openlibrary.org/b/id/43-L.jpg'),
+        (44, artwork600),
+      ]);
+      // Apple is asked for the volume still to come only.
+      expect(sent.where(isApple).map((r) => r.url.queryParameters['term']), [
+        'Berserk, Vol. 44 Kentaro Miura',
+      ]);
+    });
+
     test('seriesParts takes the series name the entry carries', () async {
       final ol = source((request) async {
         if (isApple(request)) return json(200, {'results': []});
@@ -1428,47 +1475,61 @@ void main() {
   });
 
   group('followed authors', () {
-    test('finds the author key and lists the newest works', () async {
-      sent = [];
-      final ol = OpenLibrarySource(
-        MockClient((request) async {
-          sent.add(request);
-          if (request.url.path == '/search/authors.json') {
-            expect(request.url.queryParameters['q'], 'Stephen King');
-            return json(200, {
-              'docs': [
-                {'key': 'OL19981A', 'name': 'Stephen King', 'work_count': 900},
-                {'key': 'OL1A', 'name': 'Stephen King Jr.'},
-              ],
-            });
-          }
-          expect(request.url.path, '/search.json');
-          expect(request.url.queryParameters['author_key'], 'OL19981A');
-          expect(request.url.queryParameters['sort'], 'new');
+    test('finds the author key and lists the newest works, each with Apple\'s '
+        'cover and description when Apple knows it', () async {
+      final ol = source((request) async {
+        if (isApple(request)) {
+          final term = request.url.queryParameters['term'];
           return json(200, {
-            'docs': [
-              {
-                'key': '/works/OL1W',
-                'title': 'Never Flinch',
-                'author_name': ['Stephen King'],
-                'first_publish_year': 2027,
-              },
-              {
-                'key': '/works/OL2W',
-                'title': 'This Year',
-                'author_name': ['Stephen King'],
-                'first_publish_year': 2026,
-              },
-              {
-                'key': '/works/OL3W',
-                'title': 'It',
-                'author_name': ['Stephen King'],
-                'first_publish_year': 1986,
-              },
+            'results': [
+              if (term!.startsWith('Never Flinch'))
+                ebook(
+                  7,
+                  'Never Flinch',
+                  author: 'Stephen King',
+                  date: '2027-05-27T07:00:00Z',
+                  description: 'Holly Gibney, <i>again</i>.',
+                  art: artwork,
+                ),
             ],
           });
-        }),
-      );
+        }
+        if (request.url.path == '/search/authors.json') {
+          expect(request.url.queryParameters['q'], 'Stephen King');
+          return json(200, {
+            'docs': [
+              {'key': 'OL19981A', 'name': 'Stephen King', 'work_count': 900},
+              {'key': 'OL1A', 'name': 'Stephen King Jr.'},
+            ],
+          });
+        }
+        expect(request.url.path, '/search.json');
+        expect(request.url.queryParameters['author_key'], 'OL19981A');
+        expect(request.url.queryParameters['sort'], 'new');
+        return json(200, {
+          'docs': [
+            {
+              'key': '/works/OL1W',
+              'title': 'Never Flinch',
+              'author_name': ['Stephen King'],
+              'first_publish_year': 2027,
+            },
+            {
+              'key': '/works/OL2W',
+              'title': 'This Year',
+              'author_name': ['Stephen King'],
+              'first_publish_year': 2026,
+              'cover_i': 2,
+            },
+            {
+              'key': '/works/OL3W',
+              'title': 'It',
+              'author_name': ['Stephen King'],
+              'first_publish_year': 1986,
+            },
+          ],
+        });
+      });
       expect(await ol.findCreator(FollowKind.authors, 'Stephen King'), (
         providerId: 'openlibrary:author:OL19981A',
         inactive: null,
@@ -1480,7 +1541,20 @@ void main() {
       );
       expect(works.map((m) => m.title), ['Never Flinch', 'This Year']);
       expect(works.first.source, 'openlibrary:OL1W');
+      // Open Library's year stays; Apple's cover and description come in.
       expect(works.first.released, const Released(2027));
+      expect(works.first.cacheCoverUrl, artwork600);
+      expect(works.first.description, 'Holly Gibney, again.');
+      // A book Apple does not know keeps Open Library's cover.
+      expect(
+        works[1].cacheCoverUrl,
+        'https://covers.openlibrary.org/b/id/2-L.jpg',
+      );
+      // Apple asked once per release found, not for the old books.
+      expect(sent.where(isApple).map((r) => r.url.queryParameters['term']), [
+        'Never Flinch Stephen King',
+        'This Year Stephen King',
+      ]);
     });
   });
 }

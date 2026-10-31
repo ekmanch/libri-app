@@ -386,6 +386,7 @@ const _lordOfTheRings = (
       released: null,
       source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
       creator: null,
+      cover: 'fake://cover/poster/fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
       extra: false,
     ),
     (
@@ -395,6 +396,7 @@ const _lordOfTheRings = (
       released: null,
       source: 'fake:the-lord-of-the-rings-the-two-towers',
       creator: null,
+      cover: 'fake://cover/poster/fake:the-lord-of-the-rings-the-two-towers',
       extra: false,
     ),
     (
@@ -404,6 +406,7 @@ const _lordOfTheRings = (
       released: null,
       source: 'fake:the-lord-of-the-rings-the-return-of-the-king',
       creator: null,
+      cover: 'fake://cover/poster/fake:the-lord-of-the-rings-the-return-of-the-king',
       extra: false,
     ),
     // Announced, as TMDB lists it: a part still to come, which the series
@@ -416,6 +419,8 @@ const _lordOfTheRings = (
       released: Released(2027, 12, 17),
       source: 'fake:the-lord-of-the-rings-the-hunt-for-gollum',
       creator: null,
+      cover:
+          'fake://cover/poster/fake:the-lord-of-the-rings-the-hunt-for-gollum',
       extra: false,
     ),
   ],
@@ -438,6 +443,7 @@ final _berserk = (
         released: null,
         source: 'fake:berserk-vol-$n',
         creator: null,
+        cover: 'fake://cover/poster/fake:berserk-vol-$n',
         extra: false,
       ),
   ],

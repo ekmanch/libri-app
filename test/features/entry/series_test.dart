@@ -119,6 +119,7 @@ void main() {
           released: null,
           source: 'tmdb:movie:120',
           creator: null,
+          cover: null,
           extra: false,
         ),
         (
@@ -128,6 +129,7 @@ void main() {
           released: null,
           source: 'tmdb:movie:121',
           creator: null,
+          cover: null,
           extra: false,
         ),
         (
@@ -137,6 +139,7 @@ void main() {
           released: null,
           source: 'tmdb:movie:122',
           creator: null,
+          cover: null,
           extra: false,
         ),
       ],
@@ -176,6 +179,7 @@ void main() {
             released: null,
             source: 'igdb:912',
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -185,6 +189,7 @@ void main() {
             released: null,
             source: 'igdb:1',
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -194,6 +199,7 @@ void main() {
             released: null,
             source: 'igdb:2',
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -203,6 +209,7 @@ void main() {
             released: null,
             source: 'igdb:1164',
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -212,6 +219,7 @@ void main() {
             released: null,
             source: 'igdb:7323',
             creator: null,
+            cover: null,
             extra: false,
           ),
         ],
@@ -259,6 +267,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -268,6 +277,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
         ],
@@ -292,6 +302,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -301,6 +312,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
         ],
@@ -330,6 +342,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -339,6 +352,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -348,6 +362,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -357,6 +372,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -366,6 +382,7 @@ void main() {
             released: null,
             source: null,
             creator: null,
+            cover: null,
             extra: false,
           ),
         ],
@@ -775,6 +792,7 @@ void main() {
             released: null,
             source: 'fake:the-lord-of-the-rings-the-fellowship-of-the-ring',
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -784,6 +802,7 @@ void main() {
             released: null,
             source: 'fake:the-lord-of-the-rings-the-two-towers',
             creator: null,
+            cover: null,
             extra: false,
           ),
           (
@@ -793,6 +812,7 @@ void main() {
             released: null,
             source: 'fake:appendices',
             creator: null,
+            cover: null,
             extra: true,
           ),
         ],
@@ -933,6 +953,7 @@ void main() {
             released: null,
             source: 'wikidata:Q2',
             creator: null,
+            cover: null,
             extra: true,
           ),
           (
@@ -942,6 +963,7 @@ void main() {
             released: null,
             source: 'wikidata:Q1',
             creator: null,
+            cover: null,
             extra: false,
           ),
         ],

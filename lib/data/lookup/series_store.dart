@@ -62,13 +62,15 @@ class FileSeriesStore implements SeriesStore {
 
   static const _encoder = JsonEncoder.withIndent('  ');
 
-  /// 4 since 2026-10-29: the parts carry their release date, for the
+  /// 5 since 2026-10-31: the parts carry their cover, for Library › Coming
+  /// soon: add an upcoming entry. 4 (2026-10-29): the parts carry their
+  /// release date, for the
   /// series check's record of parts still to come. 3 (2026-10-24):
   /// Wikidata's parts carry their
   /// authors, and the ones the automatic rules count as extras are kept
   /// and marked `extra` (version 2 dropped them, and version 1 had no
   /// rules at all).
-  static const version = 4;
+  static const version = 5;
 
   Directory get _series =>
       Directory('${directory.path}${Platform.pathSeparator}series');
@@ -113,6 +115,7 @@ class FileSeriesStore implements SeriesStore {
                   },
                   source: item['source'] as String?,
                   creator: item['creator'] as String?,
+                  cover: item['cover'] as String?,
                   extra: item['extra'] == true,
                 ),
           ],
@@ -138,7 +141,7 @@ class FileSeriesStore implements SeriesStore {
       'asked': ?asked,
       'name': series.name,
       'parts': [
-        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'released': ?p.released?.toString(), 'source': p.source, 'creator': ?p.creator, if (p.extra) 'extra': true},
+        for (final p in series.parts) {'number': p.number, 'title': p.title, 'year': p.year, 'released': ?p.released?.toString(), 'source': p.source, 'creator': ?p.creator, 'cover': ?p.cover, if (p.extra) 'extra': true},
       ],
     })}\n',
   );

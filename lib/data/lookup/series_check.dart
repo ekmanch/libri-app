@@ -31,6 +31,7 @@ class UpcomingPart {
     required this.released,
     this.number,
     this.source,
+    this.cover,
     this.extra = false,
   });
 
@@ -50,6 +51,13 @@ class UpcomingPart {
   /// which Choose what to show hides it by.
   final String? source;
 
+  /// The part's cover image at the size the cache keeps, as the lookup's
+  /// list carried it when the check ran; null while the title has no art
+  /// yet, so the add sheet shows the placeholder. The image is fetched when
+  /// the sheet opens, never by the check, and each check records the URL
+  /// again, so a cover that appears closer to release is picked up.
+  final String? cover;
+
   /// Whether the automatic rules count the part as an extra, hidden until
   /// the owner shows it.
   final bool extra;
@@ -66,6 +74,7 @@ class UpcomingPart {
     released: Released.parse(json['released'] as String),
     number: json['number'] as int?,
     source: json['source'] as String?,
+    cover: json['cover'] as String?,
     extra: json['extra'] == true,
   );
 
@@ -77,6 +86,7 @@ class UpcomingPart {
     'released': released.toString(),
     'number': number,
     'source': source,
+    'cover': ?cover,
     if (extra) 'extra': true,
   };
 
@@ -90,11 +100,20 @@ class UpcomingPart {
       other.released == released &&
       other.number == number &&
       other.source == source &&
+      other.cover == cover &&
       other.extra == extra;
 
   @override
-  int get hashCode =>
-      Object.hash(type, seriesName, entryId, title, released, number, source);
+  int get hashCode => Object.hash(
+    type,
+    seriesName,
+    entryId,
+    title,
+    released,
+    number,
+    source,
+    cover,
+  );
 
   @override
   String toString() => 'UpcomingPart($seriesName: $title, $released)';
@@ -253,6 +272,7 @@ class SeriesCheck {
               released: released,
               number: part.number,
               source: part.source,
+              cover: part.cover,
               extra: part.extra,
             ),
           );
