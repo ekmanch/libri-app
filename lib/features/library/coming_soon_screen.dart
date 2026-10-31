@@ -35,7 +35,7 @@ import 'home_sections.dart';
 import 'library_filter_provider.dart';
 import 'upcoming.dart';
 
-/// Opens the Coming soon screen (Library › Coming soon: your wants), from
+/// Opens the Coming soon screen (Library › Coming soon: in library), from
 /// "See all" on the home's Coming soon heading.
 Future<void> openComingSoon(BuildContext context, {bool everything = false}) =>
     Navigator.of(context).push<void>(
@@ -44,11 +44,11 @@ Future<void> openComingSoon(BuildContext context, {bool everything = false}) =>
       ),
     );
 
-/// Everything coming, full screen (Library › Coming soon: your wants;
-/// Coming soon: everything upcoming): "Coming soon" with a back arrow and a
-/// count under it, then two segments. Your wants lists what the home's
+/// Everything coming, full screen (Library › Coming soon: in library;
+/// Coming soon: everything): "Coming soon" with a back arrow and a
+/// count under it, then two segments. In library lists what the home's
 /// Coming soon lists, with no cap, plus Want entries without a date under
-/// "Date not set". Everything upcoming adds the coming seasons the owner
+/// "Date not set". Everything adds the coming seasons the owner
 /// has not set, the parts of followed series not in the library, and every
 /// other entry with a release ahead, each row saying "Want" or "Add" under
 /// its date; tapping an "Add" row opens [UpcomingAddSheet]. Rows are
@@ -57,7 +57,7 @@ Future<void> openComingSoon(BuildContext context, {bool everything = false}) =>
 class ComingSoonScreen extends ConsumerStatefulWidget {
   const ComingSoonScreen({super.key, this.startEverything = false});
 
-  /// Open on Everything upcoming instead of Your wants.
+  /// Open on Everything instead of In library.
   final bool startEverything;
 
   static const hint =
@@ -120,8 +120,7 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
     final notInLibrary = all.length - wanted.length;
     final subtitle = _everything
         ? '${all.length} upcoming · $notInLibrary not in your library'
-        : '${wanted.length} ${wanted.length == 1 ? 'entry' : 'entries'} '
-              'you want';
+        : '${wanted.length} in your library';
 
     return Scaffold(
       body: SafeArea(
@@ -137,8 +136,8 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
               child: SegmentedControl<bool>(
                 segments: const [
-                  SegmentOption(false, 'Your wants'),
-                  SegmentOption(true, 'Everything upcoming'),
+                  SegmentOption(false, 'In library'),
+                  SegmentOption(true, 'Everything'),
                 ],
                 selected: _everything,
                 onChanged: _show,
@@ -294,7 +293,7 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
   }
 }
 
-/// One segment's page: on Everything upcoming the hint, then the rows under
+/// One segment's page: on Everything the hint, then the rows under
 /// their month headings, or the empty text.
 class _UpcomingPage extends StatelessWidget {
   const _UpcomingPage(

@@ -38,9 +38,9 @@ enum UpcomingKind {
   release,
 }
 
-/// One row of Library › Coming soon: your wants and Coming soon: everything
-/// upcoming. [wanted] rows are what the owner asked for ([wantsRelease]);
-/// the rest are listed in Everything upcoming with "Add", and [reason] says
+/// One row of Library › Coming soon: in library and Coming soon: everything.
+/// [wanted] rows are what the owner asked for ([wantsRelease]);
+/// the rest are listed in Everything with "Add", and [reason] says
 /// why they are there (Coming soon: add an upcoming entry).
 @immutable
 class UpcomingItem {
@@ -236,7 +236,7 @@ class UpcomingGroup {
 /// marked Not interested are left out ([AppSettings.notInterested]; a part
 /// through its series in [prefs]). Movies are listed by the date
 /// [settings]' Release dates picks from their [movieDates] (by lookup id).
-/// Your wants is [wantedUpcoming] of this.
+/// In library is [wantedUpcoming] of this.
 List<UpcomingItem> upcomingItems(
   Iterable<Entry> entries, {
   required List<UpcomingPart> parts,
@@ -412,7 +412,7 @@ String releaseReason(FoundRelease release) {
   return 'A new $what $by ${release.creatorName}, whom you follow.';
 }
 
-/// The rows of Your wants: those the owner asked for.
+/// The rows of In library: those the owner asked for.
 List<UpcomingItem> wantedUpcoming(List<UpcomingItem> items) => [
   for (final item in items)
     if (item.wanted) item,

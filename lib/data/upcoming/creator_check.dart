@@ -29,7 +29,7 @@ typedef CreatorCheckResult = ({
 /// once), and for each one followed asks the lookup for their new releases
 /// (TMDB's credits, Open Library's works, Deezer's albums, IGDB's games),
 /// recording those still ahead or just out in [releases] for Library ›
-/// Coming soon: everything upcoming. A creator no longer active is skipped
+/// Coming soon: everything. A creator no longer active is skipped
 /// unless the owner ticked them anyway. A found book is kept only when it
 /// has an edition in the [languages] the owner reads, dated by that
 /// edition (DESIGN.md 10c); a found movie's dates by kind go to

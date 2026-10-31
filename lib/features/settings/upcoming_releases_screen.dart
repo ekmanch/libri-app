@@ -36,7 +36,7 @@ class UpcomingReleasesScreen extends ConsumerWidget {
 
   static const onHelp =
       'Once a day, the first time you open Libri. New seasons, parts, books '
-      'and albums show up under Coming soon › Everything upcoming.';
+      'and albums show up under Coming soon › Everything.';
   static const offHelp =
       'Nothing is followed and nothing is fetched. Coming soon only shows '
       'what you add yourself.';

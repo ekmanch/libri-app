@@ -429,8 +429,8 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     ]);
   }
 
-  /// "See all" on Coming soon: the Coming soon screen on Your wants
-  /// (Library › Coming soon: your wants).
+  /// "See all" on Coming soon: the Coming soon screen on In library
+  /// (Library › Coming soon: in library).
   void _seeAllComingSoon() => openComingSoon(context);
 
   /// "See all N" on In progress: the filter result with just that status,

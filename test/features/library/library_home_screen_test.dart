@@ -164,13 +164,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('IN PROGRESS'), findsOneWidget);
 
-    // "See all" on Coming soon opens the Coming soon screen on Your wants
-    // (Library › Coming soon: your wants).
+    // "See all" on Coming soon opens the Coming soon screen on In library
+    // (Library › Coming soon: in library).
     await tester.tap(find.text('See all'));
     await tester.pumpAndSettle();
     expect(find.byType(ComingSoonScreen), findsOneWidget);
     expect(find.text('Coming soon'), findsOneWidget);
-    expect(find.text('Your wants'), findsOneWidget);
+    expect(find.text('In library'), findsOneWidget);
     expect(find.text('Grand Theft Auto VI'), findsOneWidget);
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();

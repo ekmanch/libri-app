@@ -139,12 +139,12 @@ void main() {
   Finder cover(String? url) =>
       find.byWidgetPredicate((w) => w is CachedImage && w.url == url);
 
-  testWidgets('Your wants lists what the owner wants, by month', (
+  testWidgets('In library lists what the owner wants, by month', (
     tester,
   ) async {
     await pump(tester);
     expect(find.text('Coming soon'), findsOneWidget);
-    expect(find.text('2 entries you want'), findsOneWidget);
+    expect(find.text('2 in your library'), findsOneWidget);
     expect(find.text('DECEMBER'), findsOneWidget);
     expect(find.text('Werwulf'), findsOneWidget);
     expect(find.text('Movie · Robert Eggers'), findsOneWidget);
@@ -152,7 +152,7 @@ void main() {
     expect(find.text('DATE NOT SET'), findsOneWidget);
     expect(find.text('The Winds of Winter'), findsOneWidget);
     expect(find.text('Date not set'), findsOneWidget);
-    // Not wanted: only in Everything upcoming.
+    // Not wanted: only in Everything.
     expect(find.text('Stranger Things'), findsNothing);
     expect(find.text('The Hunt for Gollum'), findsNothing);
     expect(find.text('Want'), findsNothing);
@@ -165,11 +165,11 @@ void main() {
     expect(find.byType(EntryDetailsSheet), findsOneWidget);
   });
 
-  testWidgets('Everything upcoming adds seasons and parts with Want or Add', (
+  testWidgets('Everything adds seasons and parts with Want or Add', (
     tester,
   ) async {
     await pump(tester);
-    await tester.tap(find.text('Everything upcoming'));
+    await tester.tap(find.text('Everything'));
     await tester.pumpAndSettle();
     expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
     expect(find.text(ComingSoonScreen.hint), findsOneWidget);
@@ -197,34 +197,34 @@ void main() {
     ]);
   });
 
-  testWidgets('opens on Everything upcoming when asked', (tester) async {
+  testWidgets('opens on Everything when asked', (tester) async {
     await pump(tester, everything: true);
     expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
-    await tester.tap(find.text('Your wants'));
+    await tester.tap(find.text('In library'));
     await tester.pumpAndSettle();
-    expect(find.text('2 entries you want'), findsOneWidget);
+    expect(find.text('2 in your library'), findsOneWidget);
   });
 
   testWidgets('a swipe moves between the segments', (tester) async {
     await pump(tester);
-    expect(find.text('2 entries you want'), findsOneWidget);
+    expect(find.text('2 in your library'), findsOneWidget);
     expect(find.text('Stranger Things'), findsNothing);
 
-    // Left: Everything upcoming, with the hint and the Add rows.
+    // Left: Everything, with the hint and the Add rows.
     await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
     expect(find.text(ComingSoonScreen.hint), findsOneWidget);
     expect(find.text('Stranger Things'), findsOneWidget);
 
-    // Right: back to Your wants. Nothing past the ends.
+    // Right: back to In library. Nothing past the ends.
     await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
-    expect(find.text('2 entries you want'), findsOneWidget);
+    expect(find.text('2 in your library'), findsOneWidget);
     expect(find.text(ComingSoonScreen.hint), findsNothing);
     await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
-    expect(find.text('2 entries you want'), findsOneWidget);
+    expect(find.text('2 in your library'), findsOneWidget);
   });
 
   testWidgets(
@@ -516,9 +516,9 @@ void main() {
         ],
       ),
     );
-    expect(find.text('0 entries you want'), findsOneWidget);
+    expect(find.text('0 in your library'), findsOneWidget);
     expect(find.text(ComingSoonScreen.emptyWants), findsOneWidget);
-    await tester.tap(find.text('Everything upcoming'));
+    await tester.tap(find.text('Everything'));
     await tester.pumpAndSettle();
     expect(find.text('0 upcoming · 0 not in your library'), findsOneWidget);
     expect(find.text(ComingSoonScreen.emptyEverything), findsOneWidget);

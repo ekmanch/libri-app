@@ -38,7 +38,7 @@ enum HomeSectionKind {
 /// One row of a home section: the entry, the detail after its type
 /// ("Stephen King", "Season 2", "2024"), and what stands on the right ("Nov
 /// 10", "Today"), [emphasized] in the text color rather than the muted one.
-/// Library › Coming soon: everything upcoming puts an [action] under it
+/// Library › Coming soon: everything puts an [action] under it
 /// ("Want" in the accent when [actionEmphasized], else "Add" muted), and
 /// rows there for a part not in the library have no entry ([HomeRowData.text]).
 @immutable
@@ -173,7 +173,7 @@ bool wantsRelease(Entry entry, Season? season) =>
 /// entries as the Series section matches them), not hidden by the owner in
 /// Choose what to show ([prefs]), and not an extra of the automatic rules
 /// the owner has not shown. The home does not list them (only entries set
-/// Want, [wantsRelease]); Library › Coming soon: everything upcoming does
+/// Want, [wantsRelease]); Library › Coming soon: everything does
 /// (`upcomingItems` in `upcoming.dart`).
 List<UpcomingPart> upcomingPartsToShow(
   List<UpcomingPart> parts, {
@@ -359,7 +359,7 @@ String addedLabel(DateTime added, {required DateTime today}) {
 /// One row of a home section (Library › Home): the title, a dot in the
 /// type's color before "Type · detail", and the date or when on the right,
 /// with the row's action under it when it has one (Library › Coming soon:
-/// everything upcoming). No chevron.
+/// everything). No chevron.
 class HomeRow extends StatelessWidget {
   const HomeRow(this.row, {super.key, this.onTap, this.minHeight = 56});
 

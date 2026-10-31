@@ -61,8 +61,8 @@ class DisplayPreferences {
   /// the same form.
   final Map<String, Set<String>> shownSeriesParts;
 
-  /// The rows of Library › Coming soon: everything upcoming the owner
-  /// marked Not interested, by [UpcomingItem.id]: an entry's id, or
+  /// The rows of Library › Coming soon: everything that the
+  /// owner marked Not interested, by [UpcomingItem.id]: an entry's id, or
   /// `"<entry id>#<season>"` for a show's season. Parts of a series are
   /// hidden through [hiddenSeriesParts] instead.
   final Set<String> hiddenUpcoming;
@@ -333,7 +333,7 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
     );
   }
 
-  /// Not interested on a row of Library › Coming soon: everything upcoming
+  /// Not interested on a row of Library › Coming soon: everything
   /// (an entry or a season; a part goes through [setSeriesParts]). Since
   /// `settings.json` the keys live there (`SetNotInterested`); this stays
   /// for the carry-over of an older file.

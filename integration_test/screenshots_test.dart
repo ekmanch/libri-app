@@ -887,14 +887,14 @@ void main() {
     await tester.tap(find.text('Clear all'));
     await tester.pumpAndSettle();
 
-    // Library › Coming soon: your wants, everything upcoming and the add
+    // Library › Coming soon: in library, everything and the add
     // sheet, from "See all" on the home's Coming soon heading. The series
     // check has recorded The Hunt for Gollum by now (the fake's The Lord
     // of the Rings), the one row not in the library.
     await tester.tap(find.text('See all'));
     await tester.pumpAndSettle();
     await capture(tester, 'a1d-coming-soon-wants');
-    await tester.tap(find.text('Everything upcoming'));
+    await tester.tap(find.text('Everything'));
     await tester.pumpAndSettle();
     await capture(tester, 'a1e-coming-soon-everything');
     // The found releases sit above it now: scroll the row into view (the
@@ -1491,7 +1491,7 @@ void main() {
     await tester.tap(find.text('See all'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1d-coming-soon-wants');
-    await tester.tap(find.text('Everything upcoming'));
+    await tester.tap(find.text('Everything'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1e-coming-soon-everything');
     // The found releases sit above it now: scroll the row into view (the

@@ -260,7 +260,7 @@ class SetFollows extends SettingsOperation {
   };
 }
 
-/// Not interested on a row of Library › Coming soon: everything upcoming
+/// Not interested on a row of Library › Coming soon: everything
 /// ([hidden]), or the row shown again. [title] is for the summary.
 @immutable
 class SetNotInterested extends SettingsOperation {

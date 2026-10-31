@@ -17,8 +17,8 @@ class PageHeader extends StatelessWidget {
 
   final String title;
 
-  /// A muted line under the title ("5 entries you want" on Library › Coming
-  /// soon: your wants).
+  /// A muted line under the title ("5 in your library" on Library › Coming
+  /// soon: in library).
   final String? subtitle;
 
   /// When set, a back arrow is shown and the title is one step smaller.
