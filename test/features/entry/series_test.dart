@@ -552,7 +552,7 @@ void main() {
     expect(tester.getTopLeft(find.text('Vol. 43')).dy, lessThan(780));
     expect(tester.getTopLeft(find.text('Vol. 1')).dy, lessThan(0));
     // A part tapped there opens in the sheet.
-    await tester.tap(find.bySemanticsLabel('Open Vol. 42, in progress'));
+    await tester.tap(find.bySemanticsLabel('Open Vol. 42, reading'));
     await tester.pumpAndSettle();
     expect(find.byType(AllSeriesScreen), findsNothing);
     expect(find.text('Berserk, Vol. 42'), findsOneWidget);

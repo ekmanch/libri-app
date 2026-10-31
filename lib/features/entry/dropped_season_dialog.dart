@@ -27,7 +27,7 @@ Future<DroppedSeasonChoice?> showDroppedSeasonDialog(
       title: 'Season $season of ${show.title} is no longer listed',
       body:
           'TMDB has dropped it, so it was probably canceled. '
-          'You had it as ${status.label}.',
+          'You had it as ${status.labelFor(seasonsType)}.',
       note: droppedSeasonNote(show, season),
       actions: [
         AppButton(

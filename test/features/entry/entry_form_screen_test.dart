@@ -702,7 +702,7 @@ void main() {
       await scrollTo(tester, find.byType(DerivedStatusField));
       expect(find.byType(StatusSegmentedControl), findsNothing);
       expect(
-        find.bySemanticsLabel('Status, In progress, set by the seasons'),
+        find.bySemanticsLabel('Status, Watching, set by the seasons'),
         findsOneWidget,
       );
       // Season 2 to Done in its sheet: the show becomes Done. The seasons

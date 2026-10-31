@@ -175,7 +175,7 @@ void main() {
       find.bySemanticsLabel(RegExp('^Season 4 status: not set')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('In progress').last);
+    await tester.tap(find.text('Watching').last);
     await tester.pumpAndSettle();
     final saved = (container.read(
       libraryRepositoryProvider,
@@ -183,7 +183,7 @@ void main() {
     expect(saved.seasons![3].status, EntryStatus.inProgress);
     expect(find.byType(SeasonScreen), findsOneWidget);
     expect(
-      find.bySemanticsLabel(RegExp('^Season 4 status: in progress')),
+      find.bySemanticsLabel(RegExp('^Season 4 status: watching')),
       findsOneWidget,
     );
   });

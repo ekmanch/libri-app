@@ -48,7 +48,7 @@ class ShowStatusRow extends StatelessWidget {
       color: colors.muted,
     );
     return Semantics(
-      label: 'Status, ${status.label}, from seasons',
+      label: 'Status, ${status.labelFor(seasonsType)}, from seasons',
       excludeSemantics: true,
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
@@ -64,7 +64,7 @@ class ShowStatusRow extends StatelessWidget {
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: status.label,
+                      text: status.labelFor(seasonsType),
                       style: theme.textTheme.titleMedium!.copyWith(
                         fontSize: 15,
                       ),
@@ -114,7 +114,7 @@ class SingleSeasonStatusRow extends ConsumerWidget {
           SeasonStatusPill(
             season: season,
             semanticsLabel:
-                'Status: ${season.status?.lowerLabel ?? 'not set'}. Change',
+                'Status: ${season.status?.lowerLabelFor(seasonsType) ?? 'not set'}. Change',
             onTap: () => showSavedSeasonStatusSheet(
               context,
               ref,
@@ -141,7 +141,7 @@ class DerivedStatusField extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     return Semantics(
-      label: 'Status, ${status.label}, set by the seasons',
+      label: 'Status, ${status.labelFor(seasonsType)}, set by the seasons',
       excludeSemantics: true,
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
@@ -155,7 +155,7 @@ class DerivedStatusField extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                status.label,
+                status.labelFor(seasonsType),
                 style: theme.textTheme.titleMedium!.copyWith(fontSize: 15.5),
               ),
             ),
@@ -381,7 +381,7 @@ class SeasonStatusPill extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final status = season.status;
-    final label = status?.label ?? 'Not set';
+    final label = status?.labelFor(seasonsType) ?? 'Not set';
     final color = status == null ? colors.muted : theme.colorScheme.onSurface;
     final content = Container(
       height: 30,
@@ -426,7 +426,7 @@ class SeasonStatusPill extends StatelessWidget {
         label:
             semanticsLabel ??
             'Season ${season.season} status: '
-                '${status?.lowerLabel ?? 'not set'}. Change',
+                '${status?.lowerLabelFor(seasonsType) ?? 'not set'}. Change',
         excludeSemantics: true,
         child: InkWell(
           onTap: onTap,
@@ -580,7 +580,7 @@ class _SeasonStatusSheetState extends State<SeasonStatusSheet> {
                     children: [
                       Expanded(
                         child: Text(
-                          status?.label ?? 'Not set',
+                          status?.labelFor(seasonsType) ?? 'Not set',
                           style: theme.textTheme.bodyMedium!.copyWith(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,

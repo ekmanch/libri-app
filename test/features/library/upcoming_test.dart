@@ -197,7 +197,7 @@ void main() {
         items[4].reason,
         'Part 4 of The Lord of the Rings; parts 1 and 2 are in your library.',
       );
-      expect(items[5].reason, 'Silksong is in your library (In progress).');
+      expect(items[5].reason, 'Silksong is in your library (Playing).');
       expect(items[0].sheetTitle, 'Other Worlds Than These');
       expect(items[1].sheetTitle, 'Stranger Things, Season 5');
       expect(items[4].sheetTitle, 'The Lord of the Rings: The Hunt for Gollum');
@@ -698,7 +698,7 @@ void main() {
           ),
           today: today,
         ),
-        'Frieren is in your library; season 2 is In progress.',
+        "Frieren is in your library; you're watching season 2.",
       );
       expect(
         seasonReason(

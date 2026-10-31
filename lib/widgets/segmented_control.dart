@@ -216,7 +216,8 @@ class _Segment extends StatelessWidget {
 }
 
 /// The status segments. With [includeAll] a null selection means "All".
-/// [type] limits the choices, e.g. no In progress for a movie.
+/// [type] limits the choices, e.g. no In progress for a movie, and words
+/// them: "Reading" for books.
 class StatusSegmentedControl extends StatelessWidget {
   const StatusSegmentedControl({
     super.key,
@@ -244,7 +245,7 @@ class StatusSegmentedControl extends StatelessWidget {
             in type == null
                 ? EntryStatus.values
                 : EntryStatus.optionsFor(type!))
-          SegmentOption(status, status.label),
+          SegmentOption(status, status.labelFor(type)),
       ],
       selected: selected,
       onChanged: onChanged,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/entry_status.dart';
+import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/widgets/segmented_control.dart';
 
 import '../helpers/pump.dart';
@@ -36,6 +37,20 @@ void main() {
 
     await tester.tap(find.text('Done'));
     expect(picked, EntryStatus.done);
+  });
+
+  testWidgets('a type words the In progress segment', (tester) async {
+    await pumpThemed(
+      tester,
+      StatusSegmentedControl(
+        selected: null,
+        type: MediaType.games,
+        includeAll: true,
+        onChanged: (_) {},
+      ),
+    );
+    expect(find.text('Playing'), findsOneWidget);
+    expect(find.text('In progress'), findsNothing);
   });
 
   test('segment widths share the leftover space, or split evenly', () {

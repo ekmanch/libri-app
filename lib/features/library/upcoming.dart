@@ -80,7 +80,8 @@ class UpcomingItem {
     creator: _creator(entry),
     description: entry.description,
     wanted: entry.status == EntryStatus.want,
-    reason: '${entry.title} is in your library (${entry.status.label}).',
+    reason:
+        '${entry.title} is in your library (${entry.status.labelFor(entry.type)}).',
     entry: entry,
   );
 
@@ -459,8 +460,9 @@ String upcomingGroupName(Released? released, {required DateTime today}) {
   return released.year == today.year ? name : '$name ${released.year}';
 }
 
-/// "Stranger Things is in your library; seasons 1–4 are Done.": the
-/// seasons that give the show its status. A show whose seasons have no
+/// "Stranger Things is in your library; seasons 1–4 are Done.", "Frieren
+/// is in your library; you're watching season 2.": the seasons that give
+/// the show its status. A show whose seasons have no
 /// status yet just is in the library.
 String seasonReason(Entry show, {DateTime? today}) {
   final seasons = show.seasons ?? const <Season>[];
@@ -470,9 +472,12 @@ String seasonReason(Entry show, {DateTime? today}) {
       if (s.status == status) s.season,
   ];
   if (numbers.isEmpty) return '${show.title} is in your library.';
+  final seasonsWord = numberedPhrase('season', numbers);
+  if (status == EntryStatus.inProgress) {
+    return "${show.title} is in your library; you're watching $seasonsWord.";
+  }
   final verb = numbers.length == 1 ? 'is' : 'are';
-  return '${show.title} is in your library; '
-      '${numberedPhrase('season', numbers)} $verb ${status.label}.';
+  return '${show.title} is in your library; $seasonsWord $verb ${status.label}.';
 }
 
 /// "Part 3 of Dune; parts 1 and 2 are in your library." when the numbers

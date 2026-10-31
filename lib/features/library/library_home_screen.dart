@@ -533,7 +533,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 40, 20, 0),
             child: Text(
-              'Nothing marked ${status!.lowerLabel} yet.',
+              'Nothing marked ${status!.lowerLabelFor(type)} yet.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium!.copyWith(
                 color: LibraryColors.of(context).muted,

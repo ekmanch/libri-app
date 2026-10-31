@@ -119,6 +119,15 @@ void main() {
       expect(find.text('DNF'), findsOneWidget);
       expect(find.byType(StrokeIcon), findsNothing);
     });
+
+    testWidgets('the type words In progress', (tester) async {
+      await pumpThemed(
+        tester,
+        const StatusMark(EntryStatus.inProgress, type: MediaType.books),
+      );
+      expect(find.text('Reading'), findsOneWidget);
+      expect(find.text('In progress'), findsNothing);
+    });
   });
 
   testWidgets('EntryRow.forEntry shows title, italic subtitle and mark', (

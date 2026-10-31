@@ -17,7 +17,29 @@ extension EntryStatusLabel on EntryStatus {
   /// Mid-sentence form: "want", "in progress", "done", "DNF".
   String get lowerLabel =>
       this == EntryStatus.dnf ? label : label.toLowerCase();
+
+  /// The word where the type is known (Library › "Status words"): In
+  /// progress reads "Reading" for books (manga too), "Watching" for shows,
+  /// anime and a show's seasons, "Playing" for games. With no [type], where
+  /// types are mixed, it stays [label]. library.json keeps in_progress; the
+  /// desktop app shows the same words.
+  String labelFor(MediaType? type) => this != EntryStatus.inProgress
+      ? label
+      : switch (type) {
+          MediaType.books => 'Reading',
+          MediaType.shows || MediaType.anime || MediaType.movies => 'Watching',
+          MediaType.games => 'Playing',
+          MediaType.music || null => label,
+        };
+
+  /// Mid-sentence [labelFor]: "reading", "want", "DNF".
+  String lowerLabelFor(MediaType? type) =>
+      this == EntryStatus.dnf ? label : labelFor(type).toLowerCase();
 }
+
+/// The type that words a season's status: seasons belong to shows and
+/// anime, and both say "Watching".
+const seasonsType = MediaType.shows;
 
 extension MediaTypeLabel on MediaType {
   /// Plural, for headings and chips: "Movies".

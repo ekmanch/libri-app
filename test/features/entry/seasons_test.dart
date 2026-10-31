@@ -112,7 +112,7 @@ void main() {
         tester,
         find.descendant(
           of: find.byType(SeasonStatusSheet),
-          matching: find.text('In progress'),
+          matching: find.text('Watching'),
         ),
       );
       expect(find.byType(SeasonStatusSheet), findsNothing);
@@ -121,7 +121,7 @@ void main() {
       // Season 3 is DNF, but a season In progress comes first.
       expect(show.status, EntryStatus.inProgress);
       expect(
-        find.bySemanticsLabel(RegExp('Season 4 status: in progress')),
+        find.bySemanticsLabel(RegExp('Season 4 status: watching')),
         findsOne,
       );
     },
@@ -329,7 +329,7 @@ void main() {
     expect(find.text('SEASONS'), findsOneWidget);
     expect(find.text('2 seasons'), findsOneWidget);
     expect(
-      find.bySemanticsLabel('Status, In progress, from seasons'),
+      find.bySemanticsLabel('Status, Watching, from seasons'),
       findsOneWidget,
     );
     expect(pill(1), findsOneWidget);

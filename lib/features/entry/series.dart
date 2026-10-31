@@ -445,7 +445,7 @@ class SeriesPartRow extends StatelessWidget {
             ),
           )
         else if (entry != null) ...[
-          StatusMark(entry.status),
+          StatusMark(entry.status, type: entry.type),
           // The chevron runs into the margin, as drawn.
           const SizedBox(width: 4),
           StrokeIcon(AppIcons.chevronRight, size: 18, color: colors.muted),
@@ -501,7 +501,7 @@ class SeriesPartRow extends StatelessWidget {
     // No press highlight: the other part's details opening is the feedback.
     return Semantics(
       button: true,
-      label: 'Open $title, ${entry.status.lowerLabel}',
+      label: 'Open $title, ${entry.status.lowerLabelFor(entry.type)}',
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

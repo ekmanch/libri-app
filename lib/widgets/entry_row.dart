@@ -95,6 +95,7 @@ class EntryRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.status,
+    this.type,
     this.onTap,
     this.leading,
     this.typeLabel,
@@ -118,6 +119,7 @@ class EntryRow extends StatelessWidget {
   }) : title = entry.title,
        subtitle = subtitle ?? entrySubtitle(entry, today: today),
        status = entry.status,
+       type = entry.type,
        typeLabel = showType ? entryKindLabel(entry) : null,
        typeColor = showType ? colors?.forType(entry.type) : null,
        badge = entry.hasNewSeasonOn(today ?? DateTime.now())
@@ -133,6 +135,9 @@ class EntryRow extends StatelessWidget {
 
   /// Drawn as a [StatusMark] at the end, unless [trailing] is given.
   final EntryStatus? status;
+
+  /// Words the status mark: "Reading" for a book.
+  final MediaType? type;
   final VoidCallback? onTap;
 
   /// A small icon before the subtitle: the stack of a series row.
@@ -252,7 +257,7 @@ class EntryRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            trailing ?? StatusMark(status!),
+            trailing ?? StatusMark(status!, type: type),
           ],
         ),
       ),
@@ -316,11 +321,13 @@ class OutlineBadge extends StatelessWidget {
 }
 
 /// A check in the accent color for Done; a small pill with the status word
-/// otherwise. "In progress" is filled, Want and DNF are outlined.
+/// otherwise. In progress is filled, Want and DNF are outlined. [type]
+/// words it: "Reading" for a book.
 class StatusMark extends StatelessWidget {
-  const StatusMark(this.status, {super.key});
+  const StatusMark(this.status, {super.key, this.type});
 
   final EntryStatus status;
+  final MediaType? type;
 
   @override
   Widget build(BuildContext context) {
@@ -333,7 +340,10 @@ class StatusMark extends StatelessWidget {
         semanticLabel: 'Done',
       );
     }
-    return StatusPill(status.label, filled: status == EntryStatus.inProgress);
+    return StatusPill(
+      status.labelFor(type),
+      filled: status == EntryStatus.inProgress,
+    );
   }
 }
 
