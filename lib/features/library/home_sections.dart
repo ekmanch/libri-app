@@ -37,7 +37,8 @@ enum HomeSectionKind {
 
 /// One row of a home section: the entry, the detail after its type
 /// ("Stephen King", "Season 2", "2024"), and what stands on the right ("Nov
-/// 10", "Today"), [emphasized] in the text color rather than the muted one.
+/// 10", "Today"), [emphasized] in the text color rather than the muted one
+/// (every date is; only Coming soon's "Date not set" stays muted).
 /// Library › Coming soon: everything puts an [action] under it
 /// ("Want" in the accent when [actionEmphasized], else "Add" muted), and
 /// rows there for a part not in the library have no entry ([HomeRowData.text]).
@@ -245,7 +246,7 @@ HomeSection _comingSoon(
         entry,
         detail: season != null ? 'Season ${season.season}' : _creator(entry),
         right: comingSoonLabel(released, today: today),
-        emphasized: released.day != null,
+        emphasized: true,
       ),
     ));
   }
@@ -293,7 +294,7 @@ HomeSection _recentlyAdded(List<Entry> entries, DateTime today) {
         entry,
         detail: recentlyAddedDetail(entry, today: today),
         right: addedLabel(entry.added, today: today),
-        emphasized: daysBetween(entry.added, today) <= 1,
+        emphasized: true,
       ),
   ], total: recent.length);
 }

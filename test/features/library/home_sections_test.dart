@@ -166,11 +166,11 @@ void main() {
       ]);
       expect(soon.rows.map((r) => r.emphasized), [
         true,
-        false,
         true,
-        false,
-        false,
-        false,
+        true,
+        true,
+        true,
+        true,
       ]);
       expect(soon.rows.map((r) => r.subtitle), [
         'Book · Stephen King',
@@ -407,10 +407,10 @@ void main() {
       expect(recent.rows.map((r) => r.emphasized), [
         true,
         true,
-        false,
-        false,
-        false,
-        false,
+        true,
+        true,
+        true,
+        true,
       ]);
       expect(recent.rows.map((r) => r.subtitle), [
         'Movie · 2024',

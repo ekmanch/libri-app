@@ -203,8 +203,9 @@ class UpcomingItem {
     null => 'Date not set',
   };
 
-  /// An exact date stands in the text color on the row.
-  bool get emphasized => released?.day != null;
+  /// Every date stands in the text color on the row, exact, month-only or
+  /// year-only alike; only "Date not set" stays muted.
+  bool get emphasized => released != null;
 
   /// What the add sheet calls it: "Stranger Things, Season 5" for a
   /// season, a part's full title as the lookup lists it, else the title.

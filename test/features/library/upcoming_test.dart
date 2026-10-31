@@ -182,9 +182,9 @@ void main() {
         true,
         true,
         true,
-        false,
         true,
-        false,
+        true,
+        true,
         false,
       ]);
       expect(items[1].id, 'stranger-things#5');
