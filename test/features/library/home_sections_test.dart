@@ -43,7 +43,7 @@ void main() {
       sections.where((s) => s.kind == kind).firstOrNull;
 
   group('Coming soon', () {
-    test('releases still ahead the owner wants, exact dates first, then months, then years', () {
+    test('releases still ahead the owner wants, nearest first, exact dates before their month', () {
       final entries = [
         entry('out', MediaType.movies, released: const Released(2024)),
         // Not Want: a release ahead the owner has not asked for stays out.
@@ -150,37 +150,66 @@ void main() {
       expect(soon.total, 6);
       expect(soon.rows.map((r) => r.id), [
         'book',
-        'movie',
         'soon-show',
+        'movie',
         'anime',
         'game',
         'show',
       ]);
       expect(soon.rows.map((r) => r.right), [
         'Nov 10',
-        'Dec 25',
         'Nov 2026',
+        'Dec 25',
         'Jan 2027',
         '2027',
         '2027',
       ]);
       expect(soon.rows.map((r) => r.emphasized), [
         true,
-        true,
         false,
+        true,
         false,
         false,
         false,
       ]);
       expect(soon.rows.map((r) => r.subtitle), [
         'Book · Stephen King',
-        'Movie · Robert Eggers',
         'Show · Season 2',
+        'Movie · Robert Eggers',
         'Anime',
         'Game · Konami',
         'Show · Season 3',
       ]);
     });
+
+    test(
+      'a nearer month or year is not pushed past the cap by later exact dates',
+      () {
+        // The bug of 2026-10-31: ten exact dates filled the home and a month
+        // or year nearer than most of them went unlisted.
+        final entries = [
+          for (var i = 1; i <= HomeSection.limit; i++)
+            entry(
+              'exact-$i',
+              MediaType.movies,
+              released: Released(2027, 2, i + 1),
+            ),
+          entry('month', MediaType.movies, released: const Released(2027, 1)),
+          entry('year', MediaType.games, released: const Released(2026)),
+        ];
+        final soon = section(
+          homeSections(entries, today: today),
+          HomeSectionKind.comingSoon,
+        )!;
+        expect(soon.total, HomeSection.limit + 2);
+        expect(soon.rows.map((r) => r.id).take(3), [
+          'year',
+          'month',
+          'exact-1',
+        ]);
+        expect(soon.rows, hasLength(HomeSection.limit));
+      },
+    );
 
     test('a date in another year names it', () {
       expect(

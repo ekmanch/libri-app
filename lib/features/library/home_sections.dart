@@ -222,10 +222,6 @@ List<UpcomingPart> upcomingPartsToShow(
   return shown;
 }
 
-/// Exact dates sort first, then month-only, then year-only dates; the
-/// nearest first within each.
-int _precision(Released r) => r.day != null ? 0 : (r.month != null ? 1 : 2);
-
 HomeSection _comingSoon(
   List<Entry> entries,
   DateTime today, {
@@ -253,11 +249,13 @@ HomeSection _comingSoon(
       ),
     ));
   }
+  // The order of Library › Coming soon: in library (`compareUpcoming`), so
+  // the home is the first rows of that list: by the first day the release
+  // counts as out (within a month the exact dates come before the month
+  // alone), then by title.
   rows.sort((a, b) {
-    final c = _precision(a.$1).compareTo(_precision(b.$1));
-    if (c != 0) return c;
-    final d = a.$1.availableFrom.compareTo(b.$1.availableFrom);
-    return d != 0 ? d : compareTitles(a.$2.title, b.$2.title);
+    final c = a.$1.availableFrom.compareTo(b.$1.availableFrom);
+    return c != 0 ? c : compareTitles(a.$2.title, b.$2.title);
   });
   return HomeSection(HomeSectionKind.comingSoon, [
     for (final (_, row) in rows.take(HomeSection.limit)) row,
