@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/images/artwork_providers.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/lookup/movie_dates.dart';
 import 'package:library_app/data/lookup/series_check.dart';
+import 'package:library_app/data/models/app_settings.dart';
+import 'package:library_app/data/models/release_dates.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/library.dart';
@@ -414,6 +417,57 @@ void main() {
           .notInterested,
       {'fake:aic-next'},
     );
+  });
+
+  group('a movie with both dates known', () {
+    final found = FoundRelease(
+      kind: FollowKind.directors,
+      creatorId: 'clint-eastwood',
+      creatorName: 'Clint Eastwood',
+      match: const LookupMatch(
+        type: MediaType.movies,
+        title: 'The Last Round',
+        source: 'fake:last-round',
+        released: Released(2026, 12, 18),
+        creator: 'Clint Eastwood',
+      ),
+      foundOn: DateTime(2026, 10, 28),
+    );
+    const dates = MovieDates(
+      cinema: Released(2026, 12, 18),
+      digital: Released(2027, 2),
+    );
+    Future<void> open(WidgetTester tester, ReleaseDates setting) async {
+      await pumpApp(
+        tester,
+        const ComingSoonScreen(startEverything: true),
+        library: library(),
+        settings: AppSettings(releaseDates: setting),
+        lookupOverrides: fakeLookupOverrides(
+          foundReleases: MemoryFoundReleaseStore([found]),
+          movieDates: MemoryMovieDateStore({'fake:last-round': dates}),
+        ),
+      );
+    }
+
+    testWidgets('shows both in the add sheet under Both', (tester) async {
+      await open(tester, ReleaseDates.both);
+      expect(find.text('Dec 18'), findsOneWidget);
+      await tester.tap(row('The Last Round'));
+      await tester.pumpAndSettle();
+      expect(find.text('MOVIE · DEC 18'), findsOneWidget);
+      expect(find.text('In cinemas Dec 18 · Digital Feb 2027'), findsOneWidget);
+    });
+
+    testWidgets('is listed by the digital date under Digital', (tester) async {
+      await open(tester, ReleaseDates.digital);
+      expect(find.text('Feb 2027'), findsOneWidget);
+      expect(find.text('FEBRUARY 2027'), findsOneWidget);
+      await tester.tap(row('The Last Round'));
+      await tester.pumpAndSettle();
+      expect(find.text('MOVIE · FEB 2027'), findsOneWidget);
+      expect(find.textContaining('In cinemas'), findsNothing);
+    });
   });
 
   testWidgets('Not interested hides the row: a part through its series', (

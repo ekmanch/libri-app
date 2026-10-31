@@ -9,6 +9,7 @@ import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/text_clean.dart';
 import '../../data/lookup/track_info.dart';
 import '../../data/lookup/track_list_service.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_kind.dart';
 import '../../data/models/follow_kind.dart';
@@ -165,7 +166,14 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          EntryHeader(entry: entry, showCover: showCover),
+          EntryHeader(
+            entry: entry,
+            showCover: showCover,
+            movieDates: ref.watch(movieDatesProvider).value?[entry.source],
+            releaseDates:
+                (ref.watch(appSettingsProvider).value ?? AppSettings.defaults)
+                    .releaseDates,
+          ),
           const SizedBox(height: 13),
           if (entry.hasSeasonList)
             // The seasons set the status (Show & seasons › Show with seasons

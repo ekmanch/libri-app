@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
+import 'package:library_app/data/lookup/movie_dates.dart';
 import 'package:library_app/data/lookup/tmdb_source.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -571,6 +572,53 @@ void main() {
         isNull,
       );
       expect(await tmdb.seriesParts('tmdb:tv:100088'), isNull);
+    });
+  });
+
+  group('movieDates (Settings › Movies › Release dates)', () {
+    test('the earliest theatrical and digital dates anywhere; a limited '
+        'release stands in for the cinemas', () async {
+      Map<String, Object?> country(String code, List<(int, String)> dates) => {
+        'iso_3166_1': code,
+        'release_dates': [
+          for (final (type, date) in dates)
+            {'type': type, 'release_date': '${date}T00:00:00.000Z'},
+        ],
+      };
+      final tmdb = source(
+        (_) async => json(200, {
+          'id': 120,
+          'results': [
+            country('US', [
+              (1, '2026-12-01'),
+              (3, '2026-12-18'),
+              (4, '2027-02-10'),
+            ]),
+            country('GB', [(3, '2026-12-17'), (4, '2027-02-03')]),
+            country('SE', [(2, '2026-11-20'), (5, '2027-04-01')]),
+          ],
+        }),
+      );
+      expect(
+        await tmdb.movieDates('tmdb:movie:120'),
+        const MovieDates(
+          cinema: Released(2026, 12, 17),
+          digital: Released(2027, 2, 3),
+        ),
+      );
+      expect(sent.single.url.path, '/3/movie/120/release_dates');
+      expect(await tmdb.movieDates('tmdb:tv:100088'), isNull);
+      expect(sent, hasLength(1));
+
+      expect(
+        TmdbSource.movieDatesFrom({
+          'results': [
+            country('SE', [(2, '2026-11-20')]),
+          ],
+        }),
+        const MovieDates(cinema: Released(2026, 11, 20)),
+      );
+      expect(TmdbSource.movieDatesFrom({'results': []}), const MovieDates());
     });
   });
 

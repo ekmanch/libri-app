@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/lookup/lookup_providers.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
@@ -351,6 +353,10 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       visible,
       today: seasonClock(),
       changes: ref.watch(recentChangesProvider),
+      movieDates: ref.watch(movieDatesProvider).value ?? const {},
+      releaseDates:
+          (ref.watch(appSettingsProvider).value ?? AppSettings.defaults)
+              .releaseDates,
     );
     final rows = <Widget>[];
     for (final section in sections) {

@@ -917,6 +917,26 @@ void main() {
       rootNavigator: true,
     ).pop();
     await tester.pumpAndSettle();
+    // The Clint Eastwood movie the creator check found carries both of its
+    // dates (the fake's), so the sheet shows "In cinemas … · Digital …".
+    await tester.scrollUntilVisible(
+      find.text('The Last Round'),
+      -200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.ensureVisible(find.text('The Last Round'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('The Last Round'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1g-coming-soon-add-dates');
+    Navigator.of(
+      tester.element(find.byType(UpcomingAddSheet)),
+      rootNavigator: true,
+    ).pop();
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     seasonClock = DateTime.now;
@@ -1494,6 +1514,24 @@ void main() {
       rootNavigator: true,
     ).pop();
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('The Last Round'),
+      -200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.ensureVisible(find.text('The Last Round'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('The Last Round'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1g-coming-soon-add-dates');
+    Navigator.of(
+      tester.element(find.byType(UpcomingAddSheet)),
+      rootNavigator: true,
+    ).pop();
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     seasonClock = DateTime.now;
@@ -1624,6 +1662,18 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-s6-settings');
+    // Settings › Books and Movies (the languages read, the release dates
+    // shown), then Settings › Languages you read: add a language.
+    await tester.scrollUntilVisible(find.text('Languages you read'), 300);
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-s6-settings-books');
+    await tester.ensureVisible(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-s6-settings-languages');
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-s6-settings-bottom');
@@ -1752,6 +1802,18 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     await capture(tester, 's6-settings');
+    // Settings › Books and Movies (the languages read, the release dates
+    // shown), then Settings › Languages you read: add a language.
+    await tester.scrollUntilVisible(find.text('Languages you read'), 300);
+    await tester.pumpAndSettle();
+    await capture(tester, 's6-settings-books');
+    await tester.ensureVisible(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    await capture(tester, 's6-settings-languages');
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
     await tester.pumpAndSettle();
     await capture(tester, 's6-settings-bottom');
@@ -2342,6 +2404,15 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     await shot('s6-settings');
+    await tester.scrollUntilVisible(find.text('Languages you read'), 300);
+    await tester.pumpAndSettle();
+    await shot('s6-settings-books');
+    await tester.ensureVisible(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Add language'));
+    await tester.pumpAndSettle();
+    await shot('s6-settings-languages');
+    await tapText('Done');
     await tester.scrollUntilVisible(find.text('Version 0.1.0'), 300);
     await tester.pumpAndSettle();
     await shot('s6-settings-bottom');

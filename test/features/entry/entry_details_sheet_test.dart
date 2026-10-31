@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/lookup/movie_dates.dart';
+import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/models/release_dates.dart';
+import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -80,6 +84,39 @@ void main() {
     expect(find.text('Delete'), findsOneWidget);
     expect(find.byType(CoverPlaceholder), findsNothing);
   });
+
+  for (final (setting, shown) in [
+    (ReleaseDates.both, findsOneWidget),
+    (ReleaseDates.cinema, findsNothing),
+  ]) {
+    testWidgets('a movie with both dates recorded shows them under Both only '
+        '(${setting.label})', (tester) async {
+      const dates = MovieDates(
+        cinema: Released(2026, 12, 18),
+        digital: Released(2027, 2),
+      );
+      // The dates are kept by lookup id: give The Mummy one.
+      final fixture = loadFixture();
+      final mummy = fixture
+          .entryById(_mummy)!
+          .copyWith(source: 'tmdb:movie:564');
+      final library = fixture.copyWith(
+        entries: [for (final e in fixture.entries) e.id == _mummy ? mummy : e],
+      );
+      await pumpApp(
+        tester,
+        const _Opener(_mummy),
+        library: library,
+        settings: AppSettings(releaseDates: setting),
+        lookupOverrides: fakeLookupOverrides(
+          movieDates: MemoryMovieDateStore({'tmdb:movie:564': dates}),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text('In cinemas Dec 18 · Digital Feb 2027'), shown);
+    });
+  }
 
   testWidgets('a tag in more than one category shows its roles here, and a '
       'creator\'s tag its follow state', (tester) async {

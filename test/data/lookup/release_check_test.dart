@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/lookup/check_day_store.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
+import 'package:library_app/data/lookup/movie_dates.dart';
 import 'package:library_app/data/lookup/release_check.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -85,19 +86,154 @@ void main() {
   late MemoryCheckDayStore store;
   late ReleaseCheck check;
 
+  late MemoryMovieDateStore dates;
+
   void setUpCheck({
     LookupFailure? failure,
     bool configured = true,
     Map<String, Released?> released = const {},
+    Map<String, MovieDates?> movieDates = const {},
+    Map<String, EditionRelease?> editions = const {},
+    Map<String, MovieDates> recorded = const {},
   }) {
     fake = FakeLookupSource(
       failure: failure,
       configured: configured,
       releasedBySource: released,
+      movieDatesBySource: movieDates,
+      editionsBySource: editions,
     );
     store = MemoryCheckDayStore();
-    check = ReleaseCheck(lookups: LookupService([fake]), store: store);
+    dates = MemoryMovieDateStore(recorded);
+    check = ReleaseCheck(
+      lookups: LookupService([fake]),
+      store: store,
+      movieDates: dates,
+    );
   }
+
+  group('movies and books (DESIGN.md 10c)', () {
+    final cinema = const Released(2026, 12, 18);
+    final digital = const Released(2027, 2);
+
+    test('isAsked: a movie out within 180 days is asked for its digital '
+        'date until it has one that is out', () {
+      final recent = entry(
+        'movies/recent',
+        MediaType.movies,
+        released: const Released(2026, 9, 1),
+        source: 'tmdb:movie:9',
+      );
+      expect(ReleaseCheck.isAsked(recent, today), isTrue);
+      expect(
+        ReleaseCheck.isAsked(
+          recent,
+          today,
+          dates: MovieDates(
+            cinema: const Released(2026, 9, 1),
+            digital: digital,
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        ReleaseCheck.isAsked(
+          recent,
+          today,
+          dates: const MovieDates(
+            cinema: Released(2026, 9, 1),
+            digital: Released(2026, 10, 20),
+          ),
+        ),
+        isFalse,
+      );
+      // Six months on it is left alone, whatever is known.
+      expect(ReleaseCheck.isAsked(recent, DateTime(2027, 4, 1)), isFalse);
+      // A game out is never asked.
+      expect(
+        ReleaseCheck.isAsked(
+          game.copyWith(released: const Released(2026, 9, 1)),
+          today,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a movie\'s dates by kind are recorded and the first is written; '
+        'the date of the first alone when none by kind is known', () async {
+      setUpCheck(
+        movieDates: {
+          'tmdb:movie:2': MovieDates(cinema: cinema, digital: digital),
+          'tmdb:movie:4': const MovieDates(),
+        },
+        released: {'tmdb:movie:4': const Released(2026, 11, 5)},
+      );
+      final early = movie.copyWith(released: const Released(2027, 1, 8));
+      // Out in September: asked for its digital date.
+      final recent = out.copyWith(released: const Released(2026, 9, 1));
+      final operations = await check.run(
+        Library(entries: [early, recent]),
+        now,
+      );
+      expect(fake.calls, [
+        'movie-dates:tmdb:movie:2',
+        'movie-dates:tmdb:movie:4',
+        'released:tmdb:movie:4',
+      ]);
+      expect(operations.map((o) => (o as SetReleased).released), [
+        cinema,
+        const Released(2026, 11, 5),
+      ]);
+      expect(await dates.read(), {
+        'tmdb:movie:2': MovieDates(cinema: cinema, digital: digital),
+      });
+      // Under every setting `released` is the first date: nothing else is
+      // asked of the setting here.
+      expect(await store.lastRun(), today);
+    });
+
+    test('a book takes its earliest edition in the languages read; one with '
+        'no such edition, or no languages, keeps the work\'s date', () async {
+      final book = entry(
+        'books/berserk-44',
+        MediaType.books,
+        released: const Released(2026),
+        source: 'openlibrary:OL44W',
+      );
+      final other = entry(
+        'books/other',
+        MediaType.books,
+        released: const Released(2027),
+        source: 'openlibrary:OL45W',
+      );
+      setUpCheck(
+        editions: {
+          'openlibrary:OL44W': (
+            inLanguages: true,
+            released: const Released(2027, 3, 10),
+          ),
+          'openlibrary:OL45W': (inLanguages: false, released: null),
+        },
+        released: {'openlibrary:OL45W': const Released(2027)},
+      );
+      final operations = await check.run(
+        Library(entries: [book, other]),
+        now,
+        languages: {'sv', 'en'},
+      );
+      expect(fake.calls, [
+        'editions:openlibrary:OL44W:en,sv',
+        'editions:openlibrary:OL45W:en,sv',
+        'released:openlibrary:OL45W',
+      ]);
+      expect(operations.map((o) => (o as SetReleased).released), [
+        const Released(2027, 3, 10),
+      ]);
+      fake.calls.clear();
+      await check.run(Library(entries: [book]), now, force: true);
+      expect(fake.calls, ['released:openlibrary:OL44W']);
+    });
+  });
 
   test('isAsked: linked, not a show or anime series, not out or undated', () {
     expect(ReleaseCheck.isAsked(game, today), isTrue);
@@ -139,6 +275,9 @@ void main() {
       final operations = await check.run(library, now);
       expect(fake.calls, [
         'released:igdb:1',
+        // A movie is asked for its dates by kind first; the fake has none
+        // for this one, so its own date is asked next.
+        'movie-dates:tmdb:movie:2',
         'released:tmdb:movie:2',
         'released:igdb:3',
         'released:anilist:7',
@@ -158,9 +297,9 @@ void main() {
       // The day is recorded: no second run today, one tomorrow.
       expect(await store.lastRun(), today);
       expect(await check.run(library, now), isEmpty);
-      expect(fake.calls, hasLength(4));
+      expect(fake.calls, hasLength(5));
       await check.run(library, DateTime(2026, 10, 30, 8));
-      expect(fake.calls, hasLength(8));
+      expect(fake.calls, hasLength(10));
     },
   );
 
@@ -179,14 +318,18 @@ void main() {
     () async {
       setUpCheck(failure: LookupFailure.other);
       await check.run(Library(entries: [game, movie]), now);
-      expect(fake.calls, ['released:igdb:1', 'released:tmdb:movie:2']);
+      expect(fake.calls, ['released:igdb:1', 'movie-dates:tmdb:movie:2']);
       expect(await store.lastRun(), today);
 
       final failing = _ServerErrorSource();
       store = MemoryCheckDayStore();
       check = ReleaseCheck(lookups: LookupService([failing]), store: store);
       expect(await check.run(Library(entries: [game, movie]), now), isEmpty);
-      expect(failing.calls, ['released:igdb:1', 'released:tmdb:movie:2']);
+      expect(failing.calls, [
+        'released:igdb:1',
+        'movie-dates:tmdb:movie:2',
+        'released:tmdb:movie:2',
+      ]);
       expect(await store.lastRun(), isNull);
     },
   );

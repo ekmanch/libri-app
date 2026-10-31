@@ -10,6 +10,7 @@ import '../../data/lookup/lookup_providers.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
+import '../../data/models/release_dates.dart';
 import '../../data/models/season.dart';
 import '../../data/operations/entry_operations.dart';
 import '../../data/operations/season_operations.dart';
@@ -112,6 +113,7 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
             releases: releases,
             prefs: prefs,
             settings: settings,
+            movieDates: ref.watch(movieDatesProvider).value ?? const {},
             today: today,
           );
     final wanted = wantedUpcoming(all);
@@ -176,9 +178,16 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
       await showEntryDetailsSheet(context, item.entry!.id);
       return;
     }
+    final releaseDates =
+        (ref.read(appSettingsProvider).value ?? AppSettings.defaults)
+            .releaseDates;
     final result = await showAppSheet<UpcomingAddResult>(
       context,
-      builder: (_) => UpcomingAddSheet(item, today: seasonClock()),
+      builder: (_) => UpcomingAddSheet(
+        item,
+        today: seasonClock(),
+        releaseDates: releaseDates,
+      ),
     );
     if (!mounted || result == null) return;
     switch (result) {
@@ -377,15 +386,23 @@ enum UpcomingAddResult { add, notInterested }
 /// (the entry's for an entry or a season; for a part or a found release
 /// the cover the daily check recorded, fetched and cached when the sheet
 /// opens, the placeholder while the title has no art yet), the type and
-/// date in the type's color, the title and creator, the
-/// description when the source has one, "Why it's here", then Not
-/// interested and Add to library, with "Added as Want. Not interested hides
-/// it from this list." under them. Pops with an [UpcomingAddResult].
+/// date in the type's color, the title and creator, for a movie with
+/// Release dates set to Both its two dates ("In cinemas Dec 18 · Digital
+/// Feb 2027"), the description when the source has one, "Why it's here",
+/// then Not interested and Add to library, with "Added as Want. Not
+/// interested hides it from this list." under them. Pops with an
+/// [UpcomingAddResult].
 class UpcomingAddSheet extends StatelessWidget {
-  const UpcomingAddSheet(this.item, {super.key, required this.today});
+  const UpcomingAddSheet(
+    this.item, {
+    super.key,
+    required this.today,
+    this.releaseDates = ReleaseDates.both,
+  });
 
   final UpcomingItem item;
   final DateTime today;
+  final ReleaseDates releaseDates;
 
   static const note = 'Added as Want. Not interested hides it from this list.';
 
@@ -399,6 +416,9 @@ class UpcomingAddSheet extends StatelessWidget {
       color: colors.muted,
     );
     final entry = item.entry;
+    final both = releaseDates == ReleaseDates.both
+        ? bothDatesLabel(item.dates, today: today)
+        : null;
     return SheetFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -442,6 +462,10 @@ class UpcomingAddSheet extends StatelessWidget {
                       if (item.creator case final creator?) ...[
                         const SizedBox(height: 6),
                         Text(creator, style: muted),
+                      ],
+                      if (both != null) ...[
+                        const SizedBox(height: 6),
+                        Text(both, style: muted),
                       ],
                     ],
                   ),

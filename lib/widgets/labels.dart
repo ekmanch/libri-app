@@ -1,6 +1,7 @@
 import '../data/models/entry_status.dart';
 import '../data/models/media_type.dart';
 import '../data/models/entry_kind.dart';
+import '../data/lookup/movie_dates.dart';
 import '../data/models/released.dart';
 import '../data/models/tag_category.dart';
 
@@ -207,3 +208,24 @@ String repeatLabel(MediaType type) => switch (type) {
   MediaType.music => 'Relisten',
   MediaType.movies || MediaType.shows || MediaType.anime => 'Rewatch',
 };
+
+/// "Nov 10" (with the year when it is not this year: "Nov 10, 2027"), "Jan
+/// 2027" for a month, "2027" for a year.
+String comingSoonLabel(Released released, {required DateTime today}) {
+  final month = released.month, day = released.day;
+  if (month == null) return '${released.year}';
+  final name = monthAbbreviations[month - 1];
+  if (day == null) return '$name ${released.year}';
+  final date = '$name $day';
+  return released.year == today.year ? date : '$date, ${released.year}';
+}
+
+/// "In cinemas Dec 18 · Digital Feb 2027" for a movie whose dates by kind
+/// are both known (Settings › Movies › Release dates set to Both; Library ›
+/// Entry details and Coming soon: add an upcoming entry), else null.
+String? bothDatesLabel(MovieDates? dates, {required DateTime today}) {
+  final cinema = dates?.cinema, digital = dates?.digital;
+  if (cinema == null || digital == null) return null;
+  return 'In cinemas ${comingSoonLabel(cinema, today: today)} · '
+      'Digital ${comingSoonLabel(digital, today: today)}';
+}

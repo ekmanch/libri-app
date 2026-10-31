@@ -5,6 +5,7 @@ import '../data/lookup/igdb_source.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_match.dart';
 import '../data/lookup/lookup_source.dart';
+import '../data/lookup/movie_dates.dart';
 import '../data/models/follow_kind.dart';
 import '../data/upcoming/creator_lookup.dart';
 import '../data/upcoming/creator_status.dart';
@@ -37,6 +38,8 @@ class FakeLookupSource extends LookupSource
     this.releasedBySource = const {},
     this.inactiveByName = const {},
     this.releasesByCreator = const {},
+    this.movieDatesBySource = const {},
+    this.editionsBySource = const {},
   });
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
@@ -73,6 +76,14 @@ class FakeLookupSource extends LookupSource
   /// Releases [creatorReleases] answers, by creator id (`fake:creator:<slug>`),
   /// ahead of the built-in ones ([fakeCreatorReleases]).
   final Map<String, List<LookupMatch>> releasesByCreator;
+
+  /// Dates by kind [movieDates] answers, by source, ahead of the built-in
+  /// ones ([fakeMovieDates]); any other source gets null.
+  final Map<String, MovieDates?> movieDatesBySource;
+
+  /// What [editionRelease] answers, by source; any other source gets null,
+  /// as from a provider that cannot list editions.
+  final Map<String, EditionRelease?> editionsBySource;
 
   /// Every call made, for the tests: "search:carrie:movies",
   /// "match:Dirt:music", "details:deezer:album:91627", "cover:igdb:1009".
@@ -188,6 +199,24 @@ class FakeLookupSource extends LookupSource
   Future<Released?> releaseDate(String source) async {
     await _call('released:$source');
     return releasedBySource[source];
+  }
+
+  @override
+  Future<MovieDates?> movieDates(String source) async {
+    await _call('movie-dates:$source');
+    if (movieDatesBySource.containsKey(source)) {
+      return movieDatesBySource[source];
+    }
+    return fakeMovieDates()[source];
+  }
+
+  @override
+  Future<EditionRelease?> editionRelease(
+    String source, {
+    required Set<String> languages,
+  }) async {
+    await _call('editions:$source:${(languages.toList()..sort()).join(',')}');
+    return editionsBySource[source];
   }
 
   @override
@@ -1028,17 +1057,30 @@ const fakeInactive = <String, Inactive>{
   'sean connery': Inactive(InactiveReason.died, year: 2020),
 };
 
+/// A day [days] from the app clock, as a release.
+Released _inDays(int days) {
+  final d = seasonClock().add(Duration(days: days));
+  return Released(d.year, d.month, d.day);
+}
+
+/// The dates by kind of the fake's movies that have them: the Clint
+/// Eastwood movie of [fakeCreatorReleases] opens in cinemas in six weeks
+/// and comes to digital two months after (Settings › Movies › Release
+/// dates: Both shows both in the add sheet).
+Map<String, MovieDates> fakeMovieDates() => {
+  'fake:creator-release:eastwood-next': MovieDates(
+    cinema: _inDays(42),
+    digital: _inDays(42 + 61),
+  ),
+};
+
 /// What the fixture's followed creators have coming, dated from the app
 /// clock so the rows read "coming" whatever the day: an Alice in Chains
 /// album in three weeks, a FromSoftware game in two months, a Clint
 /// Eastwood movie in six weeks (he directs and stars), a Studio Ghibli film
 /// next spring.
 Map<String, List<LookupMatch>> fakeCreatorReleases() {
-  final today = seasonClock();
-  Released inDays(int days) {
-    final d = today.add(Duration(days: days));
-    return Released(d.year, d.month, d.day);
-  }
+  final inDays = _inDays;
 
   final eastwood = LookupMatch(
     source: 'fake:creator-release:eastwood-next',
@@ -1079,7 +1121,7 @@ Map<String, List<LookupMatch>> fakeCreatorReleases() {
         coverUrl: 'fake://cover/poster/fake:creator-release:ghibli-next',
         type: MediaType.movies,
         title: 'The Boy and the River',
-        released: Released(today.year + 1, 4),
+        released: Released(seasonClock().year + 1, 4),
         creator: 'Studio Ghibli',
       ),
     ],

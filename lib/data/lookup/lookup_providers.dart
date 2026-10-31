@@ -19,6 +19,7 @@ import 'itunes_books.dart';
 import 'lookup_keys.dart';
 import 'lookup_service.dart';
 import 'lookup_source.dart';
+import 'movie_dates.dart';
 import 'open_library_source.dart';
 import 'release_check.dart';
 import 'season_check.dart';
@@ -112,6 +113,24 @@ final releaseCheckProvider = Provider<ReleaseCheck?>((ref) => null);
 ReleaseCheck fileReleaseCheck(Ref ref) => ReleaseCheck(
   lookups: ref.watch(lookupServiceProvider),
   store: FileCheckDayStore(_cacheFile(ref, 'release_check.json')),
+  movieDates: ref.watch(movieDateStoreProvider),
+);
+
+/// Where the movies' dates by kind (in cinemas, digital) are kept, for
+/// Settings › Movies › Release dates (DESIGN.md 10c): in memory unless
+/// `main` gives it the file. The release date check and the creator check
+/// write it; [movieDatesProvider] reads it.
+final movieDateStoreProvider = Provider<MovieDateStore>(
+  (ref) => MemoryMovieDateStore(),
+);
+
+MovieDateStore fileMovieDateStore(Ref ref) =>
+    FileMovieDateStore(_cacheFile(ref, 'movie_dates.json'));
+
+/// The movies' dates by kind as last recorded, by lookup id; empty before
+/// the first check. The shell reads it again after each run.
+final movieDatesProvider = FutureProvider<Map<String, MovieDates>>(
+  (ref) => ref.watch(movieDateStoreProvider).read(),
 );
 
 /// The daily check of the series the owner follows, for the parts still to
@@ -144,6 +163,7 @@ CreatorCheck fileCreatorCheck(Ref ref) => CreatorCheck(
   statuses: FileCreatorStatusStore(_cacheFile(ref, 'creator_status.json')),
   releases: FileFoundReleaseStore(_cacheFile(ref, 'found_releases.json')),
   store: FileCheckDayStore(_cacheFile(ref, 'creator_check.json')),
+  movieDates: ref.watch(movieDateStoreProvider),
 );
 
 /// The scheduler that runs the four checks on their days (DESIGN.md 10c),

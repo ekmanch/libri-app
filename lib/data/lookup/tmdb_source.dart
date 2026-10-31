@@ -10,6 +10,7 @@ import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'lookup_source.dart';
+import 'movie_dates.dart';
 import 'text_clean.dart';
 
 /// Movies and shows from TMDB. Ids are "tmdb:movie:603" and "tmdb:tv:1399".
@@ -275,6 +276,46 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
     return Released.tryParse(stringAt(json, 'release_date') ?? '');
   }
 
+  /// A movie's dates by kind from `/movie/{id}/release_dates`, over every
+  /// country (DESIGN.md 10c; there is no region setting): in cinemas the
+  /// earliest theatrical date (type 3, else type 2, a limited release),
+  /// digital the earliest digital date (type 4; a streaming premiere is
+  /// recorded so). Null for a show; empty dates for a movie TMDB lists no
+  /// such dates for.
+  @override
+  Future<MovieDates?> movieDates(String source) async {
+    final (kind, id) = _parse(source);
+    if (kind != 'movie') return null;
+    return movieDatesFrom(await _get('movie/$id/release_dates'));
+  }
+
+  /// [movieDates] from the response's `results`.
+  static MovieDates movieDatesFrom(Map<String, Object?> json) {
+    Released? theatrical, limited, digital;
+    Released? earlier(Released? a, Released? b) {
+      if (a == null || b == null) return a ?? b;
+      return b.availableFrom.isBefore(a.availableFrom) ? b : a;
+    }
+
+    for (final country in objectsAt(json, 'results')) {
+      for (final release in objectsAt(country, 'release_dates')) {
+        final date = Released.tryParse(
+          (stringAt(release, 'release_date') ?? '').split('T').first,
+        );
+        if (date == null) continue;
+        switch (release['type']) {
+          case 3:
+            theatrical = earlier(theatrical, date);
+          case 2:
+            limited = earlier(limited, date);
+          case 4:
+            digital = earlier(digital, date);
+        }
+      }
+    }
+    return MovieDates(cinema: theatrical ?? limited, digital: digital);
+  }
+
   /// A show's seasons with their air dates, and with none for a season not
   /// dated yet. Season 0 holds the specials and is left out.
   static List<Season> _seasons(Map<String, Object?> json) => [
@@ -384,6 +425,12 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
     );
   }
 
+  /// How long after its first release a movie is still listed by a credit,
+  /// so that its digital date, usually a few months after the cinemas, can
+  /// be learned and shown (Settings › Movies › Release dates: Digital); the
+  /// creator check applies the precise rule once it has the dates by kind.
+  static const digitalWindow = 120;
+
   /// A person's credits: the movies and shows they directed (or created, for
   /// a show) or acted in; a company's movies by discover, from thirty days
   /// ago on, soonest first.
@@ -444,7 +491,14 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
                   credit,
                   media == 'tv' ? MediaType.shows : MediaType.movies,
                 )
-                case final match? when isRecentOrAhead(match.released, today))
+                case final match?
+                when isRecentOrAhead(match.released, today) ||
+                    (match.type == MediaType.movies &&
+                        isRecentOrAhead(
+                          match.released,
+                          today,
+                          days: digitalWindow,
+                        )))
               match,
     ]..sort(
       (a, b) => a.released!.availableFrom.compareTo(b.released!.availableFrom),

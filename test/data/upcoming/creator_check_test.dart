@@ -3,6 +3,7 @@ import 'package:library_app/data/lookup/check_day_store.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
+import 'package:library_app/data/lookup/movie_dates.dart';
 import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -213,6 +214,89 @@ void main() {
     fake.calls.clear();
     await check(fake).run(ticked, now.add(const Duration(days: 91)));
     expect(fake.calls.where((c) => c.startsWith('creator:')), isNotEmpty);
+  });
+
+  test('a found book is kept only with an edition in the languages read, '
+      'dated by it; a found movie takes the first of its dates by kind, '
+      'which are recorded', () async {
+    final movie = LookupMatch(
+      type: MediaType.movies,
+      title: 'The Last Round',
+      source: 'fake:last-round',
+      released: const Released(2026, 12, 18),
+      creator: 'Clint Eastwood',
+    );
+    const dates = MovieDates(
+      cinema: Released(2026, 12, 17),
+      digital: Released(2027, 2),
+    );
+    final fake = FakeLookupSource(
+      releasesByCreator: {
+        'fake:creator:stephen-king': [neverFlinch, justOut, movie],
+      },
+      editionsBySource: {
+        // Only in Japanese: not listed.
+        'fake:nf': (inLanguages: false, released: null),
+        // The English edition comes later than the work's year.
+        'fake:jo': (inLanguages: true, released: const Released(2026, 11, 3)),
+      },
+      movieDatesBySource: {'fake:last-round': dates},
+    );
+    final store = MemoryMovieDateStore();
+    final result = await CreatorCheck(
+      lookups: LookupService([fake]),
+      statuses: statuses,
+      releases: releases,
+      store: days,
+      movieDates: store,
+    ).run(follows(), now, languages: {'en', 'sv'});
+    expect(result.wrote, isTrue);
+    final kings = [
+      for (final r in await releases.read())
+        if (r.creatorId == 'stephen-king') r,
+    ];
+    expect(kings.map((r) => r.match.title), ['Just Out', 'The Last Round']);
+    expect(kings.first.match.released, const Released(2026, 11, 3));
+    expect(kings.last.match.released, const Released(2026, 12, 17));
+    expect(await store.read(), {'fake:last-round': dates});
+    expect(
+      fake.calls,
+      containsAll(['editions:fake:nf:en,sv', 'movie-dates:fake:last-round']),
+    );
+    // Without languages no book is asked about its editions.
+    fake.calls.clear();
+    await check(fake).run(follows(), now, force: true);
+    expect(fake.calls.where((c) => c.startsWith('editions:')), isEmpty);
+  });
+
+  test('a director who also acts keeps the director\'s releases while the '
+      'actor follow is off (fixed 2026-10-31)', () async {
+    final both = Library(
+      tags: const {
+        TagCategory.directors: ['clint-eastwood'],
+        TagCategory.actors: ['clint-eastwood'],
+      },
+      entries: [
+        entry(
+          'movies/million-dollar-baby',
+          MediaType.movies,
+          title: 'Million Dollar Baby',
+          creator: 'Clint Eastwood',
+          tags: const ['clint-eastwood'],
+        ).copyWith(
+          tagCategories: const {
+            'clint-eastwood': [TagCategory.directors, TagCategory.actors],
+          },
+        ),
+      ],
+    );
+    final fake = FakeLookupSource();
+    final result = await check(fake)
+        .run(deriveFollows(both, AppSettings.defaults), now);
+    expect(result.found, 1);
+    expect((await releases.read()).map((r) => r.match.title), [
+      'The Last Round',
+    ]);
   });
 
   test('an unfollowed creator\'s releases leave the record', () async {

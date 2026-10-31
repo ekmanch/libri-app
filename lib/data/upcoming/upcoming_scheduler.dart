@@ -167,6 +167,7 @@ class UpcomingScheduler {
 
   bool _stop = false;
   bool _running = false;
+  bool _disposed = false;
 
   bool get isRunning => _running;
 
@@ -174,7 +175,16 @@ class UpcomingScheduler {
   /// checks record no day, so the next open takes them up again.
   void stop() => _stop = true;
 
-  void dispose() => progress.dispose();
+  void dispose() {
+    _disposed = true;
+    progress.dispose();
+  }
+
+  /// Sets the progress unless the scheduler is gone: a run can outlive
+  /// its scope (the app disconnecting while a check runs).
+  void _report(CheckProgress value) {
+    if (!_disposed) progress.value = value;
+  }
 
   /// Which of the seven weekly shares [id] is in: a stable hash of the id,
   /// so the same item is always asked on the same weekday.
@@ -216,12 +226,14 @@ class UpcomingScheduler {
 
   /// Runs what is due ([everything]: all of it, now, whatever the day or
   /// the network). Operations the checks produce go to [apply] as they
-  /// come, so the library shows them at once.
+  /// come, so the library shows them at once. [languages] are the ones the
+  /// owner reads, for the books the checks find.
   Future<UpcomingRunResult> run({
     required Library library,
     required AppSettings settings,
     required bool wifiOnly,
     bool everything = false,
+    Set<String> languages = const {},
     required Future<void> Function(LibraryOperation operation) apply,
   }) async {
     const none = <DroppedSeason>[];
@@ -253,6 +265,7 @@ class UpcomingScheduler {
       final statuses = await creators?.statuses.read() ?? const {};
       final follows = deriveFollows(library, settings, statuses: statuses);
       final recordedParts = await series?.upcoming.read() ?? const [];
+      final movieDates = await releases?.movieDates.read() ?? const {};
       final datedSeries = {
         for (final p in recordedParts)
           if (p.released.day != null || p.released.month != null)
@@ -261,20 +274,21 @@ class UpcomingScheduler {
 
       bool showDue(Entry show) =>
           hasComingSeason(show, today) || inShare(show.id);
+      // Daily: what the owner wants and what is dated but not out; a movie
+      // out already, asked for its digital date, waits for its share.
       bool entryDue(Entry entry) =>
           entry.status == EntryStatus.want ||
-          entry.released != null ||
+          (entry.released != null && !entry.released!.isReleasedOn(today)) ||
           inShare(entry.id);
+      bool releaseAsked(Entry e) =>
+          ReleaseCheck.isAsked(e, today, dates: movieDates[e.source]);
       bool seriesDue(String key, List<Entry> parts) =>
           datedSeries.contains(key) || inShare(key);
       bool creatorDue(Follow f) => inShare(f.key);
 
       final total =
           library.entries.where(SeasonCheck.isAsked).where(showDue).length +
-          library.entries
-              .where((e) => ReleaseCheck.isAsked(e, today))
-              .where(entryDue)
-              .length +
+          library.entries.where(releaseAsked).where(entryDue).length +
           SeriesCheck.seriesOf(library).entries
               .where((e) => SeriesCheck.isFollowed(e.value))
               .where((e) => seriesDue(e.key, e.value))
@@ -283,11 +297,11 @@ class UpcomingScheduler {
             for (final kind in FollowKind.values)
               if (kind.isCreator) ...follows.of(kind),
           ].where(creatorDue).length;
-      progress.value = CheckProgress(running: true, done: 0, total: total);
+      _report(CheckProgress(running: true, done: 0, total: total));
+      var done = 0;
       final control = CheckControl(
-        onTick: () => progress.value = progress.value.copyWith(
-          done: progress.value.done + 1,
-        ),
+        onTick: () =>
+            _report(CheckProgress(running: true, done: ++done, total: total)),
         cancelled: () => _stop,
       );
 
@@ -313,6 +327,7 @@ class UpcomingScheduler {
           now,
           force: everything,
           include: entryDue,
+          languages: languages,
           control: control,
         );
         for (final operation in operations) {
@@ -325,6 +340,7 @@ class UpcomingScheduler {
           now,
           force: everything,
           include: seriesDue,
+          languages: languages,
           control: control,
         );
       }
@@ -335,6 +351,7 @@ class UpcomingScheduler {
           now,
           force: everything,
           include: creatorDue,
+          languages: languages,
           control: control,
         );
         releasesChanged = result.wrote;
@@ -357,7 +374,7 @@ class UpcomingScheduler {
       );
     } finally {
       _running = false;
-      progress.value = CheckProgress.idle;
+      _report(CheckProgress.idle);
     }
   }
 

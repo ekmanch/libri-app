@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../data/lookup/movie_dates.dart';
 import '../../data/lookup/series_check.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/media_type.dart';
+import '../../data/models/release_dates.dart';
 import '../../data/models/released.dart';
 import '../../data/models/season.dart';
 import '../../theme/app_theme.dart';
@@ -102,15 +104,24 @@ class HomeSection {
 /// The home's sections for [entries] (seasonal-only ones already left out by
 /// the filter), skipping the empty ones. [changes] says when an entry last
 /// changed on this phone ([RecentChanges]); an entry without a record counts
-/// from the day it was added.
+/// from the day it was added. [movieDates] (by lookup id) and
+/// [releaseDates] pick the date a movie is listed by (Settings › Movies ›
+/// Release dates).
 List<HomeSection> homeSections(
   Iterable<Entry> entries, {
   required DateTime today,
   Map<String, DateTime> changes = const {},
+  Map<String, MovieDates> movieDates = const {},
+  ReleaseDates releaseDates = ReleaseDates.both,
 }) {
   final list = entries.toList();
   final sections = [
-    _comingSoon(list, today),
+    _comingSoon(
+      list,
+      today,
+      movieDates: movieDates,
+      releaseDates: releaseDates,
+    ),
     _inProgress(list, changes),
     _recentlyAdded(list, today),
   ];
@@ -121,11 +132,16 @@ List<HomeSection> homeSections(
 }
 
 /// A release still ahead: an entry's own date, or for a show or an anime
-/// series the earliest season not yet out ("Wednesday · Season 3").
+/// series the earliest season not yet out ("Wednesday · Season 3"). For a
+/// movie, the date Settings › Movies › Release dates shows ([shownRelease]
+/// of its [dates] by kind), so under Digital a movie out in cinemas with
+/// its digital date ahead is still coming.
 ({Released released, Season? season})? upcomingRelease(
   Entry entry,
-  DateTime today,
-) {
+  DateTime today, {
+  MovieDates? dates,
+  ReleaseDates releaseDates = ReleaseDates.both,
+}) {
   if (entry.usesSeasons) {
     Season? next;
     for (final season in entry.seasons ?? const <Season>[]) {
@@ -138,7 +154,7 @@ List<HomeSection> homeSections(
     }
     return next == null ? null : (released: next.released!, season: next);
   }
-  final released = entry.released;
+  final released = shownRelease(entry.released, dates, releaseDates);
   if (released == null || released.isReleasedOn(today)) return null;
   return (released: released, season: null);
 }
@@ -210,10 +226,20 @@ List<UpcomingPart> upcomingPartsToShow(
 /// nearest first within each.
 int _precision(Released r) => r.day != null ? 0 : (r.month != null ? 1 : 2);
 
-HomeSection _comingSoon(List<Entry> entries, DateTime today) {
+HomeSection _comingSoon(
+  List<Entry> entries,
+  DateTime today, {
+  required Map<String, MovieDates> movieDates,
+  required ReleaseDates releaseDates,
+}) {
   final rows = <(Released, HomeRowData)>[];
   for (final entry in entries) {
-    final upcoming = upcomingRelease(entry, today);
+    final upcoming = upcomingRelease(
+      entry,
+      today,
+      dates: movieDates[entry.source],
+      releaseDates: releaseDates,
+    );
     if (upcoming == null) continue;
     final (:released, :season) = upcoming;
     if (!wantsRelease(entry, season)) continue;
@@ -317,17 +343,6 @@ String? recentlyAddedDetail(Entry entry, {DateTime? today}) {
       : entry.year?.toString();
   final detail = [?_creator(entry), ?years].join(' · ');
   return detail.isEmpty ? null : detail;
-}
-
-/// "Nov 10" (with the year when it is not this year: "Nov 10, 2027"), "Jan
-/// 2027" for a month, "2027" for a year.
-String comingSoonLabel(Released released, {required DateTime today}) {
-  final month = released.month, day = released.day;
-  if (month == null) return '${released.year}';
-  final name = monthAbbreviations[month - 1];
-  if (day == null) return '$name ${released.year}';
-  final date = '$name $day';
-  return released.year == today.year ? date : '$date, ${released.year}';
 }
 
 /// "Today", "Yesterday", "3 days ago" up to six days, then the date ("Oct

@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
+import 'package:library_app/data/lookup/movie_dates.dart';
 import 'package:library_app/data/lookup/series_check.dart';
+import 'package:library_app/data/models/release_dates.dart';
 import 'package:library_app/data/models/app_settings.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -207,6 +209,84 @@ void main() {
         'The Winds of Winter',
       ]);
     });
+
+    test(
+      'a movie is listed and sorted by the date Release dates picks from '
+      'its dates by kind; under Digital a movie out in cinemas is coming',
+      () {
+        final dune = entry(
+          'dune-3',
+          MediaType.movies,
+          title: 'Dune: Part Three',
+          released: const Released(2026, 12, 18),
+        ).copyWith(source: 'tmdb:movie:3');
+        final out = entry(
+          'out',
+          MediaType.movies,
+          title: 'Out in Cinemas',
+          released: const Released(2026, 9, 1),
+        ).copyWith(source: 'tmdb:movie:4');
+        const dates = {
+          'tmdb:movie:3': MovieDates(
+            cinema: Released(2026, 12, 18),
+            digital: Released(2027, 2),
+          ),
+          'tmdb:movie:4': MovieDates(
+            cinema: Released(2026, 9, 1),
+            digital: Released(2026, 11, 5),
+          ),
+          'fake:last-round': MovieDates(
+            cinema: Released(2026, 12, 20),
+            digital: Released(2027, 3, 1),
+          ),
+        };
+        final found = FoundRelease(
+          kind: FollowKind.directors,
+          creatorId: 'clint-eastwood',
+          creatorName: 'Clint Eastwood',
+          match: const LookupMatch(
+            type: MediaType.movies,
+            title: 'The Last Round',
+            source: 'fake:last-round',
+            released: Released(2026, 12, 20),
+          ),
+          foundOn: today,
+        );
+        List<UpcomingItem> items(ReleaseDates setting) => upcomingItems(
+          [dune, out],
+          parts: const [],
+          releases: [found],
+          prefs: const DisplayPreferences(),
+          settings: AppSettings(releaseDates: setting),
+          movieDates: dates,
+          today: today,
+        );
+        final both = items(ReleaseDates.both);
+        expect(both.map((i) => i.title), [
+          'Dune: Part Three',
+          'The Last Round',
+        ]);
+        expect(both.first.released, const Released(2026, 12, 18));
+        expect(both.first.dates, dates['tmdb:movie:3']);
+        final digital = items(ReleaseDates.digital);
+        expect(digital.map((i) => i.title), [
+          'Out in Cinemas',
+          'Dune: Part Three',
+          'The Last Round',
+        ]);
+        expect(digital.map((i) => i.rightLabel(today)), [
+          'Nov 5',
+          'Feb 2027',
+          'Mar 1, 2027',
+        ]);
+        final cinema = items(ReleaseDates.cinema);
+        expect(cinema.map((i) => i.title), [
+          'Dune: Part Three',
+          'The Last Round',
+        ]);
+        expect(cinema.last.released, const Released(2026, 12, 20));
+      },
+    );
 
     test('a season set Want is wanted; a show set Want with no coming season is not listed', () {
       final wednesday = entry(

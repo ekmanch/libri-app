@@ -10,6 +10,7 @@ import '../data/lookup/episode_service.dart';
 import '../data/lookup/episode_store.dart';
 import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_providers.dart';
+import '../data/lookup/movie_dates.dart';
 import '../data/lookup/release_check.dart';
 import '../data/lookup/season_check.dart';
 import '../data/lookup/series_check.dart';
@@ -32,7 +33,10 @@ import 'fake_lookup.dart';
 /// those three would build, [seasonStore] the daily season check's
 /// memory, and [upcomingParts] the series check's record of parts still to
 /// come (seeded for a test, read back after a run); [creatorStatuses] and
-/// [foundReleases] the creator check's records the same way.
+/// [foundReleases] the creator check's records the same way, and
+/// [movieDates] the movies' dates by kind both checks record. The phone's
+/// languages are [systemLanguages] (Swedish and English unless given), so
+/// the languages read start the same in every test and walk.
 List<Override> fakeLookupOverrides({
   Duration latency = Duration.zero,
   LookupFailure? failure,
@@ -44,7 +48,13 @@ List<Override> fakeLookupOverrides({
   UpcomingPartsStore? upcomingParts,
   CreatorStatusStore? creatorStatuses,
   FoundReleaseStore? foundReleases,
+  MovieDateStore? movieDates,
+  List<String> systemLanguages = const ['sv', 'en'],
 }) => [
+  systemLanguagesProvider.overrideWithValue(systemLanguages),
+  movieDateStoreProvider.overrideWithValue(
+    movieDates ?? MemoryMovieDateStore(),
+  ),
   lookupSourcesProvider.overrideWithValue([
     source ??
         FakeLookupSource(
@@ -74,6 +84,7 @@ List<Override> fakeLookupOverrides({
     (ref) => ReleaseCheck(
       lookups: ref.watch(lookupServiceProvider),
       store: MemoryCheckDayStore(),
+      movieDates: ref.watch(movieDateStoreProvider),
     ),
   ),
   seriesCheckProvider.overrideWith(
@@ -89,6 +100,7 @@ List<Override> fakeLookupOverrides({
       statuses: creatorStatuses ?? MemoryCreatorStatusStore(),
       releases: foundReleases ?? MemoryFoundReleaseStore(),
       store: MemoryCheckDayStore(),
+      movieDates: ref.watch(movieDateStoreProvider),
     ),
   ),
   trackListServiceProvider.overrideWith(

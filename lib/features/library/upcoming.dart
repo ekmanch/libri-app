@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 
+import '../../data/lookup/movie_dates.dart';
 import '../../data/lookup/series_check.dart';
 import '../../data/models/app_settings.dart';
+import '../../data/models/release_dates.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/follow_kind.dart';
 import '../../data/models/entry_status.dart';
@@ -54,15 +56,23 @@ class UpcomingItem {
     this.season,
     this.part,
     this.release,
+    this.dates,
   });
 
-  /// An entry with a release ahead, or set Want with no date.
-  factory UpcomingItem.entry(Entry entry) => UpcomingItem._(
+  /// An entry with a release ahead, or set Want with no date; a movie
+  /// listed by the date Settings › Movies › Release dates picks from its
+  /// [dates] by kind ([shownRelease]).
+  factory UpcomingItem.entry(
+    Entry entry, {
+    MovieDates? dates,
+    ReleaseDates releaseDates = ReleaseDates.both,
+  }) => UpcomingItem._(
     kind: UpcomingKind.entry,
     id: entry.id,
     type: entry.type,
     title: entry.title,
-    released: entry.released,
+    released: shownRelease(entry.released, dates, releaseDates),
+    dates: dates,
     detail: _creator(entry),
     creator: _creator(entry),
     description: entry.description,
@@ -103,13 +113,19 @@ class UpcomingItem {
         part: part,
       );
 
-  /// A release of a followed creator not in the library.
-  factory UpcomingItem.release(FoundRelease release) => UpcomingItem._(
+  /// A release of a followed creator not in the library; a movie listed by
+  /// the date Settings › Movies › Release dates picks from its [dates].
+  factory UpcomingItem.release(
+    FoundRelease release, {
+    MovieDates? dates,
+    ReleaseDates releaseDates = ReleaseDates.both,
+  }) => UpcomingItem._(
     kind: UpcomingKind.release,
     id: release.key,
     type: release.match.type,
     title: release.match.title,
-    released: release.match.released,
+    released: shownRelease(release.match.released, dates, releaseDates),
+    dates: dates,
     detail: release.match.creator ?? release.creatorName,
     creator: release.match.creator ?? release.creatorName,
     description: release.match.description,
@@ -144,6 +160,10 @@ class UpcomingItem {
   final Season? season;
   final UpcomingPart? part;
   final FoundRelease? release;
+
+  /// A movie's dates by kind as the checks recorded them, for the add
+  /// sheet's "In cinemas Dec 18 · Digital Feb 2027" line under Both.
+  final MovieDates? dates;
 
   /// The lookup id Add to library starts the entry form from, for a part
   /// or a found release; null when the source gave none.
@@ -192,23 +212,37 @@ class UpcomingGroup {
 /// [upcomingPartsToShow]), and the [releases] of followed creators the
 /// creator check recorded that are not in the library. Rows the owner
 /// marked Not interested are left out ([AppSettings.notInterested]; a part
-/// through its series in [prefs]). Your wants is [wantedUpcoming] of this.
+/// through its series in [prefs]). Movies are listed by the date
+/// [settings]' Release dates picks from their [movieDates] (by lookup id).
+/// Your wants is [wantedUpcoming] of this.
 List<UpcomingItem> upcomingItems(
   Iterable<Entry> entries, {
   required List<UpcomingPart> parts,
   List<FoundRelease> releases = const [],
   required DisplayPreferences prefs,
   AppSettings settings = AppSettings.defaults,
+  Map<String, MovieDates> movieDates = const {},
   required DateTime today,
 }) {
   final list = entries.toList();
   final items = <UpcomingItem>[];
+  final releaseDates = settings.releaseDates;
   for (final entry in list) {
-    final upcoming = upcomingRelease(entry, today);
+    final dates = movieDates[entry.source];
+    final upcoming = upcomingRelease(
+      entry,
+      today,
+      dates: dates,
+      releaseDates: releaseDates,
+    );
     if (upcoming != null) {
       items.add(switch (upcoming.season) {
         final season? => UpcomingItem.season(entry, season, today: today),
-        null => UpcomingItem.entry(entry),
+        null => UpcomingItem.entry(
+          entry,
+          dates: dates,
+          releaseDates: releaseDates,
+        ),
       });
     } else if (!entry.usesSeasons &&
         entry.released == null &&
@@ -228,8 +262,13 @@ List<UpcomingItem> upcomingItems(
   final seen = <String>{};
   for (final release in releases) {
     if (owned.contains(release.key) || !seen.add(release.key)) continue;
-    if (!isRecentOrAhead(release.match.released, today)) continue;
-    items.add(UpcomingItem.release(release));
+    final item = UpcomingItem.release(
+      release,
+      dates: movieDates[release.key],
+      releaseDates: releaseDates,
+    );
+    if (!isRecentOrAhead(item.released, today)) continue;
+    items.add(item);
   }
   items.removeWhere((item) => settings.notInterested.contains(item.id));
   items.sort(compareUpcoming);

@@ -94,6 +94,7 @@ Future<Widget> bootstrap(
       artworkPrunerProvider.overrideWith(startArtworkPruner),
       seasonCheckProvider.overrideWith(fileSeasonCheck),
       releaseCheckProvider.overrideWith(fileReleaseCheck),
+      movieDateStoreProvider.overrideWith(fileMovieDateStore),
       seriesCheckProvider.overrideWith(fileSeriesCheck),
       creatorCheckProvider.overrideWith(fileCreatorCheck),
       upcomingScheduleStoreProvider.overrideWith(fileUpcomingScheduleStore),

@@ -3,7 +3,9 @@ import '../lookup/lookup_failure.dart';
 import '../lookup/lookup_match.dart';
 import '../lookup/lookup_service.dart';
 import '../lookup/lookup_source.dart';
+import '../lookup/movie_dates.dart';
 import '../models/follow_kind.dart';
+import '../models/media_type.dart';
 import 'check_control.dart';
 import 'creator_lookup.dart';
 import 'creator_status.dart';
@@ -27,7 +29,10 @@ typedef CreatorCheckResult = ({
 /// (TMDB's credits, Open Library's works, Deezer's albums, IGDB's games),
 /// recording those still ahead or just out in [releases] for Library ›
 /// Coming soon: everything upcoming. A creator no longer active is skipped
-/// unless the owner ticked them anyway. Nothing is written to
+/// unless the owner ticked them anyway. A found book is kept only when it
+/// has an edition in the [languages] the owner reads, dated by that
+/// edition (DESIGN.md 10c); a found movie's dates by kind go to
+/// [movieDates] and its date is the first of them. Nothing is written to
 /// `library.json`.
 ///
 /// Offline or rate limited, the lookup is not asked further and the day is
@@ -39,12 +44,14 @@ class CreatorCheck {
     required this.statuses,
     required this.releases,
     required this.store,
-  });
+    MovieDateStore? movieDates,
+  }) : movieDates = movieDates ?? MemoryMovieDateStore();
 
   final LookupService lookups;
   final CreatorStatusStore statuses;
   final FoundReleaseStore releases;
   final CheckDayStore store;
+  final MovieDateStore movieDates;
 
   /// How many names one Wikidata query asks about.
   static const inactiveBatch = 50;
@@ -77,6 +84,7 @@ class CreatorCheck {
 
   /// Runs the check when it is due today (always with [force]: Check now)
   /// over the creators of [follows], or with [include] only those it says.
+  /// [languages] are the ones the owner reads, for the books found.
   /// [control] hears of each creator asked and can stop the run, which
   /// then records no day.
   Future<CreatorCheckResult> run(
@@ -84,6 +92,7 @@ class CreatorCheck {
     DateTime now, {
     bool force = false,
     bool Function(Follow follow)? include,
+    Set<String> languages = const {},
     CheckControl? control,
   }) async {
     const nothing = (wrote: false, found: 0);
@@ -94,10 +103,15 @@ class CreatorCheck {
     _running = true;
     try {
       final known = Map.of(await statuses.read());
+      final dates = Map.of(await movieDates.read());
+      var datesChanged = false;
       final recorded = await releases.read();
       final kept = <String, List<FoundRelease>>{};
       for (final r in recorded) {
-        kept.putIfAbsent(r.creatorId, () => []).add(r);
+        // By kind and creator: a director who also acts is two follows,
+        // and the actor one, off by default, must not drop the director's
+        // releases (fixed 2026-10-31).
+        kept.putIfAbsent('${r.kind.key}/${r.creatorId}', () => []).add(r);
       }
       var complete = true;
       var found = 0;
@@ -147,7 +161,7 @@ class CreatorCheck {
           final followed = f.followed && (status?.inactive == null || f.ticked);
           final providerId = status?.providerId;
           if (!followed || providerId == null) {
-            if (!followed) kept.remove(f.id);
+            if (!followed) kept.remove(f.key);
             ctl.tick();
             continue;
           }
@@ -159,11 +173,39 @@ class CreatorCheck {
               await lookup.creatorReleases(providerId, f.kind, today: today),
             );
           }
-          final before = {for (final r in kept[f.id] ?? const []) r.key};
+          final before = {for (final r in kept[f.key] ?? const []) r.key};
           final seen = <String>{};
-          kept[f.id] = [
-            for (final m in matches)
-              if (isRecentOrAhead(m.released, today) && seen.add(m.source))
+          final sifted = <LookupMatch>[];
+          for (final m in matches) {
+            if (!seen.add(m.source)) continue;
+            final source = lookups.sourceOf(m.source);
+            if (m.type == MediaType.books && languages.isNotEmpty) {
+              final edition = await source?.editionRelease(
+                m.source,
+                languages: languages,
+              );
+              if (edition != null) {
+                if (!edition.inLanguages) continue;
+                if (edition.released case final released?) {
+                  sifted.add(m.copyWith(released: released));
+                  continue;
+                }
+              }
+            } else if (m.type == MediaType.movies) {
+              final found = await source?.movieDates(m.source);
+              if (found != null && !found.isEmpty) {
+                if (dates[m.source] != found) datesChanged = true;
+                dates[m.source] = found;
+                sifted.add(m.copyWith(released: found.first));
+                continue;
+              }
+            }
+            sifted.add(m);
+          }
+          kept[f.key] = [
+            for (final m in sifted)
+              if (isRecentOrAhead(m.released, today) ||
+                  isRecentOrAhead(dates[m.source]?.digital, today))
                 FoundRelease(
                   kind: f.kind,
                   creatorId: f.id,
@@ -172,7 +214,7 @@ class CreatorCheck {
                   foundOn: _foundOn(recorded, m.source) ?? now,
                 ),
           ];
-          found += kept[f.id]!.where((r) => !before.contains(r.key)).length;
+          found += kept[f.key]!.where((r) => !before.contains(r.key)).length;
           await releases.write(_flatten(kept, follows));
           wrote = true;
           ctl.tick();
@@ -194,6 +236,7 @@ class CreatorCheck {
         await releases.write(pruned);
         wrote = true;
       }
+      if (datesChanged) await movieDates.write(dates);
       if (complete) await store.recordRun(today);
       return (wrote: wrote, found: found);
     } finally {
@@ -254,6 +297,6 @@ class CreatorCheck {
   ) => [
     for (final kind in FollowKind.values)
       for (final f in follows.of(kind))
-        if (f.followed) ...?kept[f.id],
+        if (f.followed) ...?kept[f.key],
   ];
 }

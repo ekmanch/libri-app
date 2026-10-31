@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/lookup/lookup_providers.dart';
+import '../../data/models/app_settings.dart';
 import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
@@ -142,7 +144,14 @@ class PlanEntrySheet extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          EntryHeader(entry: entry, showCover: showCover),
+          EntryHeader(
+            entry: entry,
+            showCover: showCover,
+            movieDates: ref.watch(movieDatesProvider).value?[entry.source],
+            releaseDates:
+                (ref.watch(appSettingsProvider).value ?? AppSettings.defaults)
+                    .releaseDates,
+          ),
           const SizedBox(height: 14),
           AppButton(
             label: item.done ? 'Done. Tap to undo' : 'Mark as done',
