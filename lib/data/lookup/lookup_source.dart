@@ -144,6 +144,11 @@ abstract class LookupSource {
     bool anime = false,
   }) async => null;
 
+  /// Who the episodes last read for [source] came from, for the credit
+  /// under them ("Episode details from TMDB."): this provider's [name],
+  /// unless it took some of them from another (AniList's titles from TMDB).
+  String episodesProvider(String source) => name;
+
   /// For an anime whose seasons were once split another way (by the TMDB
   /// show it was matched to before its seasons came from AniList), the old
   /// split and the new one, so the daily check can carry the statuses over

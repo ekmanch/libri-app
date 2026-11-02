@@ -402,6 +402,31 @@ void main() {
       expect(sent.any((r) => r.url.path.contains('episode_group/')), isFalse);
     });
 
+    test('episodes from a day: none aired then is no answer', () async {
+      final tmdb = source(
+        (request) async => request.url.path == '/3/tv/7/season/1'
+            ? json(200, {
+                'episodes': [
+                  {'episode_number': 1, 'air_date': '2023-09-29'},
+                  {'episode_number': 2, 'air_date': '2023-10-06'},
+                  {'episode_number': 3, 'air_date': '2023-10-13'},
+                ],
+              })
+            : handler(request),
+      );
+      // A day off, for time zones, is the same day.
+      final found = await tmdb.episodesFrom(
+        'tmdb:tv:7',
+        const Released(2023, 10, 5),
+        5,
+      );
+      expect(found!.map((e) => e.number), [2, 3]);
+      expect(
+        await tmdb.episodesFrom('tmdb:tv:7', const Released(2024, 1, 1), 2),
+        isNull,
+      );
+    });
+
     test('season spans carry the episode counts, specials left out', () async {
       final tmdb = source(handler);
       expect(await tmdb.seasonSpans('tmdb:tv:7'), const [

@@ -3,13 +3,25 @@ import 'dart:io';
 import '../models/entry_kind.dart';
 import '../storage/json_file.dart';
 
-/// What Libri learned about an anime from AniList, kept on the phone so the
-/// daily check and the season screen need not ask again: its kind (series
-/// or movie) and when it was last checked. [tmdb] is the TMDB show an anime's
-/// seasons came from before they came from AniList's chain (a link written
-/// by an older build); the daily check reads that show's split once to
-/// carry the statuses over, then clears it. Never in `library.json`.
-typedef AnimeLink = ({String? tmdb, EntryKind? kind, DateTime checked});
+/// What Libri learned about an anime, kept on the phone so the daily check
+/// and the season screen need not ask again. Never in `library.json`.
+///
+/// - [kind]: series or movie, from AniList, and [checked], when that was
+///   asked.
+/// - [tmdb]: the TMDB show the anime's first entry matched, where its
+///   episode titles come from (section 10c), and [tmdbChecked], when TMDB
+///   was last asked; a match is kept for good, a miss asked again after a
+///   while. A link from an older build has no [tmdbChecked].
+/// - [resplit]: true while the anime's seasons in the library may still be
+///   split as that TMDB show splits them (an older build took them from
+///   there); the daily check re-splits them once and clears it.
+typedef AnimeLink = ({
+  EntryKind? kind,
+  DateTime checked,
+  String? tmdb,
+  DateTime? tmdbChecked,
+  bool resplit,
+});
 
 abstract class AnimeLinkStore {
   Future<AnimeLink?> read(int anilistId);
@@ -30,9 +42,12 @@ class MemoryAnimeLinkStore implements AnimeLinkStore {
 }
 
 /// `anime_links.json` under the cache folder:
-/// `{"154587": {"tmdb": "tmdb:tv:209867", "kind": "series", "checked":
-/// "2026-10-20T08:00:00.000Z"}}`. A cleared cache only means asking once
-/// more.
+/// `{"154587": {"kind": "series", "checked": "2026-10-20T08:00:00.000Z",
+/// "tmdb": "tmdb:tv:209867", "tmdb_checked": "2026-11-02T08:00:00.000Z",
+/// "resplit": false}}`. A link written by an older build has only `tmdb`,
+/// `kind` and `checked`; its `tmdb` is the show its seasons came from, so
+/// it reads as waiting for the re-split. A cleared cache only means asking
+/// once more (and no re-split).
 class FileAnimeLinkStore implements AnimeLinkStore {
   FileAnimeLinkStore(Directory cache)
     : _file = JsonFile(
@@ -48,10 +63,14 @@ class FileAnimeLinkStore implements AnimeLinkStore {
     final checked = DateTime.tryParse(link['checked'] as String? ?? '');
     if (checked == null) return null;
     final kind = link['kind'];
+    final tmdb = link['tmdb'] as String?;
+    final resplit = link['resplit'];
     return (
-      tmdb: link['tmdb'] as String?,
       kind: EntryKind.values.where((k) => k.name == kind).firstOrNull,
       checked: checked,
+      tmdb: tmdb,
+      tmdbChecked: DateTime.tryParse(link['tmdb_checked'] as String? ?? ''),
+      resplit: resplit is bool ? resplit : tmdb != null,
     );
   }
 
@@ -59,9 +78,11 @@ class FileAnimeLinkStore implements AnimeLinkStore {
   Future<void> write(int anilistId, AnimeLink link) async {
     final json = await _file.read() ?? {};
     json['$anilistId'] = {
-      'tmdb': link.tmdb,
       'kind': link.kind?.name,
       'checked': link.checked.toUtc().toIso8601String(),
+      'tmdb': link.tmdb,
+      'tmdb_checked': link.tmdbChecked?.toUtc().toIso8601String(),
+      'resplit': link.resplit,
     };
     await _file.write(json);
   }

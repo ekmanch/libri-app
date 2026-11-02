@@ -180,10 +180,87 @@ void main() {
     ],
   };
 
+  /// A link an older build wrote: the TMDB show Frieren's seasons came
+  /// from, waiting for the re-split.
+  final oldLink = (
+    kind: EntryKind.series,
+    checked: DateTime(2026, 10, 20),
+    tmdb: 'tmdb:tv:209867',
+    tmdbChecked: null,
+    resplit: true,
+  );
+
+  String day(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  /// TMDB's season 1 of Frieren: all 38 episodes, titled. Four aired on
+  /// the first day, then weekly; episode 29 on with AniList's season 2.
+  final tmdbSeason1 = {
+    'season_number': 1,
+    'episodes': [
+      for (var n = 1; n <= 38; n++)
+        {
+          'episode_number': n,
+          'name': 'Title $n',
+          'runtime': 25,
+          'air_date': n <= 4
+              ? '2023-09-29'
+              : n <= 28
+              ? day(DateTime(2023, 9, 29).add(Duration(days: 7 * (n - 4))))
+              : day(DateTime(2026, 1, 16).add(Duration(days: 7 * (n - 29)))),
+        },
+    ],
+  };
+
+  /// What the search answers, by search text; each hit as the search lists
+  /// it, with its prequels.
+  Map<String, Object?> searchHit(
+    Map<String, Object?> hit, [
+    List<Map<String, Object?>> prequels = const [],
+  ]) => {
+    ...hit,
+    'relations': {
+      'edges': [for (final p in prequels) edge('PREQUEL', p)],
+    },
+  };
+  Map<String, Object?> lite(int id, [List<Map<String, Object?>>? prequels]) => {
+    'id': id,
+    'format': 'TV',
+    if (prequels != null)
+      'relations': {
+        'edges': [for (final p in prequels) edge('PREQUEL', p)],
+      },
+  };
+  final searches = <String, List<Map<String, Object?>>>{
+    'Frieren': [
+      searchHit(frieren1),
+      searchHit(frieren3, [
+        lite(182255, [lite(154587)]),
+      ]),
+      searchHit(frieren2, [lite(154587, [])]),
+      searchHit(shorts),
+      searchHit(media(189513, format: 'ONA', romaji: 'no Mahou Part 2'), [
+        {'id': 170068, 'format': 'ONA'},
+      ]),
+      searchHit(recap, [lite(154587)]),
+    ],
+    'Frieren 2nd': [
+      searchHit(frieren2, [lite(154587, [])]),
+    ],
+  };
+
   /// AniList and TMDB from one handler, told apart by host; [withTmdb]
-  /// false leaves TMDB out of the build.
+  /// false leaves TMDB out of the build, [tmdbHits] is TMDB's search.
   AniListSource source({
     bool withTmdb = true,
+    List<Map<String, Object?>> tmdbHits = const [
+      {
+        'id': 209867,
+        'name': "Frieren: Beyond Journey's End",
+        'first_air_date': '2023-09-29',
+      },
+    ],
     Map<int, List<Map<String, Object?>>> schedule = const {},
   }) {
     sent = [];
@@ -191,11 +268,35 @@ void main() {
     final client = MockClient((request) async {
       sent.add(request);
       if (request.url.host == 'api.themoviedb.org') {
-        return json(200, tmdbShow);
+        return switch (request.url.path) {
+          '/3/search/tv' => json(200, {'results': tmdbHits}),
+          '/3/tv/209867' => json(200, tmdbShow),
+          '/3/tv/209867/season/1' => json(200, tmdbSeason1),
+          _ => json(404, {'status_message': 'not found'}),
+        };
       }
       final body = jsonDecode(request.body) as Map<String, Object?>;
       final variables = body['variables'] as Map<String, Object?>;
       final query = body['query'] as String;
+      if (variables['search'] case final String text) {
+        return json(200, {
+          'data': {
+            'Page': {'media': searches[text] ?? []},
+          },
+        });
+      }
+      if (variables['ids'] case final List<Object?> ids) {
+        return json(200, {
+          'data': {
+            'Page': {
+              'media': [
+                for (final id in ids)
+                  if (id == 154587) frieren1,
+              ],
+            },
+          },
+        });
+      }
       final id = variables['id'] as int;
       if (query.contains('airingSchedule')) {
         return json(200, {
@@ -270,6 +371,27 @@ void main() {
     expect(hits[1].kind, EntryKind.movie);
   });
 
+  group('search', () {
+    test('later seasons fold into the first, listed once', () async {
+      final anilist = source();
+      final hits = await anilist.search('Frieren', type: MediaType.anime);
+      // Season 1, the shorts; the recap movie stays its own hit.
+      expect(hits.map((m) => m.source), [
+        'anilist:154587',
+        'anilist:170068',
+        'anilist:999',
+      ]);
+      expect(hits.first.kind, EntryKind.series);
+    });
+
+    test('a later season found alone brings its first', () async {
+      final anilist = source();
+      final hits = await anilist.search('Frieren 2nd', type: MediaType.anime);
+      expect(hits.single.source, 'anilist:154587');
+      expect(hits.single.title, "Frieren: Beyond Journey's End");
+    });
+  });
+
   test(
     'the seasons are the TV entries of the chain, the sequel to come too',
     () async {
@@ -295,11 +417,7 @@ void main() {
 
   test('an old TMDB link no longer decides the seasons', () async {
     final anilist = source();
-    await links.write(154587, (
-      tmdb: 'tmdb:tv:209867',
-      kind: EntryKind.series,
-      checked: DateTime(2026, 10, 20),
-    ));
+    await links.write(154587, oldLink);
     final found = await anilist.seasons('anilist:154587');
     expect(found!.seasons, frierenSeasons);
     expect(tmdbCalls(), isEmpty);
@@ -352,8 +470,9 @@ void main() {
   });
 
   group('episodes', () {
-    test('numbered, dated by the schedule, untitled', () async {
+    test('without TMDB: numbered, dated by the schedule, untitled', () async {
       final anilist = source(
+        withTmdb: false,
         schedule: {
           182255: [
             {'episode': 1, 'airingAt': 1768521600}, // 2026-01-16 00:00 UTC
@@ -375,13 +494,56 @@ void main() {
     });
 
     test('season 1 has its own 28', () async {
-      final anilist = source();
+      final anilist = source(withTmdb: false);
       final episodes = await anilist.seasonEpisodes('anilist:154587', 1);
       expect(episodes, hasLength(28));
       expect(
         episodes!.every((e) => e.aired == const Released(2023, 9, 29)),
         isTrue,
       );
+    });
+
+    test('titles from TMDB, found by air date across its split', () async {
+      final anilist = source(
+        schedule: {
+          182255: [
+            {'episode': 1, 'airingAt': 1768575600}, // 2026-01-16 15:00 UTC
+          ],
+        },
+      );
+      final second = await anilist.seasonEpisodes('anilist:154587', 2);
+      // AniList's season 2 is TMDB's season 1, episodes 29 to 38.
+      expect(second, hasLength(10));
+      expect(second!.first, (
+        number: 1,
+        title: 'Title 29',
+        aired: const Released(2026, 1, 16),
+        runtime: 25,
+      ));
+      expect(second.last.title, 'Title 38');
+      expect(second.last.aired, const Released(2026, 3, 20));
+      expect(anilist.episodesProvider('anilist:154587'), 'TMDB and AniList');
+      expect(links.links[154587]?.tmdb, 'tmdb:tv:209867');
+      expect(links.links[154587]?.resplit, isFalse);
+
+      final first = await anilist.seasonEpisodes('anilist:154587', 1);
+      expect(first, hasLength(28));
+      expect(first!.first.title, 'Title 1');
+      expect(first.last.title, 'Title 28');
+      // The match is kept: TMDB is not searched twice.
+      expect(
+        tmdbCalls().where((r) => r.url.path == '/3/search/tv'),
+        hasLength(1),
+      );
+    });
+
+    test('no TMDB match: untitled, credited to AniList alone', () async {
+      final anilist = source(tmdbHits: const []);
+      final episodes = await anilist.seasonEpisodes('anilist:154587', 2);
+      expect(episodes, hasLength(10));
+      expect(episodes!.every((e) => e.title == null), isTrue);
+      expect(anilist.episodesProvider('anilist:154587'), 'AniList');
+      expect(links.links[154587]?.tmdbChecked, isNotNull);
     });
 
     test('a season not out yet has none; one past the chain neither', () async {
@@ -396,11 +558,7 @@ void main() {
       'an old TMDB link offers TMDB\'s split and AniList\'s, once',
       () async {
         final anilist = source();
-        await links.write(154587, (
-          tmdb: 'tmdb:tv:209867',
-          kind: EntryKind.series,
-          checked: DateTime(2026, 10, 20),
-        ));
+        await links.write(154587, oldLink);
         final split = await anilist.resplit('anilist:154587');
         expect(split!.before, const [
           SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
@@ -413,7 +571,9 @@ void main() {
         expect(tmdbCalls().single.url.path, '/3/tv/209867');
 
         await anilist.resplitSettled('anilist:154587');
-        expect(links.links[154587]?.tmdb, isNull);
+        // The link stays, for the titles; the re-split is done.
+        expect(links.links[154587]?.tmdb, 'tmdb:tv:209867');
+        expect(links.links[154587]?.resplit, isFalse);
         expect(links.links[154587]?.kind, EntryKind.series);
         expect(await anilist.resplit('anilist:154587'), isNull);
       },
@@ -423,11 +583,7 @@ void main() {
       var anilist = source();
       expect(await anilist.resplit('anilist:154587'), isNull);
       anilist = source(withTmdb: false);
-      await links.write(154587, (
-        tmdb: 'tmdb:tv:209867',
-        kind: EntryKind.series,
-        checked: DateTime(2026, 10, 20),
-      ));
+      await links.write(154587, oldLink);
       expect(await anilist.resplit('anilist:154587'), isNull);
       expect(tmdbCalls(), isEmpty);
     });

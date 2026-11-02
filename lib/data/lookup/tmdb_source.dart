@@ -451,6 +451,54 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
     ];
   }
 
+  /// Seasons' episodes read this session, by show id and season number,
+  /// for [episodesFrom].
+  final _seasonEpisodeCache = <(String, int), List<EpisodeInfo>>{};
+
+  /// [count] episodes of the show with [source] in air order, from the one
+  /// that aired on [start] (give or take a day, for time zones) on,
+  /// across its seasons: how an anime season from AniList finds its
+  /// episodes on a TMDB show that splits it otherwise (Frieren's season 2
+  /// is TMDB's season 1, episodes 29 to 38). The search starts at the
+  /// last season out by [start] and reads at most three seasons. Null when
+  /// no episode aired on that day; fewer than [count] when TMDB has fewer.
+  Future<List<EpisodeInfo>?> episodesFrom(
+    String source,
+    Released start,
+    int count,
+  ) async {
+    final (kind, id) = _parse(source);
+    if (kind != 'tv') return null;
+    final day = start.availableFrom;
+    final seasons = _seasons(await _get('tv/$id'))
+      ..sort((a, b) => a.season.compareTo(b.season));
+    var first = 0;
+    for (final (i, s) in seasons.indexed) {
+      final from = s.released?.availableFrom;
+      if (from != null && !from.isAfter(day.add(const Duration(days: 1)))) {
+        first = i;
+      }
+    }
+    final read = <EpisodeInfo>[];
+    int? at;
+    for (final s in seasons.skip(first).take(3)) {
+      final key = (id, s.season);
+      read.addAll(
+        _seasonEpisodeCache[key] ??=
+            await seasonEpisodes(source, s.season) ?? const [],
+      );
+      at ??= read.indexWhere((e) {
+        final aired = e.aired;
+        if (aired == null || aired.day == null) return false;
+        return aired.availableFrom.difference(day).inDays.abs() <= 1;
+      });
+      if (at == -1) at = null;
+      if (at != null && read.length - at >= count) break;
+    }
+    if (at == null) return null;
+    return read.sublist(at, (at + count).clamp(at, read.length));
+  }
+
   /// One episode as TMDB lists it, numbered [number]. TMDB names an
   /// episode without a title "Episode 5"; that counts as no title.
   static EpisodeInfo _episode(Map<String, Object?> e, int number) => (

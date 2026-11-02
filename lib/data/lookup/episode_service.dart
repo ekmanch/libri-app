@@ -8,8 +8,8 @@ import 'lookup_failure.dart';
 import 'lookup_service.dart';
 
 /// A season's episodes, whether they came from the phone, and the name of
-/// the provider they came from, for the credit under them ("TMDB", or
-/// "AniList" for an anime series).
+/// the providers they came from, for the credit under them ("TMDB", or
+/// "TMDB and AniList" for an anime series).
 class SeasonEpisodes {
   const SeasonEpisodes(
     this.episodes, {
@@ -113,14 +113,15 @@ class EpisodeService {
       if (stored == null) yield null;
       return;
     }
+    final provider = lookup.episodesProvider(source);
     await store.write(
       source,
       season,
       episodes,
       fetched: now,
-      provider: lookup.name,
+      provider: provider,
     );
-    yield SeasonEpisodes(episodes, fromCache: false, provider: lookup.name);
+    yield SeasonEpisodes(episodes, fromCache: false, provider: provider);
   }
 
   /// The id the episodes of [source] are read under. A lookup that cannot

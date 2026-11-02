@@ -28,9 +28,11 @@ import 'tmdb_source.dart';
 /// AniList has it. The episodes are "Episode N" with their air dates from
 /// AniList's airing schedule.
 ///
-/// TMDB ([tmdb]) is asked only for an anime whose seasons came from the TMDB
-/// show it was matched to before (an old link in [links]): once, so the daily
-/// check can re-split them ([resplit]).
+/// TMDB ([tmdb]) gives the episodes their titles: the series' first entry
+/// is matched to a TMDB show, kept in [links], and each season's episodes
+/// are found there by air date ([seasonEpisodes]). The daily check also
+/// reads an old link's split once, for an anime whose seasons came from
+/// TMDB before ([resplit]).
 ///
 /// AniList allows about 30 requests a minute, hence the gap.
 class AniListSource extends HttpLookupSource {
@@ -80,11 +82,28 @@ class AniListSource extends HttpLookupSource {
       countryOfOrigin
       genres''';
 
+  /// The search, each hit with its prequels two deep (ids and formats
+  /// only), so later seasons fold into the first ([_search]).
   static const _searchQuery =
       '''
 query (\$search: String, \$perPage: Int) {
   Page(perPage: \$perPage) {
     media(search: \$search, type: ANIME, sort: SEARCH_MATCH) {
+$_fields
+      relations { edges { relationType node { id format
+        relations { edges { relationType node { id format } } }
+      } } }
+    }
+  }
+}''';
+
+  /// The first entries of series whose later seasons a search found
+  /// without them.
+  static const _byIdsQuery =
+      '''
+query (\$ids: [Int], \$perPage: Int) {
+  Page(perPage: \$perPage) {
+    media(id_in: \$ids, type: ANIME) {
 $_fields
     }
   }
@@ -226,13 +245,74 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     );
   }
 
+  /// The series prequel of an entry as the search lists it (a season
+  /// before it, not a movie it follows), or null.
+  static Map<String, Object?>? _prequel(Map<String, Object?> media) {
+    final relations = media['relations'];
+    if (relations is! Map<String, Object?>) return null;
+    for (final edge in objectsAt(relations, 'edges')) {
+      final node = edge['node'];
+      if (edge['relationType'] == 'PREQUEL' &&
+          node is Map<String, Object?> &&
+          node['id'] is num &&
+          _rank(stringAt(node, 'format')) < 3) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  /// The id of the first season of the series a hit is a later season of
+  /// (as far back as the search's two levels of prequels reach), or null
+  /// for a hit that is no later season.
+  static int? _firstSeasonOf(Map<String, Object?> media) {
+    if (kindOf(stringAt(media, 'format')) != EntryKind.series) return null;
+    int? first;
+    Map<String, Object?>? current = media;
+    for (var depth = 0; depth < 2 && current != null; depth++) {
+      current = _prequel(current);
+      if (current != null) first = (current['id'] as num).toInt();
+    }
+    return first;
+  }
+
+  /// A series is one entry with seasons, so a hit that is a later season
+  /// (Frieren's "2nd Season", "3rd Season") is folded into the first one:
+  /// listed once, where the first of them stood. A first season the search
+  /// did not find is fetched by id.
   Future<List<LookupMatch>> _search(String query, {int limit = 10}) async {
     final data = await _query(_searchQuery, {
       'search': query,
       'perPage': limit,
     });
     final page = data['Page'] as Map<String, Object?>? ?? const {};
-    return [for (final media in objectsAt(page, 'media')) ?_match(media)];
+    final hits = <int, Map<String, Object?>>{};
+    final order = <int>[];
+    for (final media in objectsAt(page, 'media')) {
+      final id = media['id'];
+      if (id is! num) continue;
+      hits[id.toInt()] = media;
+      final shown = _firstSeasonOf(media) ?? id.toInt();
+      if (!order.contains(shown)) order.add(shown);
+    }
+    final missing = [
+      for (final id in order)
+        if (!hits.containsKey(id)) id,
+    ];
+    if (missing.isNotEmpty) {
+      final found = await _query(_byIdsQuery, {
+        'ids': missing,
+        'perPage': missing.length,
+      });
+      final more = found['Page'] as Map<String, Object?>? ?? const {};
+      for (final media in objectsAt(more, 'media')) {
+        if (media['id'] case final num id) hits[id.toInt()] = media;
+      }
+    }
+    return [
+      for (final id in order)
+        if (hits[id] case final media?) ?_match(media),
+    ];
   }
 
   @override
@@ -414,9 +494,9 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
 
   bool get _tmdbReady => tmdb?.isConfigured ?? false;
 
-  /// The anime's kind (and any old TMDB link), from the store when it was
-  /// answered before, else from AniList now. A kind AniList cannot say yet
-  /// is asked again after [retryAfter].
+  /// The anime's kind, from the store when it was answered before, else
+  /// from AniList now. A kind AniList cannot say yet is asked again after
+  /// [retryAfter].
   Future<AnimeLink> _link(int id) async {
     final now = DateTime.now();
     final stored = await links.read(id);
@@ -430,12 +510,55 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
       orElse: () => chain.first,
     );
     final AnimeLink link = (
-      tmdb: stored?.tmdb,
       kind: kindOf(entry.format),
       checked: now,
+      tmdb: stored?.tmdb,
+      tmdbChecked: stored?.tmdbChecked,
+      resplit: stored?.resplit ?? false,
     );
     await links.write(id, link);
     return link;
+  }
+
+  /// How long a "no TMDB match" is believed before TMDB is asked again.
+  static const tmdbRetryAfter = Duration(days: 14);
+
+  /// The TMDB show the anime's episode titles come from: the series' first
+  /// entry looked for by its English, then romaji title and its year. A
+  /// match is kept for good and a miss for [tmdbRetryAfter]; nothing is
+  /// kept when TMDB did not answer. Null without TMDB in the build.
+  Future<String?> _tmdbMatch(int id) async {
+    if (!_tmdbReady) return null;
+    final now = DateTime.now();
+    final stored = await links.read(id);
+    if (stored?.tmdb case final linked?) return linked;
+    if (stored?.tmdbChecked case final asked?
+        when now.difference(asked) < tmdbRetryAfter) {
+      return null;
+    }
+    final chain = await _chain(id);
+    final root = chain.first;
+    LookupMatch? hit;
+    for (final title in {?root.english, ?root.romaji}) {
+      hit = await tmdb!.match(
+        title,
+        type: MediaType.shows,
+        year: root.start?.year,
+      );
+      if (hit != null) break;
+    }
+    final entry = chain.firstWhere(
+      (n) => n.id == id,
+      orElse: () => chain.first,
+    );
+    await links.write(id, (
+      kind: stored?.kind ?? kindOf(entry.format),
+      checked: stored?.checked ?? now,
+      tmdb: hit?.source,
+      tmdbChecked: now,
+      resplit: stored?.resplit ?? false,
+    ));
+    return hit?.source;
   }
 
   /// A series' seasons, one per season entry of its AniList chain
@@ -458,12 +581,14 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
 
   /// For an anime whose seasons came from a TMDB show before: that show's
   /// split, with each season's episode count, and the chain's. Null when
-  /// it has no old link, or TMDB cannot be asked in this build.
+  /// it has nothing waiting to be re-split, or TMDB cannot be asked in this
+  /// build.
   @override
   Future<SeasonResplit?> resplit(String source) async {
     final id = _parse(source);
-    final old = (await links.read(id))?.tmdb;
-    if (old == null || !_tmdbReady) return null;
+    final stored = await links.read(id);
+    final old = stored?.tmdb;
+    if (old == null || stored?.resplit != true || !_tmdbReady) return null;
     final before = await tmdb!.seasonSpans(old);
     if (before == null) return null;
     final chain = await _chain(id);
@@ -480,31 +605,49 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     );
   }
 
-  /// Forgets the old TMDB link: the seasons are AniList's from now on.
+  /// Marks the re-split done: the seasons are AniList's from now on. The
+  /// TMDB link stays, for the episode titles.
   @override
   Future<void> resplitSettled(String source) async {
     final id = _parse(source);
     final stored = await links.read(id);
-    if (stored == null || stored.tmdb == null) return;
+    if (stored == null || !stored.resplit) return;
     await links.write(id, (
-      tmdb: null,
       kind: stored.kind,
       checked: stored.checked,
+      tmdb: stored.tmdb,
+      tmdbChecked: stored.tmdbChecked,
+      resplit: false,
     ));
   }
 
-  /// The episodes of the [season]th entry of the chain: "Episode N" (no
-  /// titles) with the air dates of AniList's airing schedule, and the
-  /// entry's episode length. A finished entry's episodes without a
-  /// scheduled date are all dated the entry's start, so they count as out;
-  /// an unfinished one's are undated until scheduled.
+  /// Who the episodes of each anime came from, by source, as last read.
+  final _episodesCredit = <String, String>{};
+
+  /// "TMDB and AniList" when the last episodes read for [source] had titles
+  /// from TMDB, else "AniList".
+  @override
+  String episodesProvider(String source) => _episodesCredit[source] ?? name;
+
+  /// The episodes of the [season]th entry of the chain, as many as AniList
+  /// counts, dated by AniList's airing schedule. Their titles (and lengths,
+  /// and dates the schedule lacks) come from the TMDB show the series
+  /// matched ([_tmdbMatch]): its episode that aired on the entry's start
+  /// day, give or take one, and those after it, across TMDB's seasons
+  /// ([TmdbSource.episodesFrom]), so TMDB's one season of 38 gives
+  /// Frieren's season 2 its episodes 29 to 38. Without a match, or with
+  /// no TMDB episode on that day, they are "Episode N" with the entry's
+  /// episode length. A finished entry's episodes without any date are
+  /// dated the entry's start, so they count as out; an unfinished one's
+  /// are undated until scheduled.
   @override
   Future<List<EpisodeInfo>?> seasonEpisodes(
     String source,
     int season, {
     bool anime = false,
   }) async {
-    final chain = await _chain(_parse(source));
+    final id = _parse(source);
+    final chain = await _chain(id);
     final entries = seasonEntries(chain);
     if (season < 1 || season > entries.length) return const [];
     final node = entries[season - 1];
@@ -536,16 +679,41 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     final count =
         node.episodes ??
         (schedule.isEmpty ? 0 : schedule.keys.reduce((a, b) => a > b ? a : b));
+    final titled = await _tmdbEpisodes(id, node, count);
+    _episodesCredit[source] = titled.any((e) => e.title != null)
+        ? '${tmdb!.name} and $name'
+        : name;
     final finished = node.status == 'FINISHED' ? node.start : null;
     return [
       for (var n = 1; n <= count; n++)
         (
           number: n,
-          title: null,
-          aired: schedule[n] ?? finished,
-          runtime: node.duration,
+          title: titled.elementAtOrNull(n - 1)?.title,
+          aired:
+              schedule[n] ?? titled.elementAtOrNull(n - 1)?.aired ?? finished,
+          runtime: titled.elementAtOrNull(n - 1)?.runtime ?? node.duration,
         ),
     ];
+  }
+
+  /// TMDB's episodes for the chain entry [node], [count] of them from the
+  /// one that aired on its start day; empty when there is no match or no
+  /// such episode, or TMDB cannot answer now (the titles are a bonus: the
+  /// episodes still come from AniList).
+  Future<List<EpisodeInfo>> _tmdbEpisodes(
+    int id,
+    AniNode node,
+    int count,
+  ) async {
+    final start = node.start;
+    if (count == 0 || start == null || start.day == null) return const [];
+    try {
+      final linked = await _tmdbMatch(id);
+      if (linked == null) return const [];
+      return await tmdb!.episodesFrom(linked, start, count) ?? const [];
+    } on LookupException {
+      return const [];
+    }
   }
 
   /// The entry's start date as AniList has it now, for the daily check of
