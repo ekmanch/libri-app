@@ -93,13 +93,16 @@ typedef SeasonCheckResult = ({
 });
 
 /// The daily check (DESIGN.md 10c). Once a day it asks the lookup about
-/// every show linked to TMDB, and every anime linked to AniList that is not
-/// a movie, that is not DNF, and once about any such entry without seasons
-/// whatever its status:
+/// every show linked to TMDB, and every anime linked to AniList (or, with
+/// no AniList id, to a TMDB show) that is not a movie, that is not DNF, and
+/// once about any such entry without seasons whatever its status:
 ///
 /// - An anime stored without a kind learns it from the lookup: a movie is
 ///   marked so and left alone from then on; a series is marked so and gets
 ///   its seasons like a show.
+/// - An anime whose seasons came from the TMDB show it was matched to
+///   before has them re-split as AniList's chain splits them, once, the
+///   statuses carried over by episode range ([ResplitSeasons]).
 /// - Seasons numbered above the show's highest that have a date are added,
 ///   marked New on a show that had seasons; a show that had none gets them
 ///   quietly, its own date dropped and its status carried over.
@@ -127,14 +130,15 @@ class SeasonCheck {
   );
 
   /// Whether the check asks the lookup about [entry]: a show linked to
-  /// TMDB, or an anime linked to AniList that is not a movie (a series, or
-  /// one whose kind is not known yet).
+  /// TMDB, or an anime linked to AniList or a TMDB show that is not a movie
+  /// (a series, or one whose kind is not known yet).
   static bool isAsked(Entry entry) {
     final source = entry.source ?? '';
     final linked = switch (entry.type) {
       MediaType.shows => source.startsWith('tmdb:tv:'),
       MediaType.anime =>
-        entry.kind != EntryKind.movie && source.startsWith('anilist:'),
+        entry.kind != EntryKind.movie &&
+            (source.startsWith('anilist:') || source.startsWith('tmdb:tv:')),
       _ => false,
     };
     return linked &&
@@ -182,9 +186,14 @@ class SeasonCheck {
         }
         final source = lookups.sourceOf(show.source!);
         if (source == null || !source.isConfigured) continue;
+        final anime = show.type == MediaType.anime;
         final ShowSeasons? fetched;
+        SeasonResplit? split;
         try {
-          fetched = await source.seasons(show.source!);
+          fetched = await source.seasons(show.source!, anime: anime);
+          if (anime && fetched != null) {
+            split = await source.resplit(show.source!);
+          }
         } on LookupException catch (e) {
           if (e.failure == LookupFailure.offline ||
               e.failure == LookupFailure.rateLimited) {
@@ -203,11 +212,22 @@ class SeasonCheck {
         if (fetched == null) continue;
         // An anime stored without a kind: the lookup's. A movie has no
         // seasons to add; a series goes on like a show.
-        if (show.type == MediaType.anime && show.kind == null) {
+        if (anime && show.kind == null) {
           final kind = fetched.kind;
           if (kind == null) continue;
           operations.add(SetKind(show.id, kind));
           if (kind == EntryKind.movie) continue;
+        }
+        // Seasons split as TMDB had them: split as AniList does, once. The
+        // next check adds and redates as usual.
+        if (split != null) {
+          await source.resplitSettled(show.source!);
+          final resplit = ResplitSeasons(show.id, split.before, split.after);
+          if (resplit.appliesTo(show)) {
+            operations.add(resplit);
+            touched.add(show.id);
+            continue;
+          }
         }
         final existing = show.seasons ?? const <Season>[];
         final highest = existing.isEmpty ? 0 : existing.last.season;

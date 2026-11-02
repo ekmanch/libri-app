@@ -6,6 +6,8 @@ import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/season_span.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/operations/operations.dart';
 
 import '../../helpers/sample_library.dart';
@@ -456,11 +458,156 @@ void main() {
       AddSeasons(wednesday.id, const [
         Season(season: 3, released: Released(2026, 10), fresh: true),
       ]),
+      ResplitSeasons(
+        wednesday.id,
+        const [SeasonSpan(season: 1, episodes: 10)],
+        const [
+          SeasonSpan(season: 1, episodes: 5, released: Released(2022)),
+          SeasonSpan(season: 2, released: Released(2027, 10)),
+        ],
+      ),
     ]) {
       final decoded =
           decodeOperation(encodeOperation(operation)) as LibraryOperation;
       expect(decoded.apply(library), operation.apply(library));
       expect(decoded.summary(library), operation.summary(library));
     }
+  });
+
+  group('ResplitSeasons', () {
+    Entry frieren(List<Season> seasons) => Entry(
+      id: 'anime/frieren-2023',
+      type: MediaType.anime,
+      kind: EntryKind.series,
+      title: 'Frieren',
+      status: Season.showStatus(seasons, today),
+      added: DateTime(2026, 1, 2),
+      source: 'anilist:154587',
+      seasons: seasons,
+    );
+
+    Library withAnime(Entry anime) {
+      final library = sampleLibrary();
+      return library.copyWith(entries: [...library.entries, anime]);
+    }
+
+    // TMDB's one season of 38 episodes; AniList's 28, 10 and one to come.
+    const tmdb = [
+      SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+    ];
+    const anilist = [
+      SeasonSpan(season: 1, episodes: 28, released: Released(2023, 9, 29)),
+      SeasonSpan(season: 2, episodes: 10, released: Released(2026, 1, 16)),
+      SeasonSpan(season: 3, released: Released(2027, 10)),
+    ];
+    final op = ResplitSeasons('anime/frieren-2023', tmdb, anilist);
+
+    List<Season> after(Library library) =>
+        library.entryById('anime/frieren-2023')!.seasons!;
+
+    test('a season split in two gives its status to both halves', () {
+      final library = withAnime(
+        frieren(const [
+          Season(
+            season: 1,
+            released: Released(2023, 9, 29),
+            status: EntryStatus.done,
+          ),
+        ]),
+      );
+      final split = op.apply(library);
+      expect(after(split), const [
+        Season(
+          season: 1,
+          released: Released(2023, 9, 29),
+          status: EntryStatus.done,
+        ),
+        Season(
+          season: 2,
+          released: Released(2026, 1, 16),
+          status: EntryStatus.done,
+        ),
+        // Beyond the old episodes: no status, marked new, out in 2027.
+        Season(season: 3, released: Released(2027, 10), fresh: true),
+      ]);
+      expect(split.entryById('anime/frieren-2023')!.status, EntryStatus.done);
+      // Applied again (after a sync conflict): the split is no longer the
+      // old one, so nothing changes.
+      expect(op.apply(split), split);
+    });
+
+    test('seasons merged into one combine their statuses', () {
+      const before = [
+        SeasonSpan(season: 1, episodes: 12),
+        SeasonSpan(season: 2, episodes: 12),
+      ];
+      const merged = [SeasonSpan(season: 1, episodes: 24)];
+      final library = withAnime(
+        frieren(const [
+          Season(season: 1, released: Released(2020), status: EntryStatus.done),
+          Season(season: 2, released: Released(2021), status: EntryStatus.want),
+        ]),
+      );
+      final split = ResplitSeasons(
+        'anime/frieren-2023',
+        before,
+        merged,
+      ).apply(library);
+      expect(after(split), const [
+        Season(season: 1, status: EntryStatus.inProgress),
+      ]);
+    });
+
+    test('manual seasons stay, and keep their number', () {
+      final library = withAnime(
+        frieren(const [
+          Season(
+            season: 1,
+            released: Released(2023, 9, 29),
+            status: EntryStatus.inProgress,
+          ),
+          Season(season: 2, released: Released(2026), manual: true),
+        ]),
+      );
+      expect(after(op.apply(library)), const [
+        Season(
+          season: 1,
+          released: Released(2023, 9, 29),
+          status: EntryStatus.inProgress,
+        ),
+        Season(season: 2, released: Released(2026), manual: true),
+        Season(season: 3, released: Released(2027, 10), fresh: true),
+      ]);
+    });
+
+    test('seasons no longer the old split are left alone', () {
+      // Two seasons already, where TMDB had one: edited, or split before.
+      final library = withAnime(
+        frieren(const [
+          Season(season: 1, released: Released(2023), status: EntryStatus.done),
+          Season(season: 2, released: Released(2026)),
+        ]),
+      );
+      expect(op.appliesTo(library.entryById('anime/frieren-2023')!), isFalse);
+      expect(op.apply(library), library);
+    });
+
+    test('the same split is no re-split', () {
+      final same = ResplitSeasons('anime/frieren-2023', tmdb, const [
+        SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+      ]);
+      final library = withAnime(
+        frieren(const [Season(season: 1, released: Released(2023))]),
+      );
+      expect(same.appliesTo(library.entryById('anime/frieren-2023')!), isFalse);
+    });
+
+    test('ranges count from 1 and stop at an unknown count', () {
+      expect(ResplitSeasons.ranges(anilist), {
+        1: (1, 28),
+        2: (29, 38),
+        3: (39, null),
+      });
+    });
   });
 }

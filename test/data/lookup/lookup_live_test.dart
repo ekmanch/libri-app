@@ -241,37 +241,25 @@ void main() {
     expect(parts.parts[1].title, contains('Two Towers'));
   }, skip: tmdbToken.isEmpty ? 'Set TMDB_READ_TOKEN.' : false);
 
-  test(
-    'AniList: an anime series gets seasons, from TMDB when matched',
-    () async {
-      final tmdb = TmdbSource(client, token: tmdbToken);
-      final anilist = AniListSource(
-        client,
-        tmdb: tmdbToken.isEmpty ? null : tmdb,
-      );
-      final hits = await anilist.search('Frieren', type: MediaType.anime);
-      final frieren = hits.firstWhere((m) => m.source == 'anilist:154587');
-      expect(frieren.kind, EntryKind.series);
-      final full = await anilist.details(frieren);
-      expect(full.seasons.length, greaterThanOrEqualTo(2));
-      expect(full.seasons.first.released?.year, 2023);
-      final seasonSource = await anilist.seasonSource(frieren.source);
-      if (tmdbToken.isNotEmpty) {
-        expect(seasonSource, startsWith('tmdb:tv:'));
-        final episodes = await tmdb.seasonEpisodes(seasonSource, 1);
-        expect(episodes, isNotEmpty);
-      } else {
-        expect(seasonSource, frieren.source);
-      }
-      // The chain itself, whatever TMDB says: season 1 is 28 episodes.
-      final chain = await anilist.seasonEpisodes(frieren.source, 1);
-      expect(chain, hasLength(28));
-      expect(chain!.first.aired?.year, 2023);
-      final akira = await anilist.seasons('anilist:47');
-      expect(akira!.kind, EntryKind.movie);
-      expect(akira.seasons, isEmpty);
-    },
-  );
+  test('AniList: an anime series gets its seasons from the chain', () async {
+    final anilist = AniListSource(client);
+    final hits = await anilist.search('Frieren', type: MediaType.anime);
+    final frieren = hits.firstWhere((m) => m.source == 'anilist:154587');
+    expect(frieren.kind, EntryKind.series);
+    final full = await anilist.details(frieren);
+    // Season 1 (2023), season 2 (2026), and season 3 once announced.
+    expect(full.seasons.length, greaterThanOrEqualTo(2));
+    expect(full.seasons.first.released?.year, 2023);
+    expect(full.seasons[1].released?.year, 2026);
+    expect(await anilist.seasonSource(frieren.source), frieren.source);
+    final first = await anilist.seasonEpisodes(frieren.source, 1);
+    expect(first, hasLength(28));
+    expect(first!.first.aired?.year, 2023);
+    expect(await anilist.seasonEpisodes(frieren.source, 2), hasLength(10));
+    final akira = await anilist.seasons('anilist:47');
+    expect(akira!.kind, EntryKind.movie);
+    expect(akira.seasons, isEmpty);
+  });
 
   test('Wikidata: a book\'s series and its parts', () async {
     final wikidata = WikidataSeries(client);

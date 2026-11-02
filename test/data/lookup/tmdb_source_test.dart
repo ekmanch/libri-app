@@ -9,6 +9,8 @@ import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/movie_dates.dart';
 import 'package:library_app/data/lookup/tmdb_source.dart';
 import 'package:library_app/data/models/media_type.dart';
+import 'package:library_app/data/models/entry_kind.dart';
+import 'package:library_app/data/models/season_span.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
@@ -296,6 +298,116 @@ void main() {
     expect([for (final s in seasons!.seasons) s.season], [1, 2, 3, 4]);
     expect(seasons.canceled, isFalse);
     expect(await tmdb.seasons('tmdb:movie:564'), isNull);
+  });
+
+  group('an anime with only a TMDB id', () {
+    Map<String, Object?> episode(int order, String aired, String name) => {
+      'order': order,
+      'air_date': aired,
+      'name': name,
+      'runtime': 24,
+    };
+
+    /// One plain season of 38; a Story arc group (never a split), and a
+    /// "Seasons" group that splits it in two, its groups out of order.
+    Future<http.Response> handler(
+      http.Request request,
+    ) async => switch (request.url.path) {
+      '/3/tv/7' => json(200, {
+        'status': 'Returning Series',
+        'seasons': [
+          {'season_number': 0, 'air_date': '2023-10-01', 'episode_count': 4},
+          {'season_number': 1, 'air_date': '2023-09-29', 'episode_count': 38},
+        ],
+      }),
+      '/3/tv/7/episode_groups' => json(200, {
+        'results': [
+          {'id': 'arcs', 'name': 'Arcs', 'type': 5, 'group_count': 6},
+          {'id': 'tv', 'name': 'Seasons', 'type': 7, 'group_count': 3},
+        ],
+      }),
+      '/3/tv/episode_group/tv' => json(200, {
+        'groups': [
+          {
+            'name': 'Season 2',
+            'order': 2,
+            'episodes': [
+              episode(1, '2026-01-23', 'Episode 2'),
+              episode(0, '2026-01-16', 'The Journey North'),
+            ],
+          },
+          {
+            'name': 'Specials',
+            'order': 0,
+            'episodes': [episode(0, '2023-10-01', 'Recap')],
+          },
+          {
+            'name': 'Season 1',
+            'order': 1,
+            'episodes': [episode(0, '2023-09-29', 'The Journey\'s End')],
+          },
+        ],
+      }),
+      _ => json(404, {'status_message': 'not found'}),
+    };
+
+    test('the seasons come from an episode group that splits it', () async {
+      final tmdb = source(handler);
+      final found = await tmdb.seasons('tmdb:tv:7', anime: true);
+      expect(found!.seasons, const [
+        Season(season: 1, released: Released(2023, 9, 29)),
+        Season(season: 2, released: Released(2026, 1, 16)),
+      ]);
+      expect(found.kind, EntryKind.series);
+      // A show keeps the plain list.
+      final show = await tmdb.seasons('tmdb:tv:7');
+      expect(show!.seasons, const [
+        Season(season: 1, released: Released(2023, 9, 29)),
+      ]);
+      expect(show.kind, isNull);
+    });
+
+    test('the episodes too, numbered from 1 in the group\'s order', () async {
+      final tmdb = source(handler);
+      final episodes = await tmdb.seasonEpisodes('tmdb:tv:7', 2, anime: true);
+      expect(episodes, const [
+        (
+          number: 1,
+          title: 'The Journey North',
+          aired: Released(2026, 1, 16),
+          runtime: 24,
+        ),
+        (number: 2, title: null, aired: Released(2026, 1, 23), runtime: 24),
+      ]);
+      expect(await tmdb.seasonEpisodes('tmdb:tv:7', 3, anime: true), isEmpty);
+    });
+
+    test('without a group that splits it, the plain list', () async {
+      final tmdb = source(
+        (request) async => request.url.path == '/3/tv/7/episode_groups'
+            ? json(200, {
+                'results': [
+                  {
+                    'id': 'abs',
+                    'name': 'Absolute',
+                    'type': 2,
+                    'group_count': 3,
+                  },
+                ],
+              })
+            : handler(request),
+      );
+      final found = await tmdb.seasons('tmdb:tv:7', anime: true);
+      expect(found!.seasons, hasLength(1));
+      expect(sent.any((r) => r.url.path.contains('episode_group/')), isFalse);
+    });
+
+    test('season spans carry the episode counts, specials left out', () async {
+      final tmdb = source(handler);
+      expect(await tmdb.seasonSpans('tmdb:tv:7'), const [
+        SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+      ]);
+    });
   });
 
   test('a show TMDB marks Canceled says so', () async {

@@ -49,8 +49,8 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
   }
   final client = ref.watch(httpClientProvider);
   final cache = ref.watch(appCacheDirectoryProvider);
-  // An anime series' seasons and episodes come from TMDB when it has a
-  // match there (Show & seasons › Anime with seasons (Frieren)).
+  // AniList reads an anime's old TMDB split once, to re-split its seasons
+  // as AniList's chain does (section 10c).
   final tmdb = TmdbSource(client, token: LookupKeys.tmdbReadToken);
   return [
     IgdbSource(

@@ -5,8 +5,10 @@ import '../storage/json_file.dart';
 
 /// What Libri learned about an anime from AniList, kept on the phone so the
 /// daily check and the season screen need not ask again: its kind (series
-/// or movie), the TMDB show its seasons come from when one was found, and
-/// when it was last checked. Never in `library.json`.
+/// or movie) and when it was last checked. [tmdb] is the TMDB show an anime's
+/// seasons came from before they came from AniList's chain (a link written
+/// by an older build); the daily check reads that show's split once to
+/// carry the statuses over, then clears it. Never in `library.json`.
 typedef AnimeLink = ({String? tmdb, EntryKind? kind, DateTime checked});
 
 abstract class AnimeLinkStore {

@@ -1,5 +1,6 @@
 import '../images/artwork_resolver.dart';
 import '../models/entry.dart';
+import '../models/media_type.dart';
 import '../models/season.dart';
 import 'episode_info.dart';
 import 'episode_store.dart';
@@ -8,7 +9,7 @@ import 'lookup_service.dart';
 
 /// A season's episodes, whether they came from the phone, and the name of
 /// the provider they came from, for the credit under them ("TMDB", or
-/// "AniList" for an anime series TMDB has no match for).
+/// "AniList" for an anime series).
 class SeasonEpisodes {
   const SeasonEpisodes(
     this.episodes, {
@@ -25,9 +26,8 @@ class SeasonEpisodes {
 /// and Season episodes (airing weekly)), fetched when the season screen opens
 /// and kept on the phone. Stored episodes show at once; they are fetched again
 /// behind them unless [isSettled]. The show is known by its `source`, or by the
-/// id the artwork resolver matched it to on the phone; an anime series' episodes
-/// are read under the TMDB show it was matched to, when it has one
-/// ([LookupSource.seasonSource]). Opening a season writes nothing to the
+/// id the artwork resolver matched it to on the phone, under the id the
+/// provider keeps them by ([LookupSource.seasonSource]). Opening a season writes nothing to the
 /// library, and the daily season check never comes here.
 class EpisodeService {
   EpisodeService({
@@ -79,8 +79,6 @@ class EpisodeService {
       yield null;
       return;
     }
-    // An anime series matched to a TMDB show reads its episodes there; the
-    // match is kept on the phone, so this costs nothing the second time.
     final source = await _seasonSource(own);
     final stored = await store.read(source, season);
     if (stored != null) {
@@ -101,7 +99,11 @@ class EpisodeService {
       if (!lookup.isConfigured) {
         throw const LookupException(LookupFailure.notConfigured);
       }
-      episodes = await lookup.seasonEpisodes(source, season);
+      episodes = await lookup.seasonEpisodes(
+        source,
+        season,
+        anime: show.type == MediaType.anime,
+      );
     } on LookupException {
       // The stored list stays on screen.
       if (stored == null) rethrow;
@@ -133,8 +135,8 @@ class EpisodeService {
     }
   }
 
-  /// Drops the episodes of shows that are gone. An anime's episodes may be
-  /// stored under its TMDB match, which is kept too.
+  /// Drops the episodes of shows that are gone, and those stored under an
+  /// id the show no longer reads them by (an anime's old TMDB match).
   Future<void> prune(Iterable<Entry> shows) async {
     final keep = <String>{};
     for (final show in shows) {

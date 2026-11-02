@@ -96,3 +96,21 @@ Map<String, dynamic> _$SetSeasonDatesToJson(SetSeasonDates instance) =>
       'entryId': instance.entryId,
       'dates': instance.dates.map((e) => e.toJson()).toList(),
     };
+
+ResplitSeasons _$ResplitSeasonsFromJson(Map<String, dynamic> json) =>
+    ResplitSeasons(
+      json['entryId'] as String,
+      (json['before'] as List<dynamic>)
+          .map((e) => SeasonSpan.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      (json['after'] as List<dynamic>)
+          .map((e) => SeasonSpan.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$ResplitSeasonsToJson(ResplitSeasons instance) =>
+    <String, dynamic>{
+      'entryId': instance.entryId,
+      'before': instance.before.map((e) => e.toJson()).toList(),
+      'after': instance.after.map((e) => e.toJson()).toList(),
+    };

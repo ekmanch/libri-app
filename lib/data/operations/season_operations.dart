@@ -5,6 +5,7 @@ import '../models/entry_status.dart';
 import '../models/library.dart';
 import '../models/media_type.dart';
 import '../models/season.dart';
+import '../models/season_span.dart';
 import 'library_operation.dart';
 
 part 'season_operations.g.dart';
@@ -412,4 +413,129 @@ class SetSeasonDates extends LibraryOperation {
   @override
   String summary(Library before) =>
       'Update the season dates of ${_title(before, entryId)}';
+}
+
+/// Re-splits an anime series' seasons (the daily check, once, for an anime
+/// whose seasons came from the TMDB show it was matched to before they came
+/// from AniList's chain): Frieren's one TMDB season of 38 episodes becomes
+/// AniList's season 1 (episodes 1–28) and season 2 (29–38). [before] is
+/// the old split and [after] the new one, each season with its episode
+/// count. A new season takes the status of the old seasons its episodes
+/// overlap (one status as it is; several as [Season.showStatus] combines
+/// them), and a "new" mark when one of them had it; a new season beyond the
+/// old episodes has no status and is marked new. Seasons marked manual stay
+/// as they are, and a new season with a manual one's number is left out.
+/// When the show's other seasons are no longer the old split's (the owner
+/// edited them, or the re-split was applied already), nothing changes.
+@JsonSerializable()
+class ResplitSeasons extends LibraryOperation {
+  const ResplitSeasons(this.entryId, this.before, this.after);
+
+  factory ResplitSeasons.fromJson(Map<String, Object?> json) =>
+      _$ResplitSeasonsFromJson(json);
+
+  Map<String, Object?> toJson() => _$ResplitSeasonsToJson(this);
+
+  final String entryId;
+  final List<SeasonSpan> before;
+  final List<SeasonSpan> after;
+
+  /// Each season's episodes as a range, first and last (null: open to the
+  /// end), counted from 1 over the whole show. A season after one whose
+  /// count is not known has no range.
+  static Map<int, (int, int?)> ranges(List<SeasonSpan> split) {
+    final ranges = <int, (int, int?)>{};
+    var next = 1;
+    for (final s in [...split]..sort((a, b) => a.season.compareTo(b.season))) {
+      final count = s.episodes;
+      if (count == null) {
+        ranges[s.season] = (next, null);
+        break;
+      }
+      if (count <= 0) continue;
+      ranges[s.season] = (next, next + count - 1);
+      next += count;
+    }
+    return ranges;
+  }
+
+  static bool _overlaps((int, int?) a, (int, int?) b) =>
+      (a.$2 == null || b.$1 <= a.$2!) && (b.$2 == null || a.$1 <= b.$2!);
+
+  /// Whether [show]'s seasons other than manual ones are the old split's,
+  /// and the new split is a different one.
+  bool appliesTo(Entry show) {
+    final own = {
+      for (final s in show.seasons ?? const <Season>[])
+        if (!s.isManual) s.season,
+    };
+    final old = {for (final s in before) s.season};
+    if (own.isEmpty || !old.containsAll(own)) return false;
+    final oldRanges = ranges(before);
+    final newRanges = ranges(after);
+    if (oldRanges.length != newRanges.length) return true;
+    for (final MapEntry(:key, :value) in oldRanges.entries) {
+      if (newRanges[key] != value) return true;
+    }
+    return false;
+  }
+
+  @override
+  Library apply(Library library) {
+    final show = _show(library, entryId);
+    final seasons = show?.seasons;
+    if (show == null || seasons == null || !appliesTo(show)) return library;
+    final today = seasonClock();
+    final manual = {
+      for (final s in seasons)
+        if (s.isManual) s.season: s,
+    };
+    final old = {
+      for (final s in seasons)
+        if (!s.isManual) s.season: s,
+    };
+    final oldRanges = ranges(before);
+    final newRanges = ranges(after);
+    final split = <Season>[];
+    for (final span in [
+      ...after,
+    ]..sort((a, b) => a.season.compareTo(b.season))) {
+      if (manual.containsKey(span.season)) continue;
+      final range = newRanges[span.season];
+      final overlapped = [
+        if (range != null)
+          for (final MapEntry(:key, :value) in oldRanges.entries)
+            if (old[key] case final s? when _overlaps(range, value)) s,
+      ];
+      final withStatus = [
+        for (final s in overlapped)
+          if (s.status != null) Season(season: s.season, status: s.status),
+      ];
+      final status = withStatus.isEmpty
+          ? null
+          : Season.showStatus(withStatus, today);
+      final fresh =
+          overlapped.isEmpty || overlapped.any((s) => s.fresh == true);
+      split.add(
+        Season(
+          season: span.season,
+          released: span.released,
+          status: status,
+          fresh: fresh && status == null ? true : null,
+        ),
+      );
+    }
+    // A season with neither a date nor a status waits for the lookup to
+    // date it, as when the daily check adds seasons.
+    final listed = [
+      for (final s in split)
+        if (s.released != null || s.status != null) s,
+      ...manual.values,
+    ]..sort((a, b) => a.season.compareTo(b.season));
+    return _withSeasons(library, show, listed);
+  }
+
+  @override
+  String summary(Library before) =>
+      'Split the seasons of ${_title(before, entryId)} as AniList does';
 }

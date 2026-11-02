@@ -1,7 +1,9 @@
+import '../models/entry_kind.dart';
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/follow_kind.dart';
 import '../models/season.dart';
+import '../models/season_span.dart';
 import '../models/series.dart';
 import '../upcoming/creator_lookup.dart';
 import '../upcoming/creator_status.dart';
@@ -327,25 +329,163 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
         ),
   ];
 
+  /// The episode group types a season split is taken from, most wanted
+  /// first: Production, TV, Digital, Original air date, DVD. Absolute (2)
+  /// and Story arc (5) are no split into seasons.
+  static const _groupTypes = [6, 7, 4, 1, 3];
+
+  /// The seasons of an anime's episode group by show id, each its episodes
+  /// in order; null when the show has no group that splits it into more
+  /// seasons than its plain list. Kept for the session.
+  final _animeGroups = <String, List<List<Map<String, Object?>>>?>{};
+
+  /// An anime's seasons from TMDB's episode groups (section 10c): of the
+  /// groups of the [_groupTypes], one named for seasons first, else by type;
+  /// its groups in order are the seasons, specials left out. Used only when
+  /// it has more seasons than the plain list in [show], since TMDB often
+  /// lists a long anime as one season while a group splits it as aired.
+  Future<List<List<Map<String, Object?>>>?> _groupSeasons(
+    String id,
+    Map<String, Object?> show,
+  ) async {
+    if (_animeGroups.containsKey(id)) return _animeGroups[id];
+    final plain = _seasons(show).length;
+    List<List<Map<String, Object?>>>? found;
+    final Map<String, Object?> list;
+    try {
+      list = await _get('tv/$id/episode_groups');
+    } on LookupException catch (e) {
+      if (e.status != 404) rethrow;
+      return _animeGroups[id] = null;
+    }
+    final named = RegExp(r'season', caseSensitive: false);
+    final candidates = [
+      for (final g in objectsAt(list, 'results'))
+        if (g['type'] case final num type
+            when _groupTypes.contains(type.toInt()) &&
+                (g['group_count'] as num? ?? 0) > plain &&
+                stringAt(g, 'id') != null)
+          g,
+    ];
+    int score(Map<String, Object?> g) =>
+        (named.hasMatch(stringAt(g, 'name') ?? '') ? 0 : 10) +
+        _groupTypes.indexOf((g['type'] as num).toInt());
+    candidates.sort((a, b) => score(a).compareTo(score(b)));
+    for (final candidate in candidates) {
+      final group = await _get('tv/episode_group/${stringAt(candidate, 'id')}');
+      final special = RegExp(r'special|extra|ova', caseSensitive: false);
+      final groups =
+          [
+            for (final g in objectsAt(group, 'groups'))
+              if (!special.hasMatch(stringAt(g, 'name') ?? '')) g,
+          ]..sort(
+            (a, b) =>
+                (a['order'] as num? ?? 0).compareTo(b['order'] as num? ?? 0),
+          );
+      final seasons = [
+        for (final g in groups)
+          if (objectsAt(g, 'episodes').toList() case final episodes
+              when episodes.isNotEmpty)
+            episodes..sort(
+              (a, b) =>
+                  (a['order'] as num? ?? 0).compareTo(b['order'] as num? ?? 0),
+            ),
+      ];
+      if (seasons.length > plain) {
+        found = seasons;
+        break;
+      }
+    }
+    return _animeGroups[id] = found;
+  }
+
+  /// A season of an episode group: dated by its first episode.
+  static Released? _groupStart(List<Map<String, Object?>> episodes) {
+    Released? first;
+    for (final e in episodes) {
+      final aired = Released.tryParse(stringAt(e, 'air_date') ?? '');
+      if (aired == null) continue;
+      if (first == null || aired.availableFrom.isBefore(first.availableFrom)) {
+        first = aired;
+      }
+    }
+    return first;
+  }
+
+  /// A show's seasons. For an anime ([anime]), split by an episode group
+  /// when one splits it into more seasons than the plain list
+  /// ([_groupSeasons]); the kind of an anime from TMDB is always series.
   @override
-  Future<ShowSeasons?> seasons(String source) async {
+  Future<ShowSeasons?> seasons(String source, {bool anime = false}) async {
     final (kind, id) = _parse(source);
     if (kind != 'tv') return null;
     final json = await _get('tv/$id');
+    final groups = anime ? await _groupSeasons(id, json) : null;
     return (
-      seasons: _seasons(json),
+      seasons: groups == null
+          ? _seasons(json)
+          : [
+              for (final (i, episodes) in groups.indexed)
+                Season(season: i + 1, released: _groupStart(episodes)),
+            ],
       canceled: json['status'] == 'Canceled',
-      kind: null,
+      kind: anime ? EntryKind.series : null,
     );
   }
 
-  /// `/tv/{id}/season/{n}`. TMDB names an episode without a title
-  /// "Episode 5"; that counts as no title. A season TMDB does not know
-  /// (404) has no episodes.
-  @override
-  Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async {
+  /// A show's plain seasons with their episode counts, specials left out:
+  /// the split an anime matched to this show had before its seasons came
+  /// from AniList ([AniListSource.resplit]). Null for a movie.
+  Future<List<SeasonSpan>?> seasonSpans(String source) async {
     final (kind, id) = _parse(source);
     if (kind != 'tv') return null;
+    final json = await _get('tv/$id');
+    return [
+      for (final s in objectsAt(json, 'seasons'))
+        if (s['season_number'] case final num number when number > 0)
+          SeasonSpan(
+            season: number.toInt(),
+            episodes: (s['episode_count'] as num?)?.toInt(),
+            released: Released.tryParse(stringAt(s, 'air_date') ?? ''),
+          ),
+    ];
+  }
+
+  /// One episode as TMDB lists it, numbered [number]. TMDB names an
+  /// episode without a title "Episode 5"; that counts as no title.
+  static EpisodeInfo _episode(Map<String, Object?> e, int number) => (
+    number: number,
+    title: switch (stringAt(e, 'name')?.trim()) {
+      final name? when name.isNotEmpty && name != 'Episode $number' => name,
+      _ => null,
+    },
+    aired: Released.tryParse(stringAt(e, 'air_date') ?? ''),
+    runtime: switch (e['runtime']) {
+      final num minutes when minutes > 0 => minutes.toInt(),
+      _ => null,
+    },
+  );
+
+  /// `/tv/{id}/season/{n}`. A season TMDB does not know (404) has no
+  /// episodes. An anime split by an episode group ([seasons]) takes the
+  /// group's [season]th season instead, its episodes numbered from 1.
+  @override
+  Future<List<EpisodeInfo>?> seasonEpisodes(
+    String source,
+    int season, {
+    bool anime = false,
+  }) async {
+    final (kind, id) = _parse(source);
+    if (kind != 'tv') return null;
+    if (anime) {
+      final groups = await _groupSeasons(id, await _get('tv/$id'));
+      if (groups != null) {
+        if (season < 1 || season > groups.length) return const [];
+        return [
+          for (final (i, e) in groups[season - 1].indexed) _episode(e, i + 1),
+        ];
+      }
+    }
     final Map<String, Object?> json;
     try {
       json = await _get('tv/$id/season/$season');
@@ -356,19 +496,7 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
     final episodes = [
       for (final e in objectsAt(json, 'episodes'))
         if (e['episode_number'] case final num number)
-          (
-            number: number.toInt(),
-            title: switch (stringAt(e, 'name')?.trim()) {
-              final name? when name.isNotEmpty && name != 'Episode $number' =>
-                name,
-              _ => null,
-            },
-            aired: Released.tryParse(stringAt(e, 'air_date') ?? ''),
-            runtime: switch (e['runtime']) {
-              final num minutes when minutes > 0 => minutes.toInt(),
-              _ => null,
-            },
-          ),
+          _episode(e, number.toInt()),
     ]..sort((a, b) => a.number.compareTo(b.number));
     return episodes;
   }

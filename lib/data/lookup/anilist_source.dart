@@ -4,6 +4,7 @@ import '../models/entry_kind.dart';
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
+import '../models/season_span.dart';
 import 'anime_link_store.dart';
 import 'episode_info.dart';
 import 'http_lookup_source.dart';
@@ -18,16 +19,18 @@ import 'tmdb_source.dart';
 /// search carries everything the form needs for an anime movie; an anime
 /// series (AniList's TV, TV short, ONA and OVA formats, see [kindOf]) also
 /// gets its seasons with [details], the same way a show does (Show & seasons
-/// › Anime with seasons (Frieren)):
+/// › Anime with seasons (Frieren)). The seasons come from AniList's chain:
+/// the series' entries are walked back along the prequel relations to the
+/// first one, then forward along the sequels, and every TV, TV short or ONA
+/// entry in it is a season (a "Part 2" is its own season) with its own
+/// episode count and dates; movies, OVAs, specials and recaps are left out.
+/// A sequel not out yet is a season dated by its start, as precise as
+/// AniList has it. The episodes are "Episode N" with their air dates from
+/// AniList's airing schedule.
 ///
-/// - The series' entries are walked back along AniList's prequel relations to
-///   the first one, and that one is looked for on TMDB ([tmdb]) by title and
-///   year. Found, TMDB's seasons and episodes are used, as for a show; the
-///   link is kept in [links] so it is asked for once.
-/// - With no TMDB match, the seasons are built from AniList's sequel chain:
-///   one season per entry in it (a "Part 2" is its own season), specials and
-///   recaps left out, and the episodes are "Episode N" with their air dates
-///   from AniList's airing schedule.
+/// TMDB ([tmdb]) is asked only for an anime whose seasons came from the TMDB
+/// show it was matched to before (an old link in [links]): once, so the daily
+/// check can re-split them ([resplit]).
 ///
 /// AniList allows about 30 requests a minute, hence the gap.
 class AniListSource extends HttpLookupSource {
@@ -41,17 +44,19 @@ class AniListSource extends HttpLookupSource {
        _baseUrl = baseUrl ?? Uri.https('graphql.anilist.co'),
        super(minGap: const Duration(seconds: 2));
 
-  /// Where an anime series' seasons and episodes come from when it has a
-  /// match there; null in a build without TMDB.
+  /// Where the old split of an anime's seasons is read for [resplit]; null
+  /// in a build without TMDB.
   final TmdbSource? tmdb;
 
-  /// The TMDB match (or the lack of one) per anime, kept on the phone.
+  /// The kind per anime, and the TMDB show its seasons came from before,
+  /// kept on the phone.
   final AnimeLinkStore links;
 
   final Uri _baseUrl;
 
-  /// How long a "no TMDB match" is believed before TMDB is asked again.
-  static const retryAfter = Duration(days: 14);
+  /// How long an anime whose format AniList does not say yet waits before
+  /// it is asked again.
+  static const retryAfter = Duration(days: 1);
 
   /// How far a prequel or sequel chain is followed, each way.
   static const maxHops = 60;
@@ -321,13 +326,29 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     return nodes[id]!;
   }
 
-  /// Among related entries, the first that is a series (a TV sequel over a
-  /// recap movie), else the first of them.
+  /// How much a related entry is wanted as the next in a chain: a TV
+  /// season over a TV short or an ONA, those over an OVA, and any series
+  /// over a movie or a special.
+  static int _rank(String? format) => switch (format) {
+    'TV' => 0,
+    'TV_SHORT' || 'ONA' => 1,
+    'OVA' => 2,
+    _ => 3,
+  };
+
+  /// Among related entries, the one [_rank] wants most (a TV sequel over a
+  /// recap movie), the first of equals.
   static int? _pick(List<int> ids, Map<int, AniNode> nodes) {
+    int? best;
+    var bestRank = 4;
     for (final id in ids) {
-      if (nodes[id]?.isSeries ?? false) return id;
+      final rank = _rank(nodes[id]?.format);
+      if (rank < bestRank) {
+        best = id;
+        bestRank = rank;
+      }
     }
-    return ids.firstOrNull;
+    return best;
   }
 
   /// The chain of entries the anime [id] is part of, first to last, walked
@@ -370,11 +391,20 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     return chain;
   }
 
-  /// The entries of a chain that are seasons: series, recaps left out.
-  static List<AniNode> seasonEntries(List<AniNode> chain) => [
-    for (final node in chain)
-      if (node.isSeries && !node.isRecap) node,
-  ];
+  /// The entries of a chain that are seasons: TV, TV short and ONA, recaps
+  /// left out. A chain with none of those (a series made only of OVAs) has
+  /// its OVAs as seasons.
+  static List<AniNode> seasonEntries(List<AniNode> chain) {
+    final seasons = [
+      for (final node in chain)
+        if (_rank(node.format) < 2 && !node.isRecap) node,
+    ];
+    if (seasons.isNotEmpty) return seasons;
+    return [
+      for (final node in chain)
+        if (node.format == 'OVA' && !node.isRecap) node,
+    ];
+  }
 
   /// One season per entry, dated by the entry's start.
   static List<Season> chainSeasons(List<AniNode> chain) => [
@@ -384,62 +414,39 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
 
   bool get _tmdbReady => tmdb?.isConfigured ?? false;
 
-  /// The anime's kind and the TMDB show its chain was matched to, from the
-  /// store when it was answered before (a match for good, a miss for
-  /// [retryAfter]), else from AniList and TMDB now. Nothing is stored when
-  /// TMDB gave no answer (offline, rate limited), so it is asked again.
-  Future<({EntryKind? kind, String? tmdb})> _link(int id) async {
+  /// The anime's kind (and any old TMDB link), from the store when it was
+  /// answered before, else from AniList now. A kind AniList cannot say yet
+  /// is asked again after [retryAfter].
+  Future<AnimeLink> _link(int id) async {
     final now = DateTime.now();
     final stored = await links.read(id);
     if (stored != null &&
-        (stored.tmdb != null ||
-            stored.kind == EntryKind.movie ||
-            now.difference(stored.checked) < retryAfter)) {
-      return (kind: stored.kind, tmdb: stored.tmdb);
+        (stored.kind != null || now.difference(stored.checked) < retryAfter)) {
+      return stored;
     }
     final chain = await _chain(id);
     final entry = chain.firstWhere(
       (n) => n.id == id,
       orElse: () => chain.first,
     );
-    final kind = kindOf(entry.format);
-    String? linked;
-    if (kind == EntryKind.series && _tmdbReady) {
-      final root = chain.first;
-      LookupMatch? hit;
-      for (final title in {?root.english, ?root.romaji}) {
-        hit = await tmdb!.match(
-          title,
-          type: MediaType.shows,
-          year: root.start?.year,
-        );
-        if (hit != null) break;
-      }
-      linked = hit?.source;
-    }
-    await links.write(id, (tmdb: linked, kind: kind, checked: now));
-    return (kind: kind, tmdb: linked);
+    final AnimeLink link = (
+      tmdb: stored?.tmdb,
+      kind: kindOf(entry.format),
+      checked: now,
+    );
+    await links.write(id, link);
+    return link;
   }
 
-  /// A series' seasons: TMDB's when the series has a match there, else one
-  /// per entry of its AniList chain. A movie has none. [kind] tells the
-  /// daily check which an anime stored without one is.
+  /// A series' seasons, one per season entry of its AniList chain
+  /// ([seasonEntries]). A movie has none. [kind] tells the daily check
+  /// which an anime stored without one is.
   @override
-  Future<ShowSeasons?> seasons(String source) async {
+  Future<ShowSeasons?> seasons(String source, {bool anime = false}) async {
     final id = _parse(source);
     final link = await _link(id);
     if (link.kind == EntryKind.movie) {
       return (seasons: const <Season>[], canceled: false, kind: link.kind);
-    }
-    if (link.tmdb case final linked? when _tmdbReady) {
-      final found = await tmdb!.seasons(linked);
-      if (found != null) {
-        return (
-          seasons: found.seasons,
-          canceled: found.canceled,
-          kind: link.kind,
-        );
-      }
     }
     final chain = await _chain(id);
     return (
@@ -449,12 +456,41 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     );
   }
 
-  /// The TMDB show the anime's episodes come from, when it has one; else
-  /// the anime itself, whose episodes come from its chain.
+  /// For an anime whose seasons came from a TMDB show before: that show's
+  /// split, with each season's episode count, and the chain's. Null when
+  /// it has no old link, or TMDB cannot be asked in this build.
   @override
-  Future<String> seasonSource(String source) async {
-    final link = await _link(_parse(source));
-    return link.tmdb != null && _tmdbReady ? link.tmdb! : source;
+  Future<SeasonResplit?> resplit(String source) async {
+    final id = _parse(source);
+    final old = (await links.read(id))?.tmdb;
+    if (old == null || !_tmdbReady) return null;
+    final before = await tmdb!.seasonSpans(old);
+    if (before == null) return null;
+    final chain = await _chain(id);
+    return (
+      before: before,
+      after: [
+        for (final (i, node) in seasonEntries(chain).indexed)
+          SeasonSpan(
+            season: i + 1,
+            episodes: node.episodes,
+            released: node.start,
+          ),
+      ],
+    );
+  }
+
+  /// Forgets the old TMDB link: the seasons are AniList's from now on.
+  @override
+  Future<void> resplitSettled(String source) async {
+    final id = _parse(source);
+    final stored = await links.read(id);
+    if (stored == null || stored.tmdb == null) return;
+    await links.write(id, (
+      tmdb: null,
+      kind: stored.kind,
+      checked: stored.checked,
+    ));
   }
 
   /// The episodes of the [season]th entry of the chain: "Episode N" (no
@@ -463,7 +499,11 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
   /// scheduled date are all dated the entry's start, so they count as out;
   /// an unfinished one's are undated until scheduled.
   @override
-  Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async {
+  Future<List<EpisodeInfo>?> seasonEpisodes(
+    String source,
+    int season, {
+    bool anime = false,
+  }) async {
     final chain = await _chain(_parse(source));
     final entries = seasonEntries(chain);
     if (season < 1 || season > entries.length) return const [];

@@ -11,6 +11,7 @@ import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/season_span.dart';
 import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -479,6 +480,100 @@ void main() {
       },
     );
 
+    test('an anime with only a TMDB id is asked as an anime', () async {
+      fake = FakeLookupSource(
+        seasonsBySource: {'tmdb:tv:7': fetched},
+        kindBySource: {'tmdb:tv:7': EntryKind.series},
+      );
+      store = MemorySeasonCheckStore();
+      check = SeasonCheck(lookups: LookupService([fake]), store: store);
+      final entry = anime(
+        'tmdb-only',
+        EntryStatus.want,
+        kind: EntryKind.series,
+        seasons: two,
+      ).copyWith(source: 'tmdb:tv:7');
+      final result = await check.run(library([entry]), now);
+      expect(fake.calls, ['seasons:tmdb:tv:7']);
+      expect(result.operations.single, isA<AddSeasons>());
+    });
+
+    group('re-split', () {
+      // Frieren as TMDB split it, one season of 38, and as AniList does.
+      const chain = [
+        Season(season: 1, released: Released(2023, 9, 29)),
+        Season(season: 2, released: Released(2026, 1, 16)),
+        Season(season: 3, released: Released(2027, 10)),
+      ];
+      const split = (
+        before: [
+          SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+        ],
+        after: [
+          SeasonSpan(season: 1, episodes: 28, released: Released(2023, 9, 29)),
+          SeasonSpan(season: 2, episodes: 10, released: Released(2026, 1, 16)),
+          SeasonSpan(season: 3, released: Released(2027, 10)),
+        ],
+      );
+
+      Entry frieren(List<Season> seasons) => anime(
+        'frieren',
+        EntryStatus.done,
+        kind: EntryKind.series,
+        seasons: seasons,
+      );
+
+      void setUpFrieren() {
+        fake = FakeLookupSource(
+          seasonsBySource: {'anilist:frieren': chain},
+          kindBySource: {'anilist:frieren': EntryKind.series},
+          resplitBySource: {'anilist:frieren': split},
+        );
+        store = MemorySeasonCheckStore();
+        check = SeasonCheck(lookups: LookupService([fake]), store: store);
+      }
+
+      test('maps the statuses by episode range, once', () async {
+        setUpFrieren();
+        final entry = frieren(const [
+          Season(
+            season: 1,
+            released: Released(2023, 9, 29),
+            status: EntryStatus.done,
+          ),
+        ]);
+        final result = await check.run(library([entry]), now);
+        // The re-split alone: no AddSeasons beside it.
+        final op = result.operations.single as ResplitSeasons;
+        final lib = op.apply(library([entry]));
+        expect(lib.entries.single.seasons!.map((s) => s.status), [
+          EntryStatus.done,
+          EntryStatus.done,
+          null,
+        ]);
+        // The third, announced, is coming: Coming soon lists it.
+        expect(lib.entries.single.seasons!.last.released, Released(2027, 10));
+        expect(fake.settled, ['anilist:frieren']);
+
+        // The next check adds and redates as for any show.
+        final next = await check.run(lib, now, force: true);
+        expect(next.operations, isEmpty);
+      });
+
+      test('seasons edited since are left as they are', () async {
+        setUpFrieren();
+        final entry = frieren(const [
+          Season(season: 1, released: Released(2023), status: EntryStatus.done),
+          Season(season: 2, released: Released(2026), manual: true),
+          Season(season: 4, released: Released(2028)),
+        ]);
+        final result = await check.run(library([entry]), now);
+        expect(result.operations.whereType<ResplitSeasons>(), isEmpty);
+        // Offered once: settled all the same.
+        expect(fake.settled, ['anilist:frieren']);
+      });
+    });
+
     test('a drifted status is written for an anime series too', () async {
       setUpCheck();
       final entry = anime(
@@ -503,7 +598,7 @@ class _FailingSeasons extends FakeLookupSource {
   var asked = 0;
 
   @override
-  Future<ShowSeasons?> seasons(String source) async {
+  Future<ShowSeasons?> seasons(String source, {bool anime = false}) async {
     asked++;
     throw LookupException(LookupFailure.other, status: status);
   }

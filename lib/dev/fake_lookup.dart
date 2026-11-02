@@ -40,7 +40,13 @@ class FakeLookupSource extends LookupSource
     this.releasesByCreator = const {},
     this.movieDatesBySource = const {},
     this.editionsBySource = const {},
+    this.resplitBySource = const {},
   });
+
+  /// Re-splits [resplit] offers, by source, until [resplitSettled] is
+  /// told; [settled] lists those it was told of.
+  final Map<String, SeasonResplit> resplitBySource;
+  final settled = <String>[];
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
   static const demoLatency = Duration(milliseconds: 700);
@@ -180,7 +186,7 @@ class FakeLookupSource extends LookupSource
   }
 
   @override
-  Future<ShowSeasons?> seasons(String source) async {
+  Future<ShowSeasons?> seasons(String source, {bool anime = false}) async {
     await _call('seasons:$source');
     final canceled = canceledSources.contains(source);
     final kind = kindBySource[source];
@@ -194,6 +200,14 @@ class FakeLookupSource extends LookupSource
     }
     return null;
   }
+
+  @override
+  Future<SeasonResplit?> resplit(String source) async {
+    return settled.contains(source) ? null : resplitBySource[source];
+  }
+
+  @override
+  Future<void> resplitSettled(String source) async => settled.add(source);
 
   @override
   Future<Released?> releaseDate(String source) async {
@@ -227,7 +241,11 @@ class FakeLookupSource extends LookupSource
   }
 
   @override
-  Future<List<EpisodeInfo>?> seasonEpisodes(String source, int season) async {
+  Future<List<EpisodeInfo>?> seasonEpisodes(
+    String source,
+    int season, {
+    bool anime = false,
+  }) async {
     await _call('episodes:$source:$season');
     return episodesBySeason[(source, season)] ??
         _episodesBySeason[(source, season)] ??

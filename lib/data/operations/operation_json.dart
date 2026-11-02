@@ -38,6 +38,7 @@ Map<String, Object?> encodeOperation(Object operation) {
     RefreshShowStatus() => ('refreshShowStatus', operation.toJson()),
     MoveShowsToSeasons() => ('moveShowsToSeasons', operation.toJson()),
     SetSeasonDates() => ('setSeasonDates', operation.toJson()),
+    ResplitSeasons() => ('resplitSeasons', operation.toJson()),
     SetTimelineDefault() => ('settings.setTimelineDefault', operation.toJson()),
     SetSeasonalThemeDefault() => (
       'settings.setSeasonalThemeDefault',
@@ -97,6 +98,7 @@ Object decodeOperation(Map<String, Object?> json) {
     'refreshShowStatus' => RefreshShowStatus.fromJson(json),
     'moveShowsToSeasons' => MoveShowsToSeasons.fromJson(json),
     'setSeasonDates' => SetSeasonDates.fromJson(json),
+    'resplitSeasons' => ResplitSeasons.fromJson(json),
     'settings.setTimelineDefault' => SetTimelineDefault.fromJson(json),
     'settings.setSeasonalThemeDefault' => SetSeasonalThemeDefault.fromJson(
       json,
