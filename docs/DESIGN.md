@@ -22,6 +22,7 @@ Everything here was decided during the design phase. Screen names ("Library › 
 | Note vs About | Note is my own text. About is the description fetched from a lookup. |
 | Delete | Lives in the details sheet. Every destructive button (Delete, Delete plan, Delete everywhere, Disconnect, Replace…) has no fill, the grey button outline and red text; never a red fill, never next to an accent button. |
 | Spelling | American, sentence case |
+| Spellings | When an entry is saved, its creator, a song's album and its series name take the spelling already in the library when they match one with case and spacing aside: the first entry of the same type that has it (for an album, by the same artist), as the artist list shows it. A lookup's "deafheaven" is saved as the "Deafheaven" already there, so the data repo's lists keep one heading per artist. A name only re-cased in an edit keeps the new casing, since that is a correction. Platforms already merge their spellings (section 10a). One helper, `withLibrarySpellings`; the desktop app follows the same rule. |
 | Type order | Wherever entries are grouped by type (home, filtered results, plan checklists, the pool), the groups follow the global order: Movies, Shows, Books, Games, Music, Anime. A mockup showing another order is incidental. The timeline groups by time instead and uses this order inside each bucket. |
 
 ## 3. Navigation

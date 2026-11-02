@@ -15,6 +15,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/entry_id.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
+import '../../data/models/library_spellings.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/entry_kind.dart';
 import '../../data/models/platform_names.dart';
@@ -1026,7 +1027,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     setState(() => _saving = true);
     final repository = ref.read(libraryRepositoryProvider);
     final library = await repository.load();
-    var entry = _buildEntry(library.entries.map((e) => e.id));
+    var entry = withLibrarySpellings(
+      _buildEntry(library.entries.map((e) => e.id)),
+      library,
+      before: widget.entry,
+    );
     final replaced = <Entry>[];
     if (entry.type == MediaType.music && mounted) {
       final ReplaceChoice? choice;
