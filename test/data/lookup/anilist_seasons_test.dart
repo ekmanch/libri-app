@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:library_app/data/lookup/anilist_source.dart';
+import 'package:library_app/data/lookup/anime_chain_store.dart';
 import 'package:library_app/data/lookup/anime_link_store.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/tmdb_source.dart';
@@ -262,6 +263,7 @@ void main() {
       },
     ],
     Map<int, List<Map<String, Object?>>> schedule = const {},
+    MemoryAnimeChainStore? chains,
   }) {
     sent = [];
     links = MemoryAnimeLinkStore();
@@ -318,6 +320,7 @@ void main() {
       client,
       tmdb: withTmdb ? TmdbSource(client, token: 'tok') : null,
       links: links,
+      chains: chains,
     );
   }
 
@@ -549,6 +552,42 @@ void main() {
       );
       expect(episodes!.first.title, 'Title 29');
       expect(tmdbCalls().where((r) => r.url.path == '/3/search/tv'), isEmpty);
+    });
+
+    test('a kept chain serves; a finished season TMDB dates needs no '
+        'schedule', () async {
+      final chains = MemoryAnimeChainStore();
+      final first = source(chains: chains);
+      await first.seasons('anilist:154587');
+      expect(chains.chains.single.nodes.map((n) => n['id']), [
+        154587,
+        182255,
+        209939,
+      ]);
+      // A new start of the app: the season screen asks AniList nothing.
+      final second = source(chains: chains);
+      final episodes = await second.seasonEpisodes(
+        'anilist:154587',
+        2,
+        tmdb: 'tmdb:tv:209867',
+      );
+      expect(episodes, hasLength(10));
+      expect(episodes!.last.aired, const Released(2026, 3, 20));
+      expect(sent.where((r) => r.url.host == 'graphql.anilist.co'), isEmpty);
+      // The daily check walks it fresh all the same.
+      await second.seasons('anilist:154587');
+      expect(sent.where((r) => r.url.host == 'graphql.anilist.co'), isNotEmpty);
+    });
+
+    test('an old kept chain is walked again', () async {
+      final chains = MemoryAnimeChainStore();
+      await chains.write((
+        fetched: DateTime.now().subtract(const Duration(days: 8)),
+        nodes: [AniNode(id: 154587, format: 'TV', episodes: 1).toJson()],
+      ));
+      final anilist = source(chains: chains);
+      final episodes = await anilist.seasonEpisodes('anilist:154587', 1);
+      expect(episodes, hasLength(28));
     });
 
     test('no TMDB match: untitled, credited to AniList alone', () async {

@@ -4,6 +4,7 @@ import '../models/media_type.dart';
 import '../models/season.dart';
 import 'episode_info.dart';
 import 'episode_store.dart';
+import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_service.dart';
 
@@ -99,11 +100,13 @@ class EpisodeService {
       if (!lookup.isConfigured) {
         throw const LookupException(LookupFailure.notConfigured);
       }
-      episodes = await lookup.seasonEpisodes(
-        source,
-        season,
-        anime: show.type == MediaType.anime,
-        tmdb: show.tmdb,
+      episodes = await urgentLookups(
+        () => lookup.seasonEpisodes(
+          source,
+          season,
+          anime: show.type == MediaType.anime,
+          tmdb: show.tmdb,
+        ),
       );
     } on LookupException {
       // The stored list stays on screen.

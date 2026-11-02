@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -144,4 +146,29 @@ void main() {
       expect(order, ['a', 'b']);
     },
   );
+
+  test('an urgent action goes ahead of the queued ones', () async {
+    final limiter = RateLimiter(const Duration(milliseconds: 30));
+    final order = <String>[];
+    final queued = [
+      for (final name in ['check 1', 'check 2', 'check 3'])
+        limiter.run(() async => order.add(name)),
+    ];
+    await Future<void>.delayed(Duration.zero);
+    expect(order, ['check 1']);
+    final screen = limiter.run(() async => order.add('screen'), urgent: true);
+    await Future.wait([screen, ...queued]);
+    expect(order, ['check 1', 'screen', 'check 2', 'check 3']);
+  });
+
+  test('urgentLookups marks the requests made inside it', () async {
+    final limiter = RateLimiter(Duration.zero);
+    final urgent = <bool>[];
+    Future<void> request() => limiter.run(
+      () async => urgent.add(Zone.current[#libriUrgentLookups] == true),
+    );
+    await request();
+    await urgentLookups(request);
+    expect(urgent, [false, true]);
+  });
 }

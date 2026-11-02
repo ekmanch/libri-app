@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -41,6 +42,7 @@ mixin LookupHttp {
       try {
         response = await limiter.run(
           () => sendOrOffline(request, timeout: timeout),
+          urgent: Zone.current[_urgentKey] == true,
         );
       } on NetworkUnreachable catch (e) {
         throw LookupException(LookupFailure.offline, message: e.message);
@@ -155,3 +157,11 @@ String? stringAt(Map<String, Object?> json, String key) {
   final value = json[key];
   return value is String && value.isNotEmpty ? value : null;
 }
+
+const _urgentKey = #libriUrgentLookups;
+
+/// Runs [body] with every lookup request it makes ahead of the queued
+/// background ones (the daily checks), for a screen the owner is waiting
+/// on: the season screen's episodes.
+Future<T> urgentLookups<T>(Future<T> Function() body) =>
+    runZoned(body, zoneValues: {_urgentKey: true});

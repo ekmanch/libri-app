@@ -5,6 +5,7 @@ import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
 import '../models/season_span.dart';
+import 'anime_chain_store.dart';
 import 'anime_link_store.dart';
 import 'episode_info.dart';
 import 'http_lookup_source.dart';
@@ -40,9 +41,11 @@ class AniListSource extends HttpLookupSource {
     super.client, {
     this.tmdb,
     AnimeLinkStore? links,
+    AnimeChainStore? chains,
     Uri? baseUrl,
     super.timeout,
   }) : links = links ?? MemoryAnimeLinkStore(),
+       chainStore = chains ?? MemoryAnimeChainStore(),
        _baseUrl = baseUrl ?? Uri.https('graphql.anilist.co'),
        super(minGap: const Duration(seconds: 2));
 
@@ -53,6 +56,13 @@ class AniListSource extends HttpLookupSource {
   /// The kind per anime, and the TMDB show its seasons came from before,
   /// kept on the phone.
   final AnimeLinkStore links;
+
+  /// The chains as last fetched, kept on the phone for the season screen.
+  final AnimeChainStore chainStore;
+
+  /// How old a kept chain the season screen takes; the daily check
+  /// refreshes the chains of the anime it asks every day.
+  static const chainKeep = Duration(days: 7);
 
   final Uri _baseUrl;
 
@@ -70,6 +80,9 @@ class AniListSource extends HttpLookupSource {
 
   /// The chains walked this session, by any entry in them.
   final _chains = <int, List<AniNode>>{};
+
+  /// The chains read from [chainStore] this session, by any entry in them.
+  final _keptChains = <int, List<AniNode>>{};
 
   static const _fields = '''
       id
@@ -437,8 +450,23 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
   /// The chain of entries the anime [id] is part of, first to last, walked
   /// back along the prequels and forward along the sequels. A movie, a
   /// special or anything else that is not a series is its own chain.
-  Future<List<AniNode>> _chain(int id) async {
+  ///
+  /// With [kept] (the season screen), a chain kept on the phone younger
+  /// than [chainKeep] serves instead; a chain walked is always kept.
+  Future<List<AniNode>> _chain(int id, {bool kept = false}) async {
     if (_chains[id] case final chain?) return chain;
+    if (kept) {
+      if (_keptChains[id] case final chain?) return chain;
+      final stored = await chainStore.read(id);
+      if (stored != null &&
+          DateTime.now().difference(stored.fetched) < chainKeep) {
+        final chain = [for (final n in stored.nodes) AniNode.fromJson(n)];
+        for (final node in chain) {
+          _keptChains[node.id] = chain;
+        }
+        return chain;
+      }
+    }
     final nodes = <int, AniNode>{};
     Future<AniNode> load(int id) async {
       final known = nodes[id];
@@ -452,6 +480,7 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
 
     var current = await load(id);
     if (!current.isSeries) return _chains[id] = [current];
+
     final behind = {id};
     for (var hops = 0; hops < maxHops; hops++) {
       final previous = _pick(current.prequels!, nodes);
@@ -471,6 +500,10 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     for (final node in chain) {
       _chains[node.id] = chain;
     }
+    await chainStore.write((
+      fetched: DateTime.now(),
+      nodes: [for (final node in chain) node.toJson()],
+    ));
     return chain;
   }
 
@@ -539,7 +572,7 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
         when now.difference(asked) < tmdbRetryAfter) {
       return null;
     }
-    final chain = await _chain(id);
+    final chain = await _chain(id, kept: true);
     final root = chain.first;
     LookupMatch? hit;
     for (final title in {?root.english, ?root.romaji}) {
@@ -662,10 +695,46 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     String? tmdb,
   }) async {
     final id = _parse(source);
-    final chain = await _chain(id);
+    final chain = await _chain(id, kept: true);
     final entries = seasonEntries(chain);
     if (season < 1 || season > entries.length) return const [];
     final node = entries[season - 1];
+    final known = node.episodes;
+    var titled = known == null
+        ? const <EpisodeInfo>[]
+        : await _tmdbEpisodes(id, node, known, linked: tmdb);
+    // A finished season TMDB dates every episode of needs no schedule.
+    final dated =
+        node.status == 'FINISHED' &&
+        known != null &&
+        titled.length >= known &&
+        titled.every((e) => e.aired != null);
+    final schedule = dated ? const <int, Released>{} : await _schedule(node);
+    final count =
+        known ??
+        (schedule.isEmpty ? 0 : schedule.keys.reduce((a, b) => a > b ? a : b));
+    if (known == null) {
+      titled = await _tmdbEpisodes(id, node, count, linked: tmdb);
+    }
+    _episodesCredit[source] = titled.any((e) => e.title != null)
+        ? '${this.tmdb!.name} and $name'
+        : name;
+    final finished = node.status == 'FINISHED' ? node.start : null;
+    return [
+      for (var n = 1; n <= count; n++)
+        (
+          number: n,
+          title: titled.elementAtOrNull(n - 1)?.title,
+          aired:
+              schedule[n] ?? titled.elementAtOrNull(n - 1)?.aired ?? finished,
+          runtime: titled.elementAtOrNull(n - 1)?.runtime ?? node.duration,
+        ),
+    ];
+  }
+
+  /// The air dates AniList's airing schedule has for the entry [node], by
+  /// episode number.
+  Future<Map<int, Released>> _schedule(AniNode node) async {
     final schedule = <int, Released>{};
     for (var page = 1; page <= _schedulePages; page++) {
       final data = await _query(_scheduleQuery, {
@@ -691,24 +760,7 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
       final info = airing['pageInfo'] as Map<String, Object?>? ?? const {};
       if (info['hasNextPage'] != true) break;
     }
-    final count =
-        node.episodes ??
-        (schedule.isEmpty ? 0 : schedule.keys.reduce((a, b) => a > b ? a : b));
-    final titled = await _tmdbEpisodes(id, node, count, linked: tmdb);
-    _episodesCredit[source] = titled.any((e) => e.title != null)
-        ? '${this.tmdb!.name} and $name'
-        : name;
-    final finished = node.status == 'FINISHED' ? node.start : null;
-    return [
-      for (var n = 1; n <= count; n++)
-        (
-          number: n,
-          title: titled.elementAtOrNull(n - 1)?.title,
-          aired:
-              schedule[n] ?? titled.elementAtOrNull(n - 1)?.aired ?? finished,
-          runtime: titled.elementAtOrNull(n - 1)?.runtime ?? node.duration,
-        ),
-    ];
+    return schedule;
   }
 
   /// TMDB's episodes for the chain entry [node], [count] of them from the
@@ -784,6 +836,31 @@ class AniNode {
   final List<int>? sequels;
 
   bool get loaded => prequels != null;
+
+  /// As [AnimeChainStore] keeps it: without the relations.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'format': format,
+    'status': status,
+    'english': english,
+    'romaji': romaji,
+    'start': start?.toString(),
+    'end': end?.toString(),
+    'episodes': episodes,
+    'duration': duration,
+  };
+
+  factory AniNode.fromJson(Map<String, Object?> json) => AniNode(
+    id: json['id'] as int,
+    format: json['format'] as String?,
+    status: json['status'] as String?,
+    english: json['english'] as String?,
+    romaji: json['romaji'] as String?,
+    start: Released.tryParse(json['start'] as String? ?? ''),
+    end: Released.tryParse(json['end'] as String? ?? ''),
+    episodes: json['episodes'] as int?,
+    duration: json['duration'] as int?,
+  );
 
   String get title => english ?? romaji ?? 'Anime $id';
 

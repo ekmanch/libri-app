@@ -7,6 +7,7 @@ import '../../dev/fake_lookup.dart';
 import '../library_providers.dart';
 import '../storage/json_file.dart';
 import 'anilist_source.dart';
+import 'anime_chain_store.dart';
 import 'anime_link_store.dart';
 import 'check_day_store.dart';
 import 'deezer_source.dart';
@@ -65,7 +66,12 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
       ),
     ),
     tmdb,
-    AniListSource(client, tmdb: tmdb, links: FileAnimeLinkStore(cache)),
+    AniListSource(
+      client,
+      tmdb: tmdb,
+      links: FileAnimeLinkStore(cache),
+      chains: FileAnimeChainStore(cache),
+    ),
     OpenLibrarySource(
       client,
       apple: ITunesBooks(client),
