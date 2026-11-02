@@ -100,6 +100,8 @@ typedef SeasonCheckResult = ({
 /// - An anime stored without a kind learns it from the lookup: a movie is
 ///   marked so and left alone from then on; a series is marked so and gets
 ///   its seasons like a show.
+/// - An anime series without its TMDB show (`Entry.tmdb`) gets the one the
+///   lookup finds ([SetTmdbShow]).
 /// - An anime whose seasons came from the TMDB show it was matched to
 ///   before has them re-split as AniList's chain splits them, once, the
 ///   statuses carried over by episode range ([ResplitSeasons]).
@@ -217,6 +219,15 @@ class SeasonCheck {
           if (kind == null) continue;
           operations.add(SetKind(show.id, kind));
           if (kind == EntryKind.movie) continue;
+        }
+        // An anime series without its TMDB show (the episode titles come
+        // from there): the lookup's, written so every device reads the same.
+        if (anime &&
+            show.tmdb == null &&
+            (show.kind ?? fetched.kind) == EntryKind.series) {
+          if (await source.tmdbShow(show.source!) case final linked?) {
+            operations.add(SetTmdbShow(show.id, linked));
+          }
         }
         // Seasons split as TMDB had them: split as AniList does, once. The
         // next check adds and redates as usual.

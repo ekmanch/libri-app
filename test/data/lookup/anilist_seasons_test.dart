@@ -433,7 +433,9 @@ void main() {
         source: 'anilist:154587',
         kind: EntryKind.series,
       );
-      expect((await anilist.details(series)).seasons, frierenSeasons);
+      final picked = await anilist.details(series);
+      expect(picked.seasons, frierenSeasons);
+      expect(picked.tmdb, 'tmdb:tv:209867');
       const movie = LookupMatch(
         type: MediaType.anime,
         title: 'Akira',
@@ -535,6 +537,18 @@ void main() {
         tmdbCalls().where((r) => r.url.path == '/3/search/tv'),
         hasLength(1),
       );
+    });
+
+    test('the entry\'s TMDB show comes first', () async {
+      // TMDB's search finds nothing, but the entry says which show it is.
+      final anilist = source(tmdbHits: const []);
+      final episodes = await anilist.seasonEpisodes(
+        'anilist:154587',
+        2,
+        tmdb: 'tmdb:tv:209867',
+      );
+      expect(episodes!.first.title, 'Title 29');
+      expect(tmdbCalls().where((r) => r.url.path == '/3/search/tv'), isEmpty);
     });
 
     test('no TMDB match: untitled, credited to AniList alone', () async {

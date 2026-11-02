@@ -344,7 +344,10 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
   Future<LookupMatch> details(LookupMatch match) async {
     if (match.kind != EntryKind.series) return match;
     final found = await seasons(match.source);
-    return match.copyWith(seasons: found?.seasons ?? const []);
+    return match.copyWith(
+      seasons: found?.seasons ?? const [],
+      tmdb: await tmdbShow(match.source),
+    );
   }
 
   static int _parse(String source) {
@@ -621,6 +624,17 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     ));
   }
 
+  /// The TMDB show the anime's episode titles come from ([_tmdbMatch]); null
+  /// when TMDB has none or cannot answer now.
+  @override
+  Future<String?> tmdbShow(String source) async {
+    try {
+      return await _tmdbMatch(_parse(source));
+    } on LookupException {
+      return null;
+    }
+  }
+
   /// Who the episodes of each anime came from, by source, as last read.
   final _episodesCredit = <String, String>{};
 
@@ -645,6 +659,7 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     String source,
     int season, {
     bool anime = false,
+    String? tmdb,
   }) async {
     final id = _parse(source);
     final chain = await _chain(id);
@@ -679,9 +694,9 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
     final count =
         node.episodes ??
         (schedule.isEmpty ? 0 : schedule.keys.reduce((a, b) => a > b ? a : b));
-    final titled = await _tmdbEpisodes(id, node, count);
+    final titled = await _tmdbEpisodes(id, node, count, linked: tmdb);
     _episodesCredit[source] = titled.any((e) => e.title != null)
-        ? '${tmdb!.name} and $name'
+        ? '${this.tmdb!.name} and $name'
         : name;
     final finished = node.status == 'FINISHED' ? node.start : null;
     return [
@@ -697,20 +712,23 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
   }
 
   /// TMDB's episodes for the chain entry [node], [count] of them from the
-  /// one that aired on its start day; empty when there is no match or no
+  /// one that aired on its start day, on the entry's TMDB show ([linked],
+  /// `Entry.tmdb`) or else the one the series matches ([_tmdbMatch]); empty when there is no match or no
   /// such episode, or TMDB cannot answer now (the titles are a bonus: the
   /// episodes still come from AniList).
   Future<List<EpisodeInfo>> _tmdbEpisodes(
     int id,
     AniNode node,
-    int count,
-  ) async {
+    int count, {
+    String? linked,
+  }) async {
     final start = node.start;
     if (count == 0 || start == null || start.day == null) return const [];
+    if (!_tmdbReady) return const [];
     try {
-      final linked = await _tmdbMatch(id);
-      if (linked == null) return const [];
-      return await tmdb!.episodesFrom(linked, start, count) ?? const [];
+      final show = linked ?? await _tmdbMatch(id);
+      if (show == null) return const [];
+      return await tmdb!.episodesFrom(show, start, count) ?? const [];
     } on LookupException {
       return const [];
     }

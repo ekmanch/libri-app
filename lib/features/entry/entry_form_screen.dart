@@ -195,6 +195,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   /// changes, since the id would point at the wrong thing.
   String? _source;
 
+  /// An anime's TMDB show (`Entry.tmdb`): the entry's, or a pick's.
+  String? _tmdb;
+
   /// The match the form was filled from: the one it opened with, or one
   /// picked with "Look up again". While there is none the form offers to
   /// look the entry up.
@@ -268,6 +271,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _seasonalOnly = entry?.seasonalOnly ?? false;
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
+    _tmdb = entry?.tmdb ?? match?.tmdb;
     _coverFrom = entry?.coverFrom;
     _ownCoverUrl = match?.cacheCoverUrl;
     if (entry != null) {
@@ -786,6 +790,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   void _applyMatch(LookupMatch match) {
     _match = match;
+    // A pick of the same anime keeps its TMDB show when TMDB did not answer
+    // this time.
+    _tmdb = match.tmdb ?? (match.source == _source ? _tmdb : null);
     _source = match.source;
     // A cover picked from another match stays: the owner chose it.
     _ownCoverUrl = match.cacheCoverUrl;
@@ -860,6 +867,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     setState(() {
       if (type != _type) {
         _source = null;
+        _tmdb = null;
         _coverFrom = null;
       }
       _type = type;
@@ -994,6 +1002,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       seasonalOnly: _seasonalOnly,
       added: base?.added ?? DateTime(now.year, now.month, now.day),
       source: _source,
+      tmdb: _type == MediaType.anime && _kind != EntryKind.movie ? _tmdb : null,
       coverFrom: _coverFrom,
       platform: _type == MediaType.games && platform.isNotEmpty
           ? platform

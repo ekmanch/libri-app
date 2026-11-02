@@ -1782,6 +1782,32 @@ void main() {
       expect(saved.id, startsWith('anime/frieren-beyond-journeys-end-2023'));
     });
 
+    testWidgets('a series match\'s TMDB show is saved', (tester) async {
+      final match = FakeLookupSource.catalogSearch('frieren').single
+          .copyWith(tmdb: 'tmdb:tv:209867');
+      final container = await pumpApp(
+        tester,
+        EntryFormScreen.create(match: match),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entries.last;
+      expect(saved.tmdb, 'tmdb:tv:209867');
+    });
+
+    testWidgets('an edit keeps the TMDB show', (tester) async {
+      final frieren = loadFixture()
+          .entryById('anime/frieren-beyond-journeys-end-2023')!
+          .copyWith(tmdb: 'tmdb:tv:209867');
+      final container = await pumpApp(tester, EntryFormScreen.edit(frieren));
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(
+        repo(container).current!.entryById(frieren.id)!.tmdb,
+        'tmdb:tv:209867',
+      );
+    });
+
     testWidgets('a movie match keeps its date and saves the kind', (
       tester,
     ) async {

@@ -55,6 +55,13 @@ abstract class Entry with _$Entry {
     /// clears it; editing the title never does.
     String? source,
 
+    /// For an anime that is not a movie: the TMDB show its episode titles
+    /// come from, "tmdb:tv:209867" (section 10c), so every device reads
+    /// the same show. Found when the anime is picked or looked up again,
+    /// or by the daily check; left out while there is none. Changing the
+    /// type clears it.
+    @JsonKey(includeIfNull: false) String? tmdb,
+
     /// The lookup id of another match whose cover the entry shows (Add /
     /// edit entry › Pick a cover), "itunes:123456" or an Open Library
     /// edition, "openlibrary:OL7518154M"; left out while the cover is the

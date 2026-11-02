@@ -50,6 +50,31 @@ void main() {
     ]);
   });
 
+  test('an anime\'s TMDB show is one line, right after its source', () {
+    final library = decodeLibrary(file.readAsStringSync());
+    final before = encodeLibrary(library).split('\n');
+    final entries = [
+      for (final entry in library.entries)
+        if (entry.id == 'anime/frieren-beyond-journeys-end-2023')
+          entry.copyWith(tmdb: 'tmdb:tv:209867')
+        else
+          entry,
+    ];
+    final text = encodeLibrary(library.copyWith(entries: entries));
+    final after = text.split('\n');
+    expect(after.length, before.length + 1);
+    final at = after.indexOf('      "tmdb": "tmdb:tv:209867",');
+    expect(after[at - 1], '      "source": null,');
+    expect(after[at + 1], '      "kind": "series",');
+    // Read back as written.
+    expect(
+      decodeLibrary(text)
+          .entryById('anime/frieren-beyond-journeys-end-2023')!
+          .tmdb,
+      'tmdb:tv:209867',
+    );
+  });
+
   test('tag categories out of order in the file are written in order', () {
     // The app once appended a new category at the end of the map, so a
     // saved file could have Studios after Other; the data repo's

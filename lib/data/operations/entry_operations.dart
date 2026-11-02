@@ -154,6 +154,39 @@ class SetSeriesCover extends LibraryOperation {
       'Use ${_title(before, entryId)} as the cover of its series';
 }
 
+/// Links an anime to the TMDB show its episode titles come from
+/// (`Entry.tmdb`), when the daily check found one for an anime without it.
+@JsonSerializable()
+class SetTmdbShow extends LibraryOperation {
+  const SetTmdbShow(this.entryId, this.tmdb);
+
+  factory SetTmdbShow.fromJson(Map<String, Object?> json) =>
+      _$SetTmdbShowFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetTmdbShowToJson(this);
+
+  final String entryId;
+  final String tmdb;
+
+  /// Only an anime that has none gets it: one set in the meantime (a pick
+  /// on another device) stays.
+  @override
+  Library apply(Library library) {
+    final entry = library.entryById(entryId);
+    if (entry == null ||
+        entry.type != MediaType.anime ||
+        entry.kind == EntryKind.movie ||
+        entry.tmdb != null) {
+      return library;
+    }
+    return _replaceEntry(library, entry.copyWith(tmdb: tmdb));
+  }
+
+  @override
+  String summary(Library before) =>
+      'Link ${_title(before, entryId)} to its TMDB show';
+}
+
 /// Sets an anime's kind, series or movie, when the lookup tells the daily
 /// check which it is (an anime linked to AniList before kinds existed).
 /// Only the kind changes; the seasons of a series come with [AddSeasons].

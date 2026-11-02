@@ -33,6 +33,7 @@ _Entry _$EntryFromJson(Map<String, dynamic> json) => _Entry(
   seasonalOnly: json['seasonal_only'] as bool? ?? false,
   added: const DateOnlyConverter().fromJson(json['added'] as String),
   source: json['source'] as String?,
+  tmdb: json['tmdb'] as String?,
   coverFrom: json['cover_from'] as String?,
   platform: json['platform'] as String?,
   formats: (json['formats'] as List<dynamic>?)
@@ -72,6 +73,7 @@ Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
   'seasonal_only': instance.seasonalOnly,
   'added': const DateOnlyConverter().toJson(instance.added),
   'source': instance.source,
+  'tmdb': ?instance.tmdb,
   'cover_from': ?instance.coverFrom,
   'platform': ?instance.platform,
   'formats': ?instance.formats?.map((e) => _$BookFormatEnumMap[e]!).toList(),

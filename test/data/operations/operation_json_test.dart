@@ -20,6 +20,7 @@ void main() {
     SetRating(mummy.id, null),
     SetReleased(mummy.id, const Released(2027, 5, 26)),
     SetKind(dirt.id, EntryKind.song),
+    const SetTmdbShow('anime/frieren-2023', 'tmdb:tv:209867'),
     SetSeriesCover(mummy.id),
     AddEntry(dirt.copyWith(id: 'music/new-dirt-alice-in-chains')),
     UpdateEntry(mummy.copyWith(note: 'Rewatch with the kids')),

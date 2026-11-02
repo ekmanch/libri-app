@@ -41,7 +41,11 @@ class FakeLookupSource extends LookupSource
     this.movieDatesBySource = const {},
     this.editionsBySource = const {},
     this.resplitBySource = const {},
+    this.tmdbBySource = const {},
   });
+
+  /// The TMDB show [tmdbShow] answers for an anime, by source.
+  final Map<String, String> tmdbBySource;
 
   /// Re-splits [resplit] offers, by source, until [resplitSettled] is
   /// told; [settled] lists those it was told of.
@@ -210,6 +214,9 @@ class FakeLookupSource extends LookupSource
   Future<void> resplitSettled(String source) async => settled.add(source);
 
   @override
+  Future<String?> tmdbShow(String source) async => tmdbBySource[source];
+
+  @override
   Future<Released?> releaseDate(String source) async {
     await _call('released:$source');
     return releasedBySource[source];
@@ -245,6 +252,7 @@ class FakeLookupSource extends LookupSource
     String source,
     int season, {
     bool anime = false,
+    String? tmdb,
   }) async {
     await _call('episodes:$source:$season');
     return episodesBySeason[(source, season)] ??

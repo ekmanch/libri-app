@@ -136,13 +136,21 @@ abstract class LookupSource {
   /// The episodes of [season] of the show with [source], in number order, for
   /// the season screen (Show & seasons › Season episodes (all out) and Season
   /// episodes (airing weekly)); empty when the show has no such season.
-  /// [anime] as for [seasons]. Null from a source without shows. Never asked
-  /// by the daily check.
+  /// [anime] as for [seasons]; [tmdb] is an anime's TMDB show as the entry
+  /// has it (`Entry.tmdb`), which AniList takes the titles from. Null from a
+  /// source without shows. Never asked by the daily check.
   Future<List<EpisodeInfo>?> seasonEpisodes(
     String source,
     int season, {
     bool anime = false,
+    String? tmdb,
   }) async => null;
+
+  /// For an anime: the TMDB show its episode titles come from, for an entry
+  /// without one (`Entry.tmdb`), found by the daily check. Null when there
+  /// is none, from a source that does not link anime to TMDB, or when TMDB
+  /// cannot answer now.
+  Future<String?> tmdbShow(String source) async => null;
 
   /// Who the episodes last read for [source] came from, for the credit
   /// under them ("Episode details from TMDB."): this provider's [name],

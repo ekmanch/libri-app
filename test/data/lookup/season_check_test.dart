@@ -498,6 +498,45 @@ void main() {
       expect(result.operations.single, isA<AddSeasons>());
     });
 
+    test('an anime series without its TMDB show is linked to it', () async {
+      fake = FakeLookupSource(
+        seasonsBySource: {
+          'anilist:linked': fetched,
+          'anilist:unlinked': fetched,
+        },
+        kindBySource: {
+          'anilist:linked': EntryKind.series,
+          'anilist:unlinked': EntryKind.series,
+        },
+        tmdbBySource: {
+          'anilist:linked': 'tmdb:tv:2',
+          'anilist:unlinked': 'tmdb:tv:1',
+        },
+      );
+      store = MemorySeasonCheckStore();
+      check = SeasonCheck(lookups: LookupService([fake]), store: store);
+      final result = await check.run(
+        library([
+          anime(
+            'unlinked',
+            EntryStatus.done,
+            kind: EntryKind.series,
+            seasons: fetched.sublist(0, 3),
+          ),
+          anime(
+            'linked',
+            EntryStatus.done,
+            kind: EntryKind.series,
+            seasons: fetched.sublist(0, 3),
+          ).copyWith(tmdb: 'tmdb:tv:2'),
+        ]),
+        now,
+      );
+      final linked = result.operations.whereType<SetTmdbShow>().single;
+      expect(linked.entryId, 'anime/unlinked');
+      expect(linked.tmdb, 'tmdb:tv:1');
+    });
+
     group('re-split', () {
       // Frieren as TMDB split it, one season of 38, and as AniList does.
       const chain = [

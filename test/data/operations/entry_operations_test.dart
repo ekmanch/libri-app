@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/tag_category.dart';
@@ -189,6 +190,43 @@ void main() {
       ClearTrackRating(dirt.id, trackId: 'mb:1').summary(library),
       'Clear the rating of Rooster on Dirt',
     );
+  });
+
+  group('SetTmdbShow', () {
+    final frieren = mummy.copyWith(
+      id: 'anime/frieren-2023',
+      type: MediaType.anime,
+      title: 'Frieren',
+      kind: EntryKind.series,
+      source: 'anilist:154587',
+    );
+    Library lib(Entry anime) =>
+        sampleLibrary().copyWith(entries: [mummy, dirt, anime]);
+
+    test('links an anime that has no TMDB show', () {
+      const op = SetTmdbShow('anime/frieren-2023', 'tmdb:tv:209867');
+      expect(
+        op.apply(lib(frieren)).entryById(frieren.id)!.tmdb,
+        'tmdb:tv:209867',
+      );
+      expect(op.summary(lib(frieren)), 'Link Frieren to its TMDB show');
+    });
+
+    test('one set meanwhile, a movie or another type is left alone', () {
+      const op = SetTmdbShow('anime/frieren-2023', 'tmdb:tv:1');
+      for (final entry in [
+        frieren.copyWith(tmdb: 'tmdb:tv:209867'),
+        frieren.copyWith(kind: EntryKind.movie),
+        frieren.copyWith(type: MediaType.shows, kind: null),
+      ]) {
+        final library = lib(entry);
+        expect(op.apply(library), library);
+      }
+      expect(
+        const SetTmdbShow('anime/gone', 'tmdb:tv:1').apply(lib(frieren)),
+        lib(frieren),
+      );
+    });
   });
 
   group('SetKind', () {

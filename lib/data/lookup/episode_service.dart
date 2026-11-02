@@ -103,6 +103,7 @@ class EpisodeService {
         source,
         season,
         anime: show.type == MediaType.anime,
+        tmdb: show.tmdb,
       );
     } on LookupException {
       // The stored list stays on screen.

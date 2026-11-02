@@ -29,6 +29,12 @@ SetSeriesCover _$SetSeriesCoverFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$SetSeriesCoverToJson(SetSeriesCover instance) =>
     <String, dynamic>{'entryId': instance.entryId};
 
+SetTmdbShow _$SetTmdbShowFromJson(Map<String, dynamic> json) =>
+    SetTmdbShow(json['entryId'] as String, json['tmdb'] as String);
+
+Map<String, dynamic> _$SetTmdbShowToJson(SetTmdbShow instance) =>
+    <String, dynamic>{'entryId': instance.entryId, 'tmdb': instance.tmdb};
+
 SetKind _$SetKindFromJson(Map<String, dynamic> json) => SetKind(
   json['entryId'] as String,
   $enumDecode(_$EntryKindEnumMap, json['kind']),

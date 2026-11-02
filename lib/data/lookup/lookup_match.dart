@@ -29,6 +29,7 @@ class LookupMatch {
     this.seasons = const [],
     this.pages,
     this.kind,
+    this.tmdb,
     this.series,
     this.language,
     this.languages = const [],
@@ -102,6 +103,10 @@ class LookupMatch {
   /// of origin on AniList. The form suggests its tag (see `languages.dart`).
   final String? language;
 
+  /// For an anime series: the TMDB show its episode titles come from
+  /// (`Entry.tmdb`), when one was found with [LookupSource.details].
+  final String? tmdb;
+
   /// For a book: the languages its editions are in, as the lookup gives
   /// them (Open Library's three-letter codes), translations included;
   /// empty when the lookup does not say. The add-a-book search ranks the
@@ -160,6 +165,7 @@ class LookupMatch {
     List<Season>? seasons,
     int? pages,
     EntryKind? kind,
+    String? tmdb,
     Series? series,
     String? language,
     List<String>? languages,
@@ -187,6 +193,7 @@ class LookupMatch {
     seasons: seasons ?? this.seasons,
     pages: pages ?? this.pages,
     kind: kind ?? this.kind,
+    tmdb: tmdb ?? this.tmdb,
     series: series ?? this.series,
     language: language ?? this.language,
     languages: languages ?? this.languages,
@@ -219,6 +226,7 @@ class LookupMatch {
       other.pages == pages &&
       other.kind == kind &&
       other.series == series &&
+      other.tmdb == tmdb &&
       other.language == language &&
       listEquals(other.languages, languages) &&
       other.network == network &&

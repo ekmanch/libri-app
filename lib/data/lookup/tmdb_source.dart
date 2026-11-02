@@ -522,6 +522,7 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
     String source,
     int season, {
     bool anime = false,
+    String? tmdb,
   }) async {
     final (kind, id) = _parse(source);
     if (kind != 'tv') return null;
