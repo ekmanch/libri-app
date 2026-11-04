@@ -18,10 +18,15 @@ class ViewMenuButton extends StatelessWidget {
     required this.current,
     required this.onChanged,
     this.photos = false,
+    this.views = EntryView.values,
   });
 
   final EntryView current;
   final ValueChanged<EntryView> onChanged;
+
+  /// The choices offered; Library › Coming soon: view menu leaves out the
+  /// grid.
+  final List<EntryView> views;
 
   /// Artists and songs say "with photos"; everything else "with covers".
   final bool photos;
@@ -62,7 +67,7 @@ class ViewMenuButton extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
           child: Text('VIEW', style: theme.textTheme.labelSmall),
         ),
-        for (final view in EntryView.values)
+        for (final view in views)
           PopupMenuItem<EntryView>(
             value: view,
             height: 52,

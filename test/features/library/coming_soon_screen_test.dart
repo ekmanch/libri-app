@@ -26,7 +26,9 @@ import 'package:library_app/features/entry/series.dart';
 import 'package:library_app/features/library/coming_soon_screen.dart';
 import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
+import 'package:library_app/features/settings/entry_view.dart';
 import 'package:library_app/widgets/cached_image.dart';
+import 'package:library_app/widgets/cover_image.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
 
 import '../../helpers/pump_app.dart';
@@ -498,6 +500,71 @@ void main() {
           .notInterested,
       {'shows/stranger-things#5'},
     );
+  });
+
+  testWidgets(
+    'the view menu offers Text and List with covers, remembered for the page',
+    (tester) async {
+      final container = await pump(tester, everything: true);
+      final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
+      expect(find.byType(CoverTint), findsNothing);
+      await tester.tap(find.byTooltip('Change view'));
+      await tester.pumpAndSettle();
+      expect(find.text('Text'), findsOneWidget);
+      expect(find.text('List with covers'), findsOneWidget);
+      expect(find.text('Grid with covers'), findsNothing);
+
+      await tester.tap(find.text('List with covers'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(displayPreferencesProvider).comingSoonView,
+        EntryView.listWithPhotos,
+      );
+      // A wanted row has the entry's cover, an Add row the one the check
+      // recorded, both fetched now that they are on screen; a title without
+      // art yet shows the tinted tile, never letters.
+      expect(find.byType(CoverImage), findsNWidgets(3));
+      expect(cover(gollumCover), findsOneWidget);
+      expect(find.byType(CoverTint), findsWidgets);
+      expect(find.byType(CoverPlaceholder), findsNothing);
+      for (var i = 0; i < 40 && !fetcher.fetched.contains(gollumCover); i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+      }
+      expect(fetcher.fetched, contains(gollumCover));
+
+      // The other segment uses the same view.
+      await tester.tap(find.text('In library'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CoverImage), findsNWidgets(2));
+      expect(find.text('The Winds of Winter'), findsOneWidget);
+
+      // Back to text: no covers, nothing more fetched.
+      final fetched = fetcher.fetched.length;
+      await tester.tap(find.byTooltip('Change view'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Text'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CoverImage), findsNothing);
+      expect(find.byType(CoverTint), findsNothing);
+      expect(fetcher.fetched.length, fetched);
+      expect(
+        container.read(displayPreferencesProvider).comingSoonView,
+        EntryView.text,
+      );
+    },
+  );
+
+  testWidgets('opens in the remembered view', (tester) async {
+    await pump(
+      tester,
+      prefs: const DisplayPreferences(comingSoonView: EntryView.listWithPhotos),
+    );
+    expect(find.byType(CoverImage), findsNWidgets(2));
+    final tint = tester.widget<CoverTint>(find.byType(CoverTint).first);
+    expect(tint.width, 44);
   });
 
   testWidgets('says when nothing is coming', (tester) async {

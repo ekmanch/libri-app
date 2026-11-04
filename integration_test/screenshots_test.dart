@@ -928,6 +928,17 @@ void main() {
     await tester.tap(find.text('Everything'));
     await tester.pumpAndSettle();
     await capture(tester, 'a1e-coming-soon-everything');
+    // Library › Coming soon: view menu, then Coming soon: list with covers
+    // (the rows on screen fetch their covers; a title without art, the
+    // tinted tile), then back to text for the rest of the walk.
+    await tester.tap(find.byTooltip('Change view'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1h-coming-soon-view-menu');
+    await tester.tap(find.text('List with covers'));
+    await tester.pumpAndSettle();
+    await waitForImages(tester, count: 2);
+    await capture(tester, 'a1i-coming-soon-list-covers');
+    await pickView(tester, 'Text');
     // The found releases sit above it now: scroll the row into view (the
     // page's list, not the page view the two segments swipe in).
     await tester.scrollUntilVisible(
@@ -1525,6 +1536,14 @@ void main() {
     await tester.tap(find.text('Everything'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1e-coming-soon-everything');
+    await tester.tap(find.byTooltip('Change view'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1h-coming-soon-view-menu');
+    await tester.tap(find.text('List with covers'));
+    await tester.pumpAndSettle();
+    await waitForImages(tester, count: 2);
+    await capture(tester, 'large-text-a1i-coming-soon-list-covers');
+    await pickView(tester, 'Text');
     // The found releases sit above it now: scroll the row into view (the
     // page's list, not the page view the two segments swipe in).
     await tester.scrollUntilVisible(

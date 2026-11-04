@@ -379,13 +379,27 @@ String addedLabel(DateTime added, {required DateTime today}) {
 /// with the row's action under it when it has one (Library › Coming soon:
 /// everything). No chevron.
 class HomeRow extends StatelessWidget {
-  const HomeRow(this.row, {super.key, this.onTap, this.minHeight = 56});
+  const HomeRow(
+    this.row, {
+    super.key,
+    this.onTap,
+    this.minHeight = 56,
+    this.leading,
+    this.padding = EdgeInsets.zero,
+  });
 
   final HomeRowData row;
   final VoidCallback? onTap;
 
   /// 56 on the home, 60 on the Coming soon screen, as the canvas draws them.
   final double minHeight;
+
+  /// A small cover before the text (Library › Coming soon: list with
+  /// covers).
+  final Widget? leading;
+
+  /// Room around the row's content: 10 above and below a cover.
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
@@ -396,11 +410,13 @@ class HomeRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         constraints: BoxConstraints(minHeight: minHeight),
+        padding: padding,
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: colors.divider)),
         ),
         child: Row(
           children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 12)],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -11,7 +11,9 @@ import 'cover_placeholder.dart';
 /// covers; Entry details and the rest): the placeholder until the cover has
 /// been found and fetched, then the image. Only built in the photo views, so a
 /// text view fetches nothing. [labeled] gives the image the title as its screen
-/// reader name, for the details header.
+/// reader name, for the details header. [placeholder] replaces the lettered
+/// [CoverPlaceholder] (a [CoverTint] on Library › Coming soon: list with
+/// covers).
 class CoverImage extends ConsumerStatefulWidget {
   const CoverImage({
     super.key,
@@ -19,12 +21,14 @@ class CoverImage extends ConsumerStatefulWidget {
     required this.width,
     this.fontSize = 7,
     this.labeled = false,
+    this.placeholder,
   });
 
   final Entry entry;
   final double width;
   final double fontSize;
   final bool labeled;
+  final Widget? placeholder;
 
   @override
   ConsumerState<CoverImage> createState() => _CoverImageState();
@@ -77,11 +81,13 @@ class _CoverImageState extends ConsumerState<CoverImage> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-    final placeholder = CoverPlaceholder(
-      entry: entry,
-      width: widget.width,
-      fontSize: widget.fontSize,
-    );
+    final placeholder =
+        widget.placeholder ??
+        CoverPlaceholder(
+          entry: entry,
+          width: widget.width,
+          fontSize: widget.fontSize,
+        );
     return CachedImage(
       url: _url,
       width: widget.width,

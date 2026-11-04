@@ -30,10 +30,12 @@ import '../entry/entry_form_screen.dart';
 import '../entry/new_entry_screen.dart';
 import '../entry/series.dart';
 import '../settings/display_preferences.dart';
+import '../settings/entry_view.dart';
 import '../shell/app_shell.dart';
 import 'home_sections.dart';
 import 'library_filter_provider.dart';
 import 'upcoming.dart';
+import 'view_menu.dart';
 
 /// Opens the Coming soon screen (Library › Coming soon: in library), from
 /// "See all" on the home's Coming soon heading.
@@ -53,7 +55,10 @@ Future<void> openComingSoon(BuildContext context, {bool everything = false}) =>
 /// other entry with a release ahead, each row saying "Want" or "Add" under
 /// its date; tapping an "Add" row opens [UpcomingAddSheet]. Rows are
 /// grouped by month, then year-only dates under their year, then "Date not
-/// set"; a wanted row opens the entry's details.
+/// set"; a wanted row opens the entry's details. The view button at the top
+/// right offers Text and List with covers (Coming soon: view menu; no grid),
+/// remembered for this page on its own and used by both segments (Coming
+/// soon: list with covers).
 class ComingSoonScreen extends ConsumerStatefulWidget {
   const ComingSoonScreen({super.key, this.startEverything = false});
 
@@ -122,6 +127,7 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
     final subtitle = _everything
         ? '${all.length} upcoming · $notInLibrary not in your library'
         : '${wanted.length} in your library';
+    final view = prefs.comingSoonView;
 
     return Scaffold(
       body: SafeArea(
@@ -132,6 +138,15 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
               title: 'Coming soon',
               subtitle: subtitle,
               onBack: () => Navigator.of(context).pop(),
+              actions: [
+                ViewMenuButton(
+                  current: view,
+                  views: const [EntryView.text, EntryView.listWithPhotos],
+                  onChanged: ref
+                      .read(displayPreferencesProvider.notifier)
+                      .setComingSoonView,
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
@@ -153,12 +168,14 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
                   _UpcomingPage(
                     wanted,
                     everything: false,
+                    view: view,
                     today: today,
                     onOpen: _open,
                   ),
                   _UpcomingPage(
                     all,
                     everything: true,
+                    view: view,
                     today: today,
                     onOpen: _open,
                   ),
@@ -295,24 +312,57 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
 }
 
 /// One segment's page: on Everything the hint, then the rows under
-/// their month headings, or the empty text.
+/// their month headings, or the empty text. In [EntryView.listWithPhotos]
+/// each row has a small cover on the left (Library › Coming soon: list with
+/// covers): the entry's own, or for a part or a found release the one the
+/// daily check recorded, fetched and cached only for the rows on screen
+/// (the list builds lazily); a title without art yet gets a plain tile
+/// tinted in the type's color.
 class _UpcomingPage extends StatelessWidget {
   const _UpcomingPage(
     this.items, {
     required this.everything,
+    required this.view,
     required this.today,
     required this.onOpen,
   });
 
   final List<UpcomingItem> items;
   final bool everything;
+  final EntryView view;
   final DateTime today;
   final ValueChanged<UpcomingItem> onOpen;
+
+  /// The cover's width in the list with covers, as the canvas draws it
+  /// (44 × 66 for a poster).
+  static const coverWidth = 44.0;
+
+  /// Room above and below a cover.
+  static const coverRowPadding = EdgeInsets.symmetric(vertical: 10);
+
+  Widget? _cover(UpcomingItem item) {
+    if (view != EntryView.listWithPhotos) return null;
+    final tint = CoverTint(type: item.type, width: coverWidth);
+    if (item.entry case final entry?) {
+      return CoverImage(entry: entry, width: coverWidth, placeholder: tint);
+    }
+    return CachedImage(
+      url: item.coverUrl,
+      width: coverWidth,
+      height: coverWidth / CoverPlaceholder.aspectRatio(item.type),
+      placeholder: tint,
+      borderRadius: BorderRadius.circular(8),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final groups = upcomingGroups(items, today: today);
+    // Headings and rows as one flat list, so the list can build lazily.
+    final lines = <Object>[
+      for (final group in groups) ...[group, ...group.items],
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -339,39 +389,42 @@ class _UpcomingPage extends StatelessWidget {
                     ),
                   ),
                 )
-              : ListView(
+              : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(
                     20,
                     4,
                     20,
                     AppShell.contentBottomPadding,
                   ),
-                  children: [
-                    for (final group in groups) ...[
-                      SectionHeading(
-                        group.name,
-                        padding: const EdgeInsets.fromLTRB(0, 18, 0, 4),
+                  itemCount: lines.length,
+                  itemBuilder: (context, i) => switch (lines[i]) {
+                    final UpcomingItem item => HomeRow(
+                      HomeRowData.text(
+                        id: item.id,
+                        title: item.title,
+                        type: item.type,
+                        detail: item.detail,
+                        right: item.rightLabel(today),
+                        emphasized: item.emphasized,
+                        action: everything
+                            ? (item.wanted ? 'Want' : 'Add')
+                            : null,
+                        actionEmphasized: item.wanted,
                       ),
-                      for (final item in group.items)
-                        HomeRow(
-                          HomeRowData.text(
-                            id: item.id,
-                            title: item.title,
-                            type: item.type,
-                            detail: item.detail,
-                            right: item.rightLabel(today),
-                            emphasized: item.emphasized,
-                            action: everything
-                                ? (item.wanted ? 'Want' : 'Add')
-                                : null,
-                            actionEmphasized: item.wanted,
-                          ),
-                          key: ValueKey('upcoming-${item.id}'),
-                          minHeight: 60,
-                          onTap: () => onOpen(item),
-                        ),
-                    ],
-                  ],
+                      key: ValueKey('upcoming-${item.id}'),
+                      minHeight: 60,
+                      leading: _cover(item),
+                      padding: view == EntryView.listWithPhotos
+                          ? coverRowPadding
+                          : EdgeInsets.zero,
+                      onTap: () => onOpen(item),
+                    ),
+                    final UpcomingGroup group => SectionHeading(
+                      group.name,
+                      padding: const EdgeInsets.fromLTRB(0, 18, 0, 4),
+                    ),
+                    _ => const SizedBox.shrink(),
+                  },
                 ),
         ),
       ],

@@ -65,6 +65,7 @@ void main() {
     accent: Accents.pastel.first,
     viewByType: const {MediaType.movies: EntryView.grid},
     musicViewByTab: const {MusicTab.songs: EntryView.listWithPhotos},
+    comingSoonView: EntryView.listWithPhotos,
     sortByType: const {MediaType.books: LibrarySort.titleAz},
     filteredSort: LibrarySort.yearNewest,
     artistSort: LibrarySort.titleAz,
@@ -92,6 +93,7 @@ void main() {
       'theme': 'sepia',
       'accent': 'vivid/Plaid',
       'view': {'movies': 'carousel', 'podcasts': 'grid', 'books': 'grid'},
+      'coming_soon_view': 'carousel',
       'sort': 'titleAz',
       'timeline_default': 'yes',
       'default_platform': 5,
@@ -102,6 +104,7 @@ void main() {
     expect(prefs.hiddenUpcoming, isEmpty);
     expect(prefs.accent, Accents.hotPink);
     expect(prefs.viewByType, {MediaType.books: EntryView.grid});
+    expect(prefs.comingSoonView, EntryView.text);
     expect(prefs.sortByType, isEmpty);
     expect(prefs.hiddenSeriesParts, isEmpty);
     expect(prefs.upcomingWifiOnly, isFalse);

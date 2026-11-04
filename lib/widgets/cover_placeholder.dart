@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../data/models/entry.dart';
-import '../../data/models/media_type.dart';
-import '../../theme/app_theme.dart';
+import '../data/models/entry.dart';
+import '../data/models/media_type.dart';
+import '../theme/app_theme.dart';
 
 /// Stands in for a cover: a colored box
 /// with the title in it, shown until the image is on the device (or when
@@ -53,6 +53,38 @@ class CoverPlaceholder extends StatelessWidget {
             height: 1.2,
             color: const Color(0xCCFFFFFF),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stands in for a cover that is not on the device: a plain tile tinted in
+/// the type's color, with no letters (Library › Coming soon: list with
+/// covers, where the title sits right next to it and an upcoming title often
+/// has no art yet). Never an empty box.
+class CoverTint extends StatelessWidget {
+  const CoverTint({super.key, required this.type, required this.width});
+
+  final MediaType type;
+  final double width;
+
+  /// How much of the type's color the tile shows (the canvas draws it at
+  /// a quarter).
+  static const alpha = 0.25;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      excludeSemantics: true,
+      child: Container(
+        width: width,
+        height: width / CoverPlaceholder.aspectRatio(type),
+        decoration: BoxDecoration(
+          color: LibraryColors.of(context)
+              .forType(type)
+              .withValues(alpha: alpha),
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );

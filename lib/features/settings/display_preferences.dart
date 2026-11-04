@@ -20,6 +20,7 @@ class DisplayPreferences {
     this.accent = Accents.defaultAccent,
     this.viewByType = const {},
     this.musicViewByTab = const {},
+    this.comingSoonView = EntryView.text,
     this.sortByType = const {},
     this.filteredSort = LibrarySort.newestAdded,
     this.artistSort = LibrarySort.yearOldest,
@@ -40,6 +41,12 @@ class DisplayPreferences {
   /// View per music tab (Library › Music: artists, text view); missing means
   /// [EntryView.text].
   final Map<MusicTab, EntryView> musicViewByTab;
+
+  /// The view of Library › Coming soon (Coming soon: list with covers),
+  /// remembered for that page on its own; Text or List with covers, never
+  /// the grid. Both of its segments use it; the home's Coming soon section
+  /// stays text.
+  final EntryView comingSoonView;
 
   /// Sort per type's "See all" screen; missing means newest added.
   final Map<MediaType, LibrarySort> sortByType;
@@ -103,6 +110,7 @@ class DisplayPreferences {
     AccentOption? accent,
     Map<MediaType, EntryView>? viewByType,
     Map<MusicTab, EntryView>? musicViewByTab,
+    EntryView? comingSoonView,
     Map<MediaType, LibrarySort>? sortByType,
     LibrarySort? filteredSort,
     LibrarySort? artistSort,
@@ -116,6 +124,7 @@ class DisplayPreferences {
     accent: accent ?? this.accent,
     viewByType: viewByType ?? this.viewByType,
     musicViewByTab: musicViewByTab ?? this.musicViewByTab,
+    comingSoonView: comingSoonView ?? this.comingSoonView,
     sortByType: sortByType ?? this.sortByType,
     filteredSort: filteredSort ?? this.filteredSort,
     artistSort: artistSort ?? this.artistSort,
@@ -136,6 +145,7 @@ class DisplayPreferences {
     'music_view': {
       for (final e in musicViewByTab.entries) e.key.name: e.value.name,
     },
+    'coming_soon_view': comingSoonView.name,
     'sort': {for (final e in sortByType.entries) e.key.name: e.value.name},
     'filtered_sort': filteredSort.name,
     'artist_sort': artistSort.name,
@@ -192,6 +202,9 @@ class DisplayPreferences {
         MusicTab.values,
         EntryView.values,
       ),
+      comingSoonView:
+          byName(EntryView.values, json['coming_soon_view']) ??
+          defaults.comingSoonView,
       sortByType: mapOf(json['sort'], MediaType.values, LibrarySort.values),
       filteredSort:
           byName(LibrarySort.values, json['filtered_sort']) ??
@@ -220,6 +233,7 @@ class DisplayPreferences {
       other.accent == accent &&
       mapEquals(other.viewByType, viewByType) &&
       mapEquals(other.musicViewByTab, musicViewByTab) &&
+      other.comingSoonView == comingSoonView &&
       mapEquals(other.sortByType, sortByType) &&
       other.filteredSort == filteredSort &&
       other.artistSort == artistSort &&
@@ -244,6 +258,7 @@ class DisplayPreferences {
     Object.hashAllUnordered(
       musicViewByTab.entries.map((e) => (e.key, e.value)),
     ),
+    comingSoonView,
     Object.hashAllUnordered(sortByType.entries.map((e) => (e.key, e.value))),
     filteredSort,
     artistSort,
@@ -302,6 +317,9 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
   void setMusicView(MusicTab tab, EntryView view) => state = state.copyWith(
     musicViewByTab: {...state.musicViewByTab, tab: view},
   );
+
+  void setComingSoonView(EntryView view) =>
+      state = state.copyWith(comingSoonView: view);
 
   void setArtistSort(LibrarySort sort) =>
       state = state.copyWith(artistSort: sort);
