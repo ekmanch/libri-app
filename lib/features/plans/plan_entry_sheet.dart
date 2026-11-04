@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/library_providers.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/models/app_settings.dart';
+import '../../data/models/season.dart';
 import '../../data/operations/operations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
@@ -98,7 +99,11 @@ class PlanEntrySheet extends ConsumerWidget {
     }
 
     Future<void> pickWhen() async {
-      final choice = await showWhenSheet(context, current: item.when);
+      final choice = await showWhenSheet(
+        context,
+        current: item.when,
+        today: seasonClock(),
+      );
       if (choice != null && choice.when != item.when) {
         await repository.apply(
           SetPlanItem(plan.id, item.copyWith(when: choice.when)),

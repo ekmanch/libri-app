@@ -103,7 +103,10 @@ class _WhenSheetState extends State<WhenSheet> {
       cells.add(null);
     }
 
+    // Scrollable: a month of six rows (one that starts on a weekend) is
+    // taller than the sheet's share of a 780 dp phone (2026-11-04).
     return SheetFrame(
+      scrollable: true,
       header: Row(
         children: [
           Expanded(child: Text('When', style: theme.textTheme.titleLarge)),

@@ -273,7 +273,7 @@ Features found missing and bugs found while using the app day to day, in the ord
 - [x] Season episodes load quickly again (owner's report, 2026-11-02; DESIGN.md 10c): AniList chains kept on the phone (`anime_chains.json`), taken by the season screen up to seven days old; no airing schedule for a finished season TMDB dates in full; the season screen's requests ahead of the daily checks' (`urgentLookups`); tests for the store, the limiter and the source
 - [ ] Edit an anime's TMDB show in Add / edit entry (needs a mockup: propose it as text first), for a wrong or missing match
 - [x] Data repo follow-up for `tmdb`: `scripts/library.py` accepts `tmdb` on anime that are not movies (text `tmdb:tv:<id>`, right after `source`, `cover_from` then after it), and the README's format section says so (edited 2026-11-02 in the data repo's working tree, for the owner to commit and push)
-- [ ] `plan_screen_test.dart` "the entry sheet has a When row that opens the picker" depends on today's date: the date picker opens on the current month, so from November 2026 it cannot find "Sat Oct 17" (found 2026-11-02, fails on the committed code too); fix the clock in the test
+- [x] `plan_screen_test.dart` "the entry sheet has a When row that opens the picker" depends on today's date: the date picker opens on the current month, so from November 2026 it cannot find "Sat Oct 17" (found 2026-11-02, fails on the committed code too); fix the clock in the test. Fixed 2026-11-04: the sheet opens on the app clock (`seasonClock`) and the test fixes it; the same run showed Plans › When overflowing on a month of six rows (November 2026) at 360 × 780, so the sheet scrolls now
 
 ## Later
 

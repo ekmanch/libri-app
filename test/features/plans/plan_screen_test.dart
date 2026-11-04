@@ -358,6 +358,10 @@ void main() {
     testWidgets('the entry sheet has a When row that opens the picker', (
       tester,
     ) async {
+      // The picker opens on today's month: fixed, so the days tapped below
+      // are on it whatever the date (2026-11-04: it opened on November).
+      seasonClock = () => DateTime(2026, 10, 15);
+      addTearDown(() => seasonClock = DateTime.now);
       final container = await open(tester, 'halloween-2026');
       await tester.scrollUntilVisible(
         find.text('Hereditary'),
