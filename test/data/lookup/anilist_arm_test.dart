@@ -272,6 +272,35 @@ void main() {
     expect(SeasonSplit.distinct(splits), hasLength(2));
   });
 
+  test('a chain kept by a build without ARM is walked again', () async {
+    final chains = MemoryAnimeChainStore();
+    await chains.write((
+      fetched: DateTime.now(),
+      nodes: [
+        for (final id in [1, 2, 3, 4, 5])
+          {
+            'id': id,
+            'format': id == 5 ? null : 'TV',
+            'status': id == 5 ? 'NOT_YET_RELEASED' : 'FINISHED',
+            'english': 'Entry $id',
+            'episodes': 12,
+          },
+      ],
+    ));
+    final anilist = source(chains: chains);
+    final splits = await anilist.seasonSplits(
+      'anilist:1',
+      tmdb: 'tmdb:tv:1429',
+    );
+    expect(splits!.first.count, 3);
+    expect(to('graphql.anilist.co'), isNotEmpty);
+    expect(chains.chains.single.nodes.first.containsKey('tvdb'), isTrue);
+    // Walked once: the next read serves from memory.
+    sent = [];
+    await anilist.seasonSplits('anilist:1', tmdb: 'tmdb:tv:1429');
+    expect(to('graphql.anilist.co'), isEmpty);
+  });
+
   test('the parts split: its own seasons and episodes', () async {
     final anilist = source();
     final parts = await anilist.splitSeasons(

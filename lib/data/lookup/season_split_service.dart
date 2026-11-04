@@ -54,8 +54,11 @@ class SeasonSplitService {
 
   /// The splits for [entry], distinct ([SeasonSplit.distinct]), at most
   /// [SeasonSplit.maxListed] ([SeasonSplit.shortlist]) and in the
-  /// sources' order: the stored ones while they are younger than [keep],
-  /// else fetched and stored; the stored ones, however old, when the
+  /// sources' order: the stored ones while they are younger than [keep]
+  /// and not stale for the entry ([SeasonSplit.staleFor]: the split its
+  /// `seasons_from` names lists a season out that the entry lacks), else
+  /// fetched and stored, as with [refresh] (a new entry's form, whose
+  /// pick just walked the chain); the stored ones, however old, when the
   /// lookup cannot answer. Null for an entry with no lookup id, or nothing
   /// stored and no answer. Ahead of the daily checks' requests, since a
   /// screen waits for it.
@@ -65,7 +68,10 @@ class SeasonSplitService {
     final key = keyFor(source, entry.tmdb);
     final now = DateTime.now();
     final stored = await store.read(key);
-    if (stored != null && !refresh && now.difference(stored.fetched) < keep) {
+    if (stored != null &&
+        !refresh &&
+        now.difference(stored.fetched) < keep &&
+        !isStale(entry, stored.splits, now)) {
       return stored.splits;
     }
     final lookup = lookups.sourceOf(source);
@@ -90,6 +96,22 @@ class SeasonSplitService {
     final source = entry.source ?? resolver.cachedSource(entry);
     if (source == null) return null;
     return (await store.read(keyFor(source, entry.tmdb)))?.splits;
+  }
+
+  /// Whether the stored [splits] are stale for [entry]: the split its
+  /// `seasons_from` names lists a season out on [today] beyond the
+  /// entry's seasons ([SeasonSplit.staleFor]). Seasons set by hand, or an
+  /// entry without a split, are never stale.
+  static bool isStale(Entry entry, List<SeasonSplit> splits, DateTime today) {
+    if (entry.seasonsByHand) return false;
+    final from = entry.seasonsFrom;
+    if (from == null) return false;
+    for (final split in splits) {
+      if (split.has(from)) {
+        return split.staleFor(entry.seasons ?? const [], today);
+      }
+    }
+    return false;
   }
 
   /// The split [entry]'s seasons are in: the one its `seasons_from` names,

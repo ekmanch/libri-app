@@ -32,9 +32,12 @@ class MemorySeasonSplitStore implements SeasonSplitStore {
   }
 }
 
-/// `season_splits.json` under the cache folder: `{"anilist:11061|tmdb:tv:46298":
-/// {"fetched": "2026-11-03T08:00:00.000Z", "splits": [...]}}`. A cleared
-/// cache only means reading the splits again.
+/// `season_splits.json` under the cache folder: `{"version": 2,
+/// "anilist:11061|tmdb:tv:46298": {"fetched": "2026-11-03T08:00:00.000Z",
+/// "splits": [...]}}`. Version 2 since 2026-11-04: what the build of the
+/// day before stored (AniList's chain with its parts unfolded, every TMDB
+/// group) is dropped once, by [version]. A cleared cache only means
+/// reading the splits again.
 class FileSeasonSplitStore implements SeasonSplitStore {
   FileSeasonSplitStore(Directory cache)
     : _file = JsonFile(
@@ -43,9 +46,17 @@ class FileSeasonSplitStore implements SeasonSplitStore {
 
   final JsonFile _file;
 
+  static const version = 2;
+
+  /// The file's contents when they are this version's, else empty.
+  Future<Map<String, Object?>> _current() async {
+    final json = await _file.read();
+    return json != null && json['version'] == version ? json : {};
+  }
+
   @override
   Future<StoredSplits?> read(String key) async {
-    final stored = (await _file.read())?[key];
+    final stored = (await _current())[key];
     if (stored is! Map<String, Object?>) return null;
     final fetched = DateTime.tryParse(stored['fetched'] as String? ?? '');
     if (fetched == null) return null;
@@ -68,7 +79,8 @@ class FileSeasonSplitStore implements SeasonSplitStore {
     List<SeasonSplit> splits,
     DateTime fetched,
   ) async {
-    final json = await _file.read() ?? {};
+    final json = await _current();
+    json['version'] = version;
     json[key] = {
       'fetched': fetched.toUtc().toIso8601String(),
       'splits': [for (final s in splits) s.toJson()],

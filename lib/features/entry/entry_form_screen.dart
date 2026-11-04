@@ -378,7 +378,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final key = await service.keyOf(probe);
     if (!mounted || key == null || key == _splitsKey) return;
     _splitsKey = key;
-    final splits = await service.load(probe);
+    // A new entry's pick just walked the chain: the splits are read fresh,
+    // never from a list stored by an earlier look (owner's report,
+    // 2026-11-04: Bleach re-split into five by a stale list).
+    final splits = await service.load(probe, refresh: _splitAuto);
     if (!mounted || key != _splitsKey) return;
     setState(() {
       _splits = splits;

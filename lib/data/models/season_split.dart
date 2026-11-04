@@ -256,6 +256,20 @@ abstract class SeasonSplit with _$SeasonSplit {
     return a.day == null || b.day == null || a.day == b.day;
   }
 
+  /// Whether this split, kept on the phone, is stale for an entry in it
+  /// whose [seasons] these are: it lists a season beyond their highest
+  /// that is already out on [today]. The daily check adds a season the
+  /// day it is out, so one out and not added means the stored split and
+  /// the entry disagree (a list stored by a build that did not fold
+  /// Bleach's parts; owner's report, 2026-11-04), and the splits are read
+  /// again. An announced season beyond them is not held against it.
+  bool staleFor(List<Season> seasons, DateTime today) {
+    final highest = seasons.isEmpty ? 0 : seasons.last.season;
+    return this.seasons.any(
+      (s) => s.season > highest && (s.released?.isReleasedOn(today) ?? false),
+    );
+  }
+
   /// How many seasons this split has beyond [seasons]' highest.
   int beyond(List<Season> seasons) {
     final highest = seasons.isEmpty ? 0 : seasons.last.season;

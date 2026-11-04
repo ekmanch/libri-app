@@ -494,7 +494,10 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
       if (_keptChains[id] case final chain?) return chain;
       final stored = await chainStore.read(id);
       if (stored != null &&
-          DateTime.now().difference(stored.fetched) < chainKeep) {
+          DateTime.now().difference(stored.fetched) < chainKeep &&
+          (arm == null || stored.nodes.every((n) => n.containsKey('tvdb')))) {
+        // A chain a build without ARM kept has no map to fold by: walked
+        // again (the key is written, with or without a row).
         final chain = [for (final n in stored.nodes) AniNode.fromJson(n)];
         for (final node in chain) {
           _keptChains[node.id] = chain;
