@@ -159,7 +159,6 @@ void main() {
     expect(find.text('The Hunt for Gollum'), findsNothing);
     expect(find.text('Want'), findsNothing);
     expect(find.text('Add'), findsNothing);
-    expect(find.text(ComingSoonScreen.hint), findsNothing);
 
     // A wanted row opens the entry's details.
     await tester.tap(row('Werwulf'));
@@ -174,7 +173,6 @@ void main() {
     await tester.tap(find.text('Everything'));
     await tester.pumpAndSettle();
     expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
-    expect(find.text(ComingSoonScreen.hint), findsOneWidget);
     expect(find.text('NOVEMBER'), findsOneWidget);
     expect(find.text('Stranger Things'), findsOneWidget);
     expect(find.text('Show · Season 5'), findsOneWidget);
@@ -212,18 +210,16 @@ void main() {
     expect(find.text('2 in your library'), findsOneWidget);
     expect(find.text('Stranger Things'), findsNothing);
 
-    // Left: Everything, with the hint and the Add rows.
+    // Left: Everything, with the Add rows.
     await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
-    expect(find.text(ComingSoonScreen.hint), findsOneWidget);
     expect(find.text('Stranger Things'), findsOneWidget);
 
     // Right: back to In library. Nothing past the ends.
     await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('2 in your library'), findsOneWidget);
-    expect(find.text(ComingSoonScreen.hint), findsNothing);
     await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('2 in your library'), findsOneWidget);

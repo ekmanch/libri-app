@@ -65,9 +65,6 @@ class ComingSoonScreen extends ConsumerStatefulWidget {
   /// Open on Everything instead of In library.
   final bool startEverything;
 
-  static const hint =
-      'New seasons, parts and releases from the shows, series, authors and '
-      'artists in your library. Tap one to add it.';
   static const emptyWants = 'Nothing you want is coming up.';
   static const emptyEverything = 'Nothing upcoming in your library.';
 
@@ -311,8 +308,8 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
   }
 }
 
-/// One segment's page: on Everything the hint, then the rows under
-/// their month headings, or the empty text. In [EntryView.listWithPhotos]
+/// One segment's page: the rows under their month headings, or the empty
+/// text. In [EntryView.listWithPhotos]
 /// each row has a small cover on the left (Library › Coming soon: list with
 /// covers): the entry's own, or for a part or a found release the one the
 /// daily check recorded, fetched and cached only for the rows on screen
@@ -366,14 +363,6 @@ class _UpcomingPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (everything)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-            child: Text(
-              ComingSoonScreen.hint,
-              style: theme.textTheme.bodySmall!.copyWith(height: 1.4),
-            ),
-          ),
         Expanded(
           child: items.isEmpty
               ? Padding(
