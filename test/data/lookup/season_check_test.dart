@@ -5,6 +5,7 @@ import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
 import 'package:library_app/data/lookup/season_check.dart';
+import 'package:library_app/data/lookup/season_parts.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/library.dart';
@@ -12,6 +13,7 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/season_span.dart';
+import 'package:library_app/data/models/season_split.dart';
 import 'package:library_app/data/operations/operations.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -103,6 +105,8 @@ void main() {
       'seasons:tmdb:tv:done',
       'seasons:tmdb:tv:want',
       'seasons:tmdb:tv:empty-dnf',
+      // A show without seasons is asked for every split, to pick one.
+      'splits:tmdb:tv:empty-dnf',
     ]);
   });
 
@@ -391,8 +395,12 @@ void main() {
           ]),
           now,
         );
+        // An anime with a season to add is asked for its other splits
+        // first, in case its seasons are still its TMDB show's.
         expect(fake.calls, [
           'seasons:anilist:series',
+          'splits:anilist:series',
+          'parts:anilist:series',
           'seasons:anilist:unknown',
         ]);
       },
@@ -494,7 +502,11 @@ void main() {
         seasons: two,
       ).copyWith(source: 'tmdb:tv:7');
       final result = await check.run(library([entry]), now);
-      expect(fake.calls, ['seasons:tmdb:tv:7']);
+      expect(fake.calls, [
+        'seasons:tmdb:tv:7',
+        'splits:tmdb:tv:7',
+        'parts:tmdb:tv:7',
+      ]);
       expect(result.operations.single, isA<AddSeasons>());
     });
 
@@ -537,42 +549,89 @@ void main() {
       expect(linked.tmdb, 'tmdb:tv:1');
     });
 
-    group('re-split', () {
-      // Frieren as TMDB split it, one season of 38, and as AniList does.
+    group('splits (section 10c)', () {
+      // Frieren as AniList splits it, two seasons and an announced third,
+      // and as its TMDB show does, one season of 38.
       const chain = [
         Season(season: 1, released: Released(2023, 9, 29)),
         Season(season: 2, released: Released(2026, 1, 16)),
         Season(season: 3, released: Released(2027, 10)),
       ];
-      const split = (
-        before: [
-          SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
-        ],
-        after: [
+      const anilistSplit = SeasonSplit(
+        ids: [SeasonSplit.anilistId],
+        seasons: [
           SeasonSpan(season: 1, episodes: 28, released: Released(2023, 9, 29)),
           SeasonSpan(season: 2, episodes: 10, released: Released(2026, 1, 16)),
           SeasonSpan(season: 3, released: Released(2027, 10)),
         ],
       );
+      const tmdbSplit = SeasonSplit(
+        ids: [SeasonSplit.tmdbSeasonsId],
+        seasons: [
+          SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+        ],
+      );
+      const arcs = SeasonSplit(
+        ids: ['tmdb:group:arcs'],
+        arcs: true,
+        seasons: [
+          SeasonSpan(
+            season: 1,
+            name: 'Journey',
+            episodes: 20,
+            released: Released(2023, 9, 29),
+          ),
+          SeasonSpan(
+            season: 2,
+            name: 'Exam',
+            episodes: 18,
+            released: Released(2024, 1, 5),
+          ),
+        ],
+      );
 
-      Entry frieren(List<Season> seasons) => anime(
+      Entry frieren(List<Season>? seasons, {String? from}) => anime(
         'frieren',
         EntryStatus.done,
         kind: EntryKind.series,
         seasons: seasons,
-      );
+      ).copyWith(seasonsFrom: from);
 
-      void setUpFrieren() {
+      void setUpFrieren({
+        List<SeasonSplit> splits = const [anilistSplit, tmdbSplit],
+      }) {
         fake = FakeLookupSource(
           seasonsBySource: {'anilist:frieren': chain},
           kindBySource: {'anilist:frieren': EntryKind.series},
-          resplitBySource: {'anilist:frieren': split},
+          splitsBySource: {'anilist:frieren': splits},
         );
         store = MemorySeasonCheckStore();
         check = SeasonCheck(lookups: LookupService([fake]), store: store);
       }
 
-      test('maps the statuses by episode range, once', () async {
+      test(
+        'seasons still split as the TMDB show\'s are left so: no re-split',
+        () async {
+          setUpFrieren();
+          final entry = frieren(const [
+            Season(
+              season: 1,
+              released: Released(2023, 9, 29),
+              status: EntryStatus.done,
+            ),
+          ]);
+          final result = await check.run(library([entry]), now);
+          // AniList's season 2 would re-split it by stealth: nothing added.
+          expect(result.operations, isEmpty);
+          expect(fake.calls, [
+            'seasons:anilist:frieren',
+            'splits:anilist:frieren',
+            'parts:anilist:frieren',
+          ]);
+        },
+      );
+
+      test('seasons in the chain\'s split get its new seasons', () async {
         setUpFrieren();
         final entry = frieren(const [
           Season(
@@ -580,36 +639,158 @@ void main() {
             released: Released(2023, 9, 29),
             status: EntryStatus.done,
           ),
+          Season(
+            season: 2,
+            released: Released(2026, 1, 16),
+            status: EntryStatus.done,
+          ),
         ]);
         final result = await check.run(library([entry]), now);
-        // The re-split alone: no AddSeasons beside it.
-        final op = result.operations.single as ResplitSeasons;
-        final lib = op.apply(library([entry]));
-        expect(lib.entries.single.seasons!.map((s) => s.status), [
-          EntryStatus.done,
-          EntryStatus.done,
-          null,
+        final added = result.operations.whereType<AddSeasons>().single;
+        expect(added.seasons, const [
+          Season(season: 3, released: Released(2027, 10), fresh: true),
         ]);
-        // The third, announced, is coming: Coming soon lists it.
-        expect(lib.entries.single.seasons!.last.released, Released(2027, 10));
-        expect(fake.settled, ['anilist:frieren']);
-
-        // The next check adds and redates as for any show.
-        final next = await check.run(lib, now, force: true);
-        expect(next.operations, isEmpty);
+        expect(added.from, isNull);
       });
 
-      test('seasons edited since are left as they are', () async {
+      test('a chosen split is read as such and updated within', () async {
+        setUpFrieren(splits: const [anilistSplit, tmdbSplit, arcs]);
+        final entry = frieren(const [
+          Season(
+            season: 1,
+            released: Released(2023, 9, 29),
+            status: EntryStatus.done,
+          ),
+        ], from: 'tmdb:group:arcs');
+        final result = await check.run(library([entry]), now);
+        final added = result.operations.whereType<AddSeasons>().single;
+        expect(added.seasons, const [
+          Season(season: 2, released: Released(2024, 1, 5), fresh: true),
+        ]);
+        expect(fake.calls, [
+          'seasons:anilist:frieren',
+          'split:anilist:frieren:tmdb:group:arcs',
+        ]);
+        // The chosen split gone from the source: nothing learned.
+        final gone = frieren(entry.seasons, from: 'tmdb:group:gone');
+        final nothing = await check.run(library([gone]), now, force: true);
+        expect(nothing.operations, isEmpty);
+      });
+
+      test(
+        'a long run without seasons gets the arcs split Libri picks, written',
+        () async {
+          // One long entry on AniList, as Hunter x Hunter is.
+          final long = SeasonSplit(
+            ids: const [SeasonSplit.anilistId],
+            long: true,
+            seasons: const [
+              SeasonSpan(
+                season: 1,
+                episodes: 148,
+                released: Released(2023, 9, 29),
+              ),
+            ],
+          );
+          setUpFrieren(splits: [long, tmdbSplit, arcs]);
+          final result = await check.run(library([frieren(null)]), now);
+          final added = result.operations.whereType<AddSeasons>().single;
+          expect(added.from, 'tmdb:group:arcs');
+          expect(added.seasons, arcs.toSeasons());
+          final after = added.apply(library([frieren(null)])).entries.single;
+          expect(after.seasonsFrom, 'tmdb:group:arcs');
+          expect(after.seasons, hasLength(2));
+        },
+      );
+
+      test('a seasonal anime without seasons gets the chain\'s split, arcs '
+          'or not (owner\'s decision, 2026-11-04)', () async {
+        setUpFrieren(splits: const [anilistSplit, tmdbSplit, arcs]);
+        final result = await check.run(library([frieren(null)]), now);
+        final added = result.operations.whereType<AddSeasons>().single;
+        expect(added.from, SeasonSplit.anilistId);
+        expect(added.seasons, chain);
+      });
+
+      test('the coming parts of seasons are recorded, in the chain\'s split '
+          'only (owner\'s decision, 2026-11-04)', () async {
+        const part = (season: 2, part: 2, released: Released(2027, 1, 10));
+        fake = FakeLookupSource(
+          seasonsBySource: {'anilist:frieren': chain, 'anilist:other': chain},
+          kindBySource: {
+            'anilist:frieren': EntryKind.series,
+            'anilist:other': EntryKind.series,
+          },
+          splitsBySource: {
+            'anilist:frieren': const [anilistSplit, tmdbSplit],
+            'anilist:other': const [anilistSplit, tmdbSplit],
+          },
+          partsBySource: {
+            'anilist:frieren': const [part],
+            'anilist:other': const [part],
+          },
+        );
+        store = MemorySeasonCheckStore();
+        final parts = MemoryComingPartsStore(const [
+          ComingPart(
+            entryId: 'anime/gone',
+            season: 1,
+            part: 2,
+            released: Released(2027),
+          ),
+        ]);
+        check = SeasonCheck(
+          lookups: LookupService([fake]),
+          store: store,
+          parts: parts,
+        );
+        final watching = frieren(const [
+          Season(
+            season: 1,
+            released: Released(2023, 9, 29),
+            status: EntryStatus.done,
+          ),
+          Season(
+            season: 2,
+            released: Released(2026, 1, 16),
+            status: EntryStatus.inProgress,
+          ),
+        ], from: SeasonSplit.anilistId);
+        final other = anime(
+          'other',
+          EntryStatus.done,
+          kind: EntryKind.series,
+          seasons: watching.seasons,
+        ).copyWith(seasonsFrom: SeasonSplit.tmdbSeasonsId);
+        await check.run(library([watching, other]), now);
+        // Asked for the show in AniList's split alone; the gone show's
+        // parts dropped.
+        expect(fake.calls.where((c) => c.startsWith('parts:')), [
+          'parts:anilist:frieren',
+        ]);
+        expect(await parts.read(), const [
+          ComingPart(
+            entryId: 'anime/frieren',
+            season: 2,
+            part: 2,
+            released: Released(2027, 1, 10),
+          ),
+        ]);
+      });
+
+      test('seasons set by hand are not asked about', () async {
         setUpFrieren();
         final entry = frieren(const [
-          Season(season: 1, released: Released(2023), status: EntryStatus.done),
-          Season(season: 2, released: Released(2026), manual: true),
-          Season(season: 4, released: Released(2028)),
+          Season(
+            season: 1,
+            released: Released(2023),
+            status: EntryStatus.done,
+            manual: true,
+          ),
         ]);
         final result = await check.run(library([entry]), now);
-        expect(result.operations.whereType<ResplitSeasons>(), isEmpty);
-        // Offered once: settled all the same.
-        expect(fake.settled, ['anilist:frieren']);
+        expect(result.operations, isEmpty);
+        expect(fake.calls, isEmpty);
       });
     });
 

@@ -4,6 +4,7 @@ import 'dart:io';
 import '../models/released.dart';
 import '../storage/atomic_file.dart';
 import 'episode_info.dart';
+import 'lookup_source.dart';
 
 /// A season's episodes as stored, with when they were fetched and the name
 /// of the provider they came from ("TMDB" when a file from before said
@@ -26,8 +27,17 @@ abstract class EpisodeStore {
     String provider = 'TMDB',
   });
 
-  /// Drops every show's episodes but those of [keepSources].
+  /// Drops every show's episodes but those of [keepSources]: the seasons
+  /// kept under each id itself, and under the id with a split after it
+  /// (`<id>|<split>`, the episodes of a split other than the provider's
+  /// own).
   Future<void> prune(Set<String> keepSources);
+
+  /// The id a season's episodes are kept under: the show's id, with the
+  /// split after it when the season is not in the provider's own
+  /// ([LookupSource.isOwnSplit]).
+  static String keyFor(String showSource, String? split) =>
+      split == null ? showSource : '$showSource|$split';
 }
 
 /// For the tests, the walks and the FIRST_RUN demo.
@@ -55,7 +65,9 @@ class MemoryEpisodeStore implements EpisodeStore {
 
   @override
   Future<void> prune(Set<String> keepSources) async {
-    _seasons.removeWhere((key, _) => !keepSources.contains(key.$1));
+    _seasons.removeWhere(
+      (key, _) => !keepSources.contains(key.$1.split('|').first),
+    );
   }
 }
 
@@ -148,8 +160,16 @@ class FileEpisodeStore implements EpisodeStore {
   Future<void> prune(Set<String> keepSources) async {
     if (!await _episodes.exists()) return;
     final keep = {for (final s in keepSources) fileNameFor(s)};
+    // "<id>|<split>" is filed as "<id>-<split>", so a kept id keeps every
+    // file that starts with its name.
+    final prefixes = [
+      for (final s in keepSources)
+        fileNameFor('$s|').replaceFirst(RegExp(r'\.json$'), ''),
+    ];
+    bool kept(String name) =>
+        keep.contains(name) || prefixes.any((p) => name.startsWith(p));
     await for (final entity in _episodes.list()) {
-      if (entity is File && !keep.contains(entity.uri.pathSegments.last)) {
+      if (entity is File && !kept(entity.uri.pathSegments.last)) {
         try {
           await entity.delete();
         } on FileSystemException {

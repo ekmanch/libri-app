@@ -11,6 +11,7 @@ import 'package:library_app/data/lookup/tmdb_source.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/season_span.dart';
+import 'package:library_app/data/models/season_split.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
@@ -300,7 +301,7 @@ void main() {
     expect(await tmdb.seasons('tmdb:movie:564'), isNull);
   });
 
-  group('an anime with only a TMDB id', () {
+  group('splits (section 10c)', () {
     Map<String, Object?> episode(int order, String aired, String name) => {
       'order': order,
       'air_date': aired,
@@ -308,8 +309,10 @@ void main() {
       'runtime': 24,
     };
 
-    /// One plain season of 38; a Story arc group (never a split), and a
-    /// "Seasons" group that splits it in two, its groups out of order.
+    /// One plain season of 38; a story-arc group of two, a "Seasons" group
+    /// (type 7) that splits it in two with a specials group, its groups
+    /// out of order, an absolute order of one (left out), and a Netflix
+    /// group (type 4) with named seasons.
     Future<http.Response> handler(
       http.Request request,
     ) async => switch (request.url.path) {
@@ -322,11 +325,34 @@ void main() {
       }),
       '/3/tv/7/episode_groups' => json(200, {
         'results': [
-          {'id': 'arcs', 'name': 'Arcs', 'type': 5, 'group_count': 6},
+          {'id': 'arcs', 'name': 'Story Arcs', 'type': 5, 'group_count': 2},
+          {'id': 'abs', 'name': 'Absolute', 'type': 2, 'group_count': 1},
           {'id': 'tv', 'name': 'Seasons', 'type': 7, 'group_count': 3},
+          {'id': 'nf', 'name': 'Streaming', 'type': 4, 'group_count': 2},
+        ],
+      }),
+      '/3/tv/episode_group/nf' => json(200, {
+        'type': 4,
+        'name': 'Streaming',
+        'network': {'name': 'Netflix'},
+        'groups': [
+          {
+            'name': 'Journey (1-2)',
+            'order': 0,
+            'episodes': [
+              episode(0, '2023-09-29', 'One'),
+              episode(1, '2023-10-06', 'Two'),
+            ],
+          },
+          {
+            'name': 'Season 2',
+            'order': 1,
+            'episodes': [episode(0, '2024-01-05', 'Three')],
+          },
         ],
       }),
       '/3/tv/episode_group/tv' => json(200, {
+        'type': 7,
         'groups': [
           {
             'name': 'Season 2',
@@ -348,28 +374,114 @@ void main() {
           },
         ],
       }),
+      '/3/tv/episode_group/arcs' => json(200, {
+        'type': 5,
+        'groups': [
+          {
+            'name': 'Journey Arc',
+            'order': 0,
+            'episodes': [
+              episode(0, '2023-09-29', 'One'),
+              episode(1, '2023-10-06', 'Two'),
+            ],
+          },
+          {
+            'name': 'Exam Arc',
+            'order': 1,
+            'episodes': [episode(0, '2024-01-05', 'Three')],
+          },
+        ],
+      }),
+      '/3/tv/episode_group/abs' => json(200, {
+        'type': 2,
+        'groups': [
+          {
+            'name': 'All',
+            'order': 0,
+            'episodes': [episode(0, '2023-09-29', 'One')],
+          },
+        ],
+      }),
       _ => json(404, {'status_message': 'not found'}),
     };
 
-    test('the seasons come from an episode group that splits it', () async {
+    test('the season list, then the groups by type, arcs named, a '
+        'service named; absolute orders left out', () async {
+      final tmdb = source(handler);
+      final splits = await tmdb.seasonSplits('tmdb:tv:7');
+      expect(splits!.map((s) => s.id), [
+        SeasonSplit.tmdbSeasonsId,
+        'tmdb:group:tv',
+        'tmdb:group:nf',
+        'tmdb:group:arcs',
+      ]);
+      expect(splits[0].long, isFalse);
+      // The Netflix group: its service, its names cleaned, a bare one
+      // dropped.
+      expect(splits[2].service, 'Netflix');
+      expect(splits[2].arcs, isFalse);
+      expect(splits[2].seasons.map((s) => s.name), ['Journey', null]);
+      expect(splits[2].label, '2 seasons · Netflix');
+      expect(splits[3].service, isNull);
+      expect(splits[0].seasons, const [
+        SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+      ]);
+      // Numbered from 1 in the group's order, specials left out, dated by
+      // the first episode, unnamed.
+      expect(splits[1].arcs, isFalse);
+      expect(splits[1].seasons, const [
+        SeasonSpan(season: 1, episodes: 1, released: Released(2023, 9, 29)),
+        SeasonSpan(season: 2, episodes: 2, released: Released(2026, 1, 16)),
+      ]);
+      expect(splits[3].arcs, isTrue);
+      expect(splits[3].seasons.map((s) => s.name), ['Journey', 'Exam']);
+      // Each group read once a session.
+      await tmdb.seasonSplits('tmdb:tv:7');
+      expect(
+        sent.where((r) => r.url.path.contains('episode_group/')),
+        hasLength(3),
+      );
+      // An anime's TMDB show stands in for an AniList source.
+      expect(
+        await tmdb.seasonSplits('anilist:1', tmdb: 'tmdb:tv:7'),
+        hasLength(4),
+      );
+      expect(await tmdb.seasonSplits('anilist:1'), isNull);
+    });
+
+    test('the seasons are the plain list, for an anime too', () async {
       final tmdb = source(handler);
       final found = await tmdb.seasons('tmdb:tv:7', anime: true);
       expect(found!.seasons, const [
         Season(season: 1, released: Released(2023, 9, 29)),
-        Season(season: 2, released: Released(2026, 1, 16)),
       ]);
       expect(found.kind, EntryKind.series);
-      // A show keeps the plain list.
-      final show = await tmdb.seasons('tmdb:tv:7');
-      expect(show!.seasons, const [
-        Season(season: 1, released: Released(2023, 9, 29)),
-      ]);
-      expect(show.kind, isNull);
+      expect((await tmdb.seasons('tmdb:tv:7'))!.kind, isNull);
     });
 
-    test('the episodes too, numbered from 1 in the group\'s order', () async {
+    test('a split\'s seasons and episodes', () async {
       final tmdb = source(handler);
-      final episodes = await tmdb.seasonEpisodes('tmdb:tv:7', 2, anime: true);
+      final group = await tmdb.splitSeasons('tmdb:tv:7', 'tmdb:group:tv');
+      expect(group!.seasons, const [
+        Season(season: 1, released: Released(2023, 9, 29)),
+        Season(season: 2, released: Released(2026, 1, 16)),
+      ]);
+      final own = await tmdb.splitSeasons(
+        'tmdb:tv:7',
+        SeasonSplit.tmdbSeasonsId,
+      );
+      expect(own!.seasons, hasLength(1));
+      expect(await tmdb.splitSeasons('tmdb:tv:7', 'tmdb:group:gone'), isNull);
+      expect(
+        await tmdb.splitSeasons('tmdb:tv:7', SeasonSplit.anilistId),
+        isNull,
+      );
+
+      final episodes = await tmdb.seasonEpisodes(
+        'tmdb:tv:7',
+        2,
+        from: 'tmdb:group:tv',
+      );
       expect(episodes, const [
         (
           number: 1,
@@ -379,26 +491,22 @@ void main() {
         ),
         (number: 2, title: null, aired: Released(2026, 1, 23), runtime: 24),
       ]);
-      expect(await tmdb.seasonEpisodes('tmdb:tv:7', 3, anime: true), isEmpty);
+      expect(
+        await tmdb.seasonEpisodes('tmdb:tv:7', 3, from: 'tmdb:group:tv'),
+        isEmpty,
+      );
+      expect(tmdb.isOwnSplit(SeasonSplit.tmdbSeasonsId), isTrue);
+      expect(tmdb.isOwnSplit('tmdb:group:tv'), isFalse);
     });
 
-    test('without a group that splits it, the plain list', () async {
+    test('a show without groups has its list alone', () async {
       final tmdb = source(
         (request) async => request.url.path == '/3/tv/7/episode_groups'
-            ? json(200, {
-                'results': [
-                  {
-                    'id': 'abs',
-                    'name': 'Absolute',
-                    'type': 2,
-                    'group_count': 3,
-                  },
-                ],
-              })
+            ? json(404, {'status_message': 'not found'})
             : handler(request),
       );
-      final found = await tmdb.seasons('tmdb:tv:7', anime: true);
-      expect(found!.seasons, hasLength(1));
+      final splits = await tmdb.seasonSplits('tmdb:tv:7');
+      expect(splits, hasLength(1));
       expect(sent.any((r) => r.url.path.contains('episode_group/')), isFalse);
     });
 

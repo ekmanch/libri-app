@@ -437,6 +437,37 @@ Future<void> walkSeasons(WidgetTester tester, {double scale = 1}) async {
   await capture(tester, '${prefix}a44-anime-season-episodes');
   await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
+  // Add / edit entry › Edit an anime: split into seasons: the Split into
+  // field under Seasons (the fake offers AniList's two seasons and the
+  // TMDB show's one); Split into: pick a split: its sheet.
+  await tester.ensureVisible(find.text('Edit'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Edit'));
+  await tester.pumpAndSettle();
+  await tester.scrollUntilVisible(
+    find.text('Split into'),
+    100,
+    scrollable: find
+        .descendant(
+          of: find.byType(EntryFormScreen),
+          matching: find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+  // A nudge back up, so the Seasons label sits above the field as drawn.
+  await tester.drag(find.byType(EntryFormScreen), const Offset(0, 40));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a49-edit-anime-split');
+  await tester.tap(find.text('Split into'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a50-split-sheet');
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
   await closeSheet(tester);
 }
 

@@ -9,18 +9,22 @@ import '../storage/json_file.dart';
 /// - [kind]: series or movie, from AniList, and [checked], when that was
 ///   asked.
 /// - [tmdb]: the TMDB show the anime's first entry matched, where its
-///   episode titles come from (section 10c), and [tmdbChecked], when TMDB
-///   was last asked; a match is kept for good, a miss asked again after a
-///   while. A link from an older build has no [tmdbChecked].
-/// - [resplit]: true while the anime's seasons in the library may still be
-///   split as that TMDB show splits them (an older build took them from
-///   there); the daily check re-splits them once and clears it.
+///   episode titles and the other splits of its seasons come from (section
+///   10c), and [tmdbChecked], when TMDB was last asked; a match is kept for
+///   good, a miss asked again after a while. A link from an older build
+///   has no [tmdbChecked].
+/// - [tvdb] and [tvdbSeason]: ARM's map of the entry to a TVDB show and
+///   season (null for a long run), and [armChecked], when ARM was asked;
+///   null on a link from before ARM, which is asked. A row is kept for
+///   good; no row is asked again after a while.
 typedef AnimeLink = ({
   EntryKind? kind,
   DateTime checked,
   String? tmdb,
   DateTime? tmdbChecked,
-  bool resplit,
+  int? tvdb,
+  int? tvdbSeason,
+  DateTime? armChecked,
 });
 
 abstract class AnimeLinkStore {
@@ -44,10 +48,11 @@ class MemoryAnimeLinkStore implements AnimeLinkStore {
 /// `anime_links.json` under the cache folder:
 /// `{"154587": {"kind": "series", "checked": "2026-10-20T08:00:00.000Z",
 /// "tmdb": "tmdb:tv:209867", "tmdb_checked": "2026-11-02T08:00:00.000Z",
-/// "resplit": false}}`. A link written by an older build has only `tmdb`,
-/// `kind` and `checked`; its `tmdb` is the show its seasons came from, so
-/// it reads as waiting for the re-split. A cleared cache only means asking
-/// once more (and no re-split).
+/// "tvdb": 424536, "tvdb_season": 1, "arm_checked":
+/// "2026-11-04T08:00:00.000Z"}}`.
+/// A `resplit` key an older build wrote is ignored (checks no longer
+/// re-split anything, section 10c). A cleared cache only means asking once
+/// more.
 class FileAnimeLinkStore implements AnimeLinkStore {
   FileAnimeLinkStore(Directory cache)
     : _file = JsonFile(
@@ -63,14 +68,14 @@ class FileAnimeLinkStore implements AnimeLinkStore {
     final checked = DateTime.tryParse(link['checked'] as String? ?? '');
     if (checked == null) return null;
     final kind = link['kind'];
-    final tmdb = link['tmdb'] as String?;
-    final resplit = link['resplit'];
     return (
       kind: EntryKind.values.where((k) => k.name == kind).firstOrNull,
       checked: checked,
-      tmdb: tmdb,
+      tmdb: link['tmdb'] as String?,
       tmdbChecked: DateTime.tryParse(link['tmdb_checked'] as String? ?? ''),
-      resplit: resplit is bool ? resplit : tmdb != null,
+      tvdb: (link['tvdb'] as num?)?.toInt(),
+      tvdbSeason: (link['tvdb_season'] as num?)?.toInt(),
+      armChecked: DateTime.tryParse(link['arm_checked'] as String? ?? ''),
     );
   }
 
@@ -82,7 +87,9 @@ class FileAnimeLinkStore implements AnimeLinkStore {
       'checked': link.checked.toUtc().toIso8601String(),
       'tmdb': link.tmdb,
       'tmdb_checked': link.tmdbChecked?.toUtc().toIso8601String(),
-      'resplit': link.resplit,
+      'tvdb': link.tvdb,
+      'tvdb_season': link.tvdbSeason,
+      'arm_checked': link.armChecked?.toUtc().toIso8601String(),
     };
     await _file.write(json);
   }

@@ -7,6 +7,8 @@ import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/season_span.dart';
+import 'package:library_app/data/models/season_split.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
@@ -36,6 +38,8 @@ const _strangerThings = 'shows/stranger-things-2016';
 
 /// The fake standing in for AniList's chain episodes.
 class _AniListFake extends FakeLookupSource {
+  _AniListFake({super.splitsBySource});
+
   @override
   String get name => 'AniList';
 }
@@ -278,5 +282,154 @@ void main() {
       100,
     );
     expect(find.text('Episode details from AniList.'), findsOneWidget);
+  });
+
+  group('preloading (owner\'s request, 2026-11-03)', () {
+    Iterable<String> episodeCalls(FakeLookupSource fake) =>
+        fake.calls.where((c) => c.startsWith('episodes:'));
+
+    testWidgets('the details preload the seasons they list', (tester) async {
+      final fake = FakeLookupSource();
+      await openDetails(tester, source: fake);
+      expect(episodeCalls(fake), [
+        for (var n = 1; n <= 5; n++) 'episodes:fake:stranger-things:$n',
+      ]);
+      // A season opened then comes from the phone: nothing fetched again
+      // but its neighbor, season 2 (the fake has episodes for season 1
+      // alone; a season with none is not stored, and asked again).
+      await openSeasonRow(tester, 1);
+      expect(find.byType(SeasonScreen), findsOneWidget);
+      expect(find.text('Jul 15, 2016 · 8 episodes'), findsOneWidget);
+      expect(episodeCalls(fake).skip(5), ['episodes:fake:stranger-things:2']);
+    });
+
+    testWidgets('a long show: the latest three, then all seasons the rows '
+        'in view, then a season screen its neighbors', (tester) async {
+      const show = 'fake:what-we-do-in-the-shadows';
+      final episodes = {
+        for (var n = 1; n <= 6; n++)
+          (show, n): <EpisodeInfo>[
+            (
+              number: 1,
+              title: 'Episode $n.1',
+              aired: Released(2018 + n, 3, 1),
+              runtime: 22,
+            ),
+          ],
+      };
+      final fake = FakeLookupSource(episodesBySeason: episodes);
+      await pumpApp(
+        tester,
+        const _Opener('shows/what-we-do-in-the-shadows-2019'),
+        lookupOverrides: fakeLookupOverrides(source: fake),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(episodeCalls(fake), [
+        for (final n in [4, 5, 6]) 'episodes:$show:$n',
+      ]);
+      await tester.ensureVisible(find.text('All 6 seasons'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All 6 seasons'));
+      await tester.pumpAndSettle();
+      // Every row is in view on the phone: the three not stored yet.
+      expect(episodeCalls(fake).skip(3), [
+        for (final n in [1, 2, 3]) 'episodes:$show:$n',
+      ]);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      // Season 4's neighbors, 3 and 5, are both stored now: nothing more.
+      await openSeasonRow(tester, 4);
+      expect(episodeCalls(fake), hasLength(6));
+    });
+
+    testWidgets('a season screen preloads its neighbors', (tester) async {
+      const show = 'fake:what-we-do-in-the-shadows';
+      final fake = FakeLookupSource(
+        episodesBySeason: {
+          for (var n = 1; n <= 6; n++)
+            (show, n): <EpisodeInfo>[
+              (
+                number: 1,
+                title: 'Episode $n.1',
+                aired: Released(2018 + n, 3, 1),
+                runtime: 22,
+              ),
+            ],
+        },
+      );
+      await pumpApp(
+        tester,
+        const _Opener('shows/what-we-do-in-the-shadows-2019'),
+        lookupOverrides: fakeLookupOverrides(source: fake),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      // The details stored 4 to 6; season 4's neighbor 3 is fetched, 5
+      // is stored.
+      await openSeasonRow(tester, 4);
+      expect(episodeCalls(fake).skip(3), ['episodes:$show:3']);
+    });
+  });
+
+  testWidgets('seasons in a split by arc take the arc names', (tester) async {
+    const arcs = SeasonSplit(
+      ids: ['tmdb:group:arcs'],
+      arcs: true,
+      seasons: [
+        SeasonSpan(
+          season: 1,
+          name: 'Journey',
+          episodes: 28,
+          released: Released(2023, 9, 29),
+        ),
+        SeasonSpan(
+          season: 2,
+          name: 'North',
+          episodes: 10,
+          released: Released(2026, 1, 16),
+        ),
+      ],
+    );
+    // The fixture's Frieren has no lookup id: matched on the device to
+    // the catalog's AniList id.
+    final fake = _AniListFake(
+      splitsBySource: {
+        'anilist:154587': [arcs],
+      },
+    );
+    await pumpApp(
+      tester,
+      const _Opener('anime/frieren-beyond-journeys-end-2023'),
+      lookupOverrides: fakeLookupOverrides(source: fake),
+      library: loadFixture().copyWith(
+        entries: [
+          for (final e in loadFixture().entries)
+            if (e.id == 'anime/frieren-beyond-journeys-end-2023')
+              e.copyWith(seasonsFrom: 'tmdb:group:arcs')
+            else
+              e,
+        ],
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Journey'), findsOneWidget);
+    expect(find.text('North'), findsOneWidget);
+    expect(find.text('Season 1'), findsNothing);
+    final row = find.bySemanticsLabel(RegExp(r'^North, .*Episodes$'));
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(find.byType(SeasonScreen), findsOneWidget);
+    expect(find.text('North'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('North status: watching. Change'),
+      findsOneWidget,
+    );
+    await tester.tap(find.bySemanticsLabel('North status: watching. Change'));
+    await tester.pumpAndSettle();
+    expect(find.text('North'), findsNWidgets(2));
   });
 }

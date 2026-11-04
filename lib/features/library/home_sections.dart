@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/lookup/movie_dates.dart';
+import '../../data/lookup/season_parts.dart';
 import '../../data/lookup/series_check.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
@@ -16,6 +17,7 @@ import '../entry/series.dart';
 import '../plans/plan_dates.dart';
 import '../settings/display_preferences.dart';
 import 'library_sort.dart';
+import 'upcoming.dart';
 
 /// The three sections of the library home on All (Library › Home), each
 /// shown only when it has something, up to [HomeSection.limit] rows each.
@@ -114,6 +116,7 @@ List<HomeSection> homeSections(
   Map<String, DateTime> changes = const {},
   Map<String, MovieDates> movieDates = const {},
   ReleaseDates releaseDates = ReleaseDates.both,
+  List<ComingPart> comingParts = const [],
 }) {
   final list = entries.toList();
   final sections = [
@@ -122,6 +125,7 @@ List<HomeSection> homeSections(
       today,
       movieDates: movieDates,
       releaseDates: releaseDates,
+      comingParts: comingParts,
     ),
     _inProgress(list, changes),
     _recentlyAdded(list, today),
@@ -228,8 +232,23 @@ HomeSection _comingSoon(
   DateTime today, {
   required Map<String, MovieDates> movieDates,
   required ReleaseDates releaseDates,
+  List<ComingPart> comingParts = const [],
 }) {
   final rows = <(Released, HomeRowData)>[];
+  // The later parts of seasons still to come, of seasons Want, In
+  // progress or Done ("Season 3, Part 2"; owner's decision, 2026-11-04).
+  for (final item in comingPartItems(entries, comingParts, today: today)) {
+    if (!item.wanted) continue;
+    rows.add((
+      item.released!,
+      HomeRowData(
+        item.entry!,
+        detail: item.detail,
+        right: comingSoonLabel(item.released!, today: today),
+        emphasized: true,
+      ),
+    ));
+  }
   for (final entry in entries) {
     final upcoming = upcomingRelease(
       entry,

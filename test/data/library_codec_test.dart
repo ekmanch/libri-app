@@ -75,6 +75,32 @@ void main() {
     );
   });
 
+  test('a show\'s split is one line, right before its seasons', () {
+    final library = decodeLibrary(file.readAsStringSync());
+    final before = encodeLibrary(library).split('\n');
+    final entries = [
+      for (final entry in library.entries)
+        if (entry.id == 'anime/frieren-beyond-journeys-end-2023')
+          entry.copyWith(seasonsFrom: 'tmdb:group:5f3d826d2da8460031c7c7c0')
+        else
+          entry,
+    ];
+    final text = encodeLibrary(library.copyWith(entries: entries));
+    final after = text.split('\n');
+    expect(after.length, before.length + 1);
+    final at = after.indexOf(
+      '      "seasons_from": "tmdb:group:5f3d826d2da8460031c7c7c0",',
+    );
+    expect(after[at - 1], '      "kind": "series",');
+    expect(after[at + 1], '      "seasons": [');
+    expect(
+      decodeLibrary(text)
+          .entryById('anime/frieren-beyond-journeys-end-2023')!
+          .seasonsFrom,
+      'tmdb:group:5f3d826d2da8460031c7c7c0',
+    );
+  });
+
   test('tag categories out of order in the file are written in order', () {
     // The app once appended a new category at the end of the map, so a
     // saved file could have Studios after Other; the data repo's

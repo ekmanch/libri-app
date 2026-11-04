@@ -7,11 +7,15 @@ import 'package:library_app/data/lookup/episode_service.dart';
 import 'package:library_app/data/lookup/episode_store.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
+import 'package:library_app/data/lookup/season_split_service.dart';
+import 'package:library_app/data/lookup/season_split_store.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/season_span.dart';
+import 'package:library_app/data/models/season_split.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 
 const _source = 'tmdb:tv:2190';
@@ -42,11 +46,20 @@ void main() {
   tearDown(() => seasonClock = DateTime.now);
 
   ({EpisodeService service, FakeLookupSource fake, MemoryEpisodeStore store})
-  build({LookupFailure? failure, bool configured = true}) {
+  build({
+    LookupFailure? failure,
+    bool configured = true,
+    Map<(String, int), List<EpisodeInfo>> episodes = const {},
+    MemorySeasonSplitStore? splitStore,
+  }) {
     final fake = FakeLookupSource(
       failure: failure,
       configured: configured,
-      episodesBySeason: {(_source, 1): _old, (_source, 2): _airing},
+      episodesBySeason: {
+        (_source, 1): _old,
+        (_source, 2): _airing,
+        ...episodes,
+      },
     );
     final lookups = LookupService([fake]);
     final store = MemoryEpisodeStore();
@@ -55,11 +68,89 @@ void main() {
         lookups: lookups,
         resolver: ArtworkResolver(lookups: lookups),
         store: store,
+        splits: SeasonSplitService(
+          lookups: lookups,
+          store: splitStore ?? MemorySeasonSplitStore(),
+          resolver: ArtworkResolver(lookups: lookups),
+        ),
       ),
       fake: fake,
       store: store,
     );
   }
+
+  group('preload', () {
+    test('fetches and stores the seasons not stored, skips the rest', () async {
+      final b = build();
+      await b.store.write(_source, 1, _old, fetched: now);
+      await b.service.preload(_show, [1, 2, 3]);
+      expect(b.fake.calls, ['episodes:$_source:2', 'episodes:$_source:3']);
+      expect((await b.store.read(_source, 2))!.episodes, _airing);
+      expect((await b.store.read(_source, 2))!.provider, 'TMDB');
+      // Season 3 has none: nothing stored, nothing thrown.
+      expect(await b.store.read(_source, 3), isNull);
+      // The next load of season 2 comes from the store, fetched today.
+      final loaded = await b.service.load(_show, 2).toList();
+      expect(loaded.single!.fromCache, isTrue);
+      expect(b.fake.calls, hasLength(2));
+    });
+
+    test(
+      'a failure is dropped quietly; a build without the key asks nothing',
+      () async {
+        var b = build(failure: LookupFailure.offline);
+        await b.service.preload(_show, [1]);
+        expect(await b.store.read(_source, 1), isNull);
+        b = build(configured: false);
+        await b.service.preload(_show, [1]);
+        expect(b.fake.calls, isEmpty);
+      },
+    );
+  });
+
+  group('splits', () {
+    final grouped = _show.copyWith(seasonsFrom: 'tmdb:group:arcs');
+
+    test('a season in a chosen split is read and kept under it', () async {
+      final b = build(episodes: {(_source, 1): _airing});
+      final loaded = await b.service.load(grouped, 1).toList();
+      expect(loaded.single!.episodes, _airing);
+      expect(b.fake.calls, ['episodes:$_source:1:tmdb:group:arcs']);
+      expect(await b.store.read('$_source|tmdb:group:arcs', 1), isNotNull);
+      expect(await b.store.read(_source, 1), isNull);
+      // The provider's own split keeps the plain key.
+      await b.service.load(_show, 1).toList();
+      expect(await b.store.read(_source, 1), isNotNull);
+      await b.store.prune({_source});
+      expect(await b.store.read('$_source|tmdb:group:arcs', 1), isNotNull);
+      await b.store.prune({});
+      expect(await b.store.read('$_source|tmdb:group:arcs', 1), isNull);
+    });
+
+    test('the stored splits tell the split of an entry from before', () async {
+      final splitStore = MemorySeasonSplitStore();
+      await splitStore.write('$_source|', const [
+        SeasonSplit(
+          ids: [SeasonSplit.tmdbSeasonsId],
+          seasons: [SeasonSpan(season: 1, episodes: 3)],
+        ),
+        SeasonSplit(
+          ids: ['tmdb:group:arcs'],
+          arcs: true,
+          seasons: [
+            SeasonSpan(season: 1, episodes: 1),
+            SeasonSpan(season: 2, episodes: 2),
+          ],
+        ),
+      ], now);
+      final b = build(splitStore: splitStore);
+      final inArcs = _show.copyWith(
+        seasons: const [Season(season: 1), Season(season: 2)],
+      );
+      await b.service.preload(inArcs, [2]);
+      expect(b.fake.calls, ['episodes:$_source:2:tmdb:group:arcs']);
+    });
+  });
 
   group('isSettled', () {
     test('a list fetched today is kept', () {

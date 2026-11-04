@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/lookup/movie_dates.dart';
 import '../../data/lookup/book_match.dart';
 import '../../data/lookup/lookup_match.dart';
+import '../../data/lookup/season_parts.dart';
 import '../../data/lookup/series_check.dart';
 import '../../data/lookup/text_clean.dart';
 import '../../data/models/app_settings.dart';
@@ -26,7 +27,8 @@ enum UpcomingKind {
   /// Want with no date at all ("Date not set").
   entry,
 
-  /// The coming season of a show or anime series in the library.
+  /// The coming season of a show or anime series in the library, or a
+  /// later part of one of its seasons ("Season 3, Part 2").
   season,
 
   /// A part of a followed series that is not in the library, as the daily
@@ -57,6 +59,7 @@ class UpcomingItem {
     this.description = '',
     this.entry,
     this.season,
+    this.seasonPart,
     this.part,
     this.release,
     this.dates,
@@ -101,6 +104,31 @@ class UpcomingItem {
         entry: show,
         season: season,
       );
+
+  /// A later [part] of [season] of [show] still to come (owner's decision,
+  /// 2026-11-04: new episodes of something watched are what Coming soon
+  /// is for): its own row, "Season 3, Part 2", wanted when the season is
+  /// Want, In progress or Done ([wantsPart]).
+  factory UpcomingItem.seasonPart(
+    Entry show,
+    Season season,
+    ComingPart part, {
+    DateTime? today,
+  }) => UpcomingItem._(
+    kind: UpcomingKind.season,
+    id: part.key,
+    type: show.type,
+    title: show.title,
+    released: part.released,
+    detail: partLabel(season.season, part.part),
+    creator: _creator(show),
+    description: show.description,
+    wanted: wantsPart(season),
+    reason: seasonReason(show, today: today),
+    entry: show,
+    season: season,
+    seasonPart: part,
+  );
 
   /// A part of a followed series not in the library; [owned] are the
   /// library's entries of that series. A [release] of a followed creator
@@ -180,6 +208,9 @@ class UpcomingItem {
 
   final Entry? entry;
   final Season? season;
+
+  /// The part of [season] this row is, for a part row.
+  final ComingPart? seasonPart;
   final UpcomingPart? part;
   final FoundRelease? release;
 
@@ -208,15 +239,47 @@ class UpcomingItem {
   bool get emphasized => released != null;
 
   /// What the add sheet calls it: "Stranger Things, Season 5" for a
-  /// season, a part's full title as the lookup lists it, else the title.
+  /// season ("Frieren, Season 3, Part 2" for a part of one), a part's full
+  /// title as the lookup lists it, else the title.
   String get sheetTitle => switch ((season, part)) {
-    (final season?, _) => '$title, Season ${season.season}',
+    (final season?, _) =>
+      '$title, ${seasonPart == null ? 'Season ${season.season}' : detail}',
     (_, final part?) => part.title,
     _ => title,
   };
 
   /// The key a season is hidden by.
   static String seasonKey(String entryId, int season) => '$entryId#$season';
+
+  /// "Season 3, Part 2".
+  static String partLabel(int season, int part) => 'Season $season, Part $part';
+}
+
+/// Whether a later part of [season] still to come is one the owner asked
+/// for: the season is Want, In progress or Done (new episodes of something
+/// watched; owner's decision, 2026-11-04). A season Not set or DNF is not.
+bool wantsPart(Season season) => switch (season.status) {
+  EntryStatus.want || EntryStatus.inProgress || EntryStatus.done => true,
+  _ => false,
+};
+
+/// The rows of the coming parts of seasons ([ComingPart], as the season
+/// check recorded them) among [entries]: each part whose show and season
+/// are still there and whose date is still ahead.
+List<UpcomingItem> comingPartItems(
+  List<Entry> entries,
+  List<ComingPart> parts, {
+  required DateTime today,
+}) {
+  final byId = {for (final e in entries) e.id: e};
+  return [
+    for (final part in parts)
+      if (byId[part.entryId] case final show?)
+        if (show.seasons?.where((s) => s.season == part.season).firstOrNull
+            case final season?)
+          if (!part.released.isReleasedOn(today))
+            UpcomingItem.seasonPart(show, season, part, today: today),
+  ];
 }
 
 /// A month, a year or "Date not set" of the list, with its rows.
@@ -230,9 +293,10 @@ class UpcomingGroup {
 
 /// Everything coming for [entries] (seasonal-only ones already left out),
 /// nearest first: every entry with a release ahead, the coming season of
-/// every show and anime series, every Want entry without a date, the parts
-/// of followed series the series check recorded ([parts], sifted by
-/// [upcomingPartsToShow]), and the [releases] of followed creators the
+/// every show and anime series, the later parts of their seasons the
+/// season check recorded ([comingParts]), every Want entry without a
+/// date, the parts of followed series the series check recorded ([parts],
+/// sifted by [upcomingPartsToShow]), and the [releases] of followed creators the
 /// creator check recorded that are not in the library, each only while its
 /// date is still ahead, as for an entry. Rows the owner
 /// marked Not interested are left out ([AppSettings.notInterested]; a part
@@ -242,6 +306,7 @@ class UpcomingGroup {
 List<UpcomingItem> upcomingItems(
   Iterable<Entry> entries, {
   required List<UpcomingPart> parts,
+  List<ComingPart> comingParts = const [],
   List<FoundRelease> releases = const [],
   required DisplayPreferences prefs,
   AppSettings settings = AppSettings.defaults,
@@ -274,6 +339,7 @@ List<UpcomingItem> upcomingItems(
       items.add(UpcomingItem.entry(entry));
     }
   }
+  items.addAll(comingPartItems(list, comingParts, today: today));
   // A release that is a recorded part of a followed series is that part's
   // row (or nothing, when the owner hid the part); one that is an entry of
   // the library, or another release already listed, is left out.

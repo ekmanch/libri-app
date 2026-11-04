@@ -357,6 +357,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       releaseDates:
           (ref.watch(appSettingsProvider).value ?? AppSettings.defaults)
               .releaseDates,
+      comingParts: ref.watch(comingPartsProvider).value ?? const [],
     );
     final rows = <Widget>[];
     for (final section in sections) {

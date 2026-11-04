@@ -7,6 +7,7 @@ import '../../dev/fake_lookup.dart';
 import '../library_providers.dart';
 import '../storage/json_file.dart';
 import 'anilist_source.dart';
+import 'arm_ids.dart';
 import 'anime_chain_store.dart';
 import 'anime_link_store.dart';
 import 'check_day_store.dart';
@@ -24,6 +25,9 @@ import 'movie_dates.dart';
 import 'open_library_source.dart';
 import 'release_check.dart';
 import 'season_check.dart';
+import 'season_parts.dart';
+import 'season_split_service.dart';
+import 'season_split_store.dart';
 import 'series_check.dart';
 import 'series_service.dart';
 import 'series_store.dart';
@@ -34,6 +38,8 @@ import 'wikidata_series.dart';
 import '../images/artwork_providers.dart';
 import '../models/entry.dart';
 import '../models/entry_status.dart';
+import '../models/season.dart';
+import '../models/season_split.dart';
 import '../net/network_kind.dart';
 import '../upcoming/creator_check.dart';
 import '../upcoming/creator_lookup.dart';
@@ -50,8 +56,8 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
   }
   final client = ref.watch(httpClientProvider);
   final cache = ref.watch(appCacheDirectoryProvider);
-  // AniList reads an anime's old TMDB split once, to re-split its seasons
-  // as AniList's chain does (section 10c).
+  // AniList's chains lean on TMDB for episode titles and on ARM for the
+  // map between the two (section 10c).
   final tmdb = TmdbSource(client, token: LookupKeys.tmdbReadToken);
   return [
     IgdbSource(
@@ -69,6 +75,7 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
     AniListSource(
       client,
       tmdb: tmdb,
+      arm: ArmIds(client),
       links: FileAnimeLinkStore(cache),
       chains: FileAnimeChainStore(cache),
     ),
@@ -103,6 +110,14 @@ final seasonCheckProvider = Provider<SeasonCheck?>((ref) => null);
 SeasonCheck fileSeasonCheck(Ref ref) => SeasonCheck(
   lookups: ref.watch(lookupServiceProvider),
   store: FileSeasonCheckStore(ref.watch(appCacheDirectoryProvider)),
+  parts: FileComingPartsStore(_cacheFile(ref, 'season_parts.json')),
+);
+
+/// The coming parts of seasons ("Season 3, Part 2") as the last season
+/// check recorded them; empty without a check. The shell invalidates it
+/// after each run.
+final comingPartsProvider = FutureProvider<List<ComingPart>>(
+  (ref) => ref.watch(seasonCheckProvider)?.parts.read() ?? Future.value([]),
 );
 
 JsonFile _cacheFile(Ref ref, String name) => JsonFile(
@@ -251,8 +266,52 @@ final episodeServiceProvider = Provider<EpisodeService>(
     lookups: ref.watch(lookupServiceProvider),
     resolver: ref.watch(artworkResolverProvider),
     store: FileEpisodeStore(ref.watch(appCacheDirectoryProvider)),
+    splits: ref.watch(seasonSplitServiceProvider),
   ),
 );
+
+/// The splits of each show's seasons (Add / edit entry › Split into: pick
+/// a split), stored under the app cache folder. The fake overrides keep
+/// them in memory.
+final seasonSplitServiceProvider = Provider<SeasonSplitService>(
+  (ref) => SeasonSplitService(
+    lookups: ref.watch(lookupServiceProvider),
+    store: FileSeasonSplitStore(ref.watch(appCacheDirectoryProvider)),
+    resolver: ref.watch(artworkResolverProvider),
+  ),
+);
+
+/// The splits the sources offer for the entry `entryId`'s seasons: stored
+/// ones, else fetched; null when the entry has no lookup id or nothing
+/// answered. Fetched again when the entry's source or TMDB show change.
+final seasonSplitsProvider = FutureProvider.autoDispose
+    .family<List<SeasonSplit>?, String>(
+      (ref, entryId) async {
+        final entry = ref.watch(
+          libraryProvider.select((l) => _splitKey(l.value?.entryById(entryId))),
+        );
+        if (entry == null) return null;
+        return ref.watch(seasonSplitServiceProvider).load(entry);
+      },
+      // No automatic retry: the next open asks again.
+      retry: (_, _) => null,
+    );
+
+/// The season names of the entry `entryId`, by number (the arc names of an
+/// arcs split, section 10c); empty while unknown or in another split, so
+/// the rows read "Season 3".
+final seasonNamesProvider = Provider.autoDispose
+    .family<Map<int, String>, String>((ref, entryId) {
+      final entry = ref.watch(
+        libraryProvider.select((l) => l.value?.entryById(entryId)),
+      );
+      final splits = ref.watch(seasonSplitsProvider(entryId)).value;
+      if (entry == null || splits == null) return const {};
+      return SeasonSplitService.names(entry, splits, seasonClock());
+    });
+
+/// The fields the splits depend on: those the episodes do ([_showKey]).
+Entry? _splitKey(Entry? entry) => _showKey(entry);
 
 /// The episodes of season `season` of the show `showId`: the stored ones,
 /// then the fetched ones; null when none could be found, an error when the
@@ -320,7 +379,11 @@ Entry? _seriesKey(Entry? entry) => entry == null
         series: entry.series,
       );
 
-/// The fields the episodes depend on, so a status pick does not refetch.
+/// The fields the episodes depend on, so a status pick does not refetch:
+/// the split too, since a split's seasons have their own episodes, and
+/// every field the artwork resolver keys its match on (`keyFor`: the
+/// seasons' dates give the year), so the match the details' preload made
+/// serves the screen rather than being thrown away for a changed key.
 Entry? _showKey(Entry? entry) => entry == null
     ? null
     : Entry(
@@ -332,6 +395,20 @@ Entry? _showKey(Entry? entry) => entry == null
         status: EntryStatus.want,
         added: entry.added,
         source: entry.source,
+        tmdb: entry.tmdb,
+        coverFrom: entry.coverFrom,
+        kind: entry.kind,
+        seasonsFrom: entry.seasonsFrom,
+        seasons: entry.seasons == null
+            ? null
+            : [
+                for (final s in entry.seasons!)
+                  Season(
+                    season: s.season,
+                    released: s.released,
+                    manual: s.manual,
+                  ),
+              ],
       );
 
 /// The fields the track list depends on, so a rating does not refetch.

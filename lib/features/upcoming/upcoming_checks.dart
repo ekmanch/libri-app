@@ -56,6 +56,7 @@ class UpcomingChecks {
     );
     if (result.outcome == UpcomingRunOutcome.ran) {
       if (result.partsChanged) _ref.invalidate(upcomingPartsProvider);
+      _ref.invalidate(comingPartsProvider);
       if (result.releasesChanged) _ref.invalidate(foundReleasesProvider);
       _ref.invalidate(movieDatesProvider);
       _ref.invalidate(creatorStatusesProvider);

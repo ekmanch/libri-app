@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,7 @@ import '../../data/lookup/episode_info.dart';
 import '../../data/lookup/episode_service.dart';
 import '../../data/lookup/lookup_failure.dart';
 import '../../data/lookup/lookup_providers.dart';
+import '../../data/lookup/season_split_service.dart';
 import '../../data/models/released.dart';
 import '../../data/models/season.dart';
 import '../../theme/app_theme.dart';
@@ -30,7 +33,7 @@ Future<void> openSeason(BuildContext context, String showId, int season) =>
 /// title, air date and runtime. Episodes not out yet are dimmed. Nothing here
 /// is ticked or edited; the episodes come from the lookup and stay on the
 /// phone.
-class SeasonScreen extends ConsumerWidget {
+class SeasonScreen extends ConsumerStatefulWidget {
   const SeasonScreen({super.key, required this.showId, required this.season});
 
   final String showId;
@@ -134,8 +137,41 @@ class SeasonScreen extends ConsumerWidget {
     };
   }
 
+  /// The seasons preloaded when this one opens: the one before and the
+  /// one after (owner's request, 2026-11-03: stepping on to the next
+  /// season shows its names at once).
+  static List<int> neighbors(List<Season> seasons, int season) {
+    final i = seasons.indexWhere((s) => s.season == season);
+    if (i < 0) return const [];
+    return [
+      if (i > 0) seasons[i - 1].season,
+      if (i + 1 < seasons.length) seasons[i + 1].season,
+    ];
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SeasonScreen> createState() => _SeasonScreenState();
+}
+
+class _SeasonScreenState extends ConsumerState<SeasonScreen> {
+  String get showId => widget.showId;
+  int get season => widget.season;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final show = ref.read(libraryProvider).value?.entryById(showId);
+      if (show == null) return;
+      final next = SeasonScreen.neighbors(show.seasons ?? const [], season);
+      if (next.isEmpty) return;
+      unawaited(ref.read(episodeServiceProvider).preload(show, next));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final show = ref.watch(libraryProvider).value?.entryById(showId);
@@ -145,6 +181,10 @@ class SeasonScreen extends ConsumerWidget {
     );
     final episodes = value.value?.episodes;
     final today = seasonClock();
+    final name = SeasonSplitService.seasonName(
+      ref.watch(seasonNamesProvider(showId)),
+      season,
+    );
     final muted = theme.textTheme.bodyMedium!.copyWith(
       fontSize: 14,
       color: colors.muted,
@@ -197,14 +237,15 @@ class SeasonScreen extends ConsumerWidget {
                                 ),
                               ),
                             const SizedBox(height: 2),
-                            Text(
-                              'Season $season',
-                              style: theme.textTheme.headlineMedium,
-                            ),
+                            Text(name, style: theme.textTheme.headlineMedium),
                             if (current != null) ...[
                               const SizedBox(height: 2),
                               Text(
-                                headerLine(current, episodes, today),
+                                SeasonScreen.headerLine(
+                                  current,
+                                  episodes,
+                                  today,
+                                ),
                                 style: muted,
                               ),
                             ],
@@ -232,11 +273,13 @@ class SeasonScreen extends ConsumerWidget {
                     ),
                     SeasonStatusPill(
                       season: current,
+                      name: name,
                       onTap: () => showSavedSeasonStatusSheet(
                         context,
                         ref,
                         show: show,
                         season: season,
+                        title: name,
                       ),
                     ),
                   ],
@@ -254,7 +297,7 @@ class SeasonScreen extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(
-                        reason(value),
+                        SeasonScreen.reason(value),
                         style: muted.copyWith(fontSize: 13.5),
                       ),
                     )
@@ -262,7 +305,7 @@ class SeasonScreen extends ConsumerWidget {
                     for (final episode in episodes)
                       _EpisodeRow(
                         episode: episode,
-                        sameDay: sameDay(episodes, today),
+                        sameDay: SeasonScreen.sameDay(episodes, today),
                         year:
                             (episodes.first.aired ?? current?.released)?.year ??
                             today.year,

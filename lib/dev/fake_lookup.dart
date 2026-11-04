@@ -17,6 +17,8 @@ import '../data/models/media_type.dart';
 import '../data/models/platform_names.dart';
 import '../data/models/released.dart';
 import '../data/models/season.dart';
+import '../data/models/season_span.dart';
+import '../data/models/season_split.dart';
 
 /// A lookup with a fixed catalog, for the widget tests, the screenshot
 /// walks, the accessibility audit and the FIRST_RUN dev switch. [search]
@@ -40,17 +42,20 @@ class FakeLookupSource extends LookupSource
     this.releasesByCreator = const {},
     this.movieDatesBySource = const {},
     this.editionsBySource = const {},
-    this.resplitBySource = const {},
+    this.splitsBySource = const {},
     this.tmdbBySource = const {},
+    this.partsBySource = const {},
   });
+
+  /// The coming parts of seasons [seasonParts] answers, by source.
+  final Map<String, List<ComingSeasonPart>> partsBySource;
 
   /// The TMDB show [tmdbShow] answers for an anime, by source.
   final Map<String, String> tmdbBySource;
 
-  /// Re-splits [resplit] offers, by source, until [resplitSettled] is
-  /// told; [settled] lists those it was told of.
-  final Map<String, SeasonResplit> resplitBySource;
-  final settled = <String>[];
+  /// The splits [seasonSplits] offers, by source, ahead of the built-in
+  /// ones ([fakeSplits]); a source listed with none has no splits.
+  final Map<String, List<SeasonSplit>> splitsBySource;
 
   /// Long enough to see the spinner in a demo, short enough not to wait.
   static const demoLatency = Duration(milliseconds: 700);
@@ -205,16 +210,49 @@ class FakeLookupSource extends LookupSource
     return null;
   }
 
+  /// The fake stands in for AniList here: the chain's split is its own,
+  /// the TMDB show's list one of the others.
   @override
-  Future<SeasonResplit?> resplit(String source) async {
-    return settled.contains(source) ? null : resplitBySource[source];
+  bool isOwnSplit(String? from) =>
+      from == null || from == SeasonSplit.anilistId;
+
+  @override
+  Future<List<SeasonSplit>?> seasonSplits(String source, {String? tmdb}) async {
+    await _call('splits:$source');
+    return splitsBySource[source] ?? fakeSplits[source];
+  }
+
+  /// The seasons of the split with [from] among [seasonSplits], dated as
+  /// it dates them; null when the fake has no such split.
+  @override
+  Future<ShowSeasons?> splitSeasons(
+    String source,
+    String from, {
+    bool anime = false,
+    String? tmdb,
+  }) async {
+    await _call('split:$source:$from');
+    final splits = splitsBySource[source] ?? fakeSplits[source] ?? const [];
+    for (final split in splits) {
+      if (split.has(from)) {
+        return (
+          seasons: split.toSeasons(),
+          canceled: canceledSources.contains(source),
+          kind: kindBySource[source],
+        );
+      }
+    }
+    return null;
   }
 
   @override
-  Future<void> resplitSettled(String source) async => settled.add(source);
+  Future<String?> tmdbShow(String source) async => tmdbBySource[source];
 
   @override
-  Future<String?> tmdbShow(String source) async => tmdbBySource[source];
+  Future<List<ComingSeasonPart>> seasonParts(String source) async {
+    await _call('parts:$source');
+    return partsBySource[source] ?? const [];
+  }
 
   @override
   Future<Released?> releaseDate(String source) async {
@@ -253,8 +291,9 @@ class FakeLookupSource extends LookupSource
     int season, {
     bool anime = false,
     String? tmdb,
+    String? from,
   }) async {
-    await _call('episodes:$source:$season');
+    await _call('episodes:$source:$season${from == null ? '' : ':$from'}');
     return episodesBySeason[(source, season)] ??
         _episodesBySeason[(source, season)] ??
         (source == 'fake:severance' && season == 3
@@ -507,33 +546,28 @@ final _berserk = (
 /// Episodes for the fixture's Stranger Things season 1 (all out on one day,
 /// Show & seasons › Season episodes (all out)), The Haunting of Hill House (one
 /// season, Show & seasons › Episodes of a one-season show), Severance
-/// seasons 1 and 2 (weekly) and Frieren's two seasons (an anime series, Show &
-/// seasons › Anime season episodes), matched on the device as `fake:<slug>`.
+/// seasons 1 and 2 (weekly), matched on the device as `fake:<slug>`, and
+/// Frieren's two seasons (an anime series, Show & seasons › Anime season
+/// episodes), matched to the catalog's AniList id by its title and year.
 final _episodesBySeason = <(String, int), List<EpisodeInfo>>{
-  ('fake:frieren-beyond-journeys-end', 1): _weekly(
-    DateTime(2023, 9, 29),
-    const [
-      ("The Journey's End", 24),
-      ("It Didn't Have to Be Magic", 24),
-      ('Killing Magic', 24),
-      ('The Land Where Souls Rest', 24),
-    ],
-  ),
-  ('fake:frieren-beyond-journeys-end', 2): _weekly(
-    DateTime(2026, 1, 16),
-    const [
-      ('A New Journey', 24),
-      ('The Northern Road', 24),
-      ('First-Class Mages', 24),
-      ('The Old Bridge', 24),
-      ('Snowfall', 24),
-      ('A Familiar Spell', 24),
-      ('The Village Festival', 24),
-      ('Graves of Heroes', 24),
-      ('Echoes', 24),
-      ('Spring Again', 24),
-    ],
-  ),
+  ('anilist:154587', 1): _weekly(DateTime(2023, 9, 29), const [
+    ("The Journey's End", 24),
+    ("It Didn't Have to Be Magic", 24),
+    ('Killing Magic', 24),
+    ('The Land Where Souls Rest', 24),
+  ]),
+  ('anilist:154587', 2): _weekly(DateTime(2026, 1, 16), const [
+    ('A New Journey', 24),
+    ('The Northern Road', 24),
+    ('First-Class Mages', 24),
+    ('The Old Bridge', 24),
+    ('Snowfall', 24),
+    ('A Familiar Spell', 24),
+    ('The Village Festival', 24),
+    ('Graves of Heroes', 24),
+    ('Echoes', 24),
+    ('Spring Again', 24),
+  ]),
   ('fake:stranger-things', 1): _sameDay(Released(2016, 7, 15), const [
     ('Chapter One: The Vanishing of Will Byers', 47),
     ('Chapter Two: The Weirdo on Maple Street', 55),
@@ -597,6 +631,28 @@ List<EpisodeInfo> _weekly(DateTime first, List<(String, int)> episodes) => [
       aired: _day(DateTime(first.year, first.month, first.day + 7 * i)),
       runtime: runtime,
     ),
+];
+
+/// The splits of Frieren (Add / edit entry › Edit an anime: split into
+/// seasons), by its AniList id, which the fixture's entry, with no lookup
+/// id of its own, is matched to on the device: AniList's two seasons of
+/// 28 and 10, which the fixture has, and the TMDB show's one season of 38.
+final fakeSplits = <String, List<SeasonSplit>>{'anilist:154587': frierenSplits};
+
+const frierenSplits = [
+  SeasonSplit(
+    ids: [SeasonSplit.anilistId],
+    seasons: [
+      SeasonSpan(season: 1, episodes: 28, released: Released(2023, 9, 29)),
+      SeasonSpan(season: 2, episodes: 10, released: Released(2026, 1, 16)),
+    ],
+  ),
+  SeasonSplit(
+    ids: [SeasonSplit.tmdbSeasonsId],
+    seasons: [
+      SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+    ],
+  ),
 ];
 
 Released _day(DateTime d) => Released(d.year, d.month, d.day);

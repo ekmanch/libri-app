@@ -48,6 +48,7 @@ _Entry _$EntryFromJson(Map<String, dynamic> json) => _Entry(
   tracks: (json['tracks'] as List<dynamic>?)
       ?.map((e) => Track.fromJson(e as Map<String, dynamic>))
       .toList(),
+  seasonsFrom: json['seasons_from'] as String?,
   seasons: (json['seasons'] as List<dynamic>?)
       ?.map((e) => Season.fromJson(e as Map<String, dynamic>))
       .toList(),
@@ -82,6 +83,7 @@ Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
   'kind': ?_$EntryKindEnumMap[instance.kind],
   'album': ?instance.album,
   'tracks': ?instance.tracks?.map((e) => e.toJson()).toList(),
+  'seasons_from': ?instance.seasonsFrom,
   'seasons': ?instance.seasons?.map((e) => e.toJson()).toList(),
 };
 

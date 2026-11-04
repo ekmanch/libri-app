@@ -98,6 +98,11 @@ const dataSources = [
     url: 'https://anilist.co',
   ),
   DataSource(
+    name: 'ARM',
+    description: 'Anime: which TMDB show and season an AniList entry is.',
+    url: 'https://arm.haglund.dev',
+  ),
+  DataSource(
     name: 'Wikidata',
     description: 'Books: which series a book belongs to, and its number.',
     url: 'https://www.wikidata.org',

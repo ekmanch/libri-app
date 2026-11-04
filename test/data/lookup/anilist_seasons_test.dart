@@ -13,6 +13,7 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/season_span.dart';
+import 'package:library_app/data/models/season_split.dart';
 
 /// An AniList entry as the chain query returns it, with its relations when
 /// [relations] is given.
@@ -182,13 +183,15 @@ void main() {
   };
 
   /// A link an older build wrote: the TMDB show Frieren's seasons came
-  /// from, waiting for the re-split.
+  /// from.
   final oldLink = (
     kind: EntryKind.series,
     checked: DateTime(2026, 10, 20),
     tmdb: 'tmdb:tv:209867',
     tmdbChecked: null,
-    resplit: true,
+    tvdb: null,
+    tvdbSeason: null,
+    armChecked: null,
   );
 
   String day(DateTime d) =>
@@ -529,7 +532,6 @@ void main() {
       expect(second.last.aired, const Released(2026, 3, 20));
       expect(anilist.episodesProvider('anilist:154587'), 'TMDB and AniList');
       expect(links.links[154587]?.tmdb, 'tmdb:tv:209867');
-      expect(links.links[154587]?.resplit, isFalse);
 
       final first = await anilist.seasonEpisodes('anilist:154587', 1);
       expect(first, hasLength(28));
@@ -606,39 +608,77 @@ void main() {
     });
   });
 
-  group('re-split', () {
-    test(
-      'an old TMDB link offers TMDB\'s split and AniList\'s, once',
-      () async {
-        final anilist = source();
-        await links.write(154587, oldLink);
-        final split = await anilist.resplit('anilist:154587');
-        expect(split!.before, const [
-          SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
-        ]);
-        expect(split.after, const [
-          SeasonSpan(season: 1, episodes: 28, released: Released(2023, 9, 29)),
-          SeasonSpan(season: 2, episodes: 10, released: Released(2026, 1, 16)),
-          SeasonSpan(season: 3, released: Released(2027, 10)),
-        ]);
-        expect(tmdbCalls().single.url.path, '/3/tv/209867');
+  group('splits', () {
+    test('the chain\'s split first, then the TMDB show\'s list', () async {
+      final anilist = source();
+      final splits = await anilist.seasonSplits('anilist:154587');
+      expect(splits, hasLength(2));
+      expect(splits![0].ids, [SeasonSplit.anilistId]);
+      expect(splits[0].seasons, const [
+        SeasonSpan(season: 1, episodes: 28, released: Released(2023, 9, 29)),
+        SeasonSpan(season: 2, episodes: 10, released: Released(2026, 1, 16)),
+        SeasonSpan(season: 3, released: Released(2027, 10)),
+      ]);
+      expect(splits[1].ids, [SeasonSplit.tmdbSeasonsId]);
+      expect(splits[1].seasons, const [
+        SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+      ]);
+      // The show's list and its groups: one request each.
+      expect(tmdbCalls().map((r) => r.url.path), [
+        '/3/search/tv',
+        '/3/tv/209867',
+        '/3/tv/209867/episode_groups',
+      ]);
+      // The entry's own TMDB show is taken as given.
+      final own = await anilist.seasonSplits(
+        'anilist:154587',
+        tmdb: 'tmdb:tv:209867',
+      );
+      expect(own, hasLength(2));
+    });
 
-        await anilist.resplitSettled('anilist:154587');
-        // The link stays, for the titles; the re-split is done.
-        expect(links.links[154587]?.tmdb, 'tmdb:tv:209867');
-        expect(links.links[154587]?.resplit, isFalse);
-        expect(links.links[154587]?.kind, EntryKind.series);
-        expect(await anilist.resplit('anilist:154587'), isNull);
-      },
-    );
+    test('without TMDB, or TMDB not answering, the chain\'s alone', () async {
+      var anilist = source(withTmdb: false);
+      expect(await anilist.seasonSplits('anilist:154587'), hasLength(1));
+      anilist = source(tmdbHits: const []);
+      expect(await anilist.seasonSplits('anilist:154587'), hasLength(1));
+    });
 
-    test('nothing to re-split without an old link or without TMDB', () async {
-      var anilist = source();
-      expect(await anilist.resplit('anilist:154587'), isNull);
-      anilist = source(withTmdb: false);
-      await links.write(154587, oldLink);
-      expect(await anilist.resplit('anilist:154587'), isNull);
-      expect(tmdbCalls(), isEmpty);
+    test('a split\'s seasons: the chain\'s, or the TMDB show\'s', () async {
+      final anilist = source();
+      final chain = await anilist.splitSeasons(
+        'anilist:154587',
+        SeasonSplit.anilistId,
+      );
+      expect(chain!.seasons, frierenSeasons);
+      final tmdb = await anilist.splitSeasons(
+        'anilist:154587',
+        SeasonSplit.tmdbSeasonsId,
+        tmdb: 'tmdb:tv:209867',
+      );
+      expect(tmdb!.seasons, const [
+        Season(season: 1, released: Released(2023, 9, 29)),
+      ]);
+      expect(tmdb.kind, EntryKind.series);
+      expect(
+        await anilist.splitSeasons('anilist:154587', 'tmdb:group:gone'),
+        isNull,
+      );
+      expect(anilist.isOwnSplit(SeasonSplit.anilistId), isTrue);
+      expect(anilist.isOwnSplit(SeasonSplit.tmdbSeasonsId), isFalse);
+    });
+
+    test('in a TMDB split the episodes are TMDB\'s, credited so', () async {
+      final anilist = source();
+      final episodes = await anilist.seasonEpisodes(
+        'anilist:154587',
+        1,
+        tmdb: 'tmdb:tv:209867',
+        from: SeasonSplit.tmdbSeasonsId,
+      );
+      expect(episodes, hasLength(38));
+      expect(episodes!.first.title, 'Title 1');
+      expect(anilist.episodesProvider('anilist:154587'), 'TMDB');
     });
   });
 

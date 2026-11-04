@@ -44,12 +44,14 @@ AddSeasons _$AddSeasonsFromJson(Map<String, dynamic> json) => AddSeasons(
   (json['seasons'] as List<dynamic>)
       .map((e) => Season.fromJson(e as Map<String, dynamic>))
       .toList(),
+  from: json['from'] as String?,
 );
 
 Map<String, dynamic> _$AddSeasonsToJson(AddSeasons instance) =>
     <String, dynamic>{
       'entryId': instance.entryId,
       'seasons': instance.seasons.map((e) => e.toJson()).toList(),
+      'from': instance.from,
     };
 
 SetSeasons _$SetSeasonsFromJson(Map<String, dynamic> json) => SetSeasons(

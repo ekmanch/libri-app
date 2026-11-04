@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:library_app/data/lookup/anilist_source.dart';
+import 'package:library_app/data/lookup/arm_ids.dart';
 import 'package:library_app/data/lookup/deezer_source.dart';
 import 'package:library_app/data/lookup/google_books.dart';
 import 'package:library_app/data/lookup/igdb_source.dart';
@@ -22,6 +23,7 @@ import 'package:library_app/data/lookup/tmdb_source.dart';
 import 'package:library_app/data/lookup/wikidata_series.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/media_type.dart';
+import 'package:library_app/data/models/season_split.dart';
 import 'package:library_app/data/storage/json_file.dart';
 
 void main() {
@@ -260,6 +262,44 @@ void main() {
     expect(akira!.kind, EntryKind.movie);
     expect(akira.seasons, isEmpty);
   });
+
+  test(
+    'AniList with ARM and TMDB: the settled splits of 2026-11-04 '
+    '(Hunter x Hunter by arc, Frieren by season, Attack on Titan folded)',
+    () async {
+      final tmdb = TmdbSource(client, token: tmdbToken);
+      final anilist = AniListSource(client, tmdb: tmdb, arm: ArmIds(client));
+      // Hunter x Hunter (2011): one entry of 148 on AniList, a long run,
+      // so the automatic split is TMDB's six arcs, the show found by ARM.
+      expect(await anilist.tmdbShow('anilist:11061'), 'tmdb:tv:46298');
+      final hxh = SeasonSplit.distinct(
+        (await anilist.seasonSplits('anilist:11061'))!,
+      );
+      expect(hxh.first.long, isTrue);
+      final auto = SeasonSplit.automatic(hxh)!;
+      expect(auto.arcs, isTrue);
+      expect(auto.count, 6);
+      expect(auto.names[1], 'Hunter Exam');
+      // Frieren: two seasons and the third announced, over TMDB's one of 38.
+      final frieren = SeasonSplit.distinct(
+        (await anilist.seasonSplits('anilist:154587'))!,
+      );
+      final frierenAuto = SeasonSplit.automatic(frieren)!;
+      expect(frierenAuto.id, SeasonSplit.anilistId);
+      expect(frierenAuto.shape, [28, 10]);
+      expect(frierenAuto.count, 3);
+      expect(await anilist.seasonParts('anilist:154587'), isEmpty);
+      // Attack on Titan: Season 3 and its Part 2 fold into one season of
+      // 22, the Final Season and its Part 2 into one of 28.
+      final aot = (await anilist.seasons('anilist:16498'))!.seasons;
+      expect(aot.map((s) => s.season), [1, 2, 3, 4]);
+      final splits = await anilist.seasonSplits('anilist:16498');
+      expect(splits!.first.shape, [25, 12, 22, 28]);
+      expect(splits[1].id, SeasonSplit.anilistPartsId);
+      expect(splits[1].count, 6);
+    },
+    skip: tmdbToken.isEmpty ? 'Set TMDB_READ_TOKEN.' : false,
+  );
 
   test('Wikidata: a book\'s series and its parts', () async {
     final wikidata = WikidataSeries(client);

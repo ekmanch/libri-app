@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/lookup/season_parts.dart';
 import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -210,6 +211,48 @@ void main() {
         expect(soon.rows, hasLength(HomeSection.limit));
       },
     );
+
+    test('a coming part of a watched season is a row of its own '
+        '(owner\'s decision, 2026-11-04)', () {
+      final frieren = entry(
+        'frieren',
+        MediaType.anime,
+        status: EntryStatus.inProgress,
+        kind: EntryKind.series,
+        seasons: const [
+          Season(
+            season: 2,
+            released: Released(2026, 1, 16),
+            status: EntryStatus.inProgress,
+          ),
+          Season(season: 3, released: Released(2027, 10)),
+        ],
+      );
+      const part = ComingPart(
+        entryId: 'frieren',
+        season: 2,
+        part: 2,
+        released: Released(2027, 1, 10),
+      );
+      final soon = section(
+        homeSections([frieren], today: today, comingParts: const [part]),
+        HomeSectionKind.comingSoon,
+      )!;
+      expect(soon.rows.map((r) => r.detail), ['Season 2, Part 2']);
+      expect(soon.rows.single.right, 'Jan 10, 2027');
+      // The season Not set: the part is not wanted, and season 3 is not
+      // set Want either.
+      final unset = frieren.copyWith(
+        seasons: [for (final s in frieren.seasons!) s.copyWith(status: null)],
+      );
+      expect(
+        section(
+          homeSections([unset], today: today, comingParts: const [part]),
+          HomeSectionKind.comingSoon,
+        ),
+        isNull,
+      );
+    });
 
     test('a date in another year names it', () {
       expect(

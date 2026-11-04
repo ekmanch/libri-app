@@ -13,6 +13,9 @@ import '../data/lookup/lookup_providers.dart';
 import '../data/lookup/movie_dates.dart';
 import '../data/lookup/release_check.dart';
 import '../data/lookup/season_check.dart';
+import '../data/lookup/season_parts.dart';
+import '../data/lookup/season_split_service.dart';
+import '../data/lookup/season_split_store.dart';
 import '../data/lookup/series_check.dart';
 import '../data/lookup/series_service.dart';
 import '../data/lookup/series_store.dart';
@@ -45,6 +48,7 @@ List<Override> fakeLookupOverrides({
   Set<String>? failingImages,
   FakeLookupSource? source,
   SeasonCheckStore? seasonStore,
+  ComingPartsStore? comingParts,
   UpcomingPartsStore? upcomingParts,
   CreatorStatusStore? creatorStatuses,
   FoundReleaseStore? foundReleases,
@@ -78,6 +82,7 @@ List<Override> fakeLookupOverrides({
     (ref) => SeasonCheck(
       lookups: ref.watch(lookupServiceProvider),
       store: seasonStore ?? MemorySeasonCheckStore(),
+      parts: comingParts ?? MemoryComingPartsStore(),
     ),
   ),
   releaseCheckProvider.overrideWith(
@@ -110,11 +115,19 @@ List<Override> fakeLookupOverrides({
       store: MemoryTrackListStore(),
     ),
   ),
+  seasonSplitServiceProvider.overrideWith(
+    (ref) => SeasonSplitService(
+      lookups: ref.watch(lookupServiceProvider),
+      store: MemorySeasonSplitStore(),
+      resolver: ref.watch(artworkResolverProvider),
+    ),
+  ),
   episodeServiceProvider.overrideWith(
     (ref) => EpisodeService(
       lookups: ref.watch(lookupServiceProvider),
       resolver: ref.watch(artworkResolverProvider),
       store: MemoryEpisodeStore(),
+      splits: ref.watch(seasonSplitServiceProvider),
     ),
   ),
   seriesServiceProvider.overrideWith(

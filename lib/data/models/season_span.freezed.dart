@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SeasonSpan {
 
- int get season; int? get episodes;@ReleasedConverter() Released? get released;
+ int get season;@JsonKey(includeIfNull: false) String? get name; int? get episodes;@ReleasedConverter() Released? get released;
 /// Create a copy of SeasonSpan
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $SeasonSpanCopyWith<SeasonSpan> get copyWith => _$SeasonSpanCopyWithImpl<SeasonS
 @override
 bool operator ==(Object other) {
   final _this = this as SeasonSpan;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SeasonSpan&&(identical(other.season, _this.season) || other.season == _this.season)&&(identical(other.episodes, _this.episodes) || other.episodes == _this.episodes)&&(identical(other.released, _this.released) || other.released == _this.released));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SeasonSpan&&(identical(other.season, _this.season) || other.season == _this.season)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.episodes, _this.episodes) || other.episodes == _this.episodes)&&(identical(other.released, _this.released) || other.released == _this.released));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as SeasonSpan;
-  return Object.hash(runtimeType,_this.season,_this.episodes,_this.released);
+  return Object.hash(runtimeType,_this.season,_this.name,_this.episodes,_this.released);
 }
 
 @override
 String toString() {
   final _this = this as SeasonSpan;
-  return 'SeasonSpan(season: ${_this.season}, episodes: ${_this.episodes}, released: ${_this.released})';
+  return 'SeasonSpan(season: ${_this.season}, name: ${_this.name}, episodes: ${_this.episodes}, released: ${_this.released})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $SeasonSpanCopyWith<$Res>  {
   factory $SeasonSpanCopyWith(SeasonSpan value, $Res Function(SeasonSpan) _then) = _$SeasonSpanCopyWithImpl;
 @useResult
 $Res call({
- int season, int? episodes,@ReleasedConverter() Released? released
+ int season,@JsonKey(includeIfNull: false) String? name, int? episodes,@ReleasedConverter() Released? released
 });
 
 
@@ -71,10 +71,11 @@ class _$SeasonSpanCopyWithImpl<$Res>
 
 /// Create a copy of SeasonSpan
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? season = null,Object? episodes = freezed,Object? released = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? season = null,Object? name = freezed,Object? episodes = freezed,Object? released = freezed,}) {
   return _then(SeasonSpan(
 season: null == season ? _self.season : season // ignore: cast_nullable_to_non_nullable
-as int,episodes: freezed == episodes ? _self.episodes : episodes // ignore: cast_nullable_to_non_nullable
+as int,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String?,episodes: freezed == episodes ? _self.episodes : episodes // ignore: cast_nullable_to_non_nullable
 as int?,released: freezed == released ? _self.released : released // ignore: cast_nullable_to_non_nullable
 as Released?,
   ));
@@ -161,10 +162,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int season,  int? episodes, @ReleasedConverter()  Released? released)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int season, @JsonKey(includeIfNull: false)  String? name,  int? episodes, @ReleasedConverter()  Released? released)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SeasonSpan() when $default != null:
-return $default(_that.season,_that.episodes,_that.released);case _:
+return $default(_that.season,_that.name,_that.episodes,_that.released);case _:
   return orElse();
 
 }
@@ -182,10 +183,10 @@ return $default(_that.season,_that.episodes,_that.released);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int season,  int? episodes, @ReleasedConverter()  Released? released)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int season, @JsonKey(includeIfNull: false)  String? name,  int? episodes, @ReleasedConverter()  Released? released)  $default,) {final _that = this;
 switch (_that) {
 case _SeasonSpan():
-return $default(_that.season,_that.episodes,_that.released);case _:
+return $default(_that.season,_that.name,_that.episodes,_that.released);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -202,10 +203,10 @@ return $default(_that.season,_that.episodes,_that.released);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int season,  int? episodes, @ReleasedConverter()  Released? released)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int season, @JsonKey(includeIfNull: false)  String? name,  int? episodes, @ReleasedConverter()  Released? released)?  $default,) {final _that = this;
 switch (_that) {
 case _SeasonSpan() when $default != null:
-return $default(_that.season,_that.episodes,_that.released);case _:
+return $default(_that.season,_that.name,_that.episodes,_that.released);case _:
   return null;
 
 }
@@ -216,11 +217,12 @@ return $default(_that.season,_that.episodes,_that.released);case _:
 /// @nodoc
 @JsonSerializable()
 
-class _SeasonSpan implements SeasonSpan {
-  const _SeasonSpan({required this.season, this.episodes, @ReleasedConverter() this.released});
+class _SeasonSpan extends SeasonSpan {
+  const _SeasonSpan({required this.season, @JsonKey(includeIfNull: false) this.name, this.episodes, @ReleasedConverter() this.released}): super._();
   factory _SeasonSpan.fromJson(Map<String, dynamic> json) => _$SeasonSpanFromJson(json);
 
 @override final  int season;
+@override@JsonKey(includeIfNull: false) final  String? name;
 @override final  int? episodes;
 @override@ReleasedConverter() final  Released? released;
 
@@ -237,18 +239,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _SeasonSpan&&(identical(other.season, season) || other.season == season)&&(identical(other.episodes, episodes) || other.episodes == episodes)&&(identical(other.released, released) || other.released == released));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _SeasonSpan&&(identical(other.season, season) || other.season == season)&&(identical(other.name, name) || other.name == name)&&(identical(other.episodes, episodes) || other.episodes == episodes)&&(identical(other.released, released) || other.released == released));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,season,episodes,released);
+    return Object.hash(runtimeType,season,name,episodes,released);
 }
 
 @override
 String toString() {
-    return 'SeasonSpan(season: $season, episodes: $episodes, released: $released)';
+    return 'SeasonSpan(season: $season, name: $name, episodes: $episodes, released: $released)';
 }
 
 
@@ -259,7 +261,7 @@ abstract mixin class _$SeasonSpanCopyWith<$Res> implements $SeasonSpanCopyWith<$
   factory _$SeasonSpanCopyWith(_SeasonSpan value, $Res Function(_SeasonSpan) _then) = __$SeasonSpanCopyWithImpl;
 @override @useResult
 $Res call({
- int season, int? episodes,@ReleasedConverter() Released? released
+ int season,@JsonKey(includeIfNull: false) String? name, int? episodes,@ReleasedConverter() Released? released
 });
 
 
@@ -276,10 +278,11 @@ class __$SeasonSpanCopyWithImpl<$Res>
 
 /// Create a copy of SeasonSpan
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? season = null,Object? episodes = freezed,Object? released = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? season = null,Object? name = freezed,Object? episodes = freezed,Object? released = freezed,}) {
   return _then(_SeasonSpan(
 season: null == season ? _self.season : season // ignore: cast_nullable_to_non_nullable
-as int,episodes: freezed == episodes ? _self.episodes : episodes // ignore: cast_nullable_to_non_nullable
+as int,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String?,episodes: freezed == episodes ? _self.episodes : episodes // ignore: cast_nullable_to_non_nullable
 as int?,released: freezed == released ? _self.released : released // ignore: cast_nullable_to_non_nullable
 as Released?,
   ));

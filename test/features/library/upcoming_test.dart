@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/movie_dates.dart';
+import 'package:library_app/data/lookup/season_parts.dart';
 import 'package:library_app/data/lookup/series_check.dart';
 import 'package:library_app/data/models/release_dates.dart';
 import 'package:library_app/data/models/app_settings.dart';
@@ -367,6 +368,118 @@ void main() {
           ),
         ),
         ['show', 'movie'],
+      );
+    });
+  });
+
+  group('coming parts of seasons (owner\'s decision, 2026-11-04)', () {
+    final frieren = entry(
+      'frieren',
+      MediaType.anime,
+      title: 'Frieren',
+      status: EntryStatus.inProgress,
+      kind: EntryKind.series,
+      seasons: const [
+        Season(
+          season: 1,
+          released: Released(2023, 9, 29),
+          status: EntryStatus.done,
+        ),
+        Season(
+          season: 2,
+          released: Released(2026, 1, 16),
+          status: EntryStatus.inProgress,
+        ),
+        Season(season: 3, released: Released(2027, 10)),
+      ],
+    );
+    const part = ComingPart(
+      entryId: 'frieren',
+      season: 2,
+      part: 2,
+      released: Released(2027, 1, 10),
+    );
+
+    test('its own row, "Season 2, Part 2", wanted when the season is '
+        'watched; a part of a season not set is not', () {
+      final items = upcomingItems(
+        [frieren],
+        parts: const [],
+        comingParts: const [part],
+        prefs: const DisplayPreferences(),
+        today: today,
+      );
+      expect(items.map((i) => i.detail), ['Season 2, Part 2', 'Season 3']);
+      final row = items.first;
+      expect(row.kind, UpcomingKind.season);
+      expect(row.id, 'frieren#2.2');
+      expect(row.wanted, isTrue);
+      expect(row.released, const Released(2027, 1, 10));
+      expect(row.season!.season, 2);
+      expect(row.sheetTitle, 'Frieren, Season 2, Part 2');
+      expect(
+        row.reason,
+        "Frieren is in your library; you're watching season 2.",
+      );
+      expect(wantedUpcoming(items).single, row);
+      // Not interested hides it by its key.
+      expect(
+        upcomingItems(
+          [frieren],
+          parts: const [],
+          comingParts: const [part],
+          prefs: const DisplayPreferences(),
+          settings: const AppSettings(notInterested: {'frieren#2.2'}),
+          today: today,
+        ).map((i) => i.detail),
+        ['Season 3'],
+      );
+      // A season Not set: listed, not wanted.
+      final unset = frieren.copyWith(
+        seasons: [
+          for (final s in frieren.seasons!)
+            s.season == 2 ? s.copyWith(status: null) : s,
+        ],
+      );
+      final rows = comingPartItems([unset], const [part], today: today);
+      expect(rows.single.wanted, isFalse);
+      expect(
+        wantsPart(const Season(season: 1, status: EntryStatus.dnf)),
+        isFalse,
+      );
+      expect(
+        wantsPart(const Season(season: 1, status: EntryStatus.want)),
+        isTrue,
+      );
+    });
+
+    test('a part out, of a season gone, or of a show gone is not listed', () {
+      expect(
+        comingPartItems(
+          [frieren],
+          const [
+            ComingPart(
+              entryId: 'frieren',
+              season: 2,
+              part: 2,
+              released: Released(2026, 1, 16),
+            ),
+            ComingPart(
+              entryId: 'frieren',
+              season: 9,
+              part: 2,
+              released: Released(2027),
+            ),
+            ComingPart(
+              entryId: 'gone',
+              season: 1,
+              part: 2,
+              released: Released(2027),
+            ),
+          ],
+          today: today,
+        ),
+        isEmpty,
       );
     });
   });

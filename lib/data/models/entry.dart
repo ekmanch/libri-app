@@ -83,6 +83,15 @@ abstract class Entry with _$Entry {
     @JsonKey(includeIfNull: false) EntryKind? kind,
     @JsonKey(includeIfNull: false) String? album,
     @JsonKey(includeIfNull: false) List<Track>? tracks,
+
+    /// Shows and anime series: which of the sources' splits the seasons
+    /// are in (Add / edit entry › Split into: pick a split), so every
+    /// device updates them within the same split: "anilist" (AniList's
+    /// sequel chain), "tmdb:seasons" (the TMDB show's season list) or
+    /// `tmdb:group:<id>` (one of its episode groups). Written when the
+    /// seasons come from a lookup; left out on seasons set by hand and on
+    /// an entry from before splits, whose split is told by its shape.
+    @JsonKey(name: 'seasons_from', includeIfNull: false) String? seasonsFrom,
     // Shows and anime series: in season number order, omitted when the
     // show has none.
     @JsonKey(includeIfNull: false) List<Season>? seasons,
@@ -131,6 +140,13 @@ abstract class Entry with _$Entry {
           : Season.showStatus(list, today ?? seasonClock()),
     );
   }
+
+  /// Seasons set by hand (Add / edit entry › Split into: Set by hand): every
+  /// season is marked manual, so no lookup changes them.
+  bool get seasonsByHand =>
+      seasons != null &&
+      seasons!.isNotEmpty &&
+      seasons!.every((s) => s.isManual);
 
   /// A season added by the daily check, out and with no status yet.
   bool hasNewSeasonOn(DateTime today) =>

@@ -12,14 +12,20 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/season.dart';
+import 'package:library_app/data/models/season_span.dart';
+import 'package:library_app/data/models/season_split.dart';
 import 'package:library_app/data/models/tag_category.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
 import 'package:library_app/features/entry/entry_form_screen.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/seasons.dart';
+import 'package:library_app/features/entry/split_sheet.dart';
 import 'package:library_app/dev/fake_lookup.dart';
+import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/widgets/app_dialog.dart';
+import 'package:library_app/widgets/app_icons.dart';
+import 'package:library_app/widgets/row_ink_well.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/form_fields.dart';
 import 'package:library_app/widgets/segmented_control.dart';
@@ -1878,6 +1884,301 @@ void main() {
       expect(movie.seasons, isNull);
       expect(movie.released, const Released(2023, 9, 29));
       expect(movie.status, EntryStatus.inProgress);
+    });
+  });
+
+  group('Split into (Add / edit entry › Split into: pick a split)', () {
+    const frierenId = 'anime/frieren-beyond-journeys-end-2023';
+    const arcs = SeasonSplit(
+      ids: ['tmdb:group:arcs'],
+      arcs: true,
+      seasons: [
+        SeasonSpan(
+          season: 1,
+          name: 'Journey',
+          episodes: 20,
+          released: Released(2023, 9, 29),
+        ),
+        SeasonSpan(
+          season: 2,
+          name: 'Exam',
+          episodes: 8,
+          released: Released(2024, 1, 5),
+        ),
+        SeasonSpan(
+          season: 3,
+          name: 'North',
+          episodes: 10,
+          released: Released(2026, 1, 16),
+        ),
+      ],
+    );
+
+    Future<void> openField(WidgetTester tester) async {
+      await scrollTo(tester, find.text('Split into'));
+      await tester.tap(find.text('Split into'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> done(WidgetTester tester) async {
+      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the field shows only when the sources split otherwise', (
+      tester,
+    ) async {
+      final frieren = loadFixture().entryById(frierenId)!;
+      await pumpApp(tester, EntryFormScreen.edit(frieren));
+      await scrollTo(tester, find.text('Split into'));
+      // The fixture's two seasons are AniList's split.
+      expect(find.text('2 seasons'), findsOneWidget);
+      expect(find.bySemanticsLabel('Split into, 2 seasons'), findsOneWidget);
+    });
+
+    testWidgets('a show every source agrees on gets no field', (tester) async {
+      final twinPeaks = loadFixture().entryById('shows/twin-peaks-1990')!;
+      await pumpApp(tester, EntryFormScreen.edit(twinPeaks));
+      await scrollTo(tester, find.text('Add season'));
+      expect(find.text('Split into'), findsNothing);
+      expect(find.text('TMDB show'), findsNothing);
+    });
+
+    testWidgets('the sheet lists each split by its shape, the automatic '
+        'one marked, then Set by hand', (tester) async {
+      final frieren = loadFixture().entryById(frierenId)!;
+      await pumpApp(tester, EntryFormScreen.edit(frieren));
+      await openField(tester);
+      expect(find.text('Split into'), findsNWidgets(2));
+      expect(
+        find.text("Frieren: Beyond Journey's End · 38 episodes"),
+        findsOneWidget,
+      );
+      expect(find.text('One season'), findsOneWidget);
+      expect(find.text('38 episodes'), findsOneWidget);
+      expect(find.text('By year: 28 and 10 episodes'), findsOneWidget);
+      expect(find.text('Set by hand'), findsOneWidget);
+      expect(find.text(SplitSheet.byHandDetail), findsOneWidget);
+      expect(find.text(SplitSheet.note), findsOneWidget);
+      // Two seasons is the regular list: automatic, and the one in use.
+      expect(
+        find.bySemanticsLabel(
+          '2 seasons, automatic, By year: 28 and 10 episodes',
+        ),
+        findsOneWidget,
+      );
+      // The one in use ends with the check mark, alone in the sheet.
+      final checks = find.descendant(
+        of: find.byType(SplitSheet),
+        matching: find.byWidgetPredicate(
+          (w) => w is StrokeIcon && w.data == AppIcons.checkBold,
+        ),
+      );
+      expect(checks, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.ancestor(
+            of: find.text('By year: 28 and 10 episodes'),
+            matching: find.byType(RowInkWell),
+          ),
+          matching: checks,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Automatic', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a pick re-splits at once, statuses carried, and saves', (
+      tester,
+    ) async {
+      final frieren = loadFixture().entryById(frierenId)!;
+      final container = await pumpApp(tester, EntryFormScreen.edit(frieren));
+      await openField(tester);
+      await tester.tap(find.text('One season'));
+      await tester.pumpAndSettle();
+      await done(tester);
+      // One season now, Done and Watching together being Watching, which
+      // the Status control shows since a one-season show has no pill.
+      expect(find.text('One season'), findsOneWidget);
+      expect(find.text('Season 1'), findsOneWidget);
+      expect(find.text('Season 2'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById(frierenId)!;
+      expect(saved.seasons, const [
+        Season(
+          season: 1,
+          released: Released(2023, 9, 29),
+          status: EntryStatus.inProgress,
+        ),
+      ]);
+      expect(saved.seasonsFrom, SeasonSplit.tmdbSeasonsId);
+      expect(saved.status, EntryStatus.inProgress);
+    });
+
+    testWidgets('Set by hand marks every season manual and forgets the split', (
+      tester,
+    ) async {
+      final frieren = loadFixture().entryById(frierenId)!;
+      final container = await pumpApp(tester, EntryFormScreen.edit(frieren));
+      await openField(tester);
+      await tester.tap(find.text('Set by hand'));
+      await tester.pumpAndSettle();
+      await done(tester);
+      expect(find.bySemanticsLabel('Split into, Set by hand'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById(frierenId)!;
+      expect(saved.seasonsFrom, isNull);
+      expect(saved.seasons!.every((s) => s.isManual), isTrue);
+      expect(saved.seasons!.map((s) => s.status), [
+        EntryStatus.done,
+        EntryStatus.inProgress,
+      ]);
+    });
+
+    testWidgets('a split picked for seasons set by hand moves the statuses '
+        'by number, the manual marks dropped', (tester) async {
+      final frieren = loadFixture().entryById(frierenId)!;
+      final byHand = frieren.copyWith(
+        seasons: [for (final s in frieren.seasons!) s.copyWith(manual: true)],
+      );
+      final container = await pumpApp(tester, EntryFormScreen.edit(byHand));
+      await openField(tester);
+      expect(find.bySemanticsLabel('Split into, Set by hand'), findsOneWidget);
+      await tester.tap(find.text('One season'));
+      await tester.pumpAndSettle();
+      await done(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById(frierenId)!;
+      expect(saved.seasonsFrom, SeasonSplit.tmdbSeasonsId);
+      expect(saved.seasons!.single.status, EntryStatus.done);
+      expect(saved.seasons!.single.isManual, isFalse);
+    });
+
+    testWidgets('a new anime from a match saves the lookup\'s split', (
+      tester,
+    ) async {
+      final match = FakeLookupSource.catalogSearch('frieren').single;
+      final container = await pumpApp(
+        tester,
+        EntryFormScreen.create(match: match),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entries.last;
+      expect(saved.seasonsFrom, SeasonSplit.anilistId);
+      expect(saved.seasons, hasLength(2));
+    });
+
+    testWidgets('a long run\'s arcs split is the automatic pick for a new '
+        'entry and names the seasons', (tester) async {
+      // One long entry on AniList, as Hunter x Hunter is.
+      const long = SeasonSplit(
+        ids: [SeasonSplit.anilistId],
+        long: true,
+        seasons: [
+          SeasonSpan(season: 1, episodes: 38, released: Released(2023, 9, 29)),
+        ],
+      );
+      final fake = FakeLookupSource(
+        splitsBySource: {
+          'anilist:154587': [long, frierenSplits[1], arcs],
+        },
+      );
+      final match = FakeLookupSource.catalogSearch('frieren').single;
+      final container = await pumpApp(
+        tester,
+        EntryFormScreen.create(match: match),
+        lookupOverrides: fakeLookupOverrides(source: fake),
+      );
+      // The form builds its rows as they scroll into view.
+      await scrollTo(tester, find.text('Split into'));
+      expect(find.text('3 seasons, one per arc'), findsOneWidget);
+      await scrollTo(tester, find.text('Journey'));
+      await scrollTo(tester, find.text('Exam'));
+      await scrollTo(tester, find.text('North'));
+      expect(find.text('Season 1'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entries.last;
+      expect(saved.seasonsFrom, 'tmdb:group:arcs');
+      expect(saved.seasons!.map((s) => s.season), [1, 2, 3]);
+    });
+
+    testWidgets('an edited entry keeps its split; the chain\'s is Automatic '
+        'and the arcs are offered (owner\'s decision, 2026-11-04)', (
+      tester,
+    ) async {
+      final fake = FakeLookupSource(
+        splitsBySource: {
+          'anilist:154587': [...frierenSplits, arcs],
+        },
+      );
+      // The fixture's Frieren, in AniList's split: left so.
+      final frieren = loadFixture().entryById(frierenId)!;
+      await pumpApp(
+        tester,
+        EntryFormScreen.edit(frieren),
+        lookupOverrides: fakeLookupOverrides(source: fake),
+      );
+      await openField(tester);
+      expect(
+        find.bySemanticsLabel('3 seasons, one per arc, Journey, Exam, North'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(
+          '2 seasons, automatic, By year: 28 and 10 episodes',
+        ),
+        findsOneWidget,
+      );
+      await done(tester);
+      expect(find.text('2 seasons'), findsOneWidget);
+      // The seasons stay AniList's, named by number.
+      await scrollTo(tester, find.text('Season 1'));
+      expect(find.text('Journey'), findsNothing);
+    });
+  });
+
+  group('TMDB show field', () {
+    const frierenId = 'anime/frieren-beyond-journeys-end-2023';
+
+    testWidgets('an anime series has it; the typed id is saved', (
+      tester,
+    ) async {
+      final frieren = loadFixture()
+          .entryById(frierenId)!
+          .copyWith(tmdb: 'tmdb:tv:209867');
+      final container = await pumpApp(tester, EntryFormScreen.edit(frieren));
+      await scrollTo(tester, find.text('TMDB show'));
+      expect(hintedField('Show id, e.g. 209867'), findsOneWidget);
+      expect(find.text('209867'), findsOneWidget);
+      await tester.enterText(hintedField('Show id, e.g. 209867'), '46298');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(
+        repo(container).current!.entryById(frierenId)!.tmdb,
+        'tmdb:tv:46298',
+      );
+    });
+
+    testWidgets('an empty field means none', (tester) async {
+      final frieren = loadFixture()
+          .entryById(frierenId)!
+          .copyWith(tmdb: 'tmdb:tv:209867');
+      final container = await pumpApp(tester, EntryFormScreen.edit(frieren));
+      await scrollTo(tester, find.text('TMDB show'));
+      await tester.enterText(hintedField('Show id, e.g. 209867'), '');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(repo(container).current!.entryById(frierenId)!.tmdb, isNull);
     });
   });
 }

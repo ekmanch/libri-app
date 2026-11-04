@@ -373,6 +373,15 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.tap(find.bySemanticsLabel(RegExp(r'^Season 2, .*Episodes$')));
     await a.check('Show & seasons › Anime season episodes');
     await a.back();
+    await a.tapText('Edit');
+    await a.reveal(find.text('Split into'));
+    await tester.ensureVisible(find.text('Split into'));
+    await tester.pumpAndSettle();
+    await a.check('Add / edit entry › Edit an anime: split into seasons');
+    await a.tapText('Split into');
+    await a.check('Add / edit entry › Split into: pick a split');
+    await a.tap(find.widgetWithText(FilledButton, 'Done'));
+    await a.back();
     await a.closeSheet();
     await a.pickChip('Home');
   });

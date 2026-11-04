@@ -2,7 +2,7 @@ import '../models/entry_kind.dart';
 import '../models/media_type.dart';
 import '../models/released.dart';
 import '../models/season.dart';
-import '../models/season_span.dart';
+import '../models/season_split.dart';
 import '../upcoming/creator_lookup.dart';
 import 'episode_info.dart';
 import 'lookup_match.dart';
@@ -121,13 +121,46 @@ abstract class LookupSource {
     required Set<String> languages,
   }) async => null;
 
-  /// The seasons of the show with [source], as in [LookupMatch.seasons],
-  /// whether the show is canceled, and for an anime whether it is a series
-  /// or a movie, for the daily check. [anime] is true for an anime entry,
-  /// which TMDB splits by its episode groups when it has one (section 10c).
-  /// Null from a source without shows.
+  /// The seasons of the show with [source] as the provider's own list
+  /// splits them (TMDB's season list, AniList's sequel chain), as in
+  /// [LookupMatch.seasons], whether the show is canceled, and for an anime
+  /// whether it is a series or a movie, for the daily check. [anime] is
+  /// true for an anime entry. Null from a source without shows.
   Future<ShowSeasons?> seasons(String source, {bool anime = false}) async =>
       null;
+
+  /// Every way the sources split the show with [source] into seasons (Add
+  /// / edit entry › Split into: pick a split; section 10c), the provider's
+  /// own list first, then the TMDB show's list and its episode groups,
+  /// one entry per source, alike ones not yet folded
+  /// ([SeasonSplit.distinct]). [tmdb] is an anime's TMDB show as the entry
+  /// has it (`Entry.tmdb`). Null from a source without shows.
+  Future<List<SeasonSplit>?> seasonSplits(
+    String source, {
+    String? tmdb,
+  }) async => null;
+
+  /// The seasons of the show with [source] in the split [from]
+  /// (`Entry.seasonsFrom`: "anilist", "tmdb:seasons", `tmdb:group:<id>`),
+  /// for the daily check, which updates and adds within the chosen split
+  /// and never re-splits. Null when the provider has no such split now (a
+  /// group removed on TMDB): nothing learned. [anime] and [tmdb] as for
+  /// [seasonSplits].
+  Future<ShowSeasons?> splitSeasons(
+    String source,
+    String from, {
+    bool anime = false,
+    String? tmdb,
+  }) async => null;
+
+  /// Whether [from] names this provider's own season list (or is null): the
+  /// episodes are then kept under the show's id alone, as before splits.
+  bool isOwnSplit(String? from) => from == null;
+
+  /// The parts of the show's seasons still to come in the provider's own
+  /// split, for Coming soon ("Season 3, Part 2"; section 10c): AniList's
+  /// chain has them. Empty from every other source.
+  Future<List<ComingSeasonPart>> seasonParts(String source) async => const [];
 
   /// The id the seasons' episodes are read under: [source] itself, unless
   /// the provider keeps them under another id.
@@ -137,13 +170,16 @@ abstract class LookupSource {
   /// the season screen (Show & seasons › Season episodes (all out) and Season
   /// episodes (airing weekly)); empty when the show has no such season.
   /// [anime] as for [seasons]; [tmdb] is an anime's TMDB show as the entry
-  /// has it (`Entry.tmdb`), which AniList takes the titles from. Null from a
-  /// source without shows. Never asked by the daily check.
+  /// has it (`Entry.tmdb`), which AniList takes the titles from; [from] is
+  /// the split the entry's seasons are in (`Entry.seasonsFrom`), null for
+  /// the provider's own. Null from a source without shows. Never asked by
+  /// the daily check.
   Future<List<EpisodeInfo>?> seasonEpisodes(
     String source,
     int season, {
     bool anime = false,
     String? tmdb,
+    String? from,
   }) async => null;
 
   /// For an anime: the TMDB show its episode titles come from, for an entry
@@ -156,17 +192,6 @@ abstract class LookupSource {
   /// under them ("Episode details from TMDB."): this provider's [name],
   /// unless it took some of them from another (AniList's titles from TMDB).
   String episodesProvider(String source) => name;
-
-  /// For an anime whose seasons were once split another way (by the TMDB
-  /// show it was matched to before its seasons came from AniList), the old
-  /// split and the new one, so the daily check can carry the statuses over
-  /// by episode range ([ResplitSeasons]). Null when there is nothing to
-  /// re-split, which is every source but AniList.
-  Future<SeasonResplit?> resplit(String source) async => null;
-
-  /// Tells the source the daily check is done with [resplit] for [source],
-  /// so it is not offered again.
-  Future<void> resplitSettled(String source) async {}
 
   /// The series the title with [source] belongs to, with every part in the
   /// series' own order (Library › Movie in a series; All volumes in a series),
@@ -200,9 +225,10 @@ abstract class LookupSource {
 /// for an anime its kind (null for a show, or when the lookup cannot say).
 typedef ShowSeasons = ({List<Season> seasons, bool canceled, EntryKind? kind});
 
-/// An anime's seasons as they were split before and as they are split now
-/// ([LookupSource.resplit]), each in number order.
-typedef SeasonResplit = ({List<SeasonSpan> before, List<SeasonSpan> after});
+/// A later part of a season that is not out yet, as the lookup dates it
+/// ([LookupSource.seasonParts]): the season's number, the part's within it
+/// (2 for a "Part 2") and its date.
+typedef ComingSeasonPart = ({int season, int part, Released released});
 
 /// One part of a series as the lookup lists it: its number in the series
 /// (null when the source gives none), its title, its year, its release date

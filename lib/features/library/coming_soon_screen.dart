@@ -110,6 +110,7 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
         : upcomingItems(
             filter.apply(library.entries),
             parts: parts,
+            comingParts: ref.watch(comingPartsProvider).value ?? const [],
             releases: releases,
             prefs: prefs,
             settings: settings,

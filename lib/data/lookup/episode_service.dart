@@ -7,6 +7,8 @@ import 'episode_store.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_service.dart';
+import 'lookup_source.dart';
+import 'season_split_service.dart';
 
 /// A season's episodes, whether they came from the phone, and the name of
 /// the providers they came from, for the credit under them ("TMDB", or
@@ -35,11 +37,19 @@ class EpisodeService {
     required this.lookups,
     required this.resolver,
     required this.store,
+    this.splits,
   });
 
   final LookupService lookups;
   final ArtworkResolver resolver;
   final EpisodeStore store;
+
+  /// Says which split an entry's seasons are in, so the episodes read are
+  /// that split's (section 10c); without it the provider's own.
+  final SeasonSplitService? splits;
+
+  /// The seasons being preloaded, so one is not fetched twice at once.
+  final _preloading = <(String, int)>{};
 
   /// How long after a season's last episode its stored list is trusted
   /// for good: late title and runtime fixes on TMDB land by then.
@@ -81,7 +91,10 @@ class EpisodeService {
       return;
     }
     final source = await _seasonSource(own);
-    final stored = await store.read(source, season);
+    final lookup = lookups.sourceOf(source);
+    final from = await _splitOf(show, lookup);
+    final key = EpisodeStore.keyFor(source, from);
+    final stored = await store.read(key, season);
     if (stored != null) {
       yield SeasonEpisodes(
         stored.episodes,
@@ -90,7 +103,6 @@ class EpisodeService {
       );
       if (isSettled(stored.fetched, stored.episodes, now)) return;
     }
-    final lookup = lookups.sourceOf(source);
     if (lookup == null) {
       if (stored == null) yield null;
       return;
@@ -106,6 +118,7 @@ class EpisodeService {
           season,
           anime: show.type == MediaType.anime,
           tmdb: show.tmdb,
+          from: from,
         ),
       );
     } on LookupException {
@@ -118,14 +131,67 @@ class EpisodeService {
       return;
     }
     final provider = lookup.episodesProvider(source);
-    await store.write(
-      source,
-      season,
-      episodes,
-      fetched: now,
-      provider: provider,
-    );
+    await store.write(key, season, episodes, fetched: now, provider: provider);
     yield SeasonEpisodes(episodes, fromCache: false, provider: provider);
+  }
+
+  /// The split [show]'s seasons are in, as the lookup takes it: null for
+  /// the provider's own (the episodes then stay under the show's id alone,
+  /// as before splits).
+  Future<String?> _splitOf(Entry show, LookupSource? lookup) async {
+    final from = await splits?.currentId(show);
+    if (from == null || (lookup?.isOwnSplit(from) ?? false)) return null;
+    return from;
+  }
+
+  /// Fetches and stores the episodes of [seasons] of [show] that are not
+  /// stored yet (the first load is the slow one), in the background and
+  /// ahead of the daily checks like a season screen's own fetch, so a
+  /// season opened from the details, the all-seasons list or the season
+  /// before it shows its names at once (owner's request, 2026-11-03).
+  /// Stored seasons are skipped, however old; a failure is dropped
+  /// quietly, and opening the season asks again.
+  Future<void> preload(Entry show, Iterable<int> seasons) async {
+    final String? own;
+    try {
+      own = show.source ?? await resolver.matchedSource(show);
+    } on LookupException {
+      // No match while offline: opening the season says so.
+      return;
+    }
+    if (own == null) return;
+    final source = await _seasonSource(own);
+    final lookup = lookups.sourceOf(source);
+    if (lookup == null || !lookup.isConfigured) return;
+    final from = await _splitOf(show, lookup);
+    final key = EpisodeStore.keyFor(source, from);
+    for (final season in seasons) {
+      if (!_preloading.add((key, season))) continue;
+      try {
+        if (await store.read(key, season) != null) continue;
+        final episodes = await urgentLookups(
+          () => lookup.seasonEpisodes(
+            source,
+            season,
+            anime: show.type == MediaType.anime,
+            tmdb: show.tmdb,
+            from: from,
+          ),
+        );
+        if (episodes == null || episodes.isEmpty) continue;
+        await store.write(
+          key,
+          season,
+          episodes,
+          fetched: seasonClock(),
+          provider: lookup.episodesProvider(source),
+        );
+      } on LookupException {
+        // Opening the season asks again.
+      } finally {
+        _preloading.remove((key, season));
+      }
+    }
   }
 
   /// The id the episodes of [source] are read under. A lookup that cannot

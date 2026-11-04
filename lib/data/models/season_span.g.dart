@@ -8,6 +8,7 @@ part of 'season_span.dart';
 
 _SeasonSpan _$SeasonSpanFromJson(Map<String, dynamic> json) => _SeasonSpan(
   season: (json['season'] as num).toInt(),
+  name: json['name'] as String?,
   episodes: (json['episodes'] as num?)?.toInt(),
   released: _$JsonConverterFromJson<String, Released>(
     json['released'],
@@ -18,6 +19,7 @@ _SeasonSpan _$SeasonSpanFromJson(Map<String, dynamic> json) => _SeasonSpan(
 Map<String, dynamic> _$SeasonSpanToJson(_SeasonSpan instance) =>
     <String, dynamic>{
       'season': instance.season,
+      'name': ?instance.name,
       'episodes': instance.episodes,
       'released': _$JsonConverterToJson<String, Released>(
         instance.released,

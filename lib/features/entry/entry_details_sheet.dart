@@ -71,6 +71,23 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
   late String entryId = widget.entryId;
   final _scroll = ScrollController();
 
+  /// The show whose listed seasons' episodes were preloaded (owner's
+  /// request, 2026-11-03: a season opened from here shows its names at
+  /// once), so it happens once per show shown.
+  String? _preloadedFor;
+
+  void _preloadSeasons(Entry entry) {
+    if (_preloadedFor == entry.id || !entry.usesSeasons) return;
+    final seasons = SeasonsSection.shown(entry);
+    if (seasons.isEmpty) return;
+    _preloadedFor = entry.id;
+    unawaited(
+      ref.read(episodeServiceProvider).preload(entry, [
+        for (final s in seasons) s.season,
+      ]),
+    );
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -104,6 +121,7 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
       });
       return const SizedBox(height: 120);
     }
+    _preloadSeasons(entry);
     final repository = ref.read(libraryRepositoryProvider);
     final plans = library.plans
         .where((p) => p.itemFor(entry.id) != null)

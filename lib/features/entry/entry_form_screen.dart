@@ -11,6 +11,8 @@ import '../../data/library_providers.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/book_format.dart';
 import '../../data/lookup/lookup_match.dart';
+import '../../data/lookup/lookup_providers.dart';
+import '../../data/lookup/season_split_service.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_id.dart';
 import '../../data/models/entry_status.dart';
@@ -21,6 +23,7 @@ import '../../data/models/entry_kind.dart';
 import '../../data/models/platform_names.dart';
 import '../../data/models/released.dart';
 import '../../data/models/season.dart';
+import '../../data/models/season_split.dart';
 import '../../data/models/series.dart';
 import '../../data/models/tag_category.dart';
 import '../../data/operations/operations.dart';
@@ -39,7 +42,9 @@ import '../../widgets/touch_target.dart';
 import 'cover_picker_sheet.dart';
 import 'new_entry_screen.dart';
 import 'released_sheet.dart';
+import 'season_screen.dart';
 import 'seasons.dart';
+import 'split_sheet.dart';
 import 'rating_sheet.dart';
 import 'replace_dialogs.dart';
 import 'similar_tags.dart';
@@ -195,8 +200,29 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   /// changes, since the id would point at the wrong thing.
   String? _source;
 
-  /// An anime's TMDB show (`Entry.tmdb`): the entry's, or a pick's.
+  /// An anime's TMDB show (`Entry.tmdb`): the entry's, or a pick's, or
+  /// the id typed in the TMDB show field (an anime series only).
   String? _tmdb;
+  late final TextEditingController _tmdbId;
+  final _tmdbFocus = FocusNode();
+
+  /// The splits the sources offer for a show's seasons (Add / edit entry ›
+  /// Split into: pick a split), loaded when the form opens for a show or
+  /// an anime series with a lookup id; null until known.
+  List<SeasonSplit>? _splits;
+
+  /// The key the splits were loaded for, so a changed TMDB show loads
+  /// them again.
+  String? _splitsKey;
+
+  /// The split the seasons are in (`Entry.seasonsFrom`): null for seasons
+  /// set by hand, or not known yet.
+  String? _seasonsFrom;
+
+  /// True while the seasons came from a lookup in this form (a new entry's
+  /// match, "Look up again") and no split was picked: the split Libri
+  /// picks on its own is applied when the splits arrive.
+  bool _splitAuto = false;
 
   /// The match the form was filled from: the one it opened with, or one
   /// picked with "Look up again". While there is none the form offers to
@@ -272,6 +298,8 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _description = entry?.description ?? match?.description ?? '';
     _source = entry?.source ?? match?.source;
     _tmdb = entry?.tmdb ?? match?.tmdb;
+    _tmdbId = TextEditingController(text: tmdbShowId(_tmdb) ?? '');
+    _tmdbFocus.addListener(_onTmdbFocus);
     _coverFrom = entry?.coverFrom;
     _ownCoverUrl = match?.cacheCoverUrl;
     if (entry != null) {
@@ -288,12 +316,155 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       }
     }
     _seasons = entry?.seasons ?? Season.listable(match?.seasons ?? const []);
+    _seasonsFrom =
+        entry?.seasonsFrom ??
+        (entry == null && match != null ? regularSplitOf(match.source) : null);
+    _splitAuto = entry == null && match != null;
     _seedSeason();
     _creatorFocus.addListener(() => setState(() {}));
+    unawaited(_loadSplits());
+  }
+
+  /// "209867" of "tmdb:tv:209867".
+  static String? tmdbShowId(String? tmdb) =>
+      tmdb != null && tmdb.startsWith('tmdb:tv:')
+      ? tmdb.substring('tmdb:tv:'.length)
+      : null;
+
+  /// The split a lookup's own seasons are in: AniList's chain for an
+  /// anime from AniList, the season list of a TMDB show.
+  static String? regularSplitOf(String source) {
+    if (source.startsWith('anilist:')) return SeasonSplit.anilistId;
+    if (source.startsWith('tmdb:tv:')) return SeasonSplit.tmdbSeasonsId;
+    return null;
+  }
+
+  /// The TMDB show field, once left: the typed id is the anime's TMDB
+  /// show (empty for none), and the splits are read for it.
+  void _onTmdbFocus() {
+    if (_tmdbFocus.hasFocus) return;
+    final digits = _tmdbId.text.trim();
+    final tmdb = digits.isEmpty ? null : 'tmdb:tv:$digits';
+    if (tmdb == _tmdb) return;
+    setState(() => _tmdb = tmdb);
+    unawaited(_loadSplits());
+  }
+
+  /// Loads the splits for the seasons' source and TMDB show (Add / edit
+  /// entry › Split into: pick a split), once per key. When they arrive:
+  /// seasons just taken from a lookup go into the split Libri picks on
+  /// its own; an entry's seasons from before splits learn which split
+  /// they are in from their shape.
+  Future<void> _loadSplits() async {
+    if (!_usesSeasons) {
+      _splits = null;
+      _splitsKey = null;
+      return;
+    }
+    // An entry without a lookup id is matched on the device, by its
+    // title and first year, as for its cover.
+    final probe = Entry(
+      id: widget.entry?.id ?? 'new',
+      type: _type,
+      title: _title.text.trim(),
+      status: EntryStatus.want,
+      added: DateTime(2000),
+      source: _source,
+      tmdb: _tmdb,
+      kind: _kind,
+      seasons: _seasons.isEmpty ? null : _seasons,
+    );
+    final service = ref.read(seasonSplitServiceProvider);
+    final key = await service.keyOf(probe);
+    if (!mounted || key == null || key == _splitsKey) return;
+    _splitsKey = key;
+    final splits = await service.load(probe);
+    if (!mounted || key != _splitsKey) return;
+    setState(() {
+      _splits = splits;
+      if (splits == null) return;
+      if (_splitAuto) {
+        final auto = SeasonSplit.automatic(splits);
+        if (auto != null) _applySplit(auto, splits);
+      } else if (_seasonsFrom == null && !_seasons.every((s) => s.isManual)) {
+        _seasonsFrom = SeasonSplit.fitting(
+          splits,
+          _seasons,
+          DateTime.now(),
+        )?.id;
+      }
+    });
+  }
+
+  /// The split the seasons are in now, among [_splits]; null for seasons
+  /// set by hand or while the splits are not known.
+  SeasonSplit? get _currentSplit {
+    final splits = _splits;
+    if (splits == null || _seasons.every((s) => s.isManual)) return null;
+    if (_seasonsFrom case final from?) {
+      for (final split in splits) {
+        if (split.has(from)) return split;
+      }
+    }
+    return SeasonSplit.fitting(splits, _seasons, DateTime.now());
+  }
+
+  /// Puts the seasons into [target] at once, the statuses carried over by
+  /// episode range from the split they are in now (Add / edit entry ›
+  /// Split into: pick a split); the same split only records the choice.
+  void _applySplit(SeasonSplit target, List<SeasonSplit> splits) {
+    final current = _currentSplit;
+    if (current == null || !current.sameAs(target)) {
+      _seasons = target.seasonsFrom(
+        _seasons,
+        current: current,
+        today: DateTime.now(),
+      );
+    }
+    _seasonsFrom = target.id;
+  }
+
+  /// Set by hand: the seasons stay as they are, marked manual, so no
+  /// lookup changes them; the split is forgotten.
+  void _setSeasonsByHand() {
+    _seasons = [for (final s in _seasons) s.copyWith(manual: true)];
+    _seasonsFrom = null;
+  }
+
+  /// "Hunter Exam" in a split by story arc, else "Season 3".
+  String _seasonName(Season season) => SeasonSplitService.seasonName(
+    _currentSplit?.names ?? const {},
+    season.season,
+  );
+
+  /// The Split into field's sheet.
+  Future<void> _pickSplit() async {
+    final splits = _splits;
+    if (splits == null) return;
+    final episodes = splits.fold(0, (most, s) => math.max(most, s.episodes));
+    await showSplitSheet(
+      context,
+      subtitle: [
+        _title.text.trim().isEmpty ? 'Seasons' : _title.text.trim(),
+        if (episodes > 0) SeasonScreen.episodesCount(episodes),
+      ].join(' · '),
+      splits: splits,
+      selected: _currentSplit,
+      onPick: (split) => setState(() {
+        _splitAuto = false;
+        if (split == null) {
+          _setSeasonsByHand();
+        } else {
+          _applySplit(split, splits);
+        }
+      }),
+    );
   }
 
   @override
   void dispose() {
+    _tmdbId.dispose();
+    _tmdbFocus.dispose();
     _title.dispose();
     _creator.dispose();
     _creatorFocus.dispose();
@@ -382,6 +553,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     _kind = kind;
     _seedSeason();
+    unawaited(_loadSplits());
   });
 
   /// A new season after the last, with no date or status yet. Added in the
@@ -417,7 +589,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final colors = LibraryColors.of(context);
     final released = season.released;
     final releasedText = released == null ? 'Not set' : releasedLabel(released);
-    final name = 'Season ${season.season}';
+    final name = _seasonName(season);
     return Container(
       padding: const EdgeInsets.only(top: 4, bottom: 12),
       decoration: BoxDecoration(
@@ -476,10 +648,12 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                 const SizedBox(width: 8),
                 SeasonStatusPill(
                   season: season,
+                  name: name,
                   onTap: () => showSeasonStatusSheet(
                     context,
                     seasons: _seasons,
                     season: season.season,
+                    title: name,
                     onPick: (status) => _setSeasonStatus(season.season, status),
                     onCatchUp: () => setState(() {
                       _seasons = [
@@ -815,8 +989,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         fetched.isNotEmpty &&
         _seasons.every((s) => s.isManual)) {
       _seasons = carryOverStatus(fetched, _effectiveStatus, DateTime.now());
+      // The lookup's own split, until the splits arrive and Libri picks.
+      _seasonsFrom = regularSplitOf(match.source);
+      _splitAuto = true;
     }
     _seedSeason();
+    _tmdbId.text = tmdbShowId(_tmdb) ?? '';
+    _splitsKey = null;
+    unawaited(_loadSplits());
     if (_type == MediaType.music) {
       _kind = match.album == null ? EntryKind.album : EntryKind.song;
       if (match.album case final album?) _album.text = album;
@@ -868,7 +1048,12 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       if (type != _type) {
         _source = null;
         _tmdb = null;
+        _tmdbId.text = '';
         _coverFrom = null;
+        _splits = null;
+        _splitsKey = null;
+        _seasonsFrom = null;
+        _splitAuto = false;
       }
       _type = type;
       _kind = switch (type) {
@@ -1002,7 +1187,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       seasonalOnly: _seasonalOnly,
       added: base?.added ?? DateTime(now.year, now.month, now.day),
       source: _source,
-      tmdb: _type == MediaType.anime && _kind != EntryKind.movie ? _tmdb : null,
+      tmdb: _type == MediaType.anime && _kind != EntryKind.movie
+          ? _typedTmdb
+          : null,
       coverFrom: _coverFrom,
       platform: _type == MediaType.games && platform.isNotEmpty
           ? platform
@@ -1027,8 +1214,19 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           ? album
           : null,
       tracks: isMusic && _kind == EntryKind.album ? base?.tracks : null,
+      seasonsFrom:
+          isShow && _seasons.isNotEmpty && !_seasons.every((s) => s.isManual)
+          ? _seasonsFrom
+          : null,
       seasons: isShow && _seasons.isNotEmpty ? _seasons : null,
     );
+  }
+
+  /// The TMDB show as typed in its field, when the field has one, else
+  /// as picked.
+  String? get _typedTmdb {
+    final digits = _tmdbId.text.trim();
+    return digits.isEmpty ? null : 'tmdb:tv:$digits';
   }
 
   Future<void> _save() async {
@@ -1326,6 +1524,17 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   if (_usesSeasons) ...[
                     const SizedBox(height: 14),
                     const FieldLabel('Seasons'),
+                    // Split into, when the sources offer more than one
+                    // distinct split (Add / edit entry › Edit an anime: split
+                    // into seasons).
+                    if ((_splits?.length ?? 0) > 1) ...[
+                      const SizedBox(height: 6),
+                      SplitField(
+                        value: _currentSplit?.label ?? SplitSheet.byHandLabel,
+                        onTap: _pickSplit,
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     for (final season in _seasons)
                       _seasonField(context, season),
                     const SizedBox(height: 12),
@@ -1337,6 +1546,29 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                         onTap: _addSeason,
                       ),
                     ),
+                    // An anime series' TMDB show, where its episode names
+                    // come from (owner's decision, 2026-11-03; no mockup).
+                    if (_type == MediaType.anime) ...[
+                      const SizedBox(height: 14),
+                      const FieldLabel('TMDB show'),
+                      AppTextField(
+                        controller: _tmdbId,
+                        focusNode: _tmdbFocus,
+                        hintText: 'Show id, e.g. 209867',
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'The show on TMDB the episode names come from. '
+                        'Leave it empty and Libri finds it.',
+                        // The style of the Seasonal only line below.
+                        style: Theme.of(context).textTheme.bodySmall!
+                            .copyWith(fontStyle: FontStyle.normal),
+                      ),
+                    ],
                   ],
                   if (_type == MediaType.music && _kind == EntryKind.song) ...[
                     const SizedBox(height: 14),

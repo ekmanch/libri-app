@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
+import '../../data/lookup/lookup_providers.dart';
+import '../../data/lookup/season_split_service.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/season.dart';
@@ -192,15 +195,22 @@ class SeasonsSection extends StatelessWidget {
   static const listedAll = 5;
   static const latestShown = 3;
 
+  /// The seasons the section lists: all of them up to [listedAll], else
+  /// the latest [latestShown]. The details preload their episodes.
+  static List<Season> shown(Entry show) {
+    final seasons = show.seasons ?? const <Season>[];
+    return seasons.length > listedAll
+        ? seasons.sublist(seasons.length - latestShown)
+        : seasons;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final seasons = show.seasons ?? const <Season>[];
     final many = seasons.length > listedAll;
-    final shown = many
-        ? seasons.sublist(seasons.length - latestShown)
-        : seasons;
+    final shown = SeasonsSection.shown(show);
     final more = 'All ${seasons.length} seasons';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -282,6 +292,11 @@ class SeasonRow extends ConsumerWidget {
     final today = DateTime.now();
     final isNew = season.isNewOn(today);
     final date = seasonDateLabel(season, today);
+    // "Hunter Exam" in a split by story arc, else "Season 3".
+    final name = SeasonSplitService.seasonName(
+      ref.watch(seasonNamesProvider(show.id)),
+      season.season,
+    );
     void open() => openSeason(context, show.id, season.season);
     // No press highlight: the episodes opening is the feedback.
     return GestureDetector(
@@ -298,9 +313,7 @@ class SeasonRow extends ConsumerWidget {
             Expanded(
               child: Semantics(
                 button: true,
-                label:
-                    'Season ${season.season}${isNew ? ', new' : ''}, $date. '
-                    'Episodes',
+                label: '$name${isNew ? ', new' : ''}, $date. Episodes',
                 onTap: open,
                 excludeSemantics: true,
                 child: Padding(
@@ -312,10 +325,7 @@ class SeasonRow extends ConsumerWidget {
                         spacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Text(
-                            'Season ${season.season}',
-                            style: theme.textTheme.titleMedium,
-                          ),
+                          Text(name, style: theme.textTheme.titleMedium),
                           if (isNew) const OutlineBadge('New'),
                         ],
                       ),
@@ -336,11 +346,13 @@ class SeasonRow extends ConsumerWidget {
               const SizedBox(width: 12),
               SeasonStatusPill(
                 season: season,
+                name: name,
                 onTap: () => showSavedSeasonStatusSheet(
                   context,
                   ref,
                   show: show,
                   season: season.season,
+                  title: name,
                 ),
               ),
             ],
@@ -367,11 +379,15 @@ class SeasonStatusPill extends StatelessWidget {
     super.key,
     required this.season,
     required this.onTap,
+    this.name,
     this.semanticsLabel,
   });
 
   final Season season;
   final VoidCallback onTap;
+
+  /// The season's name when it is not "Season N" (an arc's).
+  final String? name;
 
   /// In place of "Season 2 status: done. Change".
   final String? semanticsLabel;
@@ -425,7 +441,7 @@ class SeasonStatusPill extends StatelessWidget {
         button: true,
         label:
             semanticsLabel ??
-            'Season ${season.season} status: '
+            '${name ?? 'Season ${season.season}'} status: '
                 '${status?.lowerLabelFor(seasonsType) ?? 'not set'}. Change',
         excludeSemantics: true,
         child: InkWell(
@@ -647,6 +663,9 @@ class AllSeasonsScreen extends ConsumerStatefulWidget {
 
 class _AllSeasonsScreenState extends ConsumerState<AllSeasonsScreen> {
   final _current = GlobalKey();
+  final _list = GlobalKey();
+  final _rows = <int, GlobalKey>{};
+  final _preloaded = <int>{};
   bool _scrolled = false;
 
   void _scrollToCurrent() {
@@ -657,7 +676,32 @@ class _AllSeasonsScreenState extends ConsumerState<AllSeasonsScreen> {
       if (target == null || !target.mounted) return;
       // A few seasons above it stay in view.
       Scrollable.ensureVisible(target, alignment: 0.35);
+      _preloadVisible();
     });
+  }
+
+  /// Preloads the episodes of the seasons in view that were not preloaded
+  /// yet (owner's request, 2026-11-03), after the list settles and on each
+  /// scroll, so a season opened from here shows its names at once.
+  void _preloadVisible() {
+    final show = ref.read(libraryProvider).value?.entryById(widget.showId);
+    final listBox = _list.currentContext?.findRenderObject();
+    if (show == null || listBox is! RenderBox || !listBox.hasSize) return;
+    final top = listBox.localToGlobal(Offset.zero).dy;
+    final bottom = top + listBox.size.height;
+    final seasons = <int>[];
+    for (final MapEntry(key: season, value: key) in _rows.entries) {
+      if (_preloaded.contains(season)) continue;
+      final box = key.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) continue;
+      final rowTop = box.localToGlobal(Offset.zero).dy;
+      final rowBottom = rowTop + box.size.height;
+      if (rowBottom <= top || rowTop >= bottom) continue;
+      seasons.add(season);
+    }
+    if (seasons.isEmpty) return;
+    _preloaded.addAll(seasons);
+    unawaited(ref.read(episodeServiceProvider).preload(show, seasons..sort()));
   }
 
   @override
@@ -695,18 +739,34 @@ class _AllSeasonsScreenState extends ConsumerState<AllSeasonsScreen> {
             Expanded(
               child: show == null
                   ? const SizedBox()
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final (i, season) in seasons.indexed)
-                            SeasonRow(
-                              key: i == current ? _current : null,
-                              show: show,
-                              season: season,
-                            ),
-                        ],
+                  : NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification is ScrollEndNotification ||
+                            notification is ScrollUpdateNotification) {
+                          _preloadVisible();
+                        }
+                        return false;
+                      },
+                      child: SingleChildScrollView(
+                        key: _list,
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final (i, season) in seasons.indexed)
+                              KeyedSubtree(
+                                key: _rows.putIfAbsent(
+                                  season.season,
+                                  GlobalKey.new,
+                                ),
+                                child: SeasonRow(
+                                  key: i == current ? _current : null,
+                                  show: show,
+                                  season: season,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
             ),
