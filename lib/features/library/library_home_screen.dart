@@ -1,13 +1,14 @@
+import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
-import '../../data/lookup/lookup_providers.dart';
-import '../../data/models/app_settings.dart';
 import '../../data/models/entry.dart';
-import '../../data/models/entry_status.dart';
 import '../../data/models/library.dart';
-import '../../data/models/season.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/plan.dart';
 import '../../theme/app_theme.dart';
@@ -18,53 +19,52 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/pinned_sliver.dart';
-import '../../widgets/section_heading.dart';
-import '../../widgets/segmented_control.dart';
 import '../entry/series.dart';
 import '../music/music_tab.dart';
-import '../music/artist_screen.dart';
-import '../music/music_type_body.dart';
-import '../plans/plan_progress.dart';
-import '../plans/plan_screen.dart';
 import '../settings/display_preferences.dart';
 import '../settings/settings_screen.dart';
 import '../sync/sync_banner.dart';
 import 'library_skeleton.dart';
 import '../settings/entry_view.dart';
-import '../shell/app_shell.dart';
-import '../shell/floating_nav_bar.dart';
-import 'active_plan_card.dart';
-import 'coming_soon_screen.dart';
 import 'entry_list_body.dart';
 import 'entry_list_views.dart';
 import 'filter_sheet.dart';
+import 'home_pages.dart';
 import 'home_return_provider.dart';
-import 'home_sections.dart';
 import 'home_type_provider.dart';
 import 'library_filter.dart';
 import 'library_filter_provider.dart';
 import 'library_sort.dart';
 import 'library_search.dart';
-import 'recent_changes.dart';
 import 'search_screen.dart';
 import 'series_groups.dart';
 import 'sort_sheet.dart';
 import 'view_menu.dart';
 
-/// The library home (Library › Home). On All it shows the active plan, then
+/// The library home (Library › Home). On Home it shows the active plan, then
 /// Coming soon, In progress and Recently added. With a type chip picked it
-/// becomes that type's list in place (Library › Movies, text view; Movies, list
-/// with covers; Movies, grid with covers): status segments, count, sort and
-/// view; Music gets its artist, album and song tabs instead (Library › Music:
+/// is that type's list (Library › Movies, text view; Movies, list with
+/// covers; Movies, grid with covers): status segments, count, sort and view;
+/// Music gets its artist, album and song tabs instead (Library › Music:
 /// artists, text view). Also shows filtered results (Library › Filtered
-/// results, one type and several types) and the empty states (Library › Empty
-/// states).
+/// results, one type and several types) and the empty states (Library ›
+/// Empty states).
 ///
-/// The whole top is part of the one scroll view: the title, the banner,
-/// the search box, the type chips and the status segments scroll away with
-/// the list, while the count row (count, sort, view) pins at the top as it
-/// gets there, so the entries get the rest of the screen. Library in
-/// the pill brings the top back (see [_onReturn]).
+/// Home and the types are pages side by side, in chip order: a swipe left or
+/// right on the content moves to the next or the previous one, as a tap on
+/// its chip does, with no wrap-around at the ends. Each page keeps its own
+/// scroll position, and each type its view, sort and status segment. Swipes
+/// that start at a screen edge are left to Android's back gesture, and
+/// filtered results, which have no single type, do not swipe.
+///
+/// The whole top scrolls with the list: the title, the banner, the search
+/// box, the type chips and the status segments scroll away, while the count
+/// row (count, sort, view) pins at the top as it gets there, so the entries
+/// get the rest of the screen. The header (down to the chips) is one piece
+/// laid over the pages, so it stays put sideways during a swipe; it follows
+/// the scroll of the page shown, and between two pages it moves from where
+/// the one has it to where the other has it. Library in the pill brings the
+/// top back (see [_onReturn]).
 class LibraryHomeScreen extends ConsumerStatefulWidget {
   const LibraryHomeScreen({
     super.key,
@@ -85,54 +85,199 @@ class LibraryHomeScreen extends ConsumerStatefulWidget {
   /// typed (from search).
   final void Function({MediaType? type, String? title})? onAddEntry;
 
+  /// The pages in chip order: Home (null), then one per type.
+  static const pages = <MediaType?>[null, ...MediaType.values];
+
+  /// How far from a screen edge a swipe has to start to move the pages,
+  /// at least: Android's back gesture owns the edges. The system's own
+  /// width is used where it is wider.
+  static const edgeWidth = 24.0;
+
   @override
   ConsumerState<LibraryHomeScreen> createState() => _LibraryHomeScreenState();
 }
 
 class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
-  /// The one scroll position, shared by every body the home shows (All, a
-  /// type, results), so a return can scroll back to the top.
+  static const _tabs = LibraryHomeScreen.pages;
+
+  /// The scroll position of the bodies that are not pages: filtered results
+  /// and the load that failed.
   final _scroll = ScrollController();
 
-  /// The chip row's position, so the picked All chip is in view after a
-  /// return, even when the row was scrolled to Music or Anime.
+  /// One scroll position per page, so each is where it was left.
+  late final List<ScrollController> _scrolls = [
+    for (final _ in _tabs) _PageScrollController(_positionsChanged),
+  ];
+
+  /// The chip row's position and its chips, so the picked chip can be
+  /// brought into view.
   final _chipScroll = ScrollController();
+  final _chipKeys = [for (final _ in _tabs) GlobalKey()];
+
+  late PageController _pages;
+
+  /// The type whose chip is shown as picked: the page nearest the middle of
+  /// the screen. Only the header listens, so a swipe builds nothing else;
+  /// [homeTypeProvider] follows when the pages come to rest.
+  late final ValueNotifier<MediaType?> _shown;
+
+  /// The header's height, measured, for the room the pages leave for it.
+  final _headerHeight = ValueNotifier<double>(0);
+
+  /// How far up the header has scrolled, from 0 to its height.
+  final _shift = ValueNotifier<double>(0);
+  late final _headerMoves = Listenable.merge([_shift, _headerHeight]);
+
+  @override
+  void initState() {
+    super.initState();
+    final type = ref.read(homeTypeProvider);
+    _shown = ValueNotifier(type)..addListener(_revealChip);
+    _pages = _newPages(type);
+    for (final scroll in _scrolls) {
+      scroll.addListener(_updateShift);
+    }
+    _headerHeight.addListener(_updateShift);
+  }
 
   @override
   void dispose() {
     _scroll.dispose();
+    for (final scroll in _scrolls) {
+      scroll.dispose();
+    }
     _chipScroll.dispose();
+    _pages.dispose();
+    _shown.dispose();
+    _headerHeight.dispose();
+    _shift.dispose();
     super.dispose();
+  }
+
+  PageController _newPages(MediaType? type) =>
+      PageController(initialPage: _tabs.indexOf(type))
+        ..addListener(_onPageScroll);
+
+  /// How far the pages are scrolled, in pages.
+  double get _page {
+    if (_pages.hasClients) {
+      final position = _pages.position;
+      if (position.hasPixels && position.hasContentDimensions) {
+        return _pages.page!.clamp(0, _tabs.length - 1).toDouble();
+      }
+    }
+    return _tabs.indexOf(_shown.value).toDouble();
+  }
+
+  /// The position of the list a controller drives, or null before it has
+  /// one. While a page swaps one list for another (a status with nothing in
+  /// it) both are attached for a moment; the new one is the last.
+  static ScrollPosition? _positionOf(ScrollController controller) {
+    final positions = controller.positions;
+    if (positions.isEmpty) return null;
+    final position = positions.last;
+    return position.hasPixels ? position : null;
+  }
+
+  /// Every frame of a swipe. Nothing here rebuilds the pages or writes a
+  /// provider: a swipe that does either stutters.
+  void _onPageScroll() {
+    _shown.value = _tabs[_page.round()];
+    _updateShift();
+  }
+
+  /// The header follows the scroll of the page shown; between two pages it
+  /// is as far up as the swipe is between them.
+  void _updateShift() {
+    final height = _headerHeight.value;
+    double at(int i) =>
+        (_positionOf(_scrolls[i])?.pixels ?? 0).clamp(0, height).toDouble();
+    final page = _page;
+    final from = page.floor();
+    final to = math.min(from + 1, _tabs.length - 1);
+    _shift.value = lerpDouble(at(from), at(to), page - from)!;
+  }
+
+  /// A page got a new list (a view or a status changed): the header may
+  /// have to move, once the frame that attached it is over.
+  void _positionsChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateShift();
+    });
+  }
+
+  /// The pages came to rest, after a swipe: the type they rest on is the
+  /// one picked. Written now and not on the way, since the shell's "+"
+  /// button follows it.
+  bool _settled(ScrollEndNotification notification) {
+    if (notification.depth != 0 || !_pages.hasClients) return false;
+    final type = _tabs[_page.round()];
+    _shown.value = type;
+    if (ref.read(homeTypeProvider) != type) {
+      ref.read(homeTypeProvider.notifier).set(type);
+    }
+    return false;
+  }
+
+  /// Shows the page of [type], at once: a chip tapped, or the type changed
+  /// from outside (the filter sheet, a return to the home).
+  void _showPage(MediaType? type) {
+    final index = _tabs.indexOf(type);
+    if (_pages.hasClients) {
+      if (_page.round() != index) _pages.jumpToPage(index);
+    } else if (_pages.initialPage != index) {
+      // No pages yet (the library is still loading): they open on this one.
+      _pages.dispose();
+      _pages = _newPages(type);
+    }
+    _shown.value = type;
+  }
+
+  /// The chip row follows the pages: the picked chip slides to the middle
+  /// of the row, or as near as the row's ends allow.
+  void _revealChip() {
+    final chip = _chipKeys[_tabs.indexOf(_shown.value)].currentContext;
+    if (chip == null) return;
+    Scrollable.ensureVisible(
+      chip,
+      alignment: 0.5,
+      duration: AppMotion.slide,
+      curve: Curves.easeOut,
+    );
   }
 
   /// Library tapped in the pill while this screen is on top. Scrolled
   /// down: back to the top, so the header is in view again. At the top:
-  /// back to All, with the filter and the type cleared (the status segment
-  /// resets with the type) and the chip row slid back to All.
+  /// back to Home, with the filter and the type cleared, every type's
+  /// status segment (and the music tab) reset and its list at the top, and
+  /// the chip row slid back to Home.
   void _onReturn() {
-    if (_scroll.hasClients && _scroll.offset > 0) {
-      _scroll.animateTo(0, duration: AppMotion.slide, curve: Curves.easeOut);
+    final paged =
+        ref.read(libraryProvider).hasValue &&
+        !ref.read(libraryFilterProvider).isActive;
+    final position = _positionOf(paged ? _scrolls[_page.round()] : _scroll);
+    if (position != null && position.pixels > 0) {
+      position.animateTo(0, duration: AppMotion.slide, curve: Curves.easeOut);
       return;
     }
     ref.read(libraryFilterProvider.notifier).clear();
     ref.read(homeTypeProvider.notifier).set(null);
-    // The chip row may be rebuilt this frame (a filter giving way to All),
-    // so wait for the frame.
+    ref.read(homeStatusProvider.notifier).clear();
+    ref.read(homeMusicTabProvider.notifier).set(MusicTab.artists);
+    _showPage(null);
+    for (final scroll in _scrolls) {
+      _positionOf(scroll)?.jumpTo(0);
+    }
+    // Home may have been the page all along (a filter over it), with the
+    // chip row left scrolled to the type the filter was opened from.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_chipScroll.hasClients) {
-        _chipScroll.animateTo(
-          0,
-          duration: AppMotion.slide,
-          curve: Curves.easeOut,
-        );
-      }
+      if (mounted) _revealChip();
     });
   }
 
   void _pickType(MediaType? type) {
     ref.read(homeTypeProvider.notifier).set(type);
-    ref.read(homeStatusProvider.notifier).set(null);
-    ref.read(homeMusicTabProvider.notifier).set(MusicTab.artists);
+    _showPage(type);
   }
 
   /// Opens the filter sheet. With no filter active it starts with what the home
@@ -140,15 +285,18 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   /// Filter sheet from Movies (Done picked)).
   Future<void> _openFilters(Library library) async {
     final filter = ref.read(libraryFilterProvider);
+    final type = ref.read(homeTypeProvider);
     final result = await showFilterSheet(
       context,
       library: library,
       initial: filter.isActive
           ? filter
           : LibraryFilter.ofTypeView(
-              ref.read(homeTypeProvider),
-              status: ref.read(homeStatusProvider),
-              kind: ref.read(homeMusicTabProvider).kind,
+              type,
+              status: ref.read(homeStatusProvider)[type],
+              kind: type == MediaType.music
+                  ? ref.read(homeMusicTabProvider).kind
+                  : null,
             ),
     );
     if (result != null) ref.read(libraryFilterProvider.notifier).set(result);
@@ -196,10 +344,10 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     final colors = LibraryColors.of(context);
     final filter = ref.watch(libraryFilterProvider);
     final prefs = ref.watch(displayPreferencesProvider);
-    final type = ref.watch(homeTypeProvider);
     final libraryAsync = ref.watch(libraryProvider);
     final library = libraryAsync.value;
     ref.listen(homeReturnProvider, (_, _) => _onReturn());
+    ref.listen(homeTypeProvider, (_, type) => _showPage(type));
 
     if (library == null && !libraryAsync.hasError) {
       // The first load (First run › First load).
@@ -221,72 +369,103 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       );
     }
 
-    // The top of the screen, as the first slivers of whichever body shows;
-    // all of it scrolls away.
-    final showChips = library != null && !filter.isActive;
-    // The home's own view button sits beside the gear, on Home only
-    // (Library › Home: view menu); a type's is in its count row.
-    final onHome = showChips && type == null;
-    final header = <Widget>[
-      SliverToBoxAdapter(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    // What stands in for the pages: the load that failed, or the results of
+    // a filter, which have no single type and so do not swipe.
+    final Widget? instead;
+    if (library == null) {
+      instead = _loadFailed(libraryAsync.error);
+    } else if (filter.isActive) {
+      instead = _filtered(library, filter, prefs, colors);
+    } else {
+      instead = null;
+    }
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            PageHeader(
-              title: 'Library',
-              actions: [
-                if (onHome)
-                  ViewMenuButton(
-                    current: prefs.homeView,
-                    views: DisplayPreferences.homeViews,
-                    muted: true,
-                    onChanged: ref
-                        .read(displayPreferencesProvider.notifier)
-                        .setHomeView,
-                  ),
-                SettingsButton(onPressed: _openSettings),
-              ],
-            ),
-            const SyncBannerCard(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-              child: _SearchRow(
-                hint: searchHint(filter.isActive ? null : type),
-                filterCount: filter.count,
-                onSearch: _openSearch,
-                onFilters: library == null ? null : () => _openFilters(library),
+            // The pages stay as they are under the results of a filter, so
+            // clearing it finds each type where it was left.
+            if (library != null)
+              Offstage(
+                offstage: instead != null,
+                child: _pager(library, prefs),
               ),
-            ),
+            if (instead != null)
+              RefreshIndicator(onRefresh: _refresh, child: instead),
           ],
         ),
       ),
-      if (showChips)
-        SliverToBoxAdapter(
-          child: Padding(
+    );
+  }
+
+  /// The title, the banner and the search row, and for the pages the type
+  /// chips with [type] picked.
+  Widget _header({
+    required Library? library,
+    required DisplayPreferences prefs,
+    required bool chips,
+    MediaType? type,
+  }) {
+    final colors = LibraryColors.of(context);
+    final filter = ref.read(libraryFilterProvider);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PageHeader(
+          title: 'Library',
+          actions: [
+            // The home's own view button sits beside the gear, on Home only
+            // (Library › Home: view menu); a type's is in its count row.
+            if (chips && type == null)
+              ViewMenuButton(
+                current: prefs.homeView,
+                views: DisplayPreferences.homeViews,
+                muted: true,
+                onChanged: ref
+                    .read(displayPreferencesProvider.notifier)
+                    .setHomeView,
+              ),
+            SettingsButton(onPressed: _openSettings),
+          ],
+        ),
+        const SyncBannerCard(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+          child: _SearchRow(
+            hint: searchHint(chips ? type : null),
+            filterCount: filter.count,
+            onSearch: _openSearch,
+            onFilters: library == null ? null : () => _openFilters(library),
+          ),
+        ),
+        if (chips)
+          Padding(
             padding: const EdgeInsets.only(top: 12),
             child: SizedBox(
               height: 44,
               child: ListView(
-                // The row is built afresh when the body changes (All to a
-                // type); the key keeps its scroll position across that.
-                key: const PageStorageKey('type-chips'),
                 controller: _chipScroll,
                 scrollDirection: Axis.horizontal,
+                // Every chip is built, wherever the row is scrolled, so the
+                // picked one can be brought into view.
+                scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 children: [
-                  PillChip(
-                    // The first chip reads "Home" (canvas revision of
-                    // 2026-10-28); the state it stands for is still All here.
-                    label: 'Home',
-                    selected: type == null,
-                    onTap: () => _pickType(null),
-                  ),
-                  for (final t in MediaType.values) ...[
-                    const SizedBox(width: 8),
+                  for (final (i, t) in _tabs.indexed) ...[
+                    if (i > 0) const SizedBox(width: 8),
                     PillChip(
-                      label: t.label,
+                      key: _chipKeys[i],
+                      // The first chip reads "Home" (canvas revision of
+                      // 2026-10-28); the state it stands for is still All
+                      // here.
+                      label: t?.label ?? 'Home',
                       selected: type == t,
-                      dotColor: colors.forType(t),
+                      animated: true,
+                      dotColor: t == null ? null : colors.forType(t),
                       onTap: () => _pickType(t),
                     ),
                   ],
@@ -294,24 +473,117 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  /// The header as the first sliver of a body that is not paged.
+  Widget _headerSliver(Library? library, DisplayPreferences prefs) =>
+      SliverToBoxAdapter(
+        child: _header(library: library, prefs: prefs, chips: false),
+      );
+
+  /// Home and the types as pages, the header laid over them.
+  Widget _pager(Library library, DisplayPreferences prefs) {
+    final gestures = MediaQuery.systemGestureInsetsOf(context);
+    final top = _HeaderSpace(_headerHeight);
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      // The lists are one scroll view further in, inside the pages.
+      notificationPredicate: (notification) => notification.depth == 1,
+      // The header leaves through the top as it scrolls away.
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            NotificationListener<ScrollEndNotification>(
+              onNotification: _settled,
+              child: PageView(
+                controller: _pages,
+                // The pages beside the one shown are built before they are
+                // swiped to, so a swipe starts with nothing to build.
+                allowImplicitScrolling: true,
+                children: [
+                  for (final (i, type) in _tabs.indexed)
+                    HomePageKeeper(
+                      child: type == null
+                          ? HomeSectionsPage(
+                              controller: _scrolls[i],
+                              top: top,
+                              onOpenEntry: widget.onOpenEntry,
+                              onOpenPlan: widget.onOpenPlan,
+                            )
+                          : HomeTypePage(
+                              type: type,
+                              controller: _scrolls[i],
+                              top: top,
+                              onOpenEntry: widget.onOpenEntry,
+                              onAddEntry: widget.onAddEntry,
+                            ),
+                    ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              // A drag that starts on the header scrolls the page under it,
+              // as it did when the header was part of the list.
+              child: _HitTestPassThrough(
+                child: AnimatedBuilder(
+                  animation: _headerMoves,
+                  builder: (context, header) => Offstage(
+                    // Scrolled away: out of the tree's sight too.
+                    offstage:
+                        _shift.value > 0 && _shift.value >= _headerHeight.value,
+                    child: Transform.translate(
+                      offset: Offset(0, -_shift.value),
+                      child: header,
+                    ),
+                  ),
+                  child: _MeasuredSize(
+                    onChanged: (size) {
+                      if (mounted) _headerHeight.value = size.height;
+                    },
+                    // Opaque: between two pages it passes over their lists.
+                    child: ColoredBox(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: ValueListenableBuilder<MediaType?>(
+                        valueListenable: _shown,
+                        builder: (context, type, _) => _header(
+                          library: library,
+                          prefs: prefs,
+                          chips: true,
+                          type: type,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // A swipe that starts at a screen edge is Android's back
+            // gesture: these take it before the pages can, and do nothing
+            // with it. Taps and vertical drags pass through.
+            for (final left in const [true, false])
+              Positioned(
+                top: 0,
+                bottom: 0,
+                left: left ? 0 : null,
+                right: left ? null : 0,
+                width: math.max(
+                  LibraryHomeScreen.edgeWidth,
+                  left ? gestures.left : gestures.right,
+                ),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  excludeFromSemantics: true,
+                  onHorizontalDragStart: (_) {},
+                ),
+              ),
+          ],
         ),
-    ];
-
-    final Widget body;
-    if (library == null) {
-      body = _loadFailed(header, libraryAsync.error);
-    } else if (filter.isActive) {
-      body = _filtered(header, library, filter, prefs, colors);
-    } else if (type == null) {
-      body = _home(header, library, filter, prefs, colors);
-    } else {
-      body = _oneType(header, library, type, filter, prefs);
-    }
-
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(onRefresh: _refresh, child: body),
       ),
     );
   }
@@ -323,15 +595,17 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     await ref.read(librarySyncProvider)?.checkForChanges();
   }
 
-  /// A scroll view of the header and [slivers], on the shared position.
-  Widget _scrollView(List<Widget> header, List<Widget> slivers) =>
-      CustomScrollView(controller: _scroll, slivers: [...header, ...slivers]);
+  /// A scroll view of [slivers], on the position of the bodies that are
+  /// not pages.
+  Widget _scrollView(List<Widget> slivers) =>
+      CustomScrollView(controller: _scroll, slivers: slivers);
 
   /// The first download failed (offline, a bad token): say so, and let a
   /// pull or the button try again.
-  Widget _loadFailed(List<Widget> header, Object? error) {
+  Widget _loadFailed(Object? error) {
     final theme = Theme.of(context);
-    return _scrollView(header, [
+    return _scrollView([
+      _headerSliver(null, ref.read(displayPreferencesProvider)),
       SliverPadding(
         padding: const EdgeInsets.all(20),
         sliver: SliverList.list(
@@ -352,248 +626,18 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     ]);
   }
 
-  /// All: the active plan, then Coming soon, In progress and Recently added
-  /// (Library › Home), each only when it has something, up to ten rows; the
-  /// hint when none has (Library › Home: nothing to show). In List with
-  /// covers every row of the three sections has a small cover on the left
-  /// (Library › Home), in Text none (Library › Home: text view).
-  Widget _home(
-    List<Widget> header,
-    Library library,
-    LibraryFilter filter,
-    DisplayPreferences prefs,
-    LibraryColors colors,
-  ) {
-    final covers = prefs.homeView == EntryView.listWithPhotos;
-    final plan = activePlan(library);
-    final visible = filter.apply(library.entries);
-    final sections = homeSections(
-      visible,
-      today: seasonClock(),
-      changes: ref.watch(recentChangesProvider),
-      movieDates: ref.watch(movieDatesProvider).value ?? const {},
-      releaseDates:
-          (ref.watch(appSettingsProvider).value ?? AppSettings.defaults)
-              .releaseDates,
-      comingParts: ref.watch(comingPartsProvider).value ?? const [],
-    );
-    final rows = <Widget>[];
-    for (final section in sections) {
-      final seeAll = switch (section.kind) {
-        HomeSectionKind.comingSoon => ('See all', _seeAllComingSoon),
-        HomeSectionKind.inProgress => (
-          'See all ${section.total}',
-          _seeAllInProgress,
-        ),
-        HomeSectionKind.recentlyAdded => null,
-      };
-      rows.add(
-        SectionHeading(
-          section.kind.title,
-          action: seeAll?.$1,
-          onAction: seeAll?.$2,
-          // The same height as the heading with the See all button (its
-          // 48 px, centered), so the three headings line up with their rows
-          // alike (the canvas's 44 px heading rows).
-          padding: seeAll != null
-              ? const EdgeInsets.only(top: 10)
-              : const EdgeInsets.fromLTRB(0, 26, 0, 16),
-        ),
-      );
-      for (final row in section.rows) {
-        rows.add(
-          HomeRow(
-            row,
-            key: ValueKey('home-${section.kind.name}-${row.id}'),
-            leading: covers
-                ? HomeRow.cover(row.entry!, width: HomeRow.homeCoverWidth)
-                : null,
-            padding: covers ? HomeRow.homeCoverPadding : EdgeInsets.zero,
-            onTap: () => widget.onOpenEntry?.call(row.entry!),
-          ),
-        );
-      }
-    }
-
-    return _scrollView(header, [
-      if (plan != null)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-            child: ActivePlanCard(
-              plan: plan,
-              onTap: () => widget.onOpenPlan != null
-                  ? widget.onOpenPlan!(plan)
-                  : openPlanScreen(context, plan.id, tab: ShellTab.library),
-            ),
-          ),
-        ),
-      if (visible.isEmpty)
-        const SliverFillRemaining(
-          hasScrollBody: false,
-          child: EmptyState(
-            icon: AppIcons.library,
-            title: 'Your library is empty',
-            body: 'Entries you add will show up here.',
-          ),
-        )
-      else
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            20,
-            4,
-            20,
-            AppShell.contentBottomPadding,
-          ),
-          sliver: SliverList.list(
-            children: rows.isEmpty ? const [HomeNothingToShow()] : rows,
-          ),
-        ),
-    ]);
-  }
-
-  /// "See all" on Coming soon: the Coming soon screen on the tab last
-  /// picked, Library at first (Library › Coming soon: Library tab).
-  void _seeAllComingSoon() => openComingSoon(context);
-
-  /// "See all N" on In progress: the filter result with just that status,
-  /// across every type (Library › In progress, all types (See all)).
-  void _seeAllInProgress() => ref
-      .read(libraryFilterProvider.notifier)
-      .set(const LibraryFilter(statuses: {EntryStatus.inProgress}));
-
-  /// One type picked: status segments, count, sort, view and the list in
-  /// the remembered view, all in one scroll; the count row pins at the top
-  /// once the rest has scrolled away.
-  Widget _oneType(
-    List<Widget> header,
-    Library library,
-    MediaType type,
-    LibraryFilter filter,
-    DisplayPreferences prefs,
-  ) {
-    final theme = Theme.of(context);
-    final visible = filter.apply(library.entriesOfType(type));
-    if (visible.isEmpty) {
-      return _scrollView(header, [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: EmptyState(
-            icon: AppIcons.library,
-            title: 'No ${type.label.toLowerCase()} yet',
-            body: type == MediaType.music
-                ? 'Albums and songs you add will show up here.'
-                : '${type.label} you add will show up here.',
-            actionLabel: 'Add ${type.singular.toLowerCase()}',
-            onAction: () => widget.onAddEntry?.call(type: type),
-          ),
-        ),
-      ]);
-    }
-    if (type == MediaType.music) {
-      return MusicTypeBody(
-        entries: visible,
-        controller: _scroll,
-        leadingSlivers: header,
-        onOpenEntry: (entry) => widget.onOpenEntry?.call(entry),
-        onOpenArtist: (artist) =>
-            openArtistScreen(context, artist, onOpenEntry: widget.onOpenEntry),
-      );
-    }
-    final status = ref.watch(homeStatusProvider);
-    final shown = sortEntries(
-      visible.where((e) => status == null || e.status == status),
-      prefs.sortFor(type),
-    );
-    final view = prefs.viewFor(type);
-
-    final segments = SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-        child: StatusSegmentedControl(
-          selected: status,
-          type: type,
-          includeAll: true,
-          onChanged: ref.read(homeStatusProvider.notifier).set,
-        ),
-      ),
-    );
-    final countExtent = countRowExtent(MediaQuery.textScalerOf(context));
-    final count = PinnedSliver(
-      height: countExtent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 10, 0),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                countLabel(type, shown.length),
-                style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
-              ),
-            ),
-            SortButton(
-              current: prefs.sortFor(type),
-              onChanged: (sort) => ref
-                  .read(displayPreferencesProvider.notifier)
-                  .setSort(type, sort),
-            ),
-            ViewMenuButton(
-              current: view,
-              onChanged: (v) => ref
-                  .read(displayPreferencesProvider.notifier)
-                  .setView(type, v),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (shown.isEmpty) {
-      return _scrollView(header, [
-        segments,
-        count,
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 40, 20, 0),
-            child: Text(
-              'Nothing marked ${status!.lowerLabelFor(type)} yet.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium!.copyWith(
-                color: LibraryColors.of(context).muted,
-              ),
-            ),
-          ),
-        ),
-      ]);
-    }
-    return EntryListBody(
-      // A new type starts at the top.
-      key: ValueKey(type),
-      entries: shown,
-      sort: prefs.sortFor(type),
-      view: view,
-      color: LibraryColors.of(context).forType(type),
-      controller: _scroll,
-      leadingSlivers: [...header, segments, count],
-      pinnedExtent: countExtent,
-      groupSeries: groupsSeriesFor(status),
-      onTap: (entry) => widget.onOpenEntry?.call(entry),
-      onTapSeries: (group) => openSeriesPage(context, group.parts.first.id),
-    );
-  }
-
   /// Filtered results (Library › Filtered results, one type and several types):
   /// removable chips, then the count and sort row, which pins, then the rows
   /// grouped by type; a long list gets a rail (Library › Filtered results, one
   /// type and several types).
   Widget _filtered(
-    List<Widget> header,
     Library library,
     LibraryFilter filter,
     DisplayPreferences prefs,
     LibraryColors colors,
   ) {
     final theme = Theme.of(context);
+    final header = _headerSliver(library, prefs);
     final matching = sortEntries(
       filter.apply(library.entries),
       prefs.filteredSort,
@@ -632,7 +676,8 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     );
 
     if (matching.isEmpty) {
-      return _scrollView(header, [
+      return _scrollView([
+        header,
         chips,
         SliverFillRemaining(
           hasScrollBody: false,
@@ -682,7 +727,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       color: types.length == 1 ? colors.forType(types.single) : colors.muted,
       typeColors: colors.forType,
       controller: _scroll,
-      leadingSlivers: [...header, chips, count],
+      leadingSlivers: [header, chips, count],
       pinnedExtent: countExtent,
       groupSeries: groupsSeriesForFilter(filter.statuses),
       onTap: (entry) => widget.onOpenEntry?.call(entry),
@@ -775,5 +820,92 @@ class _SearchRow extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// The room a page leaves at its top for the home's header, which lies over
+/// the pages: as tall as the header is.
+class _HeaderSpace extends StatelessWidget {
+  const _HeaderSpace(this.height);
+
+  final ValueListenable<double> height;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+    valueListenable: height,
+    builder: (context, height, _) =>
+        SliverToBoxAdapter(child: SizedBox(height: height)),
+  );
+}
+
+/// A page's scroll controller that says when a list is attached or let go:
+/// a new list starts at the top without a scroll to tell of it.
+class _PageScrollController extends ScrollController {
+  _PageScrollController(this.onPositionsChanged);
+
+  final VoidCallback onPositionsChanged;
+
+  @override
+  void attach(ScrollPosition position) {
+    super.attach(position);
+    onPositionsChanged();
+  }
+
+  @override
+  void detach(ScrollPosition position) {
+    super.detach(position);
+    onPositionsChanged();
+  }
+}
+
+/// Reports its child's size after each layout that changes it.
+class _MeasuredSize extends SingleChildRenderObjectWidget {
+  const _MeasuredSize({required this.onChanged, super.child});
+
+  final ValueChanged<Size> onChanged;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMeasuredSize(onChanged);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderMeasuredSize renderObject,
+  ) => renderObject.onChanged = onChanged;
+}
+
+class _RenderMeasuredSize extends RenderProxyBox {
+  _RenderMeasuredSize(this.onChanged);
+
+  ValueChanged<Size> onChanged;
+  Size? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (size == _reported) return;
+    final measured = _reported = size;
+    // Not during layout: the listeners build.
+    WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(measured));
+  }
+}
+
+/// Lets what lies under its child be hit as well: the child's buttons get
+/// their taps, and a drag that starts on the child still reaches the
+/// scroll views beneath it.
+class _HitTestPassThrough extends SingleChildRenderObjectWidget {
+  const _HitTestPassThrough({super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHitTestPassThrough();
+}
+
+class _RenderHitTestPassThrough extends RenderProxyBox {
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (size.contains(position)) hitTestChildren(result, position: position);
+    return false;
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
@@ -533,20 +534,31 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
       builder: (context, constraints) {
         final trackHeight = constraints.maxHeight;
         final visible = _dragging || _thumbShown;
-        return GestureDetector(
+        // A touch on the zone is the thumb's from the moment it lands,
+        // whatever else could take a drag from there: the library home's
+        // pages swipe sideways under it.
+        return RawGestureDetector(
           behavior: HitTestBehavior.opaque,
-          onVerticalDragStart: (d) {
-            _hideThumb?.cancel();
-            setState(() {
-              _dragging = true;
-              _thumbShown = true;
-            });
-            _dragThumbTo(d.localPosition.dy, trackHeight);
+          gestures: {
+            _ImmediateVerticalDrag:
+                GestureRecognizerFactoryWithHandlers<_ImmediateVerticalDrag>(
+                  () => _ImmediateVerticalDrag(debugOwner: this),
+                  (recognizer) {
+                    recognizer.onStart = (d) {
+                      _hideThumb?.cancel();
+                      setState(() {
+                        _dragging = true;
+                        _thumbShown = true;
+                      });
+                      _dragThumbTo(d.localPosition.dy, trackHeight);
+                    };
+                    recognizer.onUpdate = (d) =>
+                        _dragThumbTo(d.localPosition.dy, trackHeight);
+                    recognizer.onEnd = (_) => _endDrag();
+                    recognizer.onCancel = _endDrag;
+                  },
+                ),
           },
-          onVerticalDragUpdate: (d) =>
-              _dragThumbTo(d.localPosition.dy, trackHeight),
-          onVerticalDragEnd: (_) => _endDrag(),
-          onVerticalDragCancel: _endDrag,
           // The thumb's place comes from the scroll position each frame,
           // without rebuilding the list behind it.
           child: AnimatedBuilder(
@@ -650,5 +662,17 @@ class _SectionHeader extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// A vertical drag that wins the moment the pointer lands, instead of once
+/// it has moved far enough to tell a drag from a tap or a sideways swipe.
+class _ImmediateVerticalDrag extends VerticalDragGestureRecognizer {
+  _ImmediateVerticalDrag({super.debugOwner});
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
   }
 }

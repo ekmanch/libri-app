@@ -28,11 +28,17 @@ class PillChip extends StatelessWidget {
     this.height = 44,
     this.badge,
     this.onLongPress,
+    this.animated = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Whether the fill and the label fade when [selected] changes, instead of
+  /// switching at once: the type chips on the library home, whose selection
+  /// follows a swipe.
+  final bool animated;
 
   /// A long press, where the chip has one: a tag in the picker opens its
   /// categories (Add / edit entry › Tag picker).
@@ -70,12 +76,15 @@ class PillChip extends StatelessWidget {
     final border = selected
         ? (accent ? scheme.primaryContainer : Colors.transparent)
         : scheme.outline;
+    final labelStyle = theme.textTheme.labelMedium!.copyWith(color: foreground);
     return TouchTarget(
       child: Semantics(
         button: true,
         selected: selected,
         child: Material(
           color: background,
+          animateColor: animated,
+          animationDuration: AppMotion.slide,
           shape: StadiumBorder(side: BorderSide(color: border)),
           child: InkWell(
             onTap: onTap,
@@ -104,15 +113,23 @@ class PillChip extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium!.copyWith(
-                        color: foreground,
-                      ),
-                    ),
+                    child: animated
+                        ? AnimatedDefaultTextStyle(
+                            style: DefaultTextStyle.of(context).style
+                                .merge(labelStyle),
+                            duration: AppMotion.slide,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            child: Text(label),
+                          )
+                        : Text(
+                            label,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: labelStyle,
+                          ),
                   ),
                   if (badge != null) ...[
                     const SizedBox(width: 6),

@@ -6,7 +6,8 @@ import '../../widgets/labels.dart';
 import '../music/music_tab.dart';
 
 /// The type chip picked on the library home (Library › Home); null means All.
-/// Shared with the shell so the "+" button can say what it adds.
+/// Shared with the shell so the "+" button can say what it adds. A swipe
+/// between the types writes it when the pages come to rest.
 class HomeTypeNotifier extends Notifier<MediaType?> {
   @override
   MediaType? build() => null;
@@ -18,30 +19,33 @@ final homeTypeProvider = NotifierProvider<HomeTypeNotifier, MediaType?>(
   HomeTypeNotifier.new,
 );
 
-/// The status segment of the type view (Library › Movies, text view); null
-/// means All. A new type starts on All.
-class HomeStatusNotifier extends Notifier<EntryStatus?> {
+/// The status segment of each type's view (Library › Movies, text view); a
+/// type that is not here is on All. Each type keeps its own, so swiping away
+/// and back finds the segment as it was left; a return to the home clears
+/// them all.
+class HomeStatusNotifier extends Notifier<Map<MediaType, EntryStatus>> {
   @override
-  EntryStatus? build() {
-    ref.watch(homeTypeProvider);
-    return null;
-  }
+  Map<MediaType, EntryStatus> build() => const {};
 
-  void set(EntryStatus? status) => state = status;
+  void set(MediaType type, EntryStatus? status) => state = {
+    for (final MapEntry(:key, :value) in state.entries)
+      if (key != type) key: value,
+    type: ?status,
+  };
+
+  void clear() => state = const {};
 }
 
-final homeStatusProvider = NotifierProvider<HomeStatusNotifier, EntryStatus?>(
-  HomeStatusNotifier.new,
-);
+final homeStatusProvider =
+    NotifierProvider<HomeStatusNotifier, Map<MediaType, EntryStatus>>(
+      HomeStatusNotifier.new,
+    );
 
-/// The tab of the Music view (Library › Music: artists, text view). A new type
-/// starts on Artists.
+/// The tab of the Music view (Library › Music: artists, text view). Kept
+/// while another type is shown; a return to the home goes back to Artists.
 class HomeMusicTabNotifier extends Notifier<MusicTab> {
   @override
-  MusicTab build() {
-    ref.watch(homeTypeProvider);
-    return MusicTab.artists;
-  }
+  MusicTab build() => MusicTab.artists;
 
   void set(MusicTab tab) => state = tab;
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/media_type.dart';
 import '../music/music_tab.dart';
 import 'home_type_provider.dart';
 import 'library_filter.dart';
@@ -21,16 +22,19 @@ class LibraryFilterNotifier extends Notifier<LibraryFilter> {
   /// status, or for music at most one kind) is not a results screen: it clears
   /// and the home shows that type's view with its status segment or music tab
   /// picked (Library › Movies + Done (filter result); Music: songs (filter
-  /// result); Music: albums (filter result)).
+  /// result); Music: albums (filter result)). The type's own segment or tab
+  /// follows; the other types keep theirs.
   void _apply(LibraryFilter filter) {
     final types = filter.types;
     final view = filter.typeView;
+    final type = types.length == 1 ? types.single : null;
     state = view == null ? filter : LibraryFilter.none;
-    ref
-        .read(homeTypeProvider.notifier)
-        .set(types.length == 1 ? types.single : null);
-    ref.read(homeStatusProvider.notifier).set(view?.status);
-    ref.read(homeMusicTabProvider.notifier).set(MusicTab.forKind(view?.kind));
+    ref.read(homeTypeProvider.notifier).set(type);
+    if (type == MediaType.music) {
+      ref.read(homeMusicTabProvider.notifier).set(MusicTab.forKind(view?.kind));
+    } else if (type != null) {
+      ref.read(homeStatusProvider.notifier).set(type, view?.status);
+    }
   }
 }
 

@@ -22,7 +22,9 @@ import 'package:library_app/features/library/home_type_provider.dart';
 import 'package:library_app/features/library/library_filter.dart';
 import 'package:library_app/features/library/library_filter_provider.dart';
 import 'package:library_app/features/library/library_home_screen.dart';
+import 'package:library_app/features/library/home_pages.dart';
 import 'package:library_app/features/library/library_sort.dart';
+import 'package:library_app/features/library/search_screen.dart';
 import 'package:library_app/features/library/tag_list_screen.dart';
 import 'package:library_app/data/models/tag_category.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
@@ -61,6 +63,40 @@ void main() {
     await tester.dragUntilVisible(chip, row, Offset(dx, 0));
     await tester.pumpAndSettle();
     await tester.tap(chip);
+    await tester.pumpAndSettle();
+  }
+
+  /// The chip row's scroll position.
+  ScrollPosition chipRow(WidgetTester tester) => tester
+      .state<ScrollableState>(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is ListView && w.scrollDirection == Axis.horizontal,
+          ),
+          matching: find.byType(Scrollable),
+        ),
+      )
+      .position;
+
+  /// The list of the page on screen.
+  ScrollPosition pageList(WidgetTester tester) => tester
+      .state<ScrollableState>(
+        find.byWidgetPredicate(
+          (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+        ),
+      )
+      .position;
+
+  /// Whether a chip is the picked one, wherever the row is scrolled.
+  bool chipSelected(WidgetTester tester, String label) => tester
+      .widget<PillChip>(
+        find.widgetWithText(PillChip, label, skipOffstage: false),
+      )
+      .selected;
+
+  /// A swipe on the content, well inside the screen edges.
+  Future<void> swipe(WidgetTester tester, {required bool left}) async {
+    await tester.dragFrom(const Offset(180, 600), Offset(left ? -250 : 250, 0));
     await tester.pumpAndSettle();
   }
 
@@ -126,7 +162,11 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('RECENTLY ADDED'),
         300,
-        scrollable: find.byType(Scrollable).first,
+        scrollable: find
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            )
+            .first,
       );
       expect(find.text('RECENTLY ADDED'), findsOneWidget);
       expect(find.text('6 days ago'), findsOneWidget);
@@ -338,18 +378,17 @@ void main() {
     await tester.ensureVisible(inSegments('Done'));
     await tester.tap(inSegments('Done'));
     await tester.pumpAndSettle();
-    expect(container.read(homeStatusProvider), EntryStatus.done);
+    expect(container.read(homeStatusProvider), {
+      MediaType.books: EntryStatus.done,
+    });
 
     container.read(homeReturnProvider.notifier).goHome();
     await tester.pumpAndSettle();
     expect(container.read(homeTypeProvider), isNull);
-    expect(container.read(homeStatusProvider), isNull);
+    expect(container.read(homeStatusProvider), isEmpty);
     expect(find.byType(StatusSegmentedControl), findsNothing);
     // The chip row scrolled back to the start on its own, so All is in view.
-    final row = find.byWidgetPredicate(
-      (w) => w is Scrollable && w.axisDirection == AxisDirection.right,
-    );
-    expect(tester.state<ScrollableState>(row).position.pixels, 0);
+    expect(chipRow(tester).pixels, 0);
     expect(
       tester.widget<PillChip>(find.widgetWithText(PillChip, 'Home')).selected,
       isTrue,
@@ -519,10 +558,10 @@ void main() {
     });
   });
 
-  testWidgets('segments filter by status and reset when the type changes', (
+  testWidgets('segments filter by status; each type keeps its own', (
     tester,
   ) async {
-    await pumpApp(tester, const LibraryHomeScreen());
+    final container = await pumpApp(tester, const LibraryHomeScreen());
     await pickChip(tester, 'Movies');
     await tester.tap(inSegments('Want'));
     await tester.pumpAndSettle();
@@ -533,9 +572,316 @@ void main() {
     expect(find.text('$wanted movies'), findsOneWidget);
     expect(find.byType(EntryRow), findsNWidgets(wanted));
 
+    // Shows is on All, and Movies still on Want when it comes back.
     await pickChip(tester, 'Shows');
     final shows = visibleOf(MediaType.shows);
     expect(find.text('${shows.length} shows'), findsOneWidget);
+    await pickChip(tester, 'Movies');
+    expect(find.text('$wanted movies'), findsOneWidget);
+    expect(container.read(homeStatusProvider), {
+      MediaType.movies: EntryStatus.want,
+    });
+  });
+
+  group('swiping between the types', () {
+    Future<ProviderContainer> pumpLong(WidgetTester tester) => pumpApp(
+      tester,
+      const LibraryHomeScreen(),
+      library: padForLongLists(fixture, perType: 60),
+    );
+
+    testWidgets('a swipe moves to the next and the previous chip, with no '
+        'wrap-around', (tester) async {
+      fixHomeDay();
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      // Nothing before Home.
+      await swipe(tester, left: false);
+      expect(container.read(homeTypeProvider), isNull);
+      expect(find.text('IN PROGRESS'), findsOneWidget);
+
+      for (final type in MediaType.values) {
+        await swipe(tester, left: true);
+        expect(container.read(homeTypeProvider), type);
+        expect(chipSelected(tester, type.label), isTrue);
+        expect(find.text(searchHint(type)), findsOneWidget);
+      }
+      // Anime is the last: nothing after it, and no way round to Home.
+      await swipe(tester, left: true);
+      expect(container.read(homeTypeProvider), MediaType.anime);
+      expect(find.text('IN PROGRESS'), findsNothing);
+
+      await swipe(tester, left: false);
+      expect(container.read(homeTypeProvider), MediaType.music);
+      expect(chipSelected(tester, 'Music'), isTrue);
+      expect(chipSelected(tester, 'Anime'), isFalse);
+    });
+
+    testWidgets('the chip row follows: the picked chip slides into view', (
+      tester,
+    ) async {
+      await pumpApp(tester, const LibraryHomeScreen());
+      expect(chipRow(tester).pixels, 0);
+      for (final _ in MediaType.values) {
+        await swipe(tester, left: true);
+      }
+      expect(chipRow(tester).pixels, chipRow(tester).maxScrollExtent);
+      expect(
+        find.widgetWithText(PillChip, 'Anime').hitTestable(),
+        findsOneWidget,
+      );
+      // And back toward the start with the swipes back.
+      for (final _ in MediaType.values) {
+        await swipe(tester, left: false);
+      }
+      expect(chipRow(tester).pixels, 0);
+      expect(
+        find.widgetWithText(PillChip, 'Home').hitTestable(),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the chip follows the finger at halfway; the type is picked '
+        'when the pages rest', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      final gesture = await tester.startGesture(const Offset(300, 600));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-60, 0));
+      await tester.pump();
+      // Not halfway yet: still Home.
+      expect(chipSelected(tester, 'Home'), isTrue);
+      await gesture.moveBy(const Offset(-150, 0));
+      await tester.pump();
+      expect(chipSelected(tester, 'Movies'), isTrue);
+      expect(chipSelected(tester, 'Home'), isFalse);
+      // The header stays where it is while the pages move under it.
+      expect(tester.getTopLeft(find.text('Library')).dx, 20);
+      // Nothing is written on the way: the shell's "+" follows the type.
+      expect(container.read(homeTypeProvider), isNull);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.movies);
+    });
+
+    testWidgets('each type keeps its scroll position, view and status', (
+      tester,
+    ) async {
+      final container = await pumpLong(tester);
+      await swipe(tester, left: true);
+      expect(container.read(homeTypeProvider), MediaType.movies);
+      await tester.tap(inSegments('Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Change view'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('List with covers'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(EntryRow).first, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      final scrolled = pageList(tester).pixels;
+      expect(scrolled, greaterThan(300));
+      expect(find.text('Library'), findsNothing);
+
+      // Shows opens at its top, on All, in its own view, with the header
+      // back in place.
+      await swipe(tester, left: true);
+      expect(container.read(homeTypeProvider), MediaType.shows);
+      expect(pageList(tester).pixels, 0);
+      expect(tester.getTopLeft(find.text('Library')).dy, greaterThan(0));
+      expect(
+        tester
+            .widget<StatusSegmentedControl>(find.byType(StatusSegmentedControl))
+            .selected,
+        isNull,
+      );
+      expect(find.byType(CoverImage), findsNothing);
+
+      // Movies is as it was left: Done, with covers, scrolled, the header
+      // away.
+      await swipe(tester, left: false);
+      expect(container.read(homeTypeProvider), MediaType.movies);
+      expect(pageList(tester).pixels, scrolled);
+      expect(find.text('Library'), findsNothing);
+      expect(find.byType(CoverImage), findsWidgets);
+      expect(container.read(homeStatusProvider), {
+        MediaType.movies: EntryStatus.done,
+      });
+      // A tap on a chip finds a page as it was left too.
+      container.read(homeReturnProvider.notifier).goHome();
+      await tester.pumpAndSettle();
+      await pickChip(tester, 'Shows');
+      await pickChip(tester, 'Movies');
+      expect(
+        tester
+            .widget<StatusSegmentedControl>(find.byType(StatusSegmentedControl))
+            .selected,
+        EntryStatus.done,
+      );
+    });
+
+    testWidgets('between a scrolled page and one at its top the header '
+        'slides in with the swipe', (tester) async {
+      await pumpLong(tester);
+      await pickChip(tester, 'Movies');
+      final title = find.text('Library', skipOffstage: false);
+      final resting = tester.getTopLeft(title).dy;
+      await tester.drag(find.byType(EntryRow).first, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      expect(find.text('Library'), findsNothing);
+
+      final gesture = await tester.startGesture(const Offset(300, 600));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-140, 0));
+      await tester.pump();
+      // Half the way to Shows: the header is half the way down.
+      final halfway = tester.getTopLeft(title).dy;
+      expect(halfway, lessThan(resting));
+      expect(halfway, greaterThan(resting - 200));
+      expect(tester.getTopLeft(title).dx, 20);
+      await gesture.moveBy(const Offset(-150, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('Library')).dy, resting);
+    });
+
+    testWidgets('a swipe that starts at a screen edge is left to the back '
+        'gesture', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Shows');
+      // From the left edge toward the right, and from the right edge.
+      await tester.dragFrom(const Offset(10, 600), const Offset(250, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.shows);
+      await tester.dragFrom(const Offset(350, 600), const Offset(-250, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.shows);
+      expect(find.text(searchHint(MediaType.shows)), findsOneWidget);
+      // Just inside the edge it is a swipe again.
+      await tester.dragFrom(const Offset(30, 600), const Offset(250, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.movies);
+    });
+
+    testWidgets('the system\'s wider back gesture area is kept clear', (
+      tester,
+    ) async {
+      tester.view.systemGestureInsets = const FakeViewPadding(
+        left: 60 * 3,
+        right: 60 * 3,
+      );
+      addTearDown(tester.view.resetSystemGestureInsets);
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      final ratio = tester.view.devicePixelRatio;
+      final inset = 60 * 3 / ratio;
+      await tester.dragFrom(
+        Offset(360 - inset + 5, 600),
+        const Offset(-250, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), isNull);
+      await tester.dragFrom(
+        Offset(360 - inset - 10, 600),
+        const Offset(-250, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.movies);
+    });
+
+    testWidgets('filtered results do not swipe', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      container
+          .read(libraryFilterProvider.notifier)
+          .set(const LibraryFilter(tags: {'horror'}));
+      await tester.pumpAndSettle();
+      await swipe(tester, left: true);
+      expect(container.read(homeTypeProvider), isNull);
+      expect(container.read(libraryFilterProvider).isActive, isTrue);
+      expect(find.bySemanticsLabel('Remove #horror'), findsOneWidget);
+      expect(find.byType(PageView), findsNothing);
+    });
+
+    testWidgets('a drag on the chip row scrolls the chips, not the pages', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await tester.drag(
+        find.widgetWithText(PillChip, 'Shows'),
+        const Offset(-200, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(chipRow(tester).pixels, greaterThan(0));
+      expect(container.read(homeTypeProvider), isNull);
+      expect(chipSelected(tester, 'Home'), isTrue);
+    });
+
+    testWidgets('a drag on status segments that scroll sideways moves them, '
+        'not the pages', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      // Five segments scroll sideways at 360 dp.
+      await pickChip(tester, 'Books');
+      await tester.drag(inSegments('Want'), const Offset(-200, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.books);
+      // Under the segments the swipe is the pages'.
+      await swipe(tester, left: true);
+      expect(container.read(homeTypeProvider), MediaType.games);
+    });
+
+    testWidgets('a drag that starts on the header scrolls the list', (
+      tester,
+    ) async {
+      await pumpLong(tester);
+      await pickChip(tester, 'Movies');
+      await tester.drag(find.text('Library'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(pageList(tester).pixels, greaterThan(200));
+      expect(find.text('Library'), findsNothing);
+    });
+
+    testWidgets('a touch on the grid\'s fast-scroll thumb is the thumb\'s at '
+        'once, not a swipe', (tester) async {
+      final container = await pumpApp(
+        tester,
+        const LibraryHomeScreen(),
+        library: padForLongLists(fixture, perType: 120),
+        prefs: const DisplayPreferences(
+          viewByType: {MediaType.movies: EntryView.grid},
+        ),
+      );
+      await pickChip(tester, 'Movies');
+      // Down on the thumb's zone, without moving: the list jumps there.
+      final gesture = await tester.startGesture(const Offset(330, 400));
+      await tester.pump();
+      expect(pageList(tester).pixels, greaterThan(0));
+      // Sideways from there moves no page.
+      await gesture.moveBy(const Offset(-200, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.movies);
+    });
+
+    testWidgets('a swipe builds no page again', (tester) async {
+      await pumpLong(tester);
+      await pickChip(tester, 'Movies');
+      var builds = 0;
+      void count() => builds++;
+      debugOnRebuildDirtyWidget = (element, _) {
+        if (element.widget is HomeTypePage ||
+            element.widget is HomeSectionsPage ||
+            element.widget is LibraryHomeScreen) {
+          count();
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = null);
+      final gesture = await tester.startGesture(const Offset(300, 600));
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(-25, 0));
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+      // Books comes into reach beside Shows and is built ahead, once; the
+      // pages seen so far are left alone.
+      expect(builds, lessThanOrEqualTo(1));
+    });
   });
 
   testWidgets('a status nothing has shows a line, not the empty state', (
@@ -950,7 +1296,10 @@ void main() {
       await show(tester);
       expect(container.read(libraryFilterProvider).isActive, isFalse);
       expect(container.read(homeTypeProvider), MediaType.books);
-      expect(container.read(homeStatusProvider), EntryStatus.done);
+      expect(
+        container.read(homeStatusProvider)[MediaType.books],
+        EntryStatus.done,
+      );
       expect(
         tester
             .widget<StatusSegmentedControl>(find.byType(StatusSegmentedControl))
@@ -982,7 +1331,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(container.read(libraryFilterProvider).isActive, isFalse);
       expect(container.read(homeTypeProvider), MediaType.books);
-      expect(container.read(homeStatusProvider), EntryStatus.done);
+      expect(
+        container.read(homeStatusProvider)[MediaType.books],
+        EntryStatus.done,
+      );
     });
 
     Future<void> pickMusicTab(WidgetTester tester, String label) async {
@@ -1112,7 +1464,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(container.read(libraryFilterProvider).isActive, isFalse);
       expect(container.read(homeTypeProvider), isNull);
-      expect(container.read(homeStatusProvider), isNull);
+      expect(container.read(homeStatusProvider), isEmpty);
     });
   });
 
