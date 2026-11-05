@@ -28,6 +28,7 @@ import 'package:library_app/features/library/coming_soon_tab.dart';
 import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
+import 'package:library_app/theme/app_theme.dart';
 import 'package:library_app/widgets/cached_image.dart';
 import 'package:library_app/widgets/cover_image.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
@@ -646,7 +647,7 @@ void main() {
     (tester) async {
       final container = await pump(tester, tab: ComingSoonTab.all);
       final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
-      expect(find.byType(CoverTint), findsNothing);
+      expect(find.byType(CoverTile), findsNothing);
       await tester.tap(find.byTooltip('Change view'));
       await tester.pumpAndSettle();
       expect(find.text('Text'), findsOneWidget);
@@ -661,11 +662,29 @@ void main() {
       );
       // A wanted row has the entry's cover, an Add row the one the check
       // recorded, both fetched now that they are on screen; a title without
-      // art yet shows the tinted tile, never letters.
+      // art yet shows the plain tile, never letters, in the color picked from
+      // its title and not the type's.
       expect(find.byType(CoverImage), findsNWidgets(3));
       expect(cover(gollumCover), findsOneWidget);
-      expect(find.byType(CoverTint), findsWidgets);
+      expect(find.byType(CoverTile), findsWidgets);
       expect(find.byType(CoverPlaceholder), findsNothing);
+      final tile = tester.widget<CoverTile>(find.byType(CoverTile).first);
+      final box = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(CoverTile).first,
+          matching: find.byType(Container),
+        ),
+      );
+      final colors = LibraryColors.of(
+        tester.element(find.byType(CoverTile).first),
+      );
+      expect(
+        (box.decoration! as BoxDecoration).color,
+        colors.coverPlaceholders[CoverPlaceholder.paletteIndex(
+          tile.title,
+          colors.coverPlaceholders.length,
+        )],
+      );
       for (var i = 0; i < 40 && !fetcher.fetched.contains(gollumCover); i++) {
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 50)),
@@ -687,7 +706,7 @@ void main() {
       await tester.tap(find.text('Text'));
       await tester.pumpAndSettle();
       expect(find.byType(CoverImage), findsNothing);
-      expect(find.byType(CoverTint), findsNothing);
+      expect(find.byType(CoverTile), findsNothing);
       expect(fetcher.fetched.length, fetched);
       expect(
         container.read(displayPreferencesProvider).comingSoonView,
@@ -702,8 +721,8 @@ void main() {
       prefs: const DisplayPreferences(comingSoonView: EntryView.listWithPhotos),
     );
     expect(find.byType(CoverImage), findsNWidgets(2));
-    final tint = tester.widget<CoverTint>(find.byType(CoverTint).first);
-    expect(tint.width, 44);
+    final tile = tester.widget<CoverTile>(find.byType(CoverTile).first);
+    expect(tile.width, 44);
   });
 
   testWidgets('says when nothing is coming', (tester) async {

@@ -12,8 +12,8 @@ import 'cover_placeholder.dart';
 /// been found and fetched, then the image. Only built in the photo views, so a
 /// text view fetches nothing. [labeled] gives the image the title as its screen
 /// reader name, for the details header. [placeholder] replaces the lettered
-/// [CoverPlaceholder] (a [CoverTint] on Library › Coming soon: list with
-/// covers).
+/// [CoverPlaceholder] (a [CoverTile] on Library › Home and Library › Coming
+/// soon: list with covers).
 class CoverImage extends ConsumerStatefulWidget {
   const CoverImage({
     super.key,

@@ -27,10 +27,15 @@ class CoverPlaceholder extends StatelessWidget {
   static int paletteIndex(String title, int paletteLength) =>
       title.codeUnits.fold(0, (sum, c) => sum + c) % paletteLength;
 
+  /// The fill for [title]'s placeholder, out of the shared cover palette.
+  static Color colorFor(BuildContext context, String title) {
+    final palette = LibraryColors.of(context).coverPlaceholders;
+    return palette[paletteIndex(title, palette.length)];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final palette = LibraryColors.of(context).coverPlaceholders;
-    final color = palette[paletteIndex(entry.title, palette.length)];
+    final color = colorFor(context, entry.title);
     return Semantics(
       excludeSemantics: true,
       child: Container(
@@ -59,19 +64,23 @@ class CoverPlaceholder extends StatelessWidget {
   }
 }
 
-/// Stands in for a cover that is not on the device: a plain tile tinted in
-/// the type's color, with no letters (Library › Coming soon: list with
-/// covers, where the title sits right next to it and an upcoming title often
-/// has no art yet). Never an empty box.
-class CoverTint extends StatelessWidget {
-  const CoverTint({super.key, required this.type, required this.width});
+/// Stands in for a cover that is not on the device where the title sits
+/// right next to it (Library › Home; Library › Coming soon: list with
+/// covers, where an upcoming title often has no art yet): the
+/// [CoverPlaceholder] without its letters, a plain tile in the color picked
+/// from [title], so neighbors differ. Never the type's color, never an empty
+/// box.
+class CoverTile extends StatelessWidget {
+  const CoverTile({
+    super.key,
+    required this.title,
+    required this.type,
+    required this.width,
+  });
 
+  final String title;
   final MediaType type;
   final double width;
-
-  /// How much of the type's color the tile shows (the canvas draws it at
-  /// a quarter).
-  static const alpha = 0.25;
 
   @override
   Widget build(BuildContext context) {
@@ -81,9 +90,7 @@ class CoverTint extends StatelessWidget {
         width: width,
         height: width / CoverPlaceholder.aspectRatio(type),
         decoration: BoxDecoration(
-          color: LibraryColors.of(context)
-              .forType(type)
-              .withValues(alpha: alpha),
+          color: CoverPlaceholder.colorFor(context, title),
           borderRadius: BorderRadius.circular(8),
         ),
       ),

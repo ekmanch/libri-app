@@ -417,7 +417,11 @@ class _UpcomingPageState extends State<_UpcomingPage>
       width: _UpcomingPage.coverWidth,
       height:
           _UpcomingPage.coverWidth / CoverPlaceholder.aspectRatio(item.type),
-      placeholder: CoverTint(type: item.type, width: _UpcomingPage.coverWidth),
+      placeholder: CoverTile(
+        title: item.title,
+        type: item.type,
+        width: _UpcomingPage.coverWidth,
+      ),
       borderRadius: BorderRadius.circular(8),
     );
   }

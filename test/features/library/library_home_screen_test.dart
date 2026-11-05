@@ -199,7 +199,10 @@ void main() {
     expect(rows, isNotEmpty);
     expect(find.byType(CoverImage), findsNWidgets(rows.length));
     for (final row in rows) {
-      expect((row.leading! as CoverImage).entry.id, row.row.id);
+      final cover = row.leading! as CoverImage;
+      expect(cover.entry.id, row.row.id);
+      // Without art: the plain tile in the title's color, not the type's.
+      expect((cover.placeholder! as CoverTile).title, cover.entry.title);
       expect(row.padding, HomeRow.homeCoverPadding);
     }
     final first = find.byType(CoverImage).first;
@@ -237,7 +240,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(prefs().homeView, EntryView.text);
     expect(find.byType(CoverImage), findsNothing);
-    expect(find.byType(CoverTint), findsNothing);
+    expect(find.byType(CoverTile), findsNothing);
     expect(tester.getSize(find.byType(HomeRow).first).height, 56);
     // On its own: the types and the Coming soon page keep their views.
     expect(prefs().viewByType, isEmpty);

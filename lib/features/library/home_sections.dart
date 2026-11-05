@@ -412,12 +412,12 @@ class HomeRow extends StatelessWidget {
   static const homeCoverPadding = EdgeInsets.symmetric(vertical: 8);
 
   /// [entry]'s cover, [width] wide, for [leading]: fetched and cached when
-  /// the row comes on screen; without art, a plain tile tinted in the
-  /// type's color, since the title is right next to it.
+  /// the row comes on screen; without art, a plain tile in the color
+  /// picked from the title, since the title is right next to it.
   static Widget cover(Entry entry, {required double width}) => CoverImage(
     entry: entry,
     width: width,
-    placeholder: CoverTint(type: entry.type, width: width),
+    placeholder: CoverTile(title: entry.title, type: entry.type, width: width),
   );
 
   @override
