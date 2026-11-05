@@ -114,14 +114,18 @@ Future<String> _loadPaddedFixture() async {
   return encodeLibrary(padForLongLists(decodeLibrary(json)));
 }
 
-/// Rebuilds its themes whenever the display preferences change, so theme
-/// and accent switches apply everywhere at once.
+/// Rebuilds its themes when the theme or the accent changes, so those
+/// switches apply everywhere at once. No other display preference (a view, a
+/// sort, the Coming soon tab) rebuilds the app: a new theme reaches every
+/// widget that reads it.
 class LibraryApp extends ConsumerWidget {
   const LibraryApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prefs = ref.watch(displayPreferencesProvider);
+    final (themeMode, accent) = ref.watch(
+      displayPreferencesProvider.select((p) => (p.themeMode, p.accent)),
+    );
     final showsLibrary = ref.watch(
       libraryConnectionProvider.select((c) => c.showsLibrary),
     );
@@ -132,9 +136,9 @@ class LibraryApp extends ConsumerWidget {
     return MaterialApp(
       title: appName,
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(brightness: Brightness.light, accent: prefs.accent),
-      darkTheme: buildTheme(brightness: Brightness.dark, accent: prefs.accent),
-      themeMode: prefs.themeMode,
+      theme: buildTheme(brightness: Brightness.light, accent: accent),
+      darkTheme: buildTheme(brightness: Brightness.dark, accent: accent),
+      themeMode: themeMode,
       // Until a library file is connected, or kept on the phone after a
       // disconnect (Settings › Disconnect: keep or delete), the app is the
       // first run. Deleting the library in Settings › Disconnect: keep or

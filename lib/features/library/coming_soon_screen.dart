@@ -77,29 +77,54 @@ class ComingSoonScreen extends ConsumerStatefulWidget {
 }
 
 class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
+  late final ComingSoonTab _opened = ref
+      .read(displayPreferencesProvider)
+      .comingSoonTab;
+
   /// The tabs are pages, so a swipe moves between them as a tap on a tab
   /// does. Opens on the tab last picked.
-  late final PageController _pages = PageController(
-    initialPage: ref.read(displayPreferencesProvider).comingSoonTab.index,
+  late final PageController _pages = PageController(initialPage: _opened.index)
+    ..addListener(_scrolled);
+
+  /// The tab shown as selected: the page nearest the middle of the screen,
+  /// or during a tap's animation the tab tapped. Only the tab row listens.
+  late final ValueNotifier<ComingSoonTab> _tab = ValueNotifier(_opened);
+
+  /// How far the pages are scrolled, in pages, for the accent line.
+  late final ValueNotifier<double> _position = ValueNotifier(
+    _opened.index.toDouble(),
   );
 
-  /// The tab a tap is animating to. Library to All passes Discover: the
-  /// pages on the way are not picked.
+  /// The tab a tap is animating to. Library to All passes Discover, which
+  /// is not shown as selected on the way.
   ComingSoonTab? _target;
 
   @override
   void dispose() {
     _pages.dispose();
+    _tab.dispose();
+    _position.dispose();
     super.dispose();
   }
 
-  void _select(ComingSoonTab tab) =>
-      ref.read(displayPreferencesProvider.notifier).setComingSoonTab(tab);
+  ComingSoonTab get _nearest {
+    final last = ComingSoonTab.values.length - 1;
+    return ComingSoonTab.values[(_pages.page ?? 0).round().clamp(0, last)];
+  }
+
+  /// Every frame of a swipe. Nothing here rebuilds the screen or touches
+  /// the preferences: a swipe that does either stutters.
+  void _scrolled() {
+    final page = _pages.page;
+    if (page == null) return;
+    _position.value = page.clamp(0, ComingSoonTab.values.length - 1);
+    if (_target == null) _tab.value = _nearest;
+  }
 
   void _show(ComingSoonTab tab) {
-    if (tab == ref.read(displayPreferencesProvider).comingSoonTab) return;
-    _select(tab);
+    if (tab == _tab.value) return;
     _target = tab;
+    _tab.value = tab;
     _pages
         .animateToPage(
           tab.index,
@@ -111,15 +136,14 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
         });
   }
 
-  /// A swipe: the tab follows the page as it changes, and is the page the
-  /// list came to rest on (a drag that stops a tap's animation halfway).
-  void _pageChanged(int page) {
-    if (_target == null) _select(ComingSoonTab.values[page]);
-  }
-
-  bool _scrollEnded(ScrollEndNotification notification) {
-    if (notification.depth == 0 && _target == null && _pages.hasClients) {
-      _select(ComingSoonTab.values[_pages.page!.round()]);
+  /// The pages came to rest, after a swipe or a tap: the tab they rest on
+  /// is the one remembered. Written now and not on the way, since a changed
+  /// preference rebuilds the home under this page and saves a file.
+  bool _settled(ScrollEndNotification notification) {
+    if (notification.depth == 0 && _pages.hasClients) {
+      final tab = _nearest;
+      _tab.value = tab;
+      ref.read(displayPreferencesProvider.notifier).setComingSoonTab(tab);
     }
     return false;
   }
@@ -127,7 +151,13 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
   @override
   Widget build(BuildContext context) {
     final library = ref.watch(libraryProvider).value;
-    final prefs = ref.watch(displayPreferencesProvider);
+    // Every preference but the tab: picking a tab must not build this
+    // screen, and its lists, again.
+    final prefs = ref.watch(
+      displayPreferencesProvider.select(
+        (p) => p.copyWith(comingSoonTab: ComingSoonTab.library),
+      ),
+    );
     final parts = ref.watch(upcomingPartsProvider).value ?? const [];
     final releases = ref.watch(foundReleasesProvider).value ?? const [];
     final settings =
@@ -176,21 +206,27 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-              child: UnderlineTabs<ComingSoonTab>(
-                tabs: [
-                  for (final tab in ComingSoonTab.values)
-                    UnderlineTab(tab, tab.label, count: items[tab]!.length),
-                ],
-                selected: prefs.comingSoonTab,
-                onChanged: _show,
+              child: ValueListenableBuilder(
+                valueListenable: _tab,
+                builder: (context, selected, _) => UnderlineTabs<ComingSoonTab>(
+                  tabs: [
+                    for (final tab in ComingSoonTab.values)
+                      UnderlineTab(tab, tab.label, count: items[tab]!.length),
+                  ],
+                  selected: selected,
+                  position: _position,
+                  onChanged: _show,
+                ),
               ),
             ),
             Expanded(
               child: NotificationListener<ScrollEndNotification>(
-                onNotification: _scrollEnded,
+                onNotification: _settled,
                 child: PageView(
                   controller: _pages,
-                  onPageChanged: _pageChanged,
+                  // The tabs beside the one shown are built before they are
+                  // swiped to, so a swipe starts with nothing to build.
+                  allowImplicitScrolling: true,
                   children: [
                     for (final tab in ComingSoonTab.values)
                       _UpcomingPage(
@@ -338,8 +374,9 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
 /// covers): the entry's own, or for a part or a found release the one the
 /// daily check recorded, fetched and cached only for the rows on screen
 /// (the list builds lazily); a title without art yet gets a plain tile
-/// tinted in the type's color.
-class _UpcomingPage extends StatelessWidget {
+/// tinted in the type's color. A page stays alive once built, so coming
+/// back to a tab finds it as it was left, scrolled where it was.
+class _UpcomingPage extends StatefulWidget {
   const _UpcomingPage(
     this.items, {
     required this.tab,
@@ -361,16 +398,30 @@ class _UpcomingPage extends StatelessWidget {
   /// Room above and below a cover.
   static const coverRowPadding = EdgeInsets.symmetric(vertical: 10);
 
+  @override
+  State<_UpcomingPage> createState() => _UpcomingPageState();
+}
+
+class _UpcomingPageState extends State<_UpcomingPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   Widget? _cover(UpcomingItem item) {
-    if (view != EntryView.listWithPhotos) return null;
-    final tint = CoverTint(type: item.type, width: coverWidth);
+    if (widget.view != EntryView.listWithPhotos) return null;
+    final tint = CoverTint(type: item.type, width: _UpcomingPage.coverWidth);
     if (item.entry case final entry?) {
-      return CoverImage(entry: entry, width: coverWidth, placeholder: tint);
+      return CoverImage(
+        entry: entry,
+        width: _UpcomingPage.coverWidth,
+        placeholder: tint,
+      );
     }
     return CachedImage(
       url: item.coverUrl,
-      width: coverWidth,
-      height: coverWidth / CoverPlaceholder.aspectRatio(item.type),
+      width: _UpcomingPage.coverWidth,
+      height:
+          _UpcomingPage.coverWidth / CoverPlaceholder.aspectRatio(item.type),
       placeholder: tint,
       borderRadius: BorderRadius.circular(8),
     );
@@ -378,6 +429,8 @@ class _UpcomingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    final _UpcomingPage(:items, :tab, :view, :today, :onOpen) = widget;
     final theme = Theme.of(context);
     final groups = upcomingGroups(items, today: today);
     // Headings and rows as one flat list, so the list can build lazily.
@@ -428,7 +481,7 @@ class _UpcomingPage extends StatelessWidget {
                       minHeight: 60,
                       leading: _cover(item),
                       padding: view == EntryView.listWithPhotos
-                          ? coverRowPadding
+                          ? _UpcomingPage.coverRowPadding
                           : EdgeInsets.zero,
                       onTap: () => onOpen(item),
                     ),

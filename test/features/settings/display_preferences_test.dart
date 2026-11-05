@@ -53,6 +53,18 @@ void main() {
     expect(theme().brightness, Brightness.light);
     expect(theme().colorScheme.primary, violet.ink);
     expect(theme().colorScheme.primaryContainer, violet.fill);
+
+    // Any other preference leaves the themes as they are: the app is not
+    // built again, and nothing that reads the theme is.
+    final before = theme();
+    container
+        .read(displayPreferencesProvider.notifier)
+        .setComingSoonTab(ComingSoonTab.all);
+    container
+        .read(displayPreferencesProvider.notifier)
+        .setView(MediaType.movies, EntryView.grid);
+    await tester.pumpAndSettle();
+    expect(identical(theme(), before), isTrue);
   });
 
   test('preferences default to dark and hot pink', () {

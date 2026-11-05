@@ -251,6 +251,10 @@ void main() {
       (_, tab) => seen.add(tab),
     );
     await tester.tap(find.text('All'));
+    // Shown as selected at once; written when the pages come to rest.
+    await tester.pump();
+    expect(selected(tester), ComingSoonTab.all);
+    expect(seen, isEmpty);
     await tester.pumpAndSettle();
     expect(seen, [ComingSoonTab.all]);
     expect(find.text('Want'), findsNWidgets(2));
@@ -270,6 +274,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Werwulf'), findsOneWidget);
     expect(find.text('Stranger Things'), findsNothing);
+  });
+
+  testWidgets('a swipe builds nothing again and saves nothing on the way', (
+    tester,
+  ) async {
+    final container = await pump(tester);
+    final saved = <ComingSoonTab>[];
+    container.listen(
+      displayPreferencesProvider.select((p) => p.comingSoonTab),
+      (_, tab) => saved.add(tab),
+    );
+    double line() => tester.getRect(find.byKey(UnderlineTabs.lineKey)).left;
+    final tabsLeft = tester.getRect(find.byType(PageView)).left + 20;
+    final third = (360 - 40) / 3;
+    expect(line(), moreOrLessEquals(tabsLeft));
+    final werwulf = tester.widget<HomeRow>(row('Werwulf'));
+    final screen = tester.element(find.byType(ComingSoonScreen));
+    var builds = 0;
+    void count(Element element) {
+      if (element.dirty) builds++;
+    }
+
+    // The finger past halfway, still down: the line has moved with it and
+    // Discover reads as selected, but the screen was not built again and
+    // the preference is untouched.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(PageView)),
+    );
+    for (var i = 0; i < 12; i++) {
+      await gesture.moveBy(const Offset(-20, 0));
+      count(screen);
+      await tester.pump();
+    }
+    expect(line(), greaterThan(tabsLeft + third / 2));
+    expect(line(), lessThan(tabsLeft + third));
+    expect(selected(tester), ComingSoonTab.discover);
+    expect(builds, 0);
+    expect(saved, isEmpty);
+
+    // Let go: the page comes to rest on Discover, the line under it, and
+    // only now is the tab remembered.
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(line(), moreOrLessEquals(tabsLeft + third));
+    expect(saved, [ComingSoonTab.discover]);
+    expect(find.text('Stranger Things'), findsOneWidget);
+
+    // Back on Library: the page as it was left, not a new one.
+    await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(selected(tester), ComingSoonTab.library);
+    expect(identical(tester.widget<HomeRow>(row('Werwulf')), werwulf), isTrue);
   });
 
   testWidgets('a swipe moves between the tabs', (tester) async {

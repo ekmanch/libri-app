@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/theme/app_theme.dart';
@@ -10,6 +11,7 @@ void main() {
     String selected = 'library',
     ValueChanged<String>? onChanged,
     double textScale = 1,
+    ValueListenable<double>? position,
   }) => MediaQuery(
     data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
     child: Center(
@@ -22,6 +24,7 @@ void main() {
             UnderlineTab('all', 'All'),
           ],
           selected: selected,
+          position: position,
           onChanged: onChanged ?? (_) {},
         ),
       ),
@@ -72,6 +75,39 @@ void main() {
       expect(size.width, moreOrLessEquals(320 / 3));
       expect(size.height, 48);
     }
+  });
+
+  testWidgets('the accent line is under the selected tab, 2 px on the '
+      'hairline', (tester) async {
+    await pumpThemed(tester, tabs(selected: 'discover'));
+    final row = tester.getRect(find.byType(UnderlineTabs<String>));
+    final line = tester.getRect(find.byKey(UnderlineTabs.lineKey));
+    expect(line.left, moreOrLessEquals(row.left + 320 / 3));
+    expect(line.width, moreOrLessEquals(320 / 3));
+    expect(line.height, 2);
+    expect(line.bottom, row.bottom);
+    final box = tester.widget<ColoredBox>(find.byKey(UnderlineTabs.lineKey));
+    final context = tester.element(find.text('Library'));
+    expect(box.color, Theme.of(context).colorScheme.primary);
+  });
+
+  testWidgets('with a position the line follows it, and the tabs are not '
+      'built again', (tester) async {
+    final position = ValueNotifier(0.0);
+    addTearDown(position.dispose);
+    await pumpThemed(tester, tabs(position: position));
+    final row = tester.getRect(find.byType(UnderlineTabs<String>));
+    double left() => tester.getRect(find.byKey(UnderlineTabs.lineKey)).left;
+    expect(left(), moreOrLessEquals(row.left));
+    final label = tester.widget<Text>(find.text('Library'));
+
+    position.value = 0.5;
+    await tester.pump();
+    expect(left(), moreOrLessEquals(row.left + 320 / 6));
+    position.value = 2;
+    await tester.pump();
+    expect(left(), moreOrLessEquals(row.left + 2 * 320 / 3));
+    expect(identical(tester.widget<Text>(find.text('Library')), label), isTrue);
   });
 
   testWidgets('a label too wide at a large text size shrinks to fit', (
