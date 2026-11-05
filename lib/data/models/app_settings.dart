@@ -72,7 +72,7 @@ class AppSettings {
   /// actors, and creators who are no longer active.
   final Map<FollowKind, Set<String>> followed;
 
-  /// The rows of Library › Coming soon: everything that the owner
+  /// The rows of Library › Coming soon: Discover tab that the owner
   /// marked Not interested, by the row's key: an entry's id, `<show id>#<season>`
   /// for a season, a lookup id for a found release or a series part.
   final Set<String> notInterested;

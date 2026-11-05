@@ -430,8 +430,8 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     ]);
   }
 
-  /// "See all" on Coming soon: the Coming soon screen on In library
-  /// (Library › Coming soon: in library).
+  /// "See all" on Coming soon: the Coming soon screen on the tab last
+  /// picked, Library at first (Library › Coming soon: Library tab).
   void _seeAllComingSoon() => openComingSoon(context);
 
   /// "See all N" on In progress: the filter result with just that status,

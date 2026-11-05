@@ -17,8 +17,8 @@ class PageHeader extends StatelessWidget {
 
   final String title;
 
-  /// A muted line under the title ("5 in your library" on Library › Coming
-  /// soon: in library).
+  /// A muted line under the title ("10 of 25 followed" on Settings ›
+  /// Follow: authors).
   final String? subtitle;
 
   /// When set, a back arrow is shown and the title is one step smaller.
@@ -78,8 +78,8 @@ class PageHeader extends StatelessWidget {
                   Text(
                     subtitle,
                     style: textTheme.bodySmall!.copyWith(fontSize: 14),
-                    // Two lines at a large text size ("3 upcoming · 1 not
-                    // in your library" at 1.3 on a 360 dp phone).
+                    // Two lines when it does not fit in one at a large text
+                    // size on a 360 dp phone.
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

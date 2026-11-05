@@ -23,8 +23,8 @@ import '../../widgets/cover_placeholder.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/section_heading.dart';
-import '../../widgets/segmented_control.dart';
 import '../../widgets/sheet_frame.dart';
+import '../../widgets/underline_tabs.dart';
 import '../entry/entry_details_sheet.dart';
 import '../entry/entry_form_screen.dart';
 import '../entry/new_entry_screen.dart';
@@ -32,54 +32,60 @@ import '../entry/series.dart';
 import '../settings/display_preferences.dart';
 import '../settings/entry_view.dart';
 import '../shell/app_shell.dart';
+import 'coming_soon_tab.dart';
 import 'home_sections.dart';
 import 'library_filter_provider.dart';
 import 'upcoming.dart';
 import 'view_menu.dart';
 
-/// Opens the Coming soon screen (Library › Coming soon: in library), from
-/// "See all" on the home's Coming soon heading.
-Future<void> openComingSoon(BuildContext context, {bool everything = false}) =>
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => ComingSoonScreen(startEverything: everything),
-      ),
-    );
+/// Opens the Coming soon screen (Library › Coming soon: Library tab), from
+/// "See all" on the home's Coming soon heading, on the tab last picked.
+Future<void> openComingSoon(BuildContext context) => Navigator.of(context)
+    .push<void>(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
 
-/// Everything coming, full screen (Library › Coming soon: in library;
-/// Coming soon: everything): "Coming soon" with a back arrow and a
-/// count under it, then two segments. In library lists what the home's
-/// Coming soon lists, with no cap, plus Want entries without a date under
-/// "Date not set". Everything adds the coming seasons the owner
-/// has not set, the parts of followed series not in the library, and every
-/// other entry with a release ahead, each row saying "Want" or "Add" under
-/// its date; tapping an "Add" row opens [UpcomingAddSheet]. Rows are
-/// grouped by month, then year-only dates under their year, then "Date not
-/// set"; a wanted row opens the entry's details. The view button at the top
-/// right offers Text and List with covers (Coming soon: view menu; no grid),
-/// remembered for this page on its own and used by both segments (Coming
-/// soon: list with covers).
+/// Everything coming, full screen (Library › Coming soon: Library tab,
+/// Coming soon: Discover tab, Coming soon: All tab): "Coming soon" with a
+/// back arrow, then three underline tabs across the width, each with its
+/// count ("Library 29"). Library lists what the home's Coming soon lists,
+/// with no cap, plus Want entries without a date under "Date not set", each
+/// row with its date alone. Discover lists what the owner has not asked for:
+/// the coming seasons not set, the parts of followed series not in the
+/// library and every other entry with a release ahead, each row saying
+/// "Add" under its date; tapping one opens [UpcomingAddSheet]. All lists
+/// both, each row saying "Want" or "Add". Rows are grouped by month, then
+/// year-only dates under their year, then "Date not set"; a wanted row
+/// opens the entry's details. A swipe moves between the tabs as a tap does,
+/// and the tab last picked is remembered, like the view. The view button at
+/// the top right offers Text and List with covers (Coming soon: view menu;
+/// no grid), remembered for this page on its own and used by all three tabs
+/// (Coming soon: list with covers).
 class ComingSoonScreen extends ConsumerStatefulWidget {
-  const ComingSoonScreen({super.key, this.startEverything = false});
+  const ComingSoonScreen({super.key});
 
-  /// Open on Everything instead of In library.
-  final bool startEverything;
+  static const emptyLibrary = 'Nothing you want is coming up.';
+  static const emptyDiscover = 'Nothing new is coming up.';
+  static const emptyAll = 'Nothing upcoming in your library.';
 
-  static const emptyWants = 'Nothing you want is coming up.';
-  static const emptyEverything = 'Nothing upcoming in your library.';
+  static String emptyText(ComingSoonTab tab) => switch (tab) {
+    ComingSoonTab.library => emptyLibrary,
+    ComingSoonTab.discover => emptyDiscover,
+    ComingSoonTab.all => emptyAll,
+  };
 
   @override
   ConsumerState<ComingSoonScreen> createState() => _ComingSoonScreenState();
 }
 
 class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
-  late bool _everything = widget.startEverything;
-
-  /// The two segments are pages, so a swipe moves between them as a tap on
-  /// a segment does.
+  /// The tabs are pages, so a swipe moves between them as a tap on a tab
+  /// does. Opens on the tab last picked.
   late final PageController _pages = PageController(
-    initialPage: widget.startEverything ? 1 : 0,
+    initialPage: ref.read(displayPreferencesProvider).comingSoonTab.index,
   );
+
+  /// The tab a tap is animating to. Library to All passes Discover: the
+  /// pages on the way are not picked.
+  ComingSoonTab? _target;
 
   @override
   void dispose() {
@@ -87,14 +93,35 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
     super.dispose();
   }
 
-  void _show(bool everything) {
-    if (everything == _everything) return;
-    setState(() => _everything = everything);
-    _pages.animateToPage(
-      everything ? 1 : 0,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-    );
+  void _select(ComingSoonTab tab) =>
+      ref.read(displayPreferencesProvider.notifier).setComingSoonTab(tab);
+
+  void _show(ComingSoonTab tab) {
+    if (tab == ref.read(displayPreferencesProvider).comingSoonTab) return;
+    _select(tab);
+    _target = tab;
+    _pages
+        .animateToPage(
+          tab.index,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        )
+        .whenComplete(() {
+          if (_target == tab) _target = null;
+        });
+  }
+
+  /// A swipe: the tab follows the page as it changes, and is the page the
+  /// list came to rest on (a drag that stops a tap's animation halfway).
+  void _pageChanged(int page) {
+    if (_target == null) _select(ComingSoonTab.values[page]);
+  }
+
+  bool _scrollEnded(ScrollEndNotification notification) {
+    if (notification.depth == 0 && _target == null && _pages.hasClients) {
+      _select(ComingSoonTab.values[_pages.page!.round()]);
+    }
+    return false;
   }
 
   @override
@@ -119,11 +146,14 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
             movieDates: ref.watch(movieDatesProvider).value ?? const {},
             today: today,
           );
-    final wanted = wantedUpcoming(all);
-    final notInLibrary = all.length - wanted.length;
-    final subtitle = _everything
-        ? '${all.length} upcoming · $notInLibrary not in your library'
-        : '${wanted.length} in your library';
+    final items = {
+      ComingSoonTab.library: wantedUpcoming(all),
+      ComingSoonTab.discover: [
+        for (final item in all)
+          if (!item.wanted) item,
+      ],
+      ComingSoonTab.all: all,
+    };
     final view = prefs.comingSoonView;
 
     return Scaffold(
@@ -133,7 +163,6 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
           children: [
             PageHeader(
               title: 'Coming soon',
-              subtitle: subtitle,
               onBack: () => Navigator.of(context).pop(),
               actions: [
                 ViewMenuButton(
@@ -147,36 +176,32 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-              child: SegmentedControl<bool>(
-                segments: const [
-                  SegmentOption(false, 'In library'),
-                  SegmentOption(true, 'Everything'),
+              child: UnderlineTabs<ComingSoonTab>(
+                tabs: [
+                  for (final tab in ComingSoonTab.values)
+                    UnderlineTab(tab, tab.label, count: items[tab]!.length),
                 ],
-                selected: _everything,
+                selected: prefs.comingSoonTab,
                 onChanged: _show,
               ),
             ),
             Expanded(
-              child: PageView(
-                controller: _pages,
-                onPageChanged: (page) =>
-                    setState(() => _everything = page == 1),
-                children: [
-                  _UpcomingPage(
-                    wanted,
-                    everything: false,
-                    view: view,
-                    today: today,
-                    onOpen: _open,
-                  ),
-                  _UpcomingPage(
-                    all,
-                    everything: true,
-                    view: view,
-                    today: today,
-                    onOpen: _open,
-                  ),
-                ],
+              child: NotificationListener<ScrollEndNotification>(
+                onNotification: _scrollEnded,
+                child: PageView(
+                  controller: _pages,
+                  onPageChanged: _pageChanged,
+                  children: [
+                    for (final tab in ComingSoonTab.values)
+                      _UpcomingPage(
+                        items[tab]!,
+                        tab: tab,
+                        view: view,
+                        today: today,
+                        onOpen: _open,
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -308,9 +333,8 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
   }
 }
 
-/// One segment's page: the rows under their month headings, or the empty
-/// text. In [EntryView.listWithPhotos]
-/// each row has a small cover on the left (Library › Coming soon: list with
+/// One tab's page: the rows under their month headings, or the empty text.
+/// In [EntryView.listWithPhotos] each row has a small cover on the left (Library › Coming soon: list with
 /// covers): the entry's own, or for a part or a found release the one the
 /// daily check recorded, fetched and cached only for the rows on screen
 /// (the list builds lazily); a title without art yet gets a plain tile
@@ -318,14 +342,14 @@ class _ComingSoonScreenState extends ConsumerState<ComingSoonScreen> {
 class _UpcomingPage extends StatelessWidget {
   const _UpcomingPage(
     this.items, {
-    required this.everything,
+    required this.tab,
     required this.view,
     required this.today,
     required this.onOpen,
   });
 
   final List<UpcomingItem> items;
-  final bool everything;
+  final ComingSoonTab tab;
   final EntryView view;
   final DateTime today;
   final ValueChanged<UpcomingItem> onOpen;
@@ -368,9 +392,7 @@ class _UpcomingPage extends StatelessWidget {
               ? Padding(
                   padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
                   child: Text(
-                    everything
-                        ? ComingSoonScreen.emptyEverything
-                        : ComingSoonScreen.emptyWants,
+                    ComingSoonScreen.emptyText(tab),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall!.copyWith(
                       fontSize: 15,
@@ -395,9 +417,11 @@ class _UpcomingPage extends StatelessWidget {
                         detail: item.detail,
                         right: item.rightLabel(today),
                         emphasized: item.emphasized,
-                        action: everything
-                            ? (item.wanted ? 'Want' : 'Add')
-                            : null,
+                        // The Library tab's rows are all wanted: the date
+                        // alone.
+                        action: tab == ComingSoonTab.library
+                            ? null
+                            : (item.wanted ? 'Want' : 'Add'),
                         actionEmphasized: item.wanted,
                       ),
                       key: ValueKey('upcoming-${item.id}'),

@@ -918,16 +918,19 @@ void main() {
     await tester.tap(find.text('Clear all'));
     await tester.pumpAndSettle();
 
-    // Library › Coming soon: in library, everything and the add
-    // sheet, from "See all" on the home's Coming soon heading. The series
-    // check has recorded The Hunt for Gollum by now (the fake's The Lord
-    // of the Rings), the one row not in the library.
+    // Library › Coming soon: Library tab, Discover tab, All tab and the
+    // add sheet, from "See all" on the home's Coming soon heading. The
+    // series check has recorded The Hunt for Gollum by now (the fake's The
+    // Lord of the Rings), the one row not in the library.
     await tester.tap(find.text('See all'));
     await tester.pumpAndSettle();
-    await capture(tester, 'a1d-coming-soon-wants');
-    await tester.tap(find.text('Everything'));
+    await capture(tester, 'a1d-coming-soon-library');
+    await tester.tap(find.text('Discover'));
     await tester.pumpAndSettle();
-    await capture(tester, 'a1e-coming-soon-everything');
+    await capture(tester, 'a1j-coming-soon-discover');
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1e-coming-soon-all');
     // Library › Coming soon: view menu, then Coming soon: list with covers
     // (the rows on screen fetch their covers; a title without art, the
     // tinted tile), then back to text for the rest of the walk.
@@ -940,7 +943,7 @@ void main() {
     await capture(tester, 'a1i-coming-soon-list-covers');
     await pickView(tester, 'Text');
     // The found releases sit above it now: scroll the row into view (the
-    // page's list, not the page view the two segments swipe in).
+    // page's list, not the page view the tabs swipe in).
     await tester.scrollUntilVisible(
       find.text('The Hunt for Gollum'),
       200,
@@ -1532,10 +1535,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('See all'));
     await tester.pumpAndSettle();
-    await capture(tester, 'large-text-a1d-coming-soon-wants');
-    await tester.tap(find.text('Everything'));
+    await capture(tester, 'large-text-a1d-coming-soon-library');
+    await tester.tap(find.text('Discover'));
     await tester.pumpAndSettle();
-    await capture(tester, 'large-text-a1e-coming-soon-everything');
+    await capture(tester, 'large-text-a1j-coming-soon-discover');
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1e-coming-soon-all');
     await tester.tap(find.byTooltip('Change view'));
     await tester.pumpAndSettle();
     await capture(tester, 'large-text-a1h-coming-soon-view-menu');
@@ -1545,7 +1551,7 @@ void main() {
     await capture(tester, 'large-text-a1i-coming-soon-list-covers');
     await pickView(tester, 'Text');
     // The found releases sit above it now: scroll the row into view (the
-    // page's list, not the page view the two segments swipe in).
+    // page's list, not the page view the tabs swipe in).
     await tester.scrollUntilVisible(
       find.text('The Hunt for Gollum'),
       200,

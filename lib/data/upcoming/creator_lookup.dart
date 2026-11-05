@@ -61,7 +61,7 @@ bool isNewWork(Released first, DateTime today) {
   return first.availableFrom.isAfter(day.subtract(const Duration(days: 365)));
 }
 
-/// A release the creator check found (Library › Coming soon: everything
+/// A release the creator check found (Library › Coming soon: Discover tab
 /// upcoming, as an Add row; the home lists only what the owner entered),
 /// kept on the device in `found_releases.json`, never in `library.json`.
 @immutable

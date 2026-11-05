@@ -7,6 +7,7 @@ import '../../data/preferences/preferences_store.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/entry_kind.dart';
 import '../../theme/app_theme.dart';
+import '../library/coming_soon_tab.dart';
 import '../library/library_sort.dart';
 import '../music/music_tab.dart';
 import 'entry_view.dart';
@@ -21,6 +22,7 @@ class DisplayPreferences {
     this.viewByType = const {},
     this.musicViewByTab = const {},
     this.comingSoonView = EntryView.text,
+    this.comingSoonTab = ComingSoonTab.library,
     this.sortByType = const {},
     this.filteredSort = LibrarySort.newestAdded,
     this.artistSort = LibrarySort.yearOldest,
@@ -44,9 +46,13 @@ class DisplayPreferences {
 
   /// The view of Library › Coming soon (Coming soon: list with covers),
   /// remembered for that page on its own; Text or List with covers, never
-  /// the grid. Both of its segments use it; the home's Coming soon section
-  /// stays text.
+  /// the grid. Its three tabs use it; the home's Coming soon section stays
+  /// text.
   final EntryView comingSoonView;
+
+  /// The tab of Library › Coming soon last picked (Coming soon: Library tab,
+  /// the default), which the page opens on.
+  final ComingSoonTab comingSoonTab;
 
   /// Sort per type's "See all" screen; missing means newest added.
   final Map<MediaType, LibrarySort> sortByType;
@@ -68,7 +74,7 @@ class DisplayPreferences {
   /// the same form.
   final Map<String, Set<String>> shownSeriesParts;
 
-  /// The rows of Library › Coming soon: everything that the
+  /// The rows of Library › Coming soon: Discover tab that the
   /// owner marked Not interested, by [UpcomingItem.id]: an entry's id, or
   /// `"<entry id>#<season>"` for a show's season. Parts of a series are
   /// hidden through [hiddenSeriesParts] instead.
@@ -111,6 +117,7 @@ class DisplayPreferences {
     Map<MediaType, EntryView>? viewByType,
     Map<MusicTab, EntryView>? musicViewByTab,
     EntryView? comingSoonView,
+    ComingSoonTab? comingSoonTab,
     Map<MediaType, LibrarySort>? sortByType,
     LibrarySort? filteredSort,
     LibrarySort? artistSort,
@@ -125,6 +132,7 @@ class DisplayPreferences {
     viewByType: viewByType ?? this.viewByType,
     musicViewByTab: musicViewByTab ?? this.musicViewByTab,
     comingSoonView: comingSoonView ?? this.comingSoonView,
+    comingSoonTab: comingSoonTab ?? this.comingSoonTab,
     sortByType: sortByType ?? this.sortByType,
     filteredSort: filteredSort ?? this.filteredSort,
     artistSort: artistSort ?? this.artistSort,
@@ -146,6 +154,7 @@ class DisplayPreferences {
       for (final e in musicViewByTab.entries) e.key.name: e.value.name,
     },
     'coming_soon_view': comingSoonView.name,
+    'coming_soon_tab': comingSoonTab.name,
     'sort': {for (final e in sortByType.entries) e.key.name: e.value.name},
     'filtered_sort': filteredSort.name,
     'artist_sort': artistSort.name,
@@ -205,6 +214,9 @@ class DisplayPreferences {
       comingSoonView:
           byName(EntryView.values, json['coming_soon_view']) ??
           defaults.comingSoonView,
+      comingSoonTab:
+          byName(ComingSoonTab.values, json['coming_soon_tab']) ??
+          defaults.comingSoonTab,
       sortByType: mapOf(json['sort'], MediaType.values, LibrarySort.values),
       filteredSort:
           byName(LibrarySort.values, json['filtered_sort']) ??
@@ -234,6 +246,7 @@ class DisplayPreferences {
       mapEquals(other.viewByType, viewByType) &&
       mapEquals(other.musicViewByTab, musicViewByTab) &&
       other.comingSoonView == comingSoonView &&
+      other.comingSoonTab == comingSoonTab &&
       mapEquals(other.sortByType, sortByType) &&
       other.filteredSort == filteredSort &&
       other.artistSort == artistSort &&
@@ -259,6 +272,7 @@ class DisplayPreferences {
       musicViewByTab.entries.map((e) => (e.key, e.value)),
     ),
     comingSoonView,
+    comingSoonTab,
     Object.hashAllUnordered(sortByType.entries.map((e) => (e.key, e.value))),
     filteredSort,
     artistSort,
@@ -321,6 +335,10 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
   void setComingSoonView(EntryView view) =>
       state = state.copyWith(comingSoonView: view);
 
+  void setComingSoonTab(ComingSoonTab tab) {
+    if (tab != state.comingSoonTab) state = state.copyWith(comingSoonTab: tab);
+  }
+
   void setArtistSort(LibrarySort sort) =>
       state = state.copyWith(artistSort: sort);
 
@@ -351,7 +369,7 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
     );
   }
 
-  /// Not interested on a row of Library › Coming soon: everything
+  /// Not interested on a row of Library › Coming soon: Discover tab
   /// (an entry or a season; a part goes through [setSeriesParts]). Since
   /// `settings.json` the keys live there (`SetNotInterested`); this stays
   /// for the carry-over of an older file.

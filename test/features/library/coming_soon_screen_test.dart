@@ -24,13 +24,16 @@ import 'package:library_app/features/entry/entry_details_sheet.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/series.dart';
 import 'package:library_app/features/library/coming_soon_screen.dart';
+import 'package:library_app/features/library/coming_soon_tab.dart';
 import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
 import 'package:library_app/widgets/cached_image.dart';
 import 'package:library_app/widgets/cover_image.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 
+import '../../helpers/pump.dart';
 import '../../helpers/pump_app.dart';
 
 void main() {
@@ -121,19 +124,33 @@ void main() {
     ],
   );
 
+  /// The page opens on the tab last picked: [tab] is that preference.
+  DisplayPreferences on(ComingSoonTab tab) =>
+      DisplayPreferences(comingSoonTab: tab);
+
   Future<ProviderContainer> pump(
     WidgetTester tester, {
-    bool everything = false,
+    ComingSoonTab tab = ComingSoonTab.library,
     DisplayPreferences? prefs,
   }) => pumpApp(
     tester,
-    ComingSoonScreen(startEverything: everything),
+    const ComingSoonScreen(),
     library: library(),
-    prefs: prefs,
+    prefs: prefs ?? on(tab),
     lookupOverrides: fakeLookupOverrides(
       upcomingParts: MemoryUpcomingPartsStore(const [gollum]),
     ),
   );
+
+  UnderlineTabs<ComingSoonTab> tabBar(WidgetTester tester) =>
+      tester.widget(find.byType(UnderlineTabs<ComingSoonTab>));
+
+  /// The tabs as they read, "Library 2 · Discover 2 · All 4".
+  String tabs(WidgetTester tester) =>
+      [for (final tab in tabBar(tester).tabs) '${tab.label} ${tab.count}']
+          .join(' · ');
+
+  ComingSoonTab selected(WidgetTester tester) => tabBar(tester).selected;
 
   Finder row(String title) =>
       find.ancestor(of: find.text(title), matching: find.byType(HomeRow));
@@ -141,12 +158,15 @@ void main() {
   Finder cover(String? url) =>
       find.byWidgetPredicate((w) => w is CachedImage && w.url == url);
 
-  testWidgets('In library lists what the owner wants, by month', (
-    tester,
-  ) async {
+  testWidgets('Library lists what the owner wants, by month', (tester) async {
     await pump(tester);
     expect(find.text('Coming soon'), findsOneWidget);
-    expect(find.text('2 in your library'), findsOneWidget);
+    expect(tabs(tester), 'Library 2 · Discover 2 · All 4');
+    expect(selected(tester), ComingSoonTab.library);
+    expect(isSelected(tester, find.text('Library')), isTrue);
+    expect(isSelected(tester, find.text('Discover')), isFalse);
+    // No line under the title, and no paragraph under the tabs.
+    expect(find.textContaining('in your library'), findsNothing);
     expect(find.text('DECEMBER'), findsOneWidget);
     expect(find.text('Werwulf'), findsOneWidget);
     expect(find.text('Movie · Robert Eggers'), findsOneWidget);
@@ -154,7 +174,7 @@ void main() {
     expect(find.text('DATE NOT SET'), findsOneWidget);
     expect(find.text('The Winds of Winter'), findsOneWidget);
     expect(find.text('Date not set'), findsOneWidget);
-    // Not wanted: only in Everything.
+    // Not wanted: under Discover and All.
     expect(find.text('Stranger Things'), findsNothing);
     expect(find.text('The Hunt for Gollum'), findsNothing);
     expect(find.text('Want'), findsNothing);
@@ -166,22 +186,44 @@ void main() {
     expect(find.byType(EntryDetailsSheet), findsOneWidget);
   });
 
-  testWidgets('Everything adds seasons and parts with Want or Add', (
+  testWidgets('Discover lists what is not wanted, each with Add', (
     tester,
   ) async {
     await pump(tester);
-    await tester.tap(find.text('Everything'));
+    await tester.tap(find.text('Discover'));
     await tester.pumpAndSettle();
-    expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
+    expect(selected(tester), ComingSoonTab.discover);
     expect(find.text('NOVEMBER'), findsOneWidget);
     expect(find.text('Stranger Things'), findsOneWidget);
     expect(find.text('Show · Season 5'), findsOneWidget);
     expect(find.text('Nov 26'), findsOneWidget);
-    expect(find.text('DECEMBER'), findsOneWidget);
     expect(find.text('DECEMBER 2027'), findsOneWidget);
     expect(find.text('The Hunt for Gollum'), findsOneWidget);
     expect(find.text('Movie · The Lord of the Rings'), findsOneWidget);
     expect(find.text('Dec 17, 2027'), findsOneWidget);
+    // Nothing the owner wants.
+    expect(find.text('Werwulf'), findsNothing);
+    expect(find.text('The Winds of Winter'), findsNothing);
+    expect(find.text('DATE NOT SET'), findsNothing);
+    expect(find.text('Want'), findsNothing);
+    expect(find.text('Add'), findsNWidgets(2));
+    // No explanatory paragraph.
+    expect(find.textContaining('Tap one to add it'), findsNothing);
+
+    // An Add row opens the add sheet.
+    await tester.tap(row('The Hunt for Gollum'));
+    await tester.pumpAndSettle();
+    expect(find.byType(UpcomingAddSheet), findsOneWidget);
+  });
+
+  testWidgets('All lists both, each with Want or Add', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    expect(selected(tester), ComingSoonTab.all);
+    expect(find.text('NOVEMBER'), findsOneWidget);
+    expect(find.text('DECEMBER'), findsOneWidget);
+    expect(find.text('DECEMBER 2027'), findsOneWidget);
     expect(find.text('Want'), findsNWidgets(2));
     expect(find.text('Add'), findsNWidgets(2));
     // The order on screen: the rows by date, undated last.
@@ -197,38 +239,78 @@ void main() {
     ]);
   });
 
-  testWidgets('opens on Everything when asked', (tester) async {
-    await pump(tester, everything: true);
-    expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
-    await tester.tap(find.text('In library'));
+  testWidgets('the tab picked is remembered', (tester) async {
+    final container = await pump(tester);
+    ComingSoonTab stored() =>
+        container.read(displayPreferencesProvider).comingSoonTab;
+    expect(stored(), ComingSoonTab.library);
+    // Library to All passes Discover on the way: it is never picked.
+    final seen = <ComingSoonTab>[];
+    container.listen(
+      displayPreferencesProvider.select((p) => p.comingSoonTab),
+      (_, tab) => seen.add(tab),
+    );
+    await tester.tap(find.text('All'));
     await tester.pumpAndSettle();
-    expect(find.text('2 in your library'), findsOneWidget);
+    expect(seen, [ComingSoonTab.all]);
+    expect(find.text('Want'), findsNWidgets(2));
+
+    await tester.tap(find.text('Discover'));
+    await tester.pumpAndSettle();
+    expect(stored(), ComingSoonTab.discover);
   });
 
-  testWidgets('a swipe moves between the segments', (tester) async {
-    await pump(tester);
-    expect(find.text('2 in your library'), findsOneWidget);
+  testWidgets('opens on the tab last picked', (tester) async {
+    await pump(tester, tab: ComingSoonTab.discover);
+    expect(selected(tester), ComingSoonTab.discover);
+    expect(isSelected(tester, find.text('Discover')), isTrue);
+    expect(find.text('Stranger Things'), findsOneWidget);
+    expect(find.text('Werwulf'), findsNothing);
+    await tester.tap(find.text('Library'));
+    await tester.pumpAndSettle();
+    expect(find.text('Werwulf'), findsOneWidget);
+    expect(find.text('Stranger Things'), findsNothing);
+  });
+
+  testWidgets('a swipe moves between the tabs', (tester) async {
+    final container = await pump(tester);
+    expect(selected(tester), ComingSoonTab.library);
     expect(find.text('Stranger Things'), findsNothing);
 
-    // Left: Everything, with the Add rows.
+    // Left: Discover, with the Add rows, then All.
     await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
-    expect(find.text('4 upcoming · 2 not in your library'), findsOneWidget);
+    expect(selected(tester), ComingSoonTab.discover);
     expect(find.text('Stranger Things'), findsOneWidget);
+    expect(find.text('Werwulf'), findsNothing);
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(selected(tester), ComingSoonTab.all);
+    expect(find.text('Werwulf'), findsOneWidget);
+    // Remembered like a tap.
+    expect(
+      container.read(displayPreferencesProvider).comingSoonTab,
+      ComingSoonTab.all,
+    );
 
-    // Right: back to In library. Nothing past the ends.
+    // Nothing past the ends; right goes back to Library.
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(selected(tester), ComingSoonTab.all);
     await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
-    expect(find.text('2 in your library'), findsOneWidget);
     await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
-    expect(find.text('2 in your library'), findsOneWidget);
+    expect(selected(tester), ComingSoonTab.library);
+    await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(selected(tester), ComingSoonTab.library);
   });
 
   testWidgets(
     'an Add row opens the add sheet; Add to library sets a season Want',
     (tester) async {
-      final container = await pump(tester, everything: true);
+      final container = await pump(tester, tab: ComingSoonTab.all);
       await tester.tap(row('Stranger Things'));
       await tester.pumpAndSettle();
       expect(find.byType(UpcomingAddSheet), findsOneWidget);
@@ -259,7 +341,8 @@ void main() {
         show.seasons!.singleWhere((s) => s.season == 5).status,
         EntryStatus.want,
       );
-      expect(find.text('4 upcoming · 1 not in your library'), findsOneWidget);
+      // The season moved from Discover to Library.
+      expect(tabs(tester), 'Library 3 · Discover 1 · All 4');
       expect(find.text('Want'), findsNWidgets(3));
       expect(find.text('Add'), findsOneWidget);
     },
@@ -268,7 +351,7 @@ void main() {
   testWidgets('Add to library on a part starts a new entry for it', (
     tester,
   ) async {
-    await pump(tester, everything: true);
+    await pump(tester, tab: ComingSoonTab.discover);
     await tester.tap(row('The Hunt for Gollum'));
     await tester.pumpAndSettle();
     expect(find.text('MOVIE · DEC 17, 2027'), findsOneWidget);
@@ -302,7 +385,7 @@ void main() {
     'the sheet shows the cover the check recorded, fetched when it opens, '
     'and the form starts with it',
     (tester) async {
-      final container = await pump(tester, everything: true);
+      final container = await pump(tester, tab: ComingSoonTab.discover);
       final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
       // The list is text rows: nothing is fetched for it.
       expect(fetcher.fetched, isEmpty);
@@ -333,8 +416,9 @@ void main() {
   ) async {
     await pumpApp(
       tester,
-      const ComingSoonScreen(startEverything: true),
+      const ComingSoonScreen(),
       library: library(),
+      prefs: on(ComingSoonTab.discover),
       lookupOverrides: fakeLookupOverrides(
         upcomingParts: MemoryUpcomingPartsStore(const [
           UpcomingPart(
@@ -378,14 +462,15 @@ void main() {
     );
     final container = await pumpApp(
       tester,
-      const ComingSoonScreen(startEverything: true),
+      const ComingSoonScreen(),
       library: library(),
+      prefs: on(ComingSoonTab.discover),
       lookupOverrides: fakeLookupOverrides(
         upcomingParts: MemoryUpcomingPartsStore(const [gollum]),
         foundReleases: MemoryFoundReleaseStore([found]),
       ),
     );
-    expect(find.text('5 upcoming · 3 not in your library'), findsOneWidget);
+    expect(tabs(tester), 'Library 2 · Discover 3 · All 5');
     expect(find.text('Rainier Fog II'), findsOneWidget);
     expect(find.text('Music · Alice in Chains'), findsOneWidget);
     expect(find.text('Nov 20'), findsOneWidget);
@@ -438,8 +523,9 @@ void main() {
     Future<void> open(WidgetTester tester, ReleaseDates setting) async {
       await pumpApp(
         tester,
-        const ComingSoonScreen(startEverything: true),
+        const ComingSoonScreen(),
         library: library(),
+        prefs: on(ComingSoonTab.discover),
         settings: AppSettings(releaseDates: setting),
         lookupOverrides: fakeLookupOverrides(
           foundReleases: MemoryFoundReleaseStore([found]),
@@ -471,13 +557,13 @@ void main() {
   testWidgets('Not interested hides the row: a part through its series', (
     tester,
   ) async {
-    final container = await pump(tester, everything: true);
+    final container = await pump(tester, tab: ComingSoonTab.discover);
     await tester.tap(row('The Hunt for Gollum'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Not interested'));
     await tester.pumpAndSettle();
     expect(find.text('The Hunt for Gollum'), findsNothing);
-    expect(find.text('3 upcoming · 1 not in your library'), findsOneWidget);
+    expect(tabs(tester), 'Library 2 · Discover 1 · All 3');
     expect(
       container
           .read(displayPreferencesProvider)
@@ -490,7 +576,8 @@ void main() {
     await tester.tap(find.text('Not interested'));
     await tester.pumpAndSettle();
     expect(find.text('Stranger Things'), findsNothing);
-    expect(find.text('2 upcoming · 0 not in your library'), findsOneWidget);
+    expect(tabs(tester), 'Library 2 · Discover 0 · All 2');
+    expect(find.text(ComingSoonScreen.emptyDiscover), findsOneWidget);
     expect(
       (await container.read(libraryRepositoryProvider).loadSettings())
           .notInterested,
@@ -501,7 +588,7 @@ void main() {
   testWidgets(
     'the view menu offers Text and List with covers, remembered for the page',
     (tester) async {
-      final container = await pump(tester, everything: true);
+      final container = await pump(tester, tab: ComingSoonTab.all);
       final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
       expect(find.byType(CoverTint), findsNothing);
       await tester.tap(find.byTooltip('Change view'));
@@ -531,8 +618,8 @@ void main() {
       }
       expect(fetcher.fetched, contains(gollumCover));
 
-      // The other segment uses the same view.
-      await tester.tap(find.text('In library'));
+      // The other tabs use the same view.
+      await tester.tap(find.text('Library'));
       await tester.pumpAndSettle();
       expect(find.byType(CoverImage), findsNWidgets(2));
       expect(find.text('The Winds of Winter'), findsOneWidget);
@@ -579,11 +666,13 @@ void main() {
         ],
       ),
     );
-    expect(find.text('0 in your library'), findsOneWidget);
-    expect(find.text(ComingSoonScreen.emptyWants), findsOneWidget);
-    await tester.tap(find.text('Everything'));
+    expect(tabs(tester), 'Library 0 · Discover 0 · All 0');
+    expect(find.text(ComingSoonScreen.emptyLibrary), findsOneWidget);
+    await tester.tap(find.text('Discover'));
     await tester.pumpAndSettle();
-    expect(find.text('0 upcoming · 0 not in your library'), findsOneWidget);
-    expect(find.text(ComingSoonScreen.emptyEverything), findsOneWidget);
+    expect(find.text(ComingSoonScreen.emptyDiscover), findsOneWidget);
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    expect(find.text(ComingSoonScreen.emptyAll), findsOneWidget);
   });
 }

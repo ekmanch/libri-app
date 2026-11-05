@@ -173,9 +173,11 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
   await a.step('home', () => a.check('Library › Home'));
   await a.step('coming soon', () async {
     await a.tapText('See all');
-    await a.check('Library › Coming soon: in library');
-    await a.tapText('Everything');
-    await a.check('Library › Coming soon: everything');
+    await a.check('Library › Coming soon: Library tab');
+    await a.tapText('Discover');
+    await a.check('Library › Coming soon: Discover tab');
+    await a.tapText('All');
+    await a.check('Library › Coming soon: All tab');
     await a.tapText('The Hunt for Gollum');
     await a.check('Library › Coming soon: add an upcoming entry');
     Navigator.of(

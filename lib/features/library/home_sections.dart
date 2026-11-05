@@ -41,7 +41,7 @@ enum HomeSectionKind {
 /// ("Stephen King", "Season 2", "2024"), and what stands on the right ("Nov
 /// 10", "Today"), [emphasized] in the text color rather than the muted one
 /// (every date is; only Coming soon's "Date not set" stays muted).
-/// Library › Coming soon: everything puts an [action] under it
+/// Library › Coming soon: All tab puts an [action] under it
 /// ("Want" in the accent when [actionEmphasized], else "Add" muted), and
 /// rows there for a part not in the library have no entry ([HomeRowData.text]).
 @immutable
@@ -178,7 +178,7 @@ bool wantsRelease(Entry entry, Season? season) =>
 /// entries as the Series section matches them), not hidden by the owner in
 /// Choose what to show ([prefs]), and not an extra of the automatic rules
 /// the owner has not shown. The home does not list them (only entries set
-/// Want, [wantsRelease]); Library › Coming soon: everything does
+/// Want, [wantsRelease]); Library › Coming soon: Discover tab does
 /// (`upcomingItems` in `upcoming.dart`).
 List<UpcomingPart> upcomingPartsToShow(
   List<UpcomingPart> parts, {
@@ -269,7 +269,7 @@ HomeSection _comingSoon(
       ),
     ));
   }
-  // The order of Library › Coming soon: in library (`compareUpcoming`), so
+  // The order of Library › Coming soon: Library tab (`compareUpcoming`), so
   // the home is the first rows of that list: by the first day the release
   // counts as out (within a month the exact dates come before the month
   // alone), then by title.
@@ -377,7 +377,7 @@ String addedLabel(DateTime added, {required DateTime today}) {
 /// One row of a home section (Library › Home): the title, a dot in the
 /// type's color before "Type · detail", and the date or when on the right,
 /// with the row's action under it when it has one (Library › Coming soon:
-/// everything). No chevron.
+/// Discover tab). No chevron.
 class HomeRow extends StatelessWidget {
   const HomeRow(
     this.row, {
