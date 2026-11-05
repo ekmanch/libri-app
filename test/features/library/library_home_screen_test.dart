@@ -27,7 +27,10 @@ import 'package:library_app/features/library/tag_list_screen.dart';
 import 'package:library_app/data/models/tag_category.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
+import 'package:library_app/features/library/view_menu.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/cover_image.dart';
+import 'package:library_app/widgets/page_header.dart';
 import 'package:library_app/widgets/tag_group.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/widgets/labels.dart';
@@ -78,7 +81,12 @@ void main() {
     'All: the plan, then Coming soon, In progress and Recently added',
     (tester) async {
       fixHomeDay();
-      await pumpApp(tester, const LibraryHomeScreen());
+      // In the text view, where the first rows of all three sections fit.
+      await pumpApp(
+        tester,
+        const LibraryHomeScreen(),
+        prefs: const DisplayPreferences(homeView: EntryView.text),
+      );
       expect(find.text('ACTIVE PLAN'), findsOneWidget);
       expect(find.text('Halloween 2026'), findsOneWidget);
       expect(find.text('Search titles and tags'), findsOneWidget);
@@ -175,6 +183,128 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.byType(ComingSoonScreen), findsNothing);
+  });
+
+  testWidgets('the home opens as a list with covers; the view menu beside the '
+      'gear offers that and Text, remembered for the home on its own', (
+    tester,
+  ) async {
+    fixHomeDay();
+    final container = await pumpApp(tester, const LibraryHomeScreen());
+    DisplayPreferences prefs() => container.read(displayPreferencesProvider);
+    expect(prefs().homeView, EntryView.listWithPhotos);
+
+    // Every row has a cover on its left, 40 wide with 8 above and below.
+    final rows = tester.widgetList<HomeRow>(find.byType(HomeRow)).toList();
+    expect(rows, isNotEmpty);
+    expect(find.byType(CoverImage), findsNWidgets(rows.length));
+    for (final row in rows) {
+      expect((row.leading! as CoverImage).entry.id, row.row.id);
+      expect(row.padding, HomeRow.homeCoverPadding);
+    }
+    final first = find.byType(CoverImage).first;
+    expect(tester.getSize(first).width, HomeRow.homeCoverWidth);
+    expect(
+      tester.getTopLeft(first).dx,
+      lessThan(tester.getTopLeft(find.text('Grand Theft Auto VI')).dx),
+    );
+    // A row with a poster: its 60 and the 8s over the divider, not 56.
+    expect(tester.getSize(find.byType(HomeRow).first).height, 77);
+
+    // The button sits right before the gear.
+    final button = find.byTooltip('Change view');
+    expect(button, findsOneWidget);
+    expect(
+      tester.getTopRight(button).dx,
+      lessThanOrEqualTo(tester.getTopLeft(find.byTooltip('Settings')).dx),
+    );
+    expect(
+      tester.getCenter(button).dy,
+      tester.getCenter(find.byTooltip('Settings')).dy,
+    );
+
+    // The menu: List with covers first, then Text, and no grid.
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.text('VIEW'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('List with covers')).dy,
+      lessThan(tester.getTopLeft(find.text('Text')).dy),
+    );
+    expect(find.text('Grid with covers'), findsNothing);
+
+    await tester.tap(find.text('Text'));
+    await tester.pumpAndSettle();
+    expect(prefs().homeView, EntryView.text);
+    expect(find.byType(CoverImage), findsNothing);
+    expect(find.byType(CoverTint), findsNothing);
+    expect(tester.getSize(find.byType(HomeRow).first).height, 56);
+    // On its own: the types and the Coming soon page keep their views.
+    expect(prefs().viewByType, isEmpty);
+    expect(prefs().comingSoonView, EntryView.text);
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('List with covers'));
+    await tester.pumpAndSettle();
+    expect(prefs().homeView, EntryView.listWithPhotos);
+    expect(find.byType(CoverImage), findsWidgets);
+  });
+
+  testWidgets('all three sections follow the home view', (tester) async {
+    fixHomeDay();
+    await pumpApp(tester, const LibraryHomeScreen());
+    final scrollable = find.byType(Scrollable).first;
+    final sections = homeSections(
+      fixture.entries.where((e) => !e.seasonalOnly),
+      today: homeDay,
+    );
+    expect(sections.map((s) => s.kind), HomeSectionKind.values);
+    for (final section in sections) {
+      final row = find.byKey(
+        ValueKey('home-${section.kind.name}-${section.rows.first.id}'),
+      );
+      await tester.scrollUntilVisible(row, 200, scrollable: scrollable);
+      expect(tester.widget<HomeRow>(row).leading, isA<CoverImage>());
+    }
+  });
+
+  testWidgets('the home opens in the remembered view', (tester) async {
+    fixHomeDay();
+    await pumpApp(
+      tester,
+      const LibraryHomeScreen(),
+      prefs: const DisplayPreferences(homeView: EntryView.text),
+    );
+    expect(find.byType(HomeRow), findsWidgets);
+    expect(find.byType(CoverImage), findsNothing);
+  });
+
+  testWidgets('the header has the view button on Home only', (tester) async {
+    fixHomeDay();
+    final container = await pumpApp(tester, const LibraryHomeScreen());
+    bool inHeader() => find
+        .descendant(
+          of: find.byType(PageHeader),
+          matching: find.byType(ViewMenuButton),
+        )
+        .evaluate()
+        .isNotEmpty;
+    expect(inHeader(), isTrue);
+
+    // A type has its own view button, in the count row.
+    await pickChip(tester, 'Movies');
+    expect(inHeader(), isFalse);
+    expect(find.byTooltip('Change view'), findsOneWidget);
+    await pickChip(tester, 'Home');
+    expect(inHeader(), isTrue);
+
+    // Filter results have none.
+    container
+        .read(libraryFilterProvider.notifier)
+        .set(const LibraryFilter(statuses: {EntryStatus.inProgress}));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Change view'), findsNothing);
   });
 
   testWidgets('with nothing coming, going or new the home says so', (

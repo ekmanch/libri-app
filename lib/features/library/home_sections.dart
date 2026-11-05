@@ -10,6 +10,8 @@ import '../../data/models/release_dates.dart';
 import '../../data/models/released.dart';
 import '../../data/models/season.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/cover_image.dart';
+import '../../widgets/cover_placeholder.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/row_ink_well.dart';
@@ -394,12 +396,29 @@ class HomeRow extends StatelessWidget {
   /// 56 on the home, 60 on the Coming soon screen, as the canvas draws them.
   final double minHeight;
 
-  /// A small cover before the text (Library › Coming soon: list with
-  /// covers).
+  /// A small cover before the text (Library › Home; Library › Coming soon:
+  /// list with covers), such as [HomeRow.cover].
   final Widget? leading;
 
-  /// Room around the row's content: 10 above and below a cover.
+  /// Room around the row's content: 8 above and below a cover on the home,
+  /// 10 on the Coming soon screen.
   final EdgeInsets padding;
+
+  /// The cover's width on the home in List with covers, as the canvas draws
+  /// it (40 × 60 for a poster, square for an album).
+  static const homeCoverWidth = 40.0;
+
+  /// Room above and below a cover on the home.
+  static const homeCoverPadding = EdgeInsets.symmetric(vertical: 8);
+
+  /// [entry]'s cover, [width] wide, for [leading]: fetched and cached when
+  /// the row comes on screen; without art, a plain tile tinted in the
+  /// type's color, since the title is right next to it.
+  static Widget cover(Entry entry, {required double width}) => CoverImage(
+    entry: entry,
+    width: width,
+    placeholder: CoverTint(type: entry.type, width: width),
+  );
 
   @override
   Widget build(BuildContext context) {

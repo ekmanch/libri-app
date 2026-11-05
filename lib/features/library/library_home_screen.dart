@@ -224,6 +224,9 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     // The top of the screen, as the first slivers of whichever body shows;
     // all of it scrolls away.
     final showChips = library != null && !filter.isActive;
+    // The home's own view button sits beside the gear, on Home only
+    // (Library › Home: view menu); a type's is in its count row.
+    final onHome = showChips && type == null;
     final header = <Widget>[
       SliverToBoxAdapter(
         child: Column(
@@ -231,7 +234,18 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
           children: [
             PageHeader(
               title: 'Library',
-              actions: [SettingsButton(onPressed: _openSettings)],
+              actions: [
+                if (onHome)
+                  ViewMenuButton(
+                    current: prefs.homeView,
+                    views: DisplayPreferences.homeViews,
+                    muted: true,
+                    onChanged: ref
+                        .read(displayPreferencesProvider.notifier)
+                        .setHomeView,
+                  ),
+                SettingsButton(onPressed: _openSettings),
+              ],
             ),
             const SyncBannerCard(),
             Padding(
@@ -289,7 +303,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     } else if (filter.isActive) {
       body = _filtered(header, library, filter, prefs, colors);
     } else if (type == null) {
-      body = _home(header, library, filter, colors);
+      body = _home(header, library, filter, prefs, colors);
     } else {
       body = _oneType(header, library, type, filter, prefs);
     }
@@ -340,13 +354,17 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
 
   /// All: the active plan, then Coming soon, In progress and Recently added
   /// (Library › Home), each only when it has something, up to ten rows; the
-  /// hint when none has (Library › Home: nothing to show).
+  /// hint when none has (Library › Home: nothing to show). In List with
+  /// covers every row of the three sections has a small cover on the left
+  /// (Library › Home), in Text none (Library › Home: text view).
   Widget _home(
     List<Widget> header,
     Library library,
     LibraryFilter filter,
+    DisplayPreferences prefs,
     LibraryColors colors,
   ) {
+    final covers = prefs.homeView == EntryView.listWithPhotos;
     final plan = activePlan(library);
     final visible = filter.apply(library.entries);
     final sections = homeSections(
@@ -387,6 +405,10 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
           HomeRow(
             row,
             key: ValueKey('home-${section.kind.name}-${row.id}'),
+            leading: covers
+                ? HomeRow.cover(row.entry!, width: HomeRow.homeCoverWidth)
+                : null,
+            padding: covers ? HomeRow.homeCoverPadding : EdgeInsets.zero,
             onTap: () => widget.onOpenEntry?.call(row.entry!),
           ),
         );

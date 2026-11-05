@@ -7,6 +7,7 @@ import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/preferences/preferences_store.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
+import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/library/coming_soon_tab.dart';
 import 'package:library_app/features/library/library_sort.dart';
 import 'package:library_app/features/music/music_tab.dart';
@@ -22,6 +23,8 @@ void main() {
     final text = File(FixtureLibraryRepository.assetPath).readAsStringSync();
     final container = ProviderContainer(
       overrides: [
+        // The home shows covers (Library › Home), so the lookups are faked.
+        ...fakeLookupOverrides(),
         libraryRepositoryProvider.overrideWithValue(
           FixtureLibraryRepository(loadJson: () async => text),
         ),
@@ -79,6 +82,7 @@ void main() {
     viewByType: const {MediaType.movies: EntryView.grid},
     musicViewByTab: const {MusicTab.songs: EntryView.listWithPhotos},
     comingSoonView: EntryView.listWithPhotos,
+    homeView: EntryView.text,
     comingSoonTab: ComingSoonTab.discover,
     sortByType: const {MediaType.books: LibrarySort.titleAz},
     filteredSort: LibrarySort.yearNewest,
@@ -108,6 +112,8 @@ void main() {
       'accent': 'vivid/Plaid',
       'view': {'movies': 'carousel', 'podcasts': 'grid', 'books': 'grid'},
       'coming_soon_view': 'carousel',
+      // The home has no grid.
+      'home_view': 'grid',
       'coming_soon_tab': 'everything',
       'sort': 'titleAz',
       'timeline_default': 'yes',
@@ -120,6 +126,7 @@ void main() {
     expect(prefs.accent, Accents.hotPink);
     expect(prefs.viewByType, {MediaType.books: EntryView.grid});
     expect(prefs.comingSoonView, EntryView.text);
+    expect(prefs.homeView, EntryView.listWithPhotos);
     expect(prefs.comingSoonTab, ComingSoonTab.library);
     expect(prefs.sortByType, isEmpty);
     expect(prefs.hiddenSeriesParts, isEmpty);

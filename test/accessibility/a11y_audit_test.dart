@@ -170,7 +170,14 @@ class _Audit {
 
 Future<void> _walk(_Audit a, ProviderContainer container) async {
   final tester = a.tester;
-  await a.step('home', () => a.check('Library › Home'));
+  await a.step('home', () async {
+    await a.check('Library › Home');
+    await a.tap(find.byTooltip('Change view'));
+    await a.check('Library › Home: view menu');
+    await a.tapText('Text');
+    await a.check('Library › Home: text view');
+    await a.pickView('List with covers');
+  });
   await a.step('coming soon', () async {
     await a.tapText('See all');
     await a.check('Library › Coming soon: Library tab');

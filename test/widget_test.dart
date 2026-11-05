@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
+import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/main.dart';
 
 void main() {
@@ -16,6 +17,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          // The home shows covers (Library › Home), so the lookups are faked.
+          ...fakeLookupOverrides(),
           libraryRepositoryProvider.overrideWithValue(
             FixtureLibraryRepository(loadJson: () async => text),
           ),

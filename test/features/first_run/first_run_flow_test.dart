@@ -427,6 +427,8 @@ void main() {
   ) async {
     final container = ProviderContainer(
       overrides: [
+        // The home shows covers (Library › Home), so the lookups are faked.
+        ...fakeLookupOverrides(),
         libraryRepositoryProvider.overrideWithValue(
           FixtureLibraryRepository(
             loadJson: () async => encodeLibrary(loadFixture()),
@@ -465,6 +467,8 @@ void main() {
       'keeping it stays on the shell', (tester) async {
     final container = ProviderContainer(
       overrides: [
+        // The home shows covers (Library › Home), so the lookups are faked.
+        ...fakeLookupOverrides(),
         libraryRepositoryProvider.overrideWithValue(
           FixtureLibraryRepository(
             loadJson: () async => encodeLibrary(loadFixture()),

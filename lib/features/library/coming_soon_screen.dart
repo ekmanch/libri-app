@@ -409,20 +409,15 @@ class _UpcomingPageState extends State<_UpcomingPage>
 
   Widget? _cover(UpcomingItem item) {
     if (widget.view != EntryView.listWithPhotos) return null;
-    final tint = CoverTint(type: item.type, width: _UpcomingPage.coverWidth);
     if (item.entry case final entry?) {
-      return CoverImage(
-        entry: entry,
-        width: _UpcomingPage.coverWidth,
-        placeholder: tint,
-      );
+      return HomeRow.cover(entry, width: _UpcomingPage.coverWidth);
     }
     return CachedImage(
       url: item.coverUrl,
       width: _UpcomingPage.coverWidth,
       height:
           _UpcomingPage.coverWidth / CoverPlaceholder.aspectRatio(item.type),
-      placeholder: tint,
+      placeholder: CoverTint(type: item.type, width: _UpcomingPage.coverWidth),
       borderRadius: BorderRadius.circular(8),
     );
   }

@@ -22,6 +22,7 @@ class DisplayPreferences {
     this.viewByType = const {},
     this.musicViewByTab = const {},
     this.comingSoonView = EntryView.text,
+    this.homeView = EntryView.listWithPhotos,
     this.comingSoonTab = ComingSoonTab.library,
     this.sortByType = const {},
     this.filteredSort = LibrarySort.newestAdded,
@@ -46,9 +47,16 @@ class DisplayPreferences {
 
   /// The view of Library › Coming soon (Coming soon: list with covers),
   /// remembered for that page on its own; Text or List with covers, never
-  /// the grid. Its three tabs use it; the home's Coming soon section stays
-  /// text.
+  /// the grid. Its three tabs use it; the home has its own, [homeView].
   final EntryView comingSoonView;
+
+  /// The view of Library › Home (Home: view menu), remembered for the home
+  /// on its own: List with covers (the default) or Text, never the grid. Its
+  /// three sections follow it.
+  final EntryView homeView;
+
+  /// The views the home offers, in the order of its menu.
+  static const homeViews = [EntryView.listWithPhotos, EntryView.text];
 
   /// The tab of Library › Coming soon last picked (Coming soon: Library tab,
   /// the default), which the page opens on.
@@ -117,6 +125,7 @@ class DisplayPreferences {
     Map<MediaType, EntryView>? viewByType,
     Map<MusicTab, EntryView>? musicViewByTab,
     EntryView? comingSoonView,
+    EntryView? homeView,
     ComingSoonTab? comingSoonTab,
     Map<MediaType, LibrarySort>? sortByType,
     LibrarySort? filteredSort,
@@ -132,6 +141,7 @@ class DisplayPreferences {
     viewByType: viewByType ?? this.viewByType,
     musicViewByTab: musicViewByTab ?? this.musicViewByTab,
     comingSoonView: comingSoonView ?? this.comingSoonView,
+    homeView: homeView ?? this.homeView,
     comingSoonTab: comingSoonTab ?? this.comingSoonTab,
     sortByType: sortByType ?? this.sortByType,
     filteredSort: filteredSort ?? this.filteredSort,
@@ -154,6 +164,7 @@ class DisplayPreferences {
       for (final e in musicViewByTab.entries) e.key.name: e.value.name,
     },
     'coming_soon_view': comingSoonView.name,
+    'home_view': homeView.name,
     'coming_soon_tab': comingSoonTab.name,
     'sort': {for (final e in sortByType.entries) e.key.name: e.value.name},
     'filtered_sort': filteredSort.name,
@@ -214,6 +225,8 @@ class DisplayPreferences {
       comingSoonView:
           byName(EntryView.values, json['coming_soon_view']) ??
           defaults.comingSoonView,
+      // The home has no grid: one stored by hand is no value.
+      homeView: byName(homeViews, json['home_view']) ?? defaults.homeView,
       comingSoonTab:
           byName(ComingSoonTab.values, json['coming_soon_tab']) ??
           defaults.comingSoonTab,
@@ -246,6 +259,7 @@ class DisplayPreferences {
       mapEquals(other.viewByType, viewByType) &&
       mapEquals(other.musicViewByTab, musicViewByTab) &&
       other.comingSoonView == comingSoonView &&
+      other.homeView == homeView &&
       other.comingSoonTab == comingSoonTab &&
       mapEquals(other.sortByType, sortByType) &&
       other.filteredSort == filteredSort &&
@@ -272,6 +286,7 @@ class DisplayPreferences {
       musicViewByTab.entries.map((e) => (e.key, e.value)),
     ),
     comingSoonView,
+    homeView,
     comingSoonTab,
     Object.hashAllUnordered(sortByType.entries.map((e) => (e.key, e.value))),
     filteredSort,
@@ -334,6 +349,8 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
 
   void setComingSoonView(EntryView view) =>
       state = state.copyWith(comingSoonView: view);
+
+  void setHomeView(EntryView view) => state = state.copyWith(homeView: view);
 
   void setComingSoonTab(ComingSoonTab tab) {
     if (tab != state.comingSoonTab) state = state.copyWith(comingSoonTab: tab);

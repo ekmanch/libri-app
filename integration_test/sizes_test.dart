@@ -176,7 +176,13 @@ class _Walk {
 
 Future<void> _walk(_Walk w) async {
   final tester = w.tester;
-  await w.step('a1-home', () => w.shot('a1-home'));
+  await w.step('a1-home', () async {
+    await w.shot('a1-home');
+    // Library › Home: text view, then back to the list with covers.
+    await w.pickView('Text');
+    await w.shot('a1l-home-text');
+    await w.pickView('List with covers');
+  });
   await w.step('a4 and a21', () async {
     await w.pickChip('Movies');
     await w.shot('a4-movies-text');

@@ -19,14 +19,19 @@ class ViewMenuButton extends StatelessWidget {
     required this.onChanged,
     this.photos = false,
     this.views = EntryView.values,
+    this.muted = false,
   });
 
   final EntryView current;
   final ValueChanged<EntryView> onChanged;
 
-  /// The choices offered; Library › Coming soon: view menu leaves out the
-  /// grid.
+  /// The choices offered, in the menu's order; Library › Coming soon: view
+  /// menu and Library › Home: view menu leave out the grid.
   final List<EntryView> views;
+
+  /// Drawn like the Settings gear it sits beside in the home's header
+  /// (Library › Home): in the muted gray, at the gear's 22 px.
+  final bool muted;
 
   /// Artists and songs say "with photos"; everything else "with covers".
   final bool photos;
@@ -121,8 +126,9 @@ class ViewMenuButton extends StatelessWidget {
     return IconButton(
       onPressed: () => _open(context),
       tooltip: 'Change view',
-      color: Theme.of(context).colorScheme.onSurface,
-      icon: StrokeIcon(viewIcon(current), size: 20),
+      // Without a color the button takes the theme's muted gray.
+      color: muted ? null : Theme.of(context).colorScheme.onSurface,
+      icon: StrokeIcon(viewIcon(current), size: muted ? 22 : 20),
     );
   }
 }

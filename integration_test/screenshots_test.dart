@@ -903,10 +903,25 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // Library › Home opens as a list with covers; then Home: view menu and
+    // Home: text view, and back to the covers for the rest of the walk.
+    await waitForImages(tester, count: 3);
     await capture(tester, 'a1-home-dark');
-    // Scrolled to the end, for Recently added.
-    await tester.drag(find.byType(HomeRow).first, const Offset(0, -1200));
+    await tester.tap(find.byTooltip('Change view'));
     await tester.pumpAndSettle();
+    await capture(tester, 'a1k-home-view-menu');
+    await tester.tap(find.text('Text'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'a1l-home-text');
+    await pickView(tester, 'List with covers');
+    // Scrolled to the end, for Recently added. The list is lazy and its
+    // rows and headings differ in height, so one drag stops at the end as
+    // estimated; the second reaches the real one.
+    await tester.drag(find.byType(HomeRow).first, const Offset(0, -2400));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(HomeRow).last, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await waitForImages(tester, count: 3);
     await capture(tester, 'a1a-home-scrolled');
     await revealHeader(tester);
 
@@ -1523,9 +1538,20 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await waitForImages(tester, count: 3);
     await capture(tester, 'large-text-a1-home');
-    await tester.drag(find.byType(HomeRow).first, const Offset(0, -1600));
+    await tester.tap(find.byTooltip('Change view'));
     await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1k-home-view-menu');
+    await tester.tap(find.text('Text'));
+    await tester.pumpAndSettle();
+    await capture(tester, 'large-text-a1l-home-text');
+    await pickView(tester, 'List with covers');
+    await tester.drag(find.byType(HomeRow).first, const Offset(0, -3200));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(HomeRow).last, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await waitForImages(tester, count: 3);
     await capture(tester, 'large-text-a1a-home-scrolled');
     await revealHeader(tester);
     await tester.tap(find.textContaining('See all '));
@@ -2252,6 +2278,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    await waitForImages(tester, count: 3);
     await shot('a1-home');
     await tester.tap(find.widgetWithText(PillChip, 'Movies'));
     await tester.pumpAndSettle();
