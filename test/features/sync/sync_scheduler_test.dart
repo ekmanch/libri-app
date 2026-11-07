@@ -40,13 +40,11 @@ void main() {
     s.dispose();
   });
 
-  testWidgets('checks every five minutes in the foreground only', (
-    tester,
-  ) async {
+  testWidgets('checks every 30 seconds in the foreground only', (tester) async {
     final s = scheduler()..start();
-    await tester.pump(const Duration(minutes: 5));
+    await tester.pump(const Duration(seconds: 30));
     expect(sync.checks, 1);
-    await tester.pump(const Duration(minutes: 5));
+    await tester.pump(const Duration(seconds: 30));
     expect(sync.checks, 2);
     hide(tester);
     await tester.pump(const Duration(minutes: 20));
@@ -54,6 +52,24 @@ void main() {
     resume(tester);
     await tester.pump();
     expect(sync.checks, 3);
+    s.dispose();
+  });
+
+  testWidgets('coming back skips the check made moments ago', (tester) async {
+    final s = scheduler()..start();
+    sync.status = SyncStatus(lastChecked: now);
+    hide(tester);
+    resume(tester);
+    await tester.pump();
+    expect(sync.checks, 0, reason: 'checked just now');
+    // The timer runs again from the resume.
+    await tester.pump(const Duration(seconds: 30));
+    expect(sync.checks, 1);
+    hide(tester);
+    now = now.add(const Duration(seconds: 15));
+    resume(tester);
+    await tester.pump();
+    expect(sync.checks, 2, reason: 'past the guard');
     s.dispose();
   });
 
@@ -67,10 +83,10 @@ void main() {
     sync.status = SyncStatus(lastChecked: now);
     s.onTabSwitch();
     expect(sync.checks, 1);
-    now = now.add(const Duration(minutes: 4));
+    now = now.add(const Duration(seconds: 20));
     s.onTabSwitch();
     expect(sync.checks, 1);
-    now = now.add(const Duration(minutes: 1));
+    now = now.add(const Duration(seconds: 10));
     s.onTabSwitch();
     expect(sync.checks, 2);
     s.dispose();
@@ -91,7 +107,7 @@ void main() {
 
   testWidgets('without a sync nothing happens', (tester) async {
     final s = SyncScheduler(sync: () => null, now: () => now)..start();
-    await tester.pump(const Duration(minutes: 5));
+    await tester.pump(const Duration(seconds: 30));
     s.onTabSwitch();
     expect(s.isStale, isTrue);
     s.dispose();

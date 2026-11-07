@@ -22,7 +22,7 @@ void main() {
     expect(find.text('library.json'), findsOneWidget);
     expect(find.text('Saved on this phone'), findsOneWidget);
     expect(
-      find.text('When you open Libri, then every 5 minutes'),
+      find.text('When you open Libri, then every 30 seconds'),
       findsOneWidget,
     );
   });

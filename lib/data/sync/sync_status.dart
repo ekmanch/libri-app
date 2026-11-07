@@ -57,7 +57,8 @@ class SyncStatus {
   /// nothing pending, or a successful save.
   final DateTime? lastSynced;
 
-  /// When GitHub last answered a check, for the "every 5 minutes" rule.
+  /// When GitHub last answered a check, for the scheduler's rules (the
+  /// check interval and the guard on coming back).
   final DateTime? lastChecked;
 
   /// Operations not yet saved to GitHub.

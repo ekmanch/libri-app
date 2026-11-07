@@ -263,7 +263,7 @@ class ConnectionScreen extends ConsumerWidget {
                     const SectionHeading('Syncing', padding: _sectionPadding),
                     const SettingRow(
                       label: 'Check for changes',
-                      detail: 'When you open Libri, then every 5 minutes',
+                      detail: 'When you open Libri, then every 30 seconds',
                       minHeight: 56,
                     ),
                   ],

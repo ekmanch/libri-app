@@ -30,7 +30,7 @@ class SettingRow extends StatelessWidget {
 
   /// A second line under the label, left-aligned in the secondary color,
   /// for a value too long to sit on the right ("When you open Libri, then
-  /// every 5 minutes").
+  /// every 30 seconds").
   final String? detail;
   final VoidCallback? onTap;
   final double minHeight;
