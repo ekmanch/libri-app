@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/widgets/content_ink_well.dart';
 import 'package:library_app/theme/app_theme.dart';
 import 'package:library_app/widgets/underline_tabs.dart';
 
@@ -68,7 +69,10 @@ void main() {
     final sizes = [
       for (final label in ['Library', 'Discover', 'All'])
         tester.getSize(
-          find.ancestor(of: find.text(label), matching: find.byType(InkWell)),
+          find.ancestor(
+            of: find.text(label),
+            matching: find.byType(ContentInkWell),
+          ),
         ),
     ];
     for (final size in sizes) {
@@ -116,7 +120,10 @@ void main() {
     await pumpThemed(tester, tabs(textScale: 2));
     expect(tester.takeException(), isNull);
     final tab = tester.getRect(
-      find.ancestor(of: find.text('Discover'), matching: find.byType(InkWell)),
+      find.ancestor(
+        of: find.text('Discover'),
+        matching: find.byType(ContentInkWell),
+      ),
     );
     expect(tester.getRect(find.text('Discover')).left, greaterThan(tab.left));
     expect(tester.getRect(find.text('112')).right, lessThan(tab.right));

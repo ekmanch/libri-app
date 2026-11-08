@@ -35,6 +35,7 @@ Everything here was decided during the design phase. Screen names ("Library › 
 - Each tab keeps its own stack. A shortcut to something another tab owns switches to that tab with that tab's overview underneath, so back lands there: "Active plan" on the home opens the plan on Plans. Shared detail views (entry details, an artist, an album) stay in the tab they were opened from: an entry opened from a plan stays in Plans, one opened from the library stays in Library. Full-screen forms, search and Settings open above both tabs.
 - A pushed screen opens with Flutter's Android transition (it fades and slides in a little from the right; the back gesture peeks at the screen below), shortened from 450 ms to 200 ms so a tap feels quick. A row that opens a screen has no press highlight: the screen opening is the feedback (tag group rows, season rows). Settled 2026-10-19.
 - A list row's press highlight (tag, setting, entry, track and sheet option rows) is a rounded rectangle, 12 dp corners, that reaches 8 dp past the row's ends into the page margin, so it does not stop sharp at the first and last letter. `RowInkWell` in `lib/widgets/row_ink_well.dart`; cards and chips keep their own shapes. 2026-10-24.
+- A tab's press highlight (the type tabs on Library › Home, the Library › Coming soon tabs) is a pill around what was pressed (dot, label, count, and the selected line under a type tab), not the tab's whole 48 dp touch area; the touch area stays as it was. `ContentInkWell` in `lib/widgets/content_ink_well.dart`. 2026-11-08.
 
 ## 4. Screens
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../theme/app_theme.dart';
+import 'content_ink_well.dart';
 
 class UnderlineTab<T> {
   const UnderlineTab(this.value, this.label, {this.count});
@@ -123,7 +124,7 @@ class _Tab<T> extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      child: InkWell(
+      child: ContentInkWell(
         onTap: onTap,
         child: SizedBox(
           height: UnderlineTabs.height,
@@ -132,29 +133,31 @@ class _Tab<T> extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      tab.label,
-                      maxLines: 1,
-                      style: style.copyWith(
-                        color: selected
-                            ? scheme.onSurface
-                            : scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (tab.count case final count?) ...[
-                      const SizedBox(width: 6),
+                child: InkBounds(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        '$count',
+                        tab.label,
                         maxLines: 1,
                         style: style.copyWith(
-                          color: selected ? colors.muted : colors.placeholder,
+                          color: selected
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant,
                         ),
                       ),
+                      if (tab.count case final count?) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '$count',
+                          maxLines: 1,
+                          style: style.copyWith(
+                            color: selected ? colors.muted : colors.placeholder,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -284,8 +287,10 @@ class ScrollingTab extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      child: InkWell(
+      child: ContentInkWell(
         onTap: onTap,
+        // The pill takes in the line that hangs below the label.
+        padding: const EdgeInsets.fromLTRB(10, 7, 10, lineDrop + 3),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: ScrollingTabs.gap / 2,
@@ -293,47 +298,49 @@ class ScrollingTab extends StatelessWidget {
           child: Center(
             // The line hangs below the dot and label, as wide as they are,
             // and leaves them centered in the tab.
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (dotColor case final dot?) ...[
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: dot,
-                          shape: BoxShape.circle,
+            child: InkBounds(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (dotColor case final dot?) ...[
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: dot,
+                            shape: BoxShape.circle,
+                          ),
                         ),
+                        const SizedBox(width: 7),
+                      ],
+                      AnimatedDefaultTextStyle(
+                        style: DefaultTextStyle.of(context).style.merge(style),
+                        duration: AppMotion.slide,
+                        maxLines: 1,
+                        softWrap: false,
+                        child: Text(label),
                       ),
-                      const SizedBox(width: 7),
                     ],
-                    AnimatedDefaultTextStyle(
-                      style: DefaultTextStyle.of(context).style.merge(style),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: -lineDrop,
+                    height: lineHeight,
+                    child: AnimatedContainer(
+                      key: lineKey,
                       duration: AppMotion.slide,
-                      maxLines: 1,
-                      softWrap: false,
-                      child: Text(label),
-                    ),
-                  ],
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: -lineDrop,
-                  height: lineHeight,
-                  child: AnimatedContainer(
-                    key: lineKey,
-                    duration: AppMotion.slide,
-                    decoration: BoxDecoration(
-                      color: selected ? lineColor : lineColor.withAlpha(0),
-                      borderRadius: BorderRadius.circular(2),
+                      decoration: BoxDecoration(
+                        color: selected ? lineColor : lineColor.withAlpha(0),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
