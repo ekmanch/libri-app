@@ -15,7 +15,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/pinned_sliver.dart';
 import '../../widgets/section_heading.dart';
-import '../../widgets/segmented_control.dart';
+import '../../widgets/chips.dart';
 import '../entry/series.dart';
 import '../music/artist_screen.dart';
 import '../music/music_type_body.dart';
@@ -264,21 +264,26 @@ class HomeTypePage extends ConsumerWidget {
 
     final segments = SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-        child: StatusSegmentedControl(
+        // The chips' 48 dp row holds their touch area: 8 dp above a 32 dp
+        // chip, so 4 here gives the mockup's 12.
+        padding: const EdgeInsets.only(top: 4),
+        child: StatusChips(
           selected: status,
           type: type,
-          includeAll: true,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           onChanged: (status) =>
               ref.read(homeStatusProvider.notifier).set(type, status),
         ),
       ),
     );
-    final countExtent = countRowExtent(MediaQuery.textScalerOf(context));
+    final countExtent = countRowExtent(
+      MediaQuery.textScalerOf(context),
+      top: 0,
+    );
     final count = PinnedSliver(
       height: countExtent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 10, 0),
+        padding: const EdgeInsets.fromLTRB(20, 0, 10, 0),
         child: Row(
           children: [
             Expanded(

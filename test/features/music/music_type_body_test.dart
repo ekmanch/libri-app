@@ -13,8 +13,8 @@ import 'package:library_app/features/music/music_type_body.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 import 'package:library_app/widgets/entry_row.dart';
-import 'package:library_app/widgets/segmented_control.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -30,7 +30,7 @@ void main() {
   final ratedTracks = albums.fold(0, (n, a) => n + (a.tracks?.length ?? 0));
 
   Future<void> pickMusic(WidgetTester tester) async {
-    final chip = find.widgetWithText(PillChip, 'Music');
+    final chip = find.widgetWithText(ScrollingTab, 'Music');
     final row = find.byWidgetPredicate(
       (w) => w is ListView && w.scrollDirection == Axis.horizontal,
     );
@@ -43,7 +43,7 @@ void main() {
   Future<void> pickTab(WidgetTester tester, String label) async {
     await tester.tap(
       find.descendant(
-        of: find.byType(SegmentedControl<MusicTab>),
+        of: find.byType(ChoiceChips<MusicTab>),
         matching: find.text(label),
       ),
     );
@@ -55,8 +55,8 @@ void main() {
   ) async {
     await pumpApp(tester, const LibraryHomeScreen());
     await pickMusic(tester);
-    expect(find.byType(StatusSegmentedControl), findsNothing);
-    expect(find.byType(SegmentedControl<MusicTab>), findsOneWidget);
+    expect(find.byType(StatusChips), findsNothing);
+    expect(find.byType(ChoiceChips<MusicTab>), findsOneWidget);
     expect(
       find.text(
         '$artists artists, ${albums.length} albums, ${songs.length} songs',

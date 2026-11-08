@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../data/models/entry_status.dart';
+import '../data/models/media_type.dart';
 import '../data/upcoming/follows.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
+import 'labels.dart';
 import 'touch_target.dart';
 
 /// How a selected [PillChip] is shown.
 enum PillChipStyle {
-  /// Neutral fill, muted when unselected: the type chips on the library home.
+  /// Neutral fill, muted and outlined when unselected: the status chips on
+  /// the library home.
   neutral,
 
   /// Accent fill: choices in the filter sheet and the tag picker.
@@ -28,17 +32,16 @@ class PillChip extends StatelessWidget {
     this.height = 44,
     this.badge,
     this.onLongPress,
-    this.animated = false,
+    this.fontSize,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  /// Whether the fill and the label fade when [selected] changes, instead of
-  /// switching at once: the type chips on the library home, whose selection
-  /// follows a swipe.
-  final bool animated;
+  /// The label's size; null: the theme's label size. The small chips of
+  /// [ChoiceChips] are 13.
+  final double? fontSize;
 
   /// A long press, where the chip has one: a tag in the picker opens its
   /// categories (Add / edit entry › Tag picker).
@@ -76,15 +79,16 @@ class PillChip extends StatelessWidget {
     final border = selected
         ? (accent ? scheme.primaryContainer : Colors.transparent)
         : scheme.outline;
-    final labelStyle = theme.textTheme.labelMedium!.copyWith(color: foreground);
+    final labelStyle = theme.textTheme.labelMedium!.copyWith(
+      color: foreground,
+      fontSize: fontSize,
+    );
     return TouchTarget(
       child: Semantics(
         button: true,
         selected: selected,
         child: Material(
           color: background,
-          animateColor: animated,
-          animationDuration: AppMotion.slide,
           shape: StadiumBorder(side: BorderSide(color: border)),
           child: InkWell(
             onTap: onTap,
@@ -113,23 +117,13 @@ class PillChip extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   Flexible(
-                    child: animated
-                        ? AnimatedDefaultTextStyle(
-                            style: DefaultTextStyle.of(context).style
-                                .merge(labelStyle),
-                            duration: AppMotion.slide,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            child: Text(label),
-                          )
-                        : Text(
-                            label,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            style: labelStyle,
-                          ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: labelStyle,
+                    ),
                   ),
                   if (badge != null) ...[
                     const SizedBox(width: 6),
@@ -141,6 +135,96 @@ class PillChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class ChoiceChipOption<T> {
+  const ChoiceChipOption(this.value, this.label);
+  final T value;
+  final String label;
+}
+
+/// A row of small chips, one selected, that scrolls sideways when they do
+/// not fit (a large text size): the status chips under the type tabs on
+/// Library › Home, and the music view's Artists, Albums, Songs. Each chip
+/// is 32 dp tall with a 48 dp touch area, which the row's 48 dp height
+/// holds; the selected one is filled, the others outlined.
+class ChoiceChips<T> extends StatelessWidget {
+  const ChoiceChips({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final List<ChoiceChipOption<T>> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+
+  /// Inside the scrolling, so the chips scroll to the screen's edge.
+  final EdgeInsetsGeometry padding;
+
+  static const height = 48.0;
+  static const chipHeight = 32.0;
+  static const gap = 6.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: padding,
+      child: SizedBox(
+        height: height,
+        child: Row(
+          children: [
+            for (final (i, option) in options.indexed) ...[
+              if (i > 0) const SizedBox(width: gap),
+              PillChip(
+                label: option.label,
+                selected: option.value == selected,
+                height: chipHeight,
+                horizontalPadding: 11,
+                fontSize: 13,
+                onTap: () => onChanged(option.value),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The status chips of a type on Library › Home: All, then the statuses
+/// [type] has, worded for it ("Reading" for books). A null selection is
+/// All.
+class StatusChips extends StatelessWidget {
+  const StatusChips({
+    super.key,
+    required this.type,
+    required this.selected,
+    required this.onChanged,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final MediaType type;
+  final EntryStatus? selected;
+  final ValueChanged<EntryStatus?> onChanged;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChips<EntryStatus?>(
+      options: [
+        const ChoiceChipOption(null, 'All'),
+        for (final status in EntryStatus.optionsFor(type))
+          ChoiceChipOption(status, status.labelFor(type)),
+      ],
+      selected: selected,
+      onChanged: onChanged,
+      padding: padding,
     );
   }
 }

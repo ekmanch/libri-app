@@ -9,7 +9,7 @@ import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/pinned_sliver.dart';
 import '../../widgets/row_ink_well.dart';
-import '../../widgets/segmented_control.dart';
+import '../../widgets/chips.dart';
 import '../library/cover_grid_tile.dart';
 import '../../widgets/cover_image.dart';
 import '../library/entry_list_body.dart';
@@ -73,21 +73,26 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
 
     final tabs = SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-        child: SegmentedControl<MusicTab>(
-          segments: [
-            for (final t in MusicTab.values) SegmentOption(t, t.label),
+        // As the status chips of the other types (home_pages.dart).
+        padding: const EdgeInsets.only(top: 4),
+        child: ChoiceChips<MusicTab>(
+          options: [
+            for (final t in MusicTab.values) ChoiceChipOption(t, t.label),
           ],
           selected: tab,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           onChanged: ref.read(homeMusicTabProvider.notifier).set,
         ),
       ),
     );
-    final countExtent = countRowExtent(MediaQuery.textScalerOf(context));
+    final countExtent = countRowExtent(
+      MediaQuery.textScalerOf(context),
+      top: 0,
+    );
     final count = PinnedSliver(
       height: countExtent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 10, 0),
+        padding: const EdgeInsets.fromLTRB(20, 0, 10, 0),
         child: Row(
           children: [
             Expanded(

@@ -47,9 +47,9 @@ import 'package:library_app/features/shell/floating_nav_bar.dart';
 import 'package:library_app/data/sync/sync_status.dart';
 import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/main.dart';
-import 'package:library_app/widgets/segmented_control.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
 import 'package:library_app/widgets/tag_group.dart';
@@ -79,10 +79,8 @@ final _syncedRecently = syncStatusProvider.overrideWithValue(
 );
 
 /// A status segment of the type view.
-Finder segment(String label) => find.descendant(
-  of: find.byType(StatusSegmentedControl),
-  matching: find.text(label),
-);
+Finder segment(String label) =>
+    find.descendant(of: find.byType(StatusChips), matching: find.text(label));
 
 /// Scrolls Add / edit entry down until [finder] is built and in view: the
 /// form is a lazy list, so a row far down is not there to ensureVisible.
@@ -152,7 +150,7 @@ Finder sheetList() => find
 /// Scrolls the chip row (lazy, so a far chip is not built yet) and taps.
 Future<void> pickChip(WidgetTester tester, String label) async {
   await revealHeader(tester);
-  final chip = find.widgetWithText(PillChip, label);
+  final chip = find.widgetWithText(ScrollingTab, label);
   final row = find.byWidgetPredicate(
     (w) => w is ListView && w.scrollDirection == Axis.horizontal,
   );
@@ -1002,7 +1000,7 @@ void main() {
     seasonClock = DateTime.now;
 
     // Library › Movies, text view and grid with covers.
-    await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+    await tester.tap(find.widgetWithText(ScrollingTab, 'Movies'));
     await tester.pumpAndSettle();
     await capture(tester, 'a4-movies-text');
 
@@ -1070,7 +1068,7 @@ void main() {
 
     // Library › Entry details and what opens from it: Rating picker, Add to
     // plan, Delete confirmation.
-    await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+    await tester.tap(find.widgetWithText(ScrollingTab, 'Movies'));
     await tester.pumpAndSettle();
     // Movies is still in the grid view, so the sheet shows the cover spot.
     // A tile carries the title twice: on the placeholder and as the caption.
@@ -2280,7 +2278,7 @@ void main() {
 
     await waitForImages(tester, count: 3);
     await shot('a1-home');
-    await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+    await tester.tap(find.widgetWithText(ScrollingTab, 'Movies'));
     await tester.pumpAndSettle();
     await shot('a4-movies-text');
     await tester.tap(segment('Done'));
@@ -2329,7 +2327,7 @@ void main() {
     await tester.pumpAndSettle();
     await shot('a5-search');
     await tapText('Cancel');
-    await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+    await tester.tap(find.widgetWithText(ScrollingTab, 'Movies'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('The Mummy'),
@@ -2756,7 +2754,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(PillChip, 'Movies'));
+    await tester.tap(find.widgetWithText(ScrollingTab, 'Movies'));
     await tester.pumpAndSettle();
     await capture(tester, 'l2-rail-newest-added');
 

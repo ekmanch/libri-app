@@ -31,12 +31,12 @@ import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
 import 'package:library_app/features/library/view_menu.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 import 'package:library_app/widgets/cover_image.dart';
 import 'package:library_app/widgets/page_header.dart';
 import 'package:library_app/widgets/tag_group.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/widgets/labels.dart';
-import 'package:library_app/widgets/segmented_control.dart';
 import 'package:library_app/widgets/sheet_frame.dart';
 
 import 'package:library_app/dev/long_lists.dart';
@@ -54,7 +54,7 @@ void main() {
 
   /// Scrolls the chip row (lazy, so a far chip is not built yet) and taps.
   Future<void> pickChip(WidgetTester tester, String label) async {
-    final chip = find.widgetWithText(PillChip, label);
+    final chip = find.widgetWithText(ScrollingTab, label);
     final row = find.byWidgetPredicate(
       (w) => w is ListView && w.scrollDirection == Axis.horizontal,
     );
@@ -89,8 +89,8 @@ void main() {
 
   /// Whether a chip is the picked one, wherever the row is scrolled.
   bool chipSelected(WidgetTester tester, String label) => tester
-      .widget<PillChip>(
-        find.widgetWithText(PillChip, label, skipOffstage: false),
+      .widget<ScrollingTab>(
+        find.widgetWithText(ScrollingTab, label, skipOffstage: false),
       )
       .selected;
 
@@ -100,10 +100,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder inSegments(String label) => find.descendant(
-    of: find.byType(StatusSegmentedControl),
-    matching: find.text(label),
-  );
+  Finder inSegments(String label) =>
+      find.descendant(of: find.byType(StatusChips), matching: find.text(label));
 
   /// The fixture as of October 11, 2026: the day the home tests look from, so
   /// Recently added (the last 30 days) has rows whatever today is.
@@ -126,7 +124,7 @@ void main() {
       expect(find.text('ACTIVE PLAN'), findsOneWidget);
       expect(find.text('Halloween 2026'), findsOneWidget);
       expect(find.text('Search titles and tags'), findsOneWidget);
-      expect(find.byType(StatusSegmentedControl), findsNothing);
+      expect(find.byType(StatusChips), findsNothing);
       // No per-type headings or counts any more.
       expect(find.text('MOVIES'), findsNothing);
       expect(find.bySemanticsLabel('Show all movies'), findsNothing);
@@ -386,24 +384,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(homeTypeProvider), isNull);
     expect(container.read(homeStatusProvider), isEmpty);
-    expect(find.byType(StatusSegmentedControl), findsNothing);
+    expect(find.byType(StatusChips), findsNothing);
     // The chip row scrolled back to the start on its own, so All is in view.
     expect(chipRow(tester).pixels, 0);
     expect(
-      tester.widget<PillChip>(find.widgetWithText(PillChip, 'Home')).selected,
+      tester
+          .widget<ScrollingTab>(find.widgetWithText(ScrollingTab, 'Home'))
+          .selected,
       isTrue,
     );
-    expect(find.widgetWithText(PillChip, 'Home').hitTestable(), findsOneWidget);
+    expect(
+      find.widgetWithText(ScrollingTab, 'Home').hitTestable(),
+      findsOneWidget,
+    );
 
     container
         .read(libraryFilterProvider.notifier)
         .set(const LibraryFilter(tags: {'horror'}));
     await tester.pumpAndSettle();
-    expect(find.byType(PillChip), findsNothing);
+    expect(find.byType(ScrollingTab), findsNothing);
     container.read(homeReturnProvider.notifier).goHome();
     await tester.pumpAndSettle();
     expect(container.read(libraryFilterProvider).isActive, isFalse);
-    expect(find.widgetWithText(PillChip, 'Home'), findsOneWidget);
+    expect(find.widgetWithText(ScrollingTab, 'Home'), findsOneWidget);
   });
 
   testWidgets('a return to the home scrolls All to the top', (tester) async {
@@ -440,7 +443,7 @@ void main() {
     expect(find.text('MOVIES'), findsNothing);
     expect(find.text('SHOWS'), findsNothing);
     expect(find.text('ACTIVE PLAN'), findsNothing);
-    expect(find.byType(StatusSegmentedControl), findsOneWidget);
+    expect(find.byType(StatusChips), findsOneWidget);
     expect(find.text('${shows.length} shows'), findsOneWidget);
     expect(find.byType(EntryRow), findsNWidgets(shows.length));
     expect(find.text('Search shows'), findsOneWidget);
@@ -477,13 +480,13 @@ void main() {
         await pumpLong(tester);
         await pickChip(tester, 'Movies');
         expect(find.text('Library'), findsOneWidget);
-        expect(find.byType(StatusSegmentedControl), findsOneWidget);
+        expect(find.byType(StatusChips), findsOneWidget);
         await tester.drag(find.byType(EntryRow).first, const Offset(0, -700));
         await tester.pumpAndSettle();
         expect(find.text('Library'), findsNothing);
         expect(find.text('Search movies'), findsNothing);
         expect(find.byType(PillChip), findsNothing);
-        expect(find.byType(StatusSegmentedControl), findsNothing);
+        expect(find.byType(StatusChips), findsNothing);
         // The count row sits at the top, with the sort and view buttons.
         final count = find.textContaining(RegExp(r'^\d+ movies$'));
         expect(tester.getTopLeft(count).dy, lessThan(30));
@@ -493,7 +496,7 @@ void main() {
         expect(find.byKey(EntryListBody.railKey), findsOneWidget);
         expect(
           tester.getTopLeft(find.byKey(EntryListBody.railKey)).dy,
-          countRowExtent(TextScaler.noScaling),
+          countRowExtent(TextScaler.noScaling, top: 0),
         );
         // The pinned row still works: the sort sheet opens from it.
         await tester.tap(find.text('Newest added'));
@@ -519,13 +522,13 @@ void main() {
         // Back at the top, still on Movies.
         expect(find.text('Library'), findsOneWidget);
         expect(container.read(homeTypeProvider), MediaType.movies);
-        expect(find.byType(StatusSegmentedControl), findsOneWidget);
+        expect(find.byType(StatusChips), findsOneWidget);
         expect(tester.getTopLeft(rail).dy, railTopBefore);
 
         container.read(homeReturnProvider.notifier).goHome();
         await tester.pumpAndSettle();
         expect(container.read(homeTypeProvider), isNull);
-        expect(find.byType(StatusSegmentedControl), findsNothing);
+        expect(find.byType(StatusChips), findsNothing);
       },
     );
 
@@ -536,7 +539,7 @@ void main() {
       await tester.pumpAndSettle();
       // Eight shows and the header fit on one screen: nothing to scroll.
       expect(find.text('Library'), findsOneWidget);
-      expect(find.byType(StatusSegmentedControl), findsOneWidget);
+      expect(find.byType(StatusChips), findsOneWidget);
     });
 
     testWidgets('a rail jump lands with the header out of the way', (
@@ -626,7 +629,7 @@ void main() {
       }
       expect(chipRow(tester).pixels, chipRow(tester).maxScrollExtent);
       expect(
-        find.widgetWithText(PillChip, 'Anime').hitTestable(),
+        find.widgetWithText(ScrollingTab, 'Anime').hitTestable(),
         findsOneWidget,
       );
       // And back toward the start with the swipes back.
@@ -635,7 +638,7 @@ void main() {
       }
       expect(chipRow(tester).pixels, 0);
       expect(
-        find.widgetWithText(PillChip, 'Home').hitTestable(),
+        find.widgetWithText(ScrollingTab, 'Home').hitTestable(),
         findsOneWidget,
       );
     });
@@ -687,9 +690,7 @@ void main() {
       expect(pageList(tester).pixels, 0);
       expect(tester.getTopLeft(find.text('Library')).dy, greaterThan(0));
       expect(
-        tester
-            .widget<StatusSegmentedControl>(find.byType(StatusSegmentedControl))
-            .selected,
+        tester.widget<StatusChips>(find.byType(StatusChips)).selected,
         isNull,
       );
       expect(find.byType(CoverImage), findsNothing);
@@ -710,9 +711,7 @@ void main() {
       await pickChip(tester, 'Shows');
       await pickChip(tester, 'Movies');
       expect(
-        tester
-            .widget<StatusSegmentedControl>(find.byType(StatusSegmentedControl))
-            .selected,
+        tester.widget<StatusChips>(find.byType(StatusChips)).selected,
         EntryStatus.done,
       );
     });
@@ -803,7 +802,7 @@ void main() {
     ) async {
       final container = await pumpApp(tester, const LibraryHomeScreen());
       await tester.drag(
-        find.widgetWithText(PillChip, 'Shows'),
+        find.widgetWithText(ScrollingTab, 'Shows'),
         const Offset(-200, 0),
       );
       await tester.pumpAndSettle();
@@ -812,10 +811,11 @@ void main() {
       expect(chipSelected(tester, 'Home'), isTrue);
     });
 
-    testWidgets('a drag on status segments that scroll sideways moves them, '
-        'not the pages', (tester) async {
+    testWidgets('a drag on the status chips is theirs, not the pages\'', (
+      tester,
+    ) async {
       final container = await pumpApp(tester, const LibraryHomeScreen());
-      // Five segments scroll sideways at 360 dp.
+      // Books has the most chips (All, Want, Reading, Done, DNF).
       await pickChip(tester, 'Books');
       await tester.drag(inSegments('Want'), const Offset(-200, 0));
       await tester.pumpAndSettle();
@@ -982,7 +982,7 @@ void main() {
   ) async {
     await pumpApp(tester, const LibraryHomeScreen());
     await pickChip(tester, 'Music');
-    expect(find.byType(StatusSegmentedControl), findsNothing);
+    expect(find.byType(StatusChips), findsNothing);
     expect(find.text('Artists'), findsOneWidget);
     expect(find.text('Search music'), findsOneWidget);
   });
@@ -1004,7 +1004,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Add music'), findsOneWidget);
-    expect(find.byType(StatusSegmentedControl), findsNothing);
+    expect(find.byType(StatusChips), findsNothing);
   });
 
   testWidgets('an active filter shows removable chips, a count and results', (
@@ -1020,7 +1020,7 @@ void main() {
     expect(find.bySemanticsLabel('Remove #horror'), findsOneWidget);
     expect(find.text('Clear all'), findsOneWidget);
     expect(find.text('ACTIVE PLAN'), findsNothing);
-    expect(find.byType(PillChip), findsNothing);
+    expect(find.byType(ScrollingTab), findsNothing);
     expect(find.textContaining(RegExp(r'^\d+ entr')), findsOneWidget);
     expect(find.text('SHOWS'), findsOneWidget);
     expect(find.text('MOVIES'), findsNothing);
@@ -1301,9 +1301,7 @@ void main() {
         EntryStatus.done,
       );
       expect(
-        tester
-            .widget<StatusSegmentedControl>(find.byType(StatusSegmentedControl))
-            .selected,
+        tester.widget<StatusChips>(find.byType(StatusChips)).selected,
         EntryStatus.done,
       );
     });
@@ -1340,7 +1338,7 @@ void main() {
     Future<void> pickMusicTab(WidgetTester tester, String label) async {
       await tester.tap(
         find.descendant(
-          of: find.byType(SegmentedControl<MusicTab>),
+          of: find.byType(ChoiceChips<MusicTab>),
           matching: find.text(label),
         ),
       );

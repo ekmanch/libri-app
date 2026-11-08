@@ -15,6 +15,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/chips.dart';
+import '../../widgets/underline_tabs.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
@@ -444,33 +445,25 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         ),
         if (chips)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: SizedBox(
-              height: 44,
-              child: ListView(
-                controller: _chipScroll,
-                scrollDirection: Axis.horizontal,
-                // Every chip is built, wherever the row is scrolled, so the
-                // picked one can be brought into view.
-                scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                children: [
-                  for (final (i, t) in _tabs.indexed) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    PillChip(
-                      key: _chipKeys[i],
-                      // The first chip reads "Home" (canvas revision of
-                      // 2026-10-28); the state it stands for is still All
-                      // here.
-                      label: t?.label ?? 'Home',
-                      selected: type == t,
-                      animated: true,
-                      dotColor: t == null ? null : colors.forType(t),
-                      onTap: () => _pickType(t),
-                    ),
-                  ],
-                ],
-              ),
+            // The tabs are 48 dp, the mockup's 44 plus the touch area, so
+            // the row starts 4 dp higher than its 8 dp gap.
+            padding: const EdgeInsets.only(top: 4),
+            child: ScrollingTabs<MediaType?>(
+              controller: _chipScroll,
+              tabKeys: _chipKeys,
+              tabs: [
+                for (final t in _tabs)
+                  // The first tab reads "Home" (canvas revision of
+                  // 2026-10-28); the state it stands for is still All here.
+                  ScrollingTabOption(
+                    t,
+                    t?.label ?? 'Home',
+                    dotColor: t == null ? null : colors.forType(t),
+                    lineColor: t == null ? null : colors.forType(t),
+                  ),
+              ],
+              selected: type,
+              onChanged: _pickType,
             ),
           ),
       ],

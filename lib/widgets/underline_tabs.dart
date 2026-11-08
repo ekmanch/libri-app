@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../theme/app_theme.dart';
 
@@ -156,6 +157,183 @@ class _Tab<T> extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ScrollingTabOption<T> {
+  const ScrollingTabOption(
+    this.value,
+    this.label, {
+    this.dotColor,
+    this.lineColor,
+  });
+
+  final T value;
+  final String label;
+
+  /// A color dot before the label (the type's color).
+  final Color? dotColor;
+
+  /// The line under the tab while selected; null: the accent.
+  final Color? lineColor;
+}
+
+/// A row of tabs as wide as their labels that scrolls sideways (the type
+/// tabs on Library › Home): the selected one in the text color with a 3 px
+/// rounded line in its own color just under its dot and label, as wide as
+/// they are, the others muted. No hairline under the row. 48 dp tall; each
+/// tab's touch area takes in half the gap on either side. The selection
+/// fades from one tab to the next, since it follows a swipe of the pages
+/// under the row.
+class ScrollingTabs<T> extends StatelessWidget {
+  const ScrollingTabs({
+    super.key,
+    required this.tabs,
+    required this.selected,
+    required this.onChanged,
+    this.controller,
+    this.tabKeys,
+  });
+
+  final List<ScrollingTabOption<T>> tabs;
+  final T selected;
+  final ValueChanged<T> onChanged;
+  final ScrollController? controller;
+
+  /// One key per tab, so the owner can bring a tab into view.
+  final List<Key>? tabKeys;
+
+  static const height = 48.0;
+  static const gap = 22.0;
+
+  /// The space at the row's ends, so the first label lines up with the
+  /// screen's 20 dp side padding.
+  static const sidePadding = 20.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Material(
+      type: MaterialType.transparency,
+      child: SizedBox(
+        height: height,
+        child: ListView(
+          controller: controller,
+          scrollDirection: Axis.horizontal,
+          // Every tab is built, wherever the row is scrolled, so the
+          // selected one can be brought into view.
+          scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
+          padding: const EdgeInsets.symmetric(
+            horizontal: sidePadding - gap / 2,
+          ),
+          children: [
+            for (final (i, tab) in tabs.indexed)
+              ScrollingTab(
+                key: tabKeys?[i],
+                label: tab.label,
+                dotColor: tab.dotColor,
+                lineColor: tab.lineColor ?? accent,
+                selected: tab.value == selected,
+                onTap: () => onChanged(tab.value),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One tab of [ScrollingTabs].
+class ScrollingTab extends StatelessWidget {
+  const ScrollingTab({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.lineColor,
+    required this.onTap,
+    this.dotColor,
+  });
+
+  final String label;
+  final bool selected;
+  final Color lineColor;
+  final Color? dotColor;
+  final VoidCallback onTap;
+
+  /// The selected tab's line: 3 px, its bottom 7 px below the label's line
+  /// box, so about 6 px under the letters.
+  static const lineHeight = 3.0;
+  static const lineDrop = 7.0;
+
+  /// The line, for tests.
+  static const lineKey = ValueKey('scrolling-tab-line');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final style = theme.textTheme.labelMedium!.copyWith(
+      fontSize: 15,
+      color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+    );
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: ScrollingTabs.gap / 2,
+          ),
+          child: Center(
+            // The line hangs below the dot and label, as wide as they are,
+            // and leaves them centered in the tab.
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (dotColor case final dot?) ...[
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: dot,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                    ],
+                    AnimatedDefaultTextStyle(
+                      style: DefaultTextStyle.of(context).style.merge(style),
+                      duration: AppMotion.slide,
+                      maxLines: 1,
+                      softWrap: false,
+                      child: Text(label),
+                    ),
+                  ],
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: -lineDrop,
+                  height: lineHeight,
+                  child: AnimatedContainer(
+                    key: lineKey,
+                    duration: AppMotion.slide,
+                    decoration: BoxDecoration(
+                      color: selected ? lineColor : lineColor.withAlpha(0),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

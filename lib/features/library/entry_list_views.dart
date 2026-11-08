@@ -60,10 +60,12 @@ abstract final class EntryListMetrics {
       gridTileExtent(width, type) + gridMainSpacing;
 }
 
-/// The home's pinned count row (Library › Home): 8 above a 48 dp button row,
-/// grown with the text size. A pinned sliver needs a fixed height.
-double countRowExtent(TextScaler scaler) =>
-    8 + 48 + EntryListMetrics.textGrowth(scaler);
+/// The home's pinned count row (Library › Home): [top] above a 48 dp button
+/// row, grown with the text size. A pinned sliver needs a fixed height. Under
+/// the status chips [top] is 0: their 48 dp row already leaves 8 below the
+/// chip.
+double countRowExtent(TextScaler scaler, {double top = 8}) =>
+    top + 48 + EntryListMetrics.textGrowth(scaler);
 
 /// The slivers for a list of rows in the chosen view: text rows, rows with
 /// covers (Library › Movies, list with covers) or a three-column grid

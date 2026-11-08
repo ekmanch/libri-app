@@ -25,6 +25,7 @@ import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
 import 'package:library_app/main.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 
 final _root = GlobalKey();
 
@@ -152,7 +153,7 @@ class _Walk {
 
   Future<void> pickChip(String label) async {
     await revealHeader(tester);
-    final chip = find.widgetWithText(PillChip, label);
+    final chip = find.widgetWithText(ScrollingTab, label);
     final row = find.byWidgetPredicate(
       (w) => w is ListView && w.scrollDirection == Axis.horizontal,
     );
