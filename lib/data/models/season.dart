@@ -52,8 +52,9 @@ abstract class Season with _$Season {
   /// A show's status from its seasons. A show with one season has that
   /// season's status (Want while not set). With more, only seasons that
   /// are out and have a status count: any In progress is In progress; else
-  /// any DNF is DNF; all Done is Done; Done and Want together are In
-  /// progress; all Want, or nothing set, is Want.
+  /// any DNF is DNF; all Done is Done; anything else (Done and Want
+  /// together, all Want, nothing set) is Want. Only a season In progress
+  /// makes the show In progress.
   static EntryStatus showStatus(List<Season> seasons, DateTime today) {
     if (seasons.length == 1) return seasons.single.status ?? EntryStatus.want;
     final set = {
@@ -63,8 +64,10 @@ abstract class Season with _$Season {
     if (set.isEmpty) return EntryStatus.want;
     if (set.contains(EntryStatus.inProgress)) return EntryStatus.inProgress;
     if (set.contains(EntryStatus.dnf)) return EntryStatus.dnf;
-    if (set.length == 1) return set.single;
-    return EntryStatus.inProgress;
+    if (set.length == 1 && set.single == EntryStatus.done) {
+      return EntryStatus.done;
+    }
+    return EntryStatus.want;
   }
 }
 

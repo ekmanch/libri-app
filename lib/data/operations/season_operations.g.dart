@@ -85,6 +85,13 @@ RefreshShowStatus _$RefreshShowStatusFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$RefreshShowStatusToJson(RefreshShowStatus instance) =>
     <String, dynamic>{'entryId': instance.entryId};
 
+RefreshShowStatuses _$RefreshShowStatusesFromJson(Map<String, dynamic> json) =>
+    RefreshShowStatuses();
+
+Map<String, dynamic> _$RefreshShowStatusesToJson(
+  RefreshShowStatuses instance,
+) => <String, dynamic>{};
+
 SetSeasonDates _$SetSeasonDatesFromJson(Map<String, dynamic> json) =>
     SetSeasonDates(
       json['entryId'] as String,

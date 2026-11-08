@@ -301,7 +301,7 @@ void main() {
         Season(
           season: 2,
           released: Released(2026, 1, 16),
-          status: EntryStatus.want,
+          status: EntryStatus.inProgress,
         ),
       ];
       final series = Entry.fromJson({

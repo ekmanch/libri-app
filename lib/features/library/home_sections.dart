@@ -338,7 +338,6 @@ String? _creator(Entry entry) {
 String? inProgressDetail(Entry entry) {
   if (entry.usesSeasons) {
     final seasons = entry.seasons ?? const <Season>[];
-    final today = seasonClock();
     Season? current;
     for (final season in seasons) {
       if (season.status == EntryStatus.inProgress) {
@@ -346,10 +345,6 @@ String? inProgressDetail(Entry entry) {
         break;
       }
     }
-    // Done and Want together read as In progress: the next one to watch.
-    current ??= seasons
-        .where((s) => s.isReleasedOn(today) && s.status != EntryStatus.done)
-        .firstOrNull;
     if (current != null) return 'Season ${current.season}';
   }
   return _creator(entry) ?? entry.year?.toString();

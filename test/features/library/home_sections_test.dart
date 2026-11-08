@@ -332,7 +332,7 @@ void main() {
       expect(byAdded.rows.map((r) => r.id), ['c', 'b', 'a']);
     });
 
-    test('a show with Done and Want seasons names the next to watch', () {
+    test('a show names the season in progress', () {
       final show = entry(
         's',
         MediaType.shows,
@@ -346,9 +346,13 @@ void main() {
           const Season(
             season: 2,
             released: Released(2026, 1, 1),
+            status: EntryStatus.inProgress,
+          ),
+          const Season(
+            season: 3,
+            released: Released(2026, 2, 1),
             status: EntryStatus.want,
           ),
-          const Season(season: 3, released: Released(2027)),
         ],
       );
       expect(inProgressDetail(show), 'Season 2');

@@ -385,6 +385,50 @@ class RefreshShowStatus extends LibraryOperation {
       'Update the status of ${_title(before, entryId)} from its seasons';
 }
 
+/// Whether [entry] is a show (or anime series) with seasons whose stored
+/// status differs from what its seasons give on [today].
+bool hasStaleShowStatus(Entry entry, DateTime today) {
+  final seasons = entry.seasons;
+  return entry.usesSeasons &&
+      seasons != null &&
+      seasons.isNotEmpty &&
+      Season.showStatus(seasons, today) != entry.status;
+}
+
+/// Writes the status their seasons give to every show whose stored status
+/// differs ([hasStaleShowStatus]), in one change: run when the library
+/// loads, so shows saved under an older rule (Done and Want seasons once
+/// read as In progress) get the status the rule gives now. Leaves every
+/// other show, and the order, as it is.
+@JsonSerializable()
+class RefreshShowStatuses extends LibraryOperation {
+  const RefreshShowStatuses();
+
+  factory RefreshShowStatuses.fromJson(Map<String, Object?> json) =>
+      _$RefreshShowStatusesFromJson(json);
+
+  Map<String, Object?> toJson() => _$RefreshShowStatusesToJson(this);
+
+  @override
+  Library apply(Library library) {
+    final today = seasonClock();
+    if (!library.entries.any((e) => hasStaleShowStatus(e, today))) {
+      return library;
+    }
+    return library.copyWith(
+      entries: [
+        for (final e in library.entries)
+          hasStaleShowStatus(e, today)
+              ? e.withSeasons(e.seasons, today: today)
+              : e,
+      ],
+    );
+  }
+
+  @override
+  String summary(Library before) => 'Recompute show status from seasons';
+}
+
 /// Updates the dates of seasons not out yet that the lookup now dates
 /// differently ("Coming 2027" becomes "Coming Mar 4, 2027"). [dates] holds
 /// each season's number and new date; seasons added in the form are left

@@ -15,6 +15,7 @@ import '../library/recent_changes.dart';
 import '../settings/display_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../data/models/plan.dart';
+import '../../data/models/season.dart';
 import '../plans/plan_screen.dart';
 import '../plans/plan_progress.dart';
 import '../plans/plans_screen.dart';
@@ -80,6 +81,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// Whether the move to seasons is being applied, so it is queued once.
   bool _movingShows = false;
 
+  /// Whether the show status recompute is being applied, so it is queued
+  /// once.
+  bool _refreshingShows = false;
+
   NavigatorState? get _current => _keys[_tab]!.currentState;
 
   @override
@@ -114,6 +119,18 @@ class _AppShellState extends ConsumerState<AppShell> {
         repository
             .apply(const MoveShowsToSeasons())
             .whenComplete(() => _movingShows = false);
+      }
+      // Shows whose status their seasons no longer give (saved under an
+      // older rule) get the new one, as one change for all of them, after
+      // the move to seasons when that is still running.
+      final today = seasonClock();
+      if (!_movingShows &&
+          !_refreshingShows &&
+          library.entries.any((e) => hasStaleShowStatus(e, today))) {
+        _refreshingShows = true;
+        repository
+            .apply(const RefreshShowStatuses())
+            .whenComplete(() => _refreshingShows = false);
       }
     }, fireImmediately: true);
     // The token expiry warning (Library › Token expires soon) on the first open

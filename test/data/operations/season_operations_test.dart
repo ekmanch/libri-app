@@ -126,7 +126,9 @@ void main() {
       expect(status([done, watching, dnf]), watching);
       expect(status([done, dnf]), dnf);
       expect(status([done, done]), done);
-      expect(status([done, want]), watching);
+      expect(status([done, want]), want);
+      expect(status([done, want, null]), want);
+      expect(status([dnf, watching]), watching);
       expect(status([want, want]), want);
       expect(status([null, null]), want);
       expect(status([done, null]), done);
@@ -134,7 +136,7 @@ void main() {
 
     test('a season not out yet does not count', () {
       expect(status([done, want], last: const Released(2027)), done);
-      expect(status([done, want], last: const Released(2026, 10, 1)), watching);
+      expect(status([done, want], last: const Released(2026, 10, 1)), want);
     });
 
     test('one season is that season\'s status, out or not', () {
@@ -285,6 +287,43 @@ void main() {
       expect(
         RefreshShowStatus(wednesday.id).summary(withShow()),
         'Update the status of Wednesday from its seasons',
+      );
+    });
+
+    test('RefreshShowStatuses fixes every stale show and only those', () {
+      // Saved under the old rule: Done and Want seasons read In progress.
+      final old = wednesday.copyWith(
+        status: EntryStatus.inProgress,
+        seasons: const [
+          Season(
+            season: 1,
+            released: Released(2022, 11, 23),
+            status: EntryStatus.done,
+          ),
+          Season(
+            season: 2,
+            released: Released(2025, 8, 6),
+            status: EntryStatus.want,
+          ),
+        ],
+      );
+      final library = withShow(old);
+      expect(hasStaleShowStatus(old, today), isTrue);
+      final fixed = const RefreshShowStatuses().apply(library);
+      expect(showIn(fixed).status, EntryStatus.want);
+      expect(showIn(fixed).seasons, old.seasons);
+      expect(
+        [for (final e in fixed.entries) e.id],
+        [for (final e in library.entries) e.id],
+      );
+      for (final e in library.entries) {
+        if (e.id != old.id) expect(fixed.entryById(e.id), e);
+      }
+      // Nothing stale: the library as it is.
+      expect(const RefreshShowStatuses().apply(fixed), same(fixed));
+      expect(
+        const RefreshShowStatuses().summary(library),
+        'Recompute show status from seasons',
       );
     });
 
@@ -451,6 +490,7 @@ void main() {
       RemoveSeason(wednesday.id, 2),
       KeepSeason(wednesday.id, 2),
       RefreshShowStatus(wednesday.id),
+      const RefreshShowStatuses(),
       const MoveShowsToSeasons(),
       SetSeasonDates(wednesday.id, const [
         Season(season: 2, released: Released(2025, 8)),
@@ -553,9 +593,8 @@ void main() {
         before,
         merged,
       ).apply(library);
-      expect(after(split), const [
-        Season(season: 1, status: EntryStatus.inProgress),
-      ]);
+      // Done and Want combine as a show's do: Want.
+      expect(after(split), const [Season(season: 1, status: EntryStatus.want)]);
     });
 
     test('manual seasons stay, and keep their number', () {
