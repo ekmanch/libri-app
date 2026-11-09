@@ -12,6 +12,7 @@ import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
 import 'package:library_app/features/entry/platform_picker_sheet.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -210,7 +211,7 @@ void main() {
     expect(find.text('GAME · 2013'), findsOneWidget);
 
     // Other types have no platform chip.
-    final all = find.widgetWithText(PillChip, 'All');
+    final all = find.widgetWithText(ScrollingTab, 'All');
     await tester.dragUntilVisible(
       all,
       find.byWidgetPredicate(
@@ -265,8 +266,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.bySemanticsLabel('Platform: Super Nintendo'), findsOneWidget);
     expect(fake.calls, contains('search:street fighter ii:Super Nintendo'));
-    // The Games chip, past the screen edge, is scrolled into view.
-    final games = tester.getRect(find.widgetWithText(PillChip, 'Games'));
+    // The Games tab, past the screen edge, is scrolled into view.
+    final games = tester.getRect(find.widgetWithText(ScrollingTab, 'Games'));
     expect(games.left, greaterThanOrEqualTo(0));
     expect(games.right, lessThanOrEqualTo(360));
     await tester.tap(find.text('Super Street Fighter II'));

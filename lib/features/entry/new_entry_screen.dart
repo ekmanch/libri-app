@@ -8,7 +8,9 @@ import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/lookup_service.dart';
 import '../../data/lookup/lookup_source.dart';
+import '../../data/lookup/music_lookup.dart';
 import '../../data/models/entry.dart';
+import '../../data/models/entry_kind.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/platform_names.dart';
 import '../../theme/app_theme.dart';
@@ -22,7 +24,10 @@ import '../../widgets/page_header.dart';
 import '../../widgets/row_ink_well.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
+import '../../widgets/underline_tabs.dart';
 import 'entry_form_screen.dart';
+import 'music_lookup_controller.dart';
+import 'music_results.dart';
 import 'platform_picker_sheet.dart';
 
 /// Starts a new entry (Add / edit entry › New entry: pick a match, then the
@@ -47,14 +52,15 @@ Future<Entry?> openNewEntryScreen(
 
 /// "Look up again" from the form (Add / edit entry): the same screen as
 /// Add / edit entry › New entry: pick a match, started on the entry's type and
-/// title (and a game's [platform], its first), that hands the picked match
-/// back instead of opening a form. Resolves with null when nothing was
-/// picked.
+/// title (and a game's [platform], its first; a song's [kind], so the music
+/// lookup opens on Songs), that hands the picked match back instead of
+/// opening a form. Resolves with null when nothing was picked.
 Future<LookupMatch?> openMatchPicker(
   BuildContext context, {
   required MediaType type,
   required String title,
   String? platform,
+  EntryKind? kind,
 }) {
   return Navigator.of(context, rootNavigator: true).push<LookupMatch>(
     MaterialPageRoute(
@@ -62,6 +68,7 @@ Future<LookupMatch?> openMatchPicker(
         initialType: type,
         initialTitle: title,
         initialPlatform: platform,
+        initialKind: kind,
         pick: true,
       ),
     ),
@@ -75,7 +82,12 @@ Future<LookupMatch?> openMatchPicker(
 /// the form that asked, and there is no "Fill in" button. While Games is
 /// picked, the search can be narrowed to one platform (Game search on a
 /// platform), for this visit only; a match found that way picks the
-/// platform in the form. Nothing here names a provider.
+/// platform in the form. While Music is picked, the Albums | Songs switch
+/// under the type tabs picks what is listed (Music search: albums, … songs)
+/// and is the form's "Album or song"; the results page without a cap, lead
+/// with the matching artists, and an artist's row lists only theirs (Music
+/// search: an artist's albums, … an artist's songs), from which Back
+/// returns to the results first. Nothing here names a provider.
 class NewEntryScreen extends ConsumerStatefulWidget {
   const NewEntryScreen({
     super.key,
@@ -83,6 +95,7 @@ class NewEntryScreen extends ConsumerStatefulWidget {
     this.initialTitle,
     this.initialTags = const [],
     this.initialPlatform,
+    this.initialKind,
     this.pick = false,
   });
 
@@ -94,6 +107,9 @@ class NewEntryScreen extends ConsumerStatefulWidget {
   /// that name.
   final String? initialPlatform;
   final List<String> initialTags;
+
+  /// Album or song, for music: a song opens the music lookup on Songs.
+  final EntryKind? initialKind;
   final bool pick;
 
   /// How long typing pauses before the lookup runs.
@@ -110,8 +126,20 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
   /// The platform a game search is narrowed to, or null for any.
   GamePlatform? _platform;
 
-  /// The chip of the type the screen opened on, scrolled into view.
-  final _startChip = GlobalKey();
+  /// One key per type tab, All first, so the tab the screen opened on can
+  /// be scrolled into view.
+  final _tabKeys = [
+    for (var i = 0; i <= MediaType.values.length; i++) GlobalKey(),
+  ];
+
+  /// The music lookup: its switch, lists, open artist and paging.
+  late final MusicLookupController _music;
+
+  bool get _isMusic => _type == MediaType.music;
+
+  void _onMusic() {
+    if (mounted) setState(() {});
+  }
 
   Timer? _debounce;
 
@@ -136,10 +164,16 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
   @override
   void initState() {
     super.initState();
-    // Games sits past the screen edge; the chip picked on the way in is
+    _music = MusicLookupController(
+      ref.read(lookupServiceProvider),
+      scope: MusicScope.of(widget.initialKind),
+    )..addListener(_onMusic);
+    // Games sits past the screen edge; the tab picked on the way in is
     // brought into view.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final chip = _startChip.currentContext;
+      final type = widget.initialType;
+      if (type == null) return;
+      final chip = _tabKeys[type.index + 1].currentContext;
       if (chip == null || !chip.mounted) return;
       Scrollable.ensureVisible(
         chip,
@@ -172,12 +206,14 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
   void dispose() {
     _debounce?.cancel();
     _query.dispose();
+    _music.dispose();
     super.dispose();
   }
 
   void _onQueryChanged(String _) {
     _debounce?.cancel();
     if (_text.isEmpty) {
+      _music.search('');
       setState(() {
         _result = null;
         _loading = false;
@@ -215,6 +251,17 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
     final complete = Completer<LookupResult?>();
     if (_complete case final older? when !older.isCompleted) {
       older.complete(null);
+    }
+    if (type == MediaType.music) {
+      // Music pages through its own lists; the answer of a search of the
+      // other types still on its way is dropped.
+      _complete = null;
+      setState(() {
+        _result = null;
+        _loading = false;
+      });
+      _music.search(query);
+      return;
     }
     _complete = complete;
     setState(() => _loading = true);
@@ -274,6 +321,8 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
       context,
       type: _type,
       title: _text,
+      // "Fill in the details myself" keeps the switch's choice.
+      kind: _isMusic ? _music.scope.kind : null,
       match: picked,
       tags: widget.initialTags,
     );
@@ -286,183 +335,212 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
     final colors = LibraryColors.of(context);
     final query = _text;
     final result = _result;
-    final matches = result?.matches ?? const <LookupMatch>[];
+    final matches = _isMusic
+        ? _music.current.matches
+        : result?.matches ?? const <LookupMatch>[];
+    final inArtist = _isMusic && _music.artist != null;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PageHeader(
-              title: widget.pick ? 'Look up again' : 'New entry',
-              onBack: () => Navigator.pop(context),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Title',
-                    style: theme.textTheme.labelSmall!.copyWith(
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  SearchField(
-                    controller: _query,
-                    hintText: 'Title',
-                    autofocus: query.isEmpty,
-                    textCapitalization: TextCapitalization.words,
-                    onChanged: _onQueryChanged,
-                  ),
-                ],
+    return PopScope(
+      // Back from an artist's list returns to the results first.
+      canPop: !inArtist,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _music.closeArtist();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PageHeader(
+                title: widget.pick ? 'Look up again' : 'New entry',
+                onBack: () => Navigator.maybePop(context),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: SizedBox(
-                height: 44,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    PillChip(
-                      label: 'All',
-                      selected: _type == null,
-                      onTap: () => _pickType(null),
-                    ),
-                    for (final t in MediaType.values) ...[
-                      const SizedBox(width: 8),
-                      PillChip(
-                        key: t == widget.initialType ? _startChip : null,
-                        label: t.label,
-                        selected: _type == t,
-                        dotColor: colors.forType(t),
-                        onTap: () => _pickType(t),
+                    Text(
+                      'Title',
+                      style: theme.textTheme.labelSmall!.copyWith(
+                        letterSpacing: 0,
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 6),
+                    SearchField(
+                      controller: _query,
+                      hintText: 'Title',
+                      autofocus: query.isEmpty,
+                      textCapitalization: TextCapitalization.words,
+                      onChanged: _onQueryChanged,
+                    ),
                   ],
                 ),
               ),
-            ),
-            if (_type == MediaType.games)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                child: PlatformChip(
-                  platform: _platform,
-                  onTap: _choosePlatform,
-                  onClear: () => _setPlatform(null),
+                // The tabs are 48 dp, the mockup's 44 plus the touch area, so
+                // the row starts 4 dp higher than its 8 dp gap.
+                padding: const EdgeInsets.only(top: 4),
+                child: ScrollingTabs<MediaType?>(
+                  tabKeys: _tabKeys,
+                  tabs: [
+                    const ScrollingTabOption(null, 'All'),
+                    for (final t in MediaType.values)
+                      ScrollingTabOption(
+                        t,
+                        t.label,
+                        dotColor: colors.forType(t),
+                        lineColor: colors.forType(t),
+                      ),
+                  ],
+                  selected: _type,
+                  onChanged: _pickType,
                 ),
               ),
-            // A thin line under the chips while a lookup is pending or in
-            // flight, so refining a query never blanks the rows.
-            SizedBox(
-              height: 2,
-              child: _loading && query.isNotEmpty
-                  ? Semantics(
-                      label: 'Looking up',
-                      child: LinearProgressIndicator(
-                        minHeight: 2,
-                        backgroundColor: Colors.transparent,
-                        color: theme.colorScheme.primary,
-                      ),
-                    )
-                  : null,
-            ),
-            Expanded(
-              child: query.isEmpty
-                  ? const SizedBox.shrink()
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      children: [
-                        if (result == null ||
-                            (!result.complete && result.matches.isEmpty))
-                          LookupNotice('Looking up "$query"…', spinner: true)
-                        else if (result.notConfigured)
-                          LookupNotice(
-                            _type == null
-                                ? 'Lookups are not set up on this build '
-                                      '(no API keys).'
-                                : 'Lookups for ${_type!.label.toLowerCase()} '
-                                      'are not set up on this build '
-                                      '(no API key).',
-                          )
-                        else if (result.allFailed case final failure?)
-                          LookupNotice(
-                            failure == LookupFailure.offline
-                                ? 'Could not reach the lookup. Check your '
-                                      'connection and try again.'
-                                : 'The lookup did not answer. Try again in a '
-                                      'moment.',
-                            onRetry: _lookUp,
-                          )
-                        else if (matches.isEmpty && result.partlyFailed)
-                          LookupNotice(
-                            'Some lookups could not be reached, so a match '
-                            'may be missing. Try again in a moment.',
-                            onRetry: _lookUp,
-                          )
-                        else if (matches.isEmpty)
-                          LookupNotice(switch ((_type, _searchPlatform)) {
-                            (null, _) => 'No matches for "$query".',
-                            (_, final platform?) =>
-                              'No games called that on ${platform.name}.',
-                            (final type?, null) =>
-                              'No matches among ${type.label.toLowerCase()}.',
-                          })
-                        else ...[
-                          const SectionHeading(
-                            'Is it one of these?',
-                            padding: EdgeInsets.fromLTRB(0, 14, 0, 2),
-                          ),
-                          for (final match in matches)
-                            _MatchRow(
-                              match: match,
-                              platform: _searchPlatform?.name,
-                              opening: _opening == match,
-                              onTap: _opening == null
-                                  ? () => _open(match: match)
-                                  : null,
+              if (_type == MediaType.games)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: PlatformChip(
+                    platform: _platform,
+                    onTap: _choosePlatform,
+                    onClear: () => _setPlatform(null),
+                  ),
+                ),
+              if (_isMusic)
+                ChoiceChips<MusicScope>(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  options: [
+                    for (final scope in MusicScope.values)
+                      ChoiceChipOption(scope, scope.label),
+                  ],
+                  selected: _music.scope,
+                  onChanged: _music.setScope,
+                ),
+              // A thin line under the chips while a lookup is pending or in
+              // flight, so refining a query never blanks the rows.
+              SizedBox(
+                height: 2,
+                child:
+                    (_loading || (_isMusic && _music.current.searching)) &&
+                        query.isNotEmpty
+                    ? Semantics(
+                        label: 'Looking up',
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: Colors.transparent,
+                          color: theme.colorScheme.primary,
+                        ),
+                      )
+                    : null,
+              ),
+              Expanded(
+                child: query.isEmpty
+                    ? const SizedBox.shrink()
+                    : _isMusic
+                    ? MusicResults(
+                        music: _music,
+                        openingSource: _opening?.source,
+                        onPick: _opening == null
+                            ? (match) => _open(
+                                // The year asked after the page came goes
+                                // along, should the details not answer.
+                                match: match.copyWith(
+                                  released: _music.releasedOf(match),
+                                ),
+                              )
+                            : null,
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                        children: [
+                          if (result == null ||
+                              (!result.complete && result.matches.isEmpty))
+                            LookupNotice('Looking up "$query"…', spinner: true)
+                          else if (result.notConfigured)
+                            LookupNotice(
+                              _type == null
+                                  ? 'Lookups are not set up on this build '
+                                        '(no API keys).'
+                                  : 'Lookups for ${_type!.label.toLowerCase()} '
+                                        'are not set up on this build '
+                                        '(no API key).',
+                            )
+                          else if (result.allFailed case final failure?)
+                            LookupNotice(
+                              failure == LookupFailure.offline
+                                  ? 'Could not reach the lookup. Check your '
+                                        'connection and try again.'
+                                  : 'The lookup did not answer. Try again in a '
+                                        'moment.',
+                              onRetry: _lookUp,
+                            )
+                          else if (matches.isEmpty && result.partlyFailed)
+                            LookupNotice(
+                              'Some lookups could not be reached, so a match '
+                              'may be missing. Try again in a moment.',
+                              onRetry: _lookUp,
+                            )
+                          else if (matches.isEmpty)
+                            LookupNotice(switch ((_type, _searchPlatform)) {
+                              (null, _) => 'No matches for "$query".',
+                              (_, final platform?) =>
+                                'No games called that on ${platform.name}.',
+                              (final type?, null) =>
+                                'No matches among ${type.label.toLowerCase()}.',
+                            })
+                          else ...[
+                            const SectionHeading(
+                              'Is it one of these?',
+                              padding: EdgeInsets.fromLTRB(0, 14, 0, 2),
                             ),
-                          if (result.partlyFailed)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Text(
-                                'Some lookups could not be reached.',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall!.copyWith(
-                                  color: colors.muted,
+                            for (final match in matches)
+                              _MatchRow(
+                                match: match,
+                                platform: _searchPlatform?.name,
+                                opening: _opening == match,
+                                onTap: _opening == null
+                                    ? () => _open(match: match)
+                                    : null,
+                              ),
+                            if (result.partlyFailed)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Text(
+                                  'Some lookups could not be reached.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodySmall!.copyWith(
+                                    color: colors.muted,
+                                  ),
                                 ),
                               ),
-                            ),
+                          ],
                         ],
-                      ],
-                    ),
-            ),
-            if (!widget.pick)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (matches.isNotEmpty) ...[
-                      Text(
-                        'Not listed?',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall,
                       ),
-                      const SizedBox(height: 6),
-                    ],
-                    AppButton(
-                      label: 'Fill in the details myself',
-                      kind: AppButtonKind.outline,
-                      onPressed: _opening == null ? () => _open() : null,
-                    ),
-                  ],
-                ),
               ),
-          ],
+              if (!widget.pick)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (matches.isNotEmpty) ...[
+                        Text(
+                          'Not listed?',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      AppButton(
+                        label: 'Fill in the details myself',
+                        kind: AppButtonKind.outline,
+                        onPressed: _opening == null ? () => _open() : null,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

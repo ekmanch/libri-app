@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import '../models/media_type.dart';
+import '../models/released.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'lookup_source.dart';
+import 'music_lookup.dart';
+import 'music_source.dart';
 
 /// What a search came back with: the matches, and which sources failed.
 class LookupResult {
@@ -73,6 +76,9 @@ class LookupService {
   final int cacheSize;
 
   final _cache = <String, LookupResult>{};
+
+  /// The pages of the music lookup asked this session.
+  final _musicCache = <MusicRequest, MusicPage>{};
 
   /// The languages the owner reads, passed on to every source
   /// ([LookupSource.readingLanguages]); the remembered answers go, since a
@@ -226,6 +232,46 @@ class LookupService {
       asked: asked.length + partial,
     );
   }
+
+  MusicSource? get _music {
+    for (final source in sourcesFor(MediaType.music)) {
+      if (source is MusicSource) return source as MusicSource;
+    }
+    return null;
+  }
+
+  /// A page of the music lookup this session already asked for, so going
+  /// back to a list costs nothing and shows at once.
+  MusicPage? cachedMusicPage(MusicRequest request) => _musicCache[request];
+
+  /// A page of a music list (Add / edit entry › Music search) from the
+  /// music source, remembered for the session. Throws [LookupException]:
+  /// not configured when no music source is set up.
+  Future<MusicPage> musicPage(MusicRequest request) async {
+    if (_musicCache[request] case final page?) return page;
+    final source = _music;
+    if (source == null) {
+      throw const LookupException(LookupFailure.notConfigured);
+    }
+    final MusicPage page;
+    try {
+      page = await source.musicPage(request);
+    } on LookupException {
+      rethrow;
+    } on Object catch (e) {
+      throw LookupException(LookupFailure.other, message: '$e');
+    }
+    _musicCache[request] = page;
+    while (_musicCache.length > cacheSize * 4) {
+      _musicCache.remove(_musicCache.keys.first);
+    }
+    return page;
+  }
+
+  /// When the album with [albumSource] came out, from its source; null
+  /// when the source has no date. Throws [LookupException].
+  Future<Released?> albumReleased(String albumSource) async =>
+      sourceOf(albumSource)?.releaseDate(albumSource);
 
   /// The platforms games can be narrowed to (Add / edit entry › Platform
   /// picker): the first configured game source's. Empty when none is set

@@ -5,6 +5,10 @@ import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
+import 'package:library_app/data/lookup/music_lookup.dart';
+import 'package:library_app/data/lookup/music_source.dart';
+import 'package:library_app/data/lookup/track_info.dart';
+import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 
@@ -101,7 +105,65 @@ class _TwoSteps extends _Stub {
   }
 }
 
+/// A music source that counts the pages asked.
+class _Music extends _Stub implements MusicSource {
+  _Music({super.configured}) : super('deezer', {MediaType.music});
+
+  final asked = <MusicRequest>[];
+
+  @override
+  Future<MusicPage> musicPage(
+    MusicRequest request, {
+    int limit = musicPageSize,
+  }) async {
+    asked.add(request);
+    if (failure case final failure?) throw LookupException(failure);
+    return MusicPage(total: asked.length);
+  }
+
+  @override
+  Future<Released?> releaseDate(String source) async => const Released(1992);
+
+  @override
+  Future<List<TrackInfo>> albumTracks(String albumSource) async => const [];
+
+  @override
+  Future<String?> artistPhotoUrl(String name) async => null;
+}
+
 void main() {
+  test('a music page is asked once and remembered; no music source is '
+      '"not set up"', () async {
+    final music = _Music();
+    final service = LookupService([music]);
+    const request = MusicRequest(
+      list: MusicSearch('ghost'),
+      scope: MusicScope.albums,
+    );
+    expect(service.cachedMusicPage(request), isNull);
+    final page = await service.musicPage(request);
+    expect(await service.musicPage(request), same(page));
+    expect(service.cachedMusicPage(request), same(page));
+    expect(music.asked, [request]);
+    await service.musicPage(
+      const MusicRequest(list: MusicSearch('ghost'), scope: MusicScope.songs),
+    );
+    expect(music.asked, hasLength(2));
+    expect(await service.albumReleased('deezer:album:1'), const Released(1992));
+
+    final none = LookupService([_Music(configured: false)]);
+    await expectLater(
+      none.musicPage(request),
+      throwsA(
+        isA<LookupException>().having(
+          (e) => e.failure,
+          'failure',
+          LookupFailure.notConfigured,
+        ),
+      ),
+    );
+  });
+
   test('one type asks its source once, capped at ten, in its order', () async {
     final tmdb = _Stub('tmdb', {MediaType.movies, MediaType.shows}, count: 12);
     final service = LookupService([tmdb]);

@@ -59,6 +59,7 @@ Future<Entry?> openNewEntryForm(
   BuildContext context, {
   MediaType? type,
   String? title,
+  EntryKind? kind,
   LookupMatch? match,
   List<String> tags = const [],
 }) {
@@ -67,6 +68,7 @@ Future<Entry?> openNewEntryForm(
       builder: (_) => EntryFormScreen.create(
         type: type,
         title: title,
+        kind: kind,
         match: match,
         tags: tags,
       ),
@@ -97,6 +99,7 @@ class EntryFormScreen extends ConsumerStatefulWidget {
   const EntryFormScreen.edit(Entry this.entry, {super.key})
     : type = null,
       title = null,
+      kind = null,
       match = null,
       tags = const [];
 
@@ -104,6 +107,7 @@ class EntryFormScreen extends ConsumerStatefulWidget {
     super.key,
     this.type,
     this.title,
+    this.kind,
     this.match,
     this.tags = const [],
   }) : entry = null;
@@ -111,6 +115,10 @@ class EntryFormScreen extends ConsumerStatefulWidget {
   final Entry? entry;
   final MediaType? type;
   final String? title;
+
+  /// Album or song for a new music entry filled in by hand: what the
+  /// lookup's Albums | Songs switch was on. A [match] says it itself.
+  final EntryKind? kind;
   final LookupMatch? match;
 
   /// Tags a new entry starts with, e.g. a plan's tags from its pool (Plans ›
@@ -251,7 +259,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         entry?.kind ??
         switch (_type) {
           MediaType.music =>
-            match?.album == null ? EntryKind.album : EntryKind.song,
+            match == null && EntryKind.musicKinds.contains(widget.kind)
+                ? widget.kind
+                : match?.album == null
+                ? EntryKind.album
+                : EntryKind.song,
           MediaType.anime => match?.kind,
           _ => null,
         };
@@ -960,6 +972,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       type: _type,
       title: _title.text.trim(),
       platform: _platformOptions.where(_platformsOn.contains).firstOrNull,
+      kind: _type == MediaType.music ? _kind : null,
     );
     if (match == null || !mounted) return;
     setState(() => _applyMatch(match));

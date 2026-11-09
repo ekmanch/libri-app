@@ -12,7 +12,7 @@ import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
-import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -50,11 +50,12 @@ void main() {
   Finder rowTitled(String title) =>
       find.byWidgetPredicate((w) => w is Text && w.data == title);
 
-  /// Scrolls the chip row (lazy, so a far chip is not built yet) and taps.
+  /// Scrolls the type tabs until [label]'s is in view and taps it.
   Future<void> pickChip(WidgetTester tester, String label) async {
-    final chip = find.widgetWithText(PillChip, label);
-    final row = find.byWidgetPredicate(
-      (w) => w is ListView && w.scrollDirection == Axis.horizontal,
+    final chip = find.widgetWithText(ScrollingTab, label);
+    final row = find.descendant(
+      of: find.byType(ScrollingTabs<MediaType?>),
+      matching: find.byType(ListView),
     );
     await tester.dragUntilVisible(
       chip,

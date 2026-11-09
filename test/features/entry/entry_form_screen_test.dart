@@ -457,6 +457,35 @@ void main() {
       expect(find.widgetWithText(TextField, 'Stephen King'), findsNothing);
     });
 
+    for (final (id, songs) in const [
+      ('music/bad-moon-rising-creedence-clearwater-revival', true),
+      ('music/dirt-alice-in-chains', false),
+    ]) {
+      testWidgets('the music lookup opens on '
+          '${songs ? 'Songs for a song' : 'Albums for an album'}', (
+        tester,
+      ) async {
+        await pumpApp(
+          tester,
+          EntryFormScreen.edit(loadFixture().entryById(id)!),
+        );
+        await tester.tap(find.text('Look up again'));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<PillChip>(find.widgetWithText(PillChip, 'Songs'))
+              .selected,
+          songs,
+        );
+        expect(
+          tester
+              .widget<PillChip>(find.widgetWithText(PillChip, 'Albums'))
+              .selected,
+          !songs,
+        );
+      });
+    }
+
     testWidgets('the row is there for a new entry by hand', (tester) async {
       await pumpApp(
         tester,

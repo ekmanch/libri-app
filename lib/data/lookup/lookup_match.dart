@@ -22,6 +22,7 @@ class LookupMatch {
     this.description = '',
     this.album,
     this.albumSource,
+    this.recordType,
     this.platforms = const [],
     this.companies = const [],
     this.cast = const [],
@@ -62,6 +63,11 @@ class LookupMatch {
   /// For a song: the album it is on, and that album's lookup id.
   final String? album;
   final String? albumSource;
+
+  /// For an album: what kind of record the lookup calls it, "album", "ep"
+  /// or "single" as Deezer does, for the label of its row in the music
+  /// lookup; null when the lookup does not say. Never stored.
+  final String? recordType;
 
   /// For a game: the platforms it is out on, as the lookup lists them.
   final List<String> platforms;
@@ -158,6 +164,7 @@ class LookupMatch {
     String? description,
     String? album,
     String? albumSource,
+    String? recordType,
     List<String>? platforms,
     List<String>? companies,
     List<String>? cast,
@@ -186,6 +193,7 @@ class LookupMatch {
     description: description ?? this.description,
     album: album ?? this.album,
     albumSource: albumSource ?? this.albumSource,
+    recordType: recordType ?? this.recordType,
     platforms: platforms ?? this.platforms,
     companies: companies ?? this.companies,
     cast: cast ?? this.cast,
@@ -218,6 +226,7 @@ class LookupMatch {
       other.description == description &&
       other.album == album &&
       other.albumSource == albumSource &&
+      other.recordType == recordType &&
       listEquals(other.platforms, platforms) &&
       listEquals(other.companies, companies) &&
       listEquals(other.cast, cast) &&

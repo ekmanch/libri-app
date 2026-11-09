@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:library_app/data/lookup/deezer_source.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_match.dart';
+import 'package:library_app/data/lookup/music_lookup.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/follow_kind.dart';
@@ -366,6 +367,196 @@ void main() {
       expect(albums.last.source, 'deezer:album:300');
       expect(albums.last.creator, 'Alice in Chains');
       expect(albums.last.released, const Released(2026, 11, 20));
+    });
+  });
+
+  group('the music lookup', () {
+    Map<String, Object?> artist(int id, String name, int fans, [int? albums]) =>
+        {
+          'id': id,
+          'name': name,
+          'nb_fan': fans,
+          'nb_album': ?albums,
+          'picture_medium': 'https://cdn/artist-$id.jpg',
+        };
+
+    test('a search page reads the total, follows next and ranks the '
+        'artists by fans, asked once for both lists', () async {
+      final deezer = source((request) async {
+        final query = request.url.queryParameters;
+        switch (request.url.path) {
+          case '/search/album':
+            expect(query['q'], 'ghost');
+            expect(query['limit'], '25');
+            return json({
+              'data': [
+                {...dirtAlbum, 'record_type': 'ep'},
+              ],
+              'total': 412,
+              if (query['index'] == '0')
+                'next': 'https://api.deezer.com/search/album?q=ghost&index=25',
+            });
+          case '/search/track':
+            return json({
+              'data': [roosterTrack],
+              'total': 2960,
+              // No index to read: a whole page on.
+              'next': 'https://api.deezer.com/search/track?q=ghost',
+            });
+          case '/search/artist':
+            expect(query, {'q': 'ghost', 'limit': '25'});
+            return json({
+              'data': [
+                artist(1, 'Ghost & Gale', 50, 2),
+                artist(2, 'Ghostface Killah', 700000, 27),
+                artist(3, 'Ghost', 900000, 38),
+                artist(4, 'Ghostemane', 800000, 45),
+                artist(5, 'Ghostly', 600000, 4),
+                artist(6, 'Various Artists', 9000000),
+                // Exactly a hundredth of the best known: left out.
+                artist(7, 'Ghost Namesake', 9000),
+              ],
+            });
+        }
+        return http.Response('', 404);
+      });
+      const search = MusicSearch('ghost');
+      final first = await deezer.musicPage(
+        const MusicRequest(list: search, scope: MusicScope.albums),
+      );
+      expect(first.matches.single.source, 'deezer:album:91627');
+      expect(first.matches.single.recordType, 'ep');
+      expect(first.matches.single.released, isNull);
+      expect(first.total, 412);
+      expect(first.next, 25);
+      expect(first.artists.map((a) => a.name), [
+        'Ghost',
+        'Ghostemane',
+        'Ghostface Killah',
+      ]);
+      expect(first.artists.first.source, 'deezer:artist:3');
+      expect(first.artists.first.albums, 38);
+      expect(first.artists.first.pictureUrl, 'https://cdn/artist-3.jpg');
+
+      final second = await deezer.musicPage(
+        const MusicRequest(list: search, scope: MusicScope.albums, cursor: 25),
+      );
+      expect(second.next, isNull);
+      expect(second.artists, isEmpty);
+
+      final songs = await deezer.musicPage(
+        const MusicRequest(list: search, scope: MusicScope.songs),
+      );
+      expect(songs.matches.single.album, 'Dirt');
+      expect(songs.matches.single.albumSource, 'deezer:album:91627');
+      expect(songs.next, 25);
+      expect(songs.artists, hasLength(3));
+      expect(sent.where((r) => r.url.path == '/search/artist'), hasLength(1));
+    });
+
+    Map<String, Object?> record(int id, String type, String? date) => {
+      'id': id,
+      'title': 'Record $id',
+      'record_type': type,
+      'release_date': ?date,
+      'cover_medium': 'https://cdn/$id.jpg',
+    };
+
+    test("an artist's albums are the whole list asked once, newest first, "
+        'EPs and singles among them', () async {
+      final deezer = source((request) async {
+        expect(request.url.path, '/artist/7/albums');
+        expect(request.url.queryParameters, {'limit': '1000'});
+        return json({
+          'data': [
+            record(1, 'album', '2022-03-11'),
+            record(2, 'album', '2018-06-01'),
+            record(3, 'ep', '2023-05-18'),
+            record(4, 'single', null),
+            record(5, 'single', '2019-09-13'),
+          ],
+        });
+      });
+      const ghost = MusicArtist(source: 'deezer:artist:7', name: 'Ghost');
+      final first = await deezer.musicPage(
+        const MusicRequest(list: ghost, scope: MusicScope.albums),
+        limit: 3,
+      );
+      expect(first.matches.map((m) => m.source), [
+        'deezer:album:3',
+        'deezer:album:1',
+        'deezer:album:5',
+      ]);
+      expect(first.matches.first.recordType, 'ep');
+      expect(first.matches.first.creator, 'Ghost');
+      expect(first.matches.first.released, const Released(2023, 5, 18));
+      expect(first.total, 5);
+      expect(first.next, 3);
+      final rest = await deezer.musicPage(
+        const MusicRequest(list: ghost, scope: MusicScope.albums, cursor: 3),
+        limit: 3,
+      );
+      // The undated one last.
+      expect(rest.matches.map((m) => m.source), [
+        'deezer:album:2',
+        'deezer:album:4',
+      ]);
+      expect(rest.next, isNull);
+      expect(sent, hasLength(1));
+    });
+
+    test("an artist's songs walk their albums newest first and leave out "
+        'the songs of others', () async {
+      Map<String, Object?> track(int id, int by) => {
+        'id': id,
+        'title': 'Track $id',
+        'artist': {'id': by, 'name': 'Someone'},
+      };
+      final deezer = source((request) async {
+        switch (request.url.path) {
+          case '/artist/7/albums':
+            return json({
+              'data': [
+                record(2, 'album', '2018-06-01'),
+                record(1, 'album', '2022-03-11'),
+              ],
+            });
+          case '/album/1/tracks':
+            return json({
+              'data': [track(11, 7), track(12, 9)],
+            });
+          case '/album/2/tracks':
+            return json({
+              'data': [track(21, 7)],
+            });
+        }
+        return http.Response('', 404);
+      });
+      const ghost = MusicArtist(source: 'deezer:artist:7', name: 'Ghost');
+      final first = await deezer.musicPage(
+        const MusicRequest(list: ghost, scope: MusicScope.songs),
+        limit: 1,
+      );
+      final song = first.matches.single;
+      expect(song.source, 'deezer:track:11');
+      expect(song.creator, 'Ghost');
+      expect(song.album, 'Record 1');
+      expect(song.albumSource, 'deezer:album:1');
+      expect(song.released, const Released(2022, 3, 11));
+      expect(song.coverUrl, 'https://cdn/1.jpg');
+      // No count until the walk is over; the cursor is the next album.
+      expect(first.total, isNull);
+      expect(first.next, 1);
+      expect(sent.map((r) => r.url.path), [
+        '/artist/7/albums',
+        '/album/1/tracks',
+      ]);
+      final rest = await deezer.musicPage(
+        const MusicRequest(list: ghost, scope: MusicScope.songs, cursor: 1),
+        limit: 1,
+      );
+      expect(rest.matches.single.source, 'deezer:track:21');
+      expect(rest.next, isNull);
     });
   });
 }

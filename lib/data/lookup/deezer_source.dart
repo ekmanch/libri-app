@@ -5,6 +5,7 @@ import '../upcoming/creator_lookup.dart';
 import 'http_lookup_source.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
+import 'music_lookup.dart';
 import 'music_source.dart';
 import 'text_clean.dart';
 import 'track_info.dart';
@@ -84,6 +85,7 @@ class DeezerSource extends HttpLookupSource
       title: title,
       source: 'deezer:album:${id.toInt()}',
       creator: _artistName(item),
+      recordType: stringAt(item, 'record_type'),
       coverUrl: stringAt(item, 'cover_medium'),
       largeCoverUrl: stringAt(item, 'cover_big'),
     );
@@ -247,6 +249,219 @@ class DeezerSource extends HttpLookupSource
       }
     }
     return null;
+  }
+
+  // The music lookup (Add / edit entry › Music search; DESIGN.md 10c).
+
+  /// How many artists a search is asked for, to rank by fans.
+  static const _artistHits = 25;
+
+  /// An artist with this share of the best known hit's fans or less (a
+  /// hundredth) is a near-unknown namesake and left out.
+  static const _artistFanShare = 100;
+
+  /// The matching artists of the last searches, so the Albums and the Songs
+  /// page of one search ask once.
+  final _artistsByQuery = <String, List<ArtistHit>>{};
+
+  /// Every artist's album list asked this session, newest first, by
+  /// Deezer's artist id.
+  final _discographies = <String, List<Map<String, Object?>>>{};
+
+  /// A page of one of Deezer's lists: its items, its `total`, and where its
+  /// `next` page starts (null at the end). A page may hold fewer items than
+  /// asked (Deezer drops what is not available) while the next still starts
+  /// a whole page on, so the cursor follows `next`.
+  Future<({List<Map<String, Object?>> items, int? total, int? next})> _page(
+    String path,
+    String query, {
+    required int cursor,
+    required int limit,
+  }) async {
+    final json =
+        await _data(path, {
+          'q': query,
+          'index': '$cursor',
+          'limit': '$limit',
+        }) ??
+        const {};
+    final total = json['total'];
+    final next = stringAt(json, 'next');
+    final index = next == null
+        ? null
+        : int.tryParse(Uri.tryParse(next)?.queryParameters['index'] ?? '');
+    return (
+      items: objectsAt(json, 'data'),
+      total: total is num ? total.toInt() : null,
+      next: next == null
+          ? null
+          : (index != null && index > cursor ? index : cursor + limit),
+    );
+  }
+
+  /// Up to three artists for a search, the best known first: Deezer ranks
+  /// a search's artists poorly ("Ghost & Gale" before Ghost), so the hits
+  /// go by their fans, and one with a hundredth of the best's fans or
+  /// fewer is left out.
+  Future<List<ArtistHit>> _matchingArtists(String query) async {
+    final key = query.toLowerCase();
+    if (_artistsByQuery[key] case final known?) return known;
+    final hits = await _list('/search/artist', {
+      'q': query,
+      'limit': '$_artistHits',
+    });
+    final artists = bestArtists(hits);
+    _artistsByQuery[key] = artists;
+    while (_artistsByQuery.length > 20) {
+      _artistsByQuery.remove(_artistsByQuery.keys.first);
+    }
+    return artists;
+  }
+
+  /// The ranking of [_matchingArtists], on Deezer's artist records.
+  static List<ArtistHit> bestArtists(List<Map<String, Object?>> hits) {
+    int fans(Map<String, Object?> hit) =>
+        hit['nb_fan'] is num ? (hit['nb_fan']! as num).toInt() : 0;
+    // Equal fans keep Deezer's order.
+    final ranked = [...hits.indexed]
+      ..sort((a, b) {
+        final byFans = fans(b.$2).compareTo(fans(a.$2));
+        return byFans != 0 ? byFans : a.$1.compareTo(b.$1);
+      });
+    final best = ranked.isEmpty ? 0 : fans(ranked.first.$2);
+    final artists = <ArtistHit>[];
+    for (final (_, hit) in ranked) {
+      if (artists.length == matchingArtists) break;
+      if (fans(hit) * _artistFanShare <= best) continue;
+      final id = hit['id'];
+      final name = stringAt(hit, 'name');
+      if (id is! num || name == null) continue;
+      if (noPhoto.contains(name.trim().toLowerCase())) continue;
+      final albums = hit['nb_album'];
+      artists.add(
+        ArtistHit(
+          source: 'deezer:artist:${id.toInt()}',
+          name: name,
+          pictureUrl: stringAt(hit, 'picture_medium'),
+          albums: albums is num ? albums.toInt() : null,
+        ),
+      );
+    }
+    return artists;
+  }
+
+  /// Every album, EP and single of the artist with Deezer's id [id],
+  /// newest first (Deezer lists the albums, then the EPs, then the
+  /// singles, each newest first), the undated last in Deezer's order;
+  /// asked once a session.
+  Future<List<Map<String, Object?>>> _discography(String id) async {
+    if (_discographies[id] case final known?) return known;
+    final albums = await _list('/artist/$id/albums', {'limit': '1000'});
+    DateTime? day(Map<String, Object?> album) =>
+        _released(album)?.availableFrom;
+    final sorted = [...albums.indexed]
+      ..sort((a, b) {
+        final (dayA, dayB) = (day(a.$2), day(b.$2));
+        if (dayA != null && dayB != null && dayA != dayB) {
+          return dayB.compareTo(dayA);
+        }
+        if ((dayA == null) != (dayB == null)) return dayA == null ? 1 : -1;
+        return a.$1.compareTo(b.$1);
+      });
+    return _discographies[id] = [for (final (_, album) in sorted) album];
+  }
+
+  /// The artist's songs from their albums, newest album first, from the
+  /// album at [cursor] until [limit] songs are found; songs by others on
+  /// the artist's records (a soundtrack's) are left out. A single repeats
+  /// its album's title; the list that shows them keeps each title once.
+  Future<MusicPage> _artistSongs(
+    String artistId,
+    String artist,
+    int cursor,
+    int limit,
+  ) async {
+    final albums = await _discography(artistId);
+    final matches = <LookupMatch>[];
+    var at = cursor;
+    while (at < albums.length && matches.length < limit) {
+      final album = albums[at];
+      at++;
+      final albumId = album['id'];
+      if (albumId is! num) continue;
+      final tracks = await _list('/album/${albumId.toInt()}/tracks', {
+        'limit': '200',
+      });
+      for (final item in tracks) {
+        final by = (item['artist'] as Map<String, Object?>?)?['id'];
+        if (by is! num || '${by.toInt()}' != artistId) continue;
+        final id = item['id'];
+        final title = stringAt(item, 'title');
+        if (id is! num || title == null) continue;
+        matches.add(
+          LookupMatch(
+            type: MediaType.music,
+            title: title,
+            source: 'deezer:track:${id.toInt()}',
+            creator: artist,
+            album: stringAt(album, 'title'),
+            albumSource: 'deezer:album:${albumId.toInt()}',
+            released: _released(album),
+            coverUrl: stringAt(album, 'cover_medium'),
+            largeCoverUrl: stringAt(album, 'cover_big'),
+          ),
+        );
+      }
+    }
+    return MusicPage(matches: matches, next: at < albums.length ? at : null);
+  }
+
+  @override
+  Future<MusicPage> musicPage(
+    MusicRequest request, {
+    int limit = musicPageSize,
+  }) async {
+    final cursor = request.cursor;
+    switch (request.list) {
+      case MusicSearch(:final query):
+        final songs = request.scope == MusicScope.songs;
+        final page = await _page(
+          songs ? '/search/track' : '/search/album',
+          query,
+          cursor: cursor,
+          limit: limit,
+        );
+        return MusicPage(
+          matches: [
+            for (final item in page.items) ?(songs ? _track : _album)(item),
+          ],
+          total: page.total,
+          next: page.next,
+          artists: cursor == 0 ? await _matchingArtists(query) : const [],
+        );
+      case MusicArtist(:final source, :final name):
+        final parts = source.split(':');
+        if (parts.length != 3 || parts[0] != 'deezer' || parts[1] != 'artist') {
+          throw LookupException(
+            LookupFailure.other,
+            message: 'not a Deezer artist id: $source',
+          );
+        }
+        if (request.scope == MusicScope.songs) {
+          return _artistSongs(parts[2], name, cursor, limit);
+        }
+        final albums = await _discography(parts[2]);
+        final end = (cursor + limit).clamp(0, albums.length);
+        return MusicPage(
+          matches: [
+            // An artist's list names no artist: they are all theirs.
+            for (final item in albums.skip(cursor).take(limit))
+              ?_album(item)?.copyWith(creator: name, released: _released(item)),
+          ],
+          total: albums.length,
+          next: end < albums.length ? end : null,
+        );
+    }
   }
 
   // Followed artists (Settings › Upcoming releases; DESIGN.md 10c).

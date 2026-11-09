@@ -9,6 +9,7 @@ import '../data/lookup/movie_dates.dart';
 import '../data/models/follow_kind.dart';
 import '../data/upcoming/creator_lookup.dart';
 import '../data/upcoming/creator_status.dart';
+import '../data/lookup/music_lookup.dart';
 import '../data/lookup/music_source.dart';
 import '../data/lookup/track_info.dart';
 import '../data/models/entry_id.dart';
@@ -19,6 +20,7 @@ import '../data/models/released.dart';
 import '../data/models/season.dart';
 import '../data/models/season_span.dart';
 import '../data/models/season_split.dart';
+import 'fake_music.dart';
 
 /// A lookup with a fixed catalog, for the widget tests, the screenshot
 /// walks, the accessibility audit and the FIRST_RUN dev switch. [search]
@@ -404,6 +406,21 @@ class FakeLookupSource extends LookupSource
     await _call('photo:$name');
     if (name.trim().toLowerCase() == 'various artists') return null;
     return 'fake://cover/square/artist:${slugify(name)}';
+  }
+
+  /// The music lookup's pages ([fakeMusicPage]); the call reads
+  /// "music:albums:ghost:25" or "music:songs:fake:artist:ghost:0".
+  @override
+  Future<MusicPage> musicPage(
+    MusicRequest request, {
+    int limit = musicPageSize,
+  }) async {
+    final list = switch (request.list) {
+      MusicSearch(:final query) => query.toLowerCase(),
+      MusicArtist(:final source) => source,
+    };
+    await _call('music:${request.scope.name}:$list:${request.cursor}');
+    return fakeMusicPage(request, limit: limit);
   }
 
   /// The catalog, synchronously: a case-insensitive substring match on the

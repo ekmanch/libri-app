@@ -23,7 +23,7 @@ import 'package:library_app/features/shell/app_shell.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/widgets/app_buttons.dart';
-import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/underline_tabs.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -526,7 +526,9 @@ void main() {
       'The Lord of the Rings: The Return of the King',
     );
     expect(
-      tester.widget<PillChip>(find.widgetWithText(PillChip, 'Movies')).selected,
+      tester
+          .widget<ScrollingTab>(find.widgetWithText(ScrollingTab, 'Movies'))
+          .selected,
       isTrue,
     );
   });

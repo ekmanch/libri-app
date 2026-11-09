@@ -17,6 +17,7 @@ import 'package:library_app/data/lookup/track_info.dart';
 import 'package:library_app/data/models/follow_kind.dart';
 import 'package:library_app/data/upcoming/creator_lookup.dart';
 import 'package:library_app/data/models/entry.dart';
+import 'package:library_app/data/lookup/music_lookup.dart';
 import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
@@ -38,6 +39,12 @@ class _Stub extends LookupSource implements MusicSource {
   Completer<void>? gate;
   var inFlight = 0;
   var mostInFlight = 0;
+
+  @override
+  Future<MusicPage> musicPage(
+    MusicRequest request, {
+    int limit = musicPageSize,
+  }) async => const MusicPage();
 
   @override
   String get id => 'stub';

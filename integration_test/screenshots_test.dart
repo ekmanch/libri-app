@@ -804,7 +804,7 @@ Future<void> walkGamePlatform(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byType(AddButton));
   await tester.pumpAndSettle();
-  final games = find.widgetWithText(PillChip, 'Games');
+  final games = find.widgetWithText(ScrollingTab, 'Games');
   await tester.dragUntilVisible(
     games,
     find.byWidgetPredicate(
@@ -839,8 +839,73 @@ Future<void> walkGamePlatform(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
 }
 
+/// Add / edit entry › Music search: albums, … songs, … an artist's albums
+/// and … an artist's songs: New entry on Music with "ghost" typed, the
+/// switch flipped, then Ghost's row opened.
+Future<void> walkMusicSearch(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(FixtureLibraryRepository()),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byType(AddButton));
+  await tester.pumpAndSettle();
+  final music = find.widgetWithText(ScrollingTab, 'Music');
+  await tester.dragUntilVisible(
+    music,
+    find.byWidgetPredicate(
+      (w) => w is ListView && w.scrollDirection == Axis.horizontal,
+    ),
+    const Offset(-80, 0),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(music);
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'ghost');
+  await tester.pump(NewEntryScreen.debounce);
+  await waitForImages(tester, count: 5);
+  await capture(tester, '${prefix}a51-music-search-albums');
+  await tester.tap(find.widgetWithText(PillChip, 'Songs'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 5);
+  await capture(tester, '${prefix}a51-music-search-songs');
+  await tester.tap(find.text('Artist · 38 albums').hitTestable());
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 4);
+  await capture(tester, '${prefix}a51-music-search-artist-songs');
+  await tester.tap(find.widgetWithText(PillChip, 'Albums'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 4);
+  await capture(tester, '${prefix}a51-music-search-artist-albums');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('music search', (tester) async {
+    await walkMusicSearch(tester);
+  });
+
+  testWidgets('music search at a larger text size', (tester) async {
+    await walkMusicSearch(tester, scale: 1.3);
+  });
 
   testWidgets('game search on a platform', (tester) async {
     await walkGamePlatform(tester);
