@@ -9,6 +9,7 @@ import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'rate_limiter.dart';
 import 'text_clean.dart';
+import '../user_agent.dart';
 
 /// Apple Books through the iTunes Search API (`entity=ebook`, no key), the
 /// second half of the book lookup (see `OpenLibrarySource`): it finds the
@@ -23,9 +24,10 @@ class ITunesBooks with LookupHttp {
     this.client, {
     Uri? baseUrl,
     this.timeout = defaultHttpTimeout,
-    this.userAgent = 'Libri',
+    String? userAgent,
     Duration minGap = const Duration(seconds: 3),
-  }) : _baseUrl = baseUrl ?? Uri.https('itunes.apple.com'),
+  }) : userAgent = userAgent ?? lookupUserAgent,
+       _baseUrl = baseUrl ?? Uri.https('itunes.apple.com'),
        limiter = RateLimiter(minGap);
 
   @override

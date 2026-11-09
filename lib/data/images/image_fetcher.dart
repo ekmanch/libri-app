@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../net/http_transport.dart';
+import '../user_agent.dart';
 
 /// The server answered, but not with an image.
 class ImageFetchException implements Exception {
@@ -25,8 +26,8 @@ class HttpImageFetcher implements ImageFetcher {
   HttpImageFetcher(
     this._client, {
     this.timeout = defaultHttpTimeout,
-    this.userAgent = 'Libri',
-  });
+    String? userAgent,
+  }) : userAgent = userAgent ?? lookupUserAgent;
 
   final http.Client _client;
   final Duration timeout;

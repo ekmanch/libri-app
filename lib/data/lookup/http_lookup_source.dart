@@ -7,6 +7,7 @@ import '../net/http_transport.dart';
 import 'lookup_failure.dart';
 import 'lookup_source.dart';
 import 'rate_limiter.dart';
+import '../user_agent.dart';
 
 /// What the HTTP-backed lookups share: the offline mapping, the status
 /// check, JSON decoding, and a [RateLimiter] so a scroll through a photo
@@ -125,8 +126,9 @@ abstract class HttpLookupSource extends LookupSource with LookupHttp {
     this.client, {
     required Duration minGap,
     this.timeout = defaultHttpTimeout,
-    this.userAgent = 'Libri',
-  }) : limiter = RateLimiter(minGap);
+    String? userAgent,
+  }) : userAgent = userAgent ?? lookupUserAgent,
+       limiter = RateLimiter(minGap);
 
   @override
   final http.Client client;

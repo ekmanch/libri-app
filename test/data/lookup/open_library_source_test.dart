@@ -17,6 +17,7 @@ import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/lookup/wikidata_series.dart';
 import 'package:library_app/data/models/series.dart';
 import 'package:library_app/data/models/follow_kind.dart';
+import 'package:library_app/data/user_agent.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -198,7 +199,7 @@ void main() {
           contains('editions.cover_i'),
         ),
       );
-      expect(request.headers['User-Agent'], 'Libri');
+      expect(request.headers['User-Agent'], lookupUserAgent);
 
       expect(hits.length, 4);
       expect(hits[0].source, 'openlibrary:OL45804W');

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show DeviceOrientation, SystemChrome, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_info.dart';
 import 'data/images/artwork_providers.dart';
@@ -16,6 +17,7 @@ import 'data/preferences/preferences_store.dart';
 import 'data/repository/fixture_library_repository.dart';
 import 'data/storage/app_files.dart';
 import 'data/storage/connection_store.dart';
+import 'data/user_agent.dart';
 import 'dev/long_lists.dart';
 import 'features/first_run/first_run_flow.dart';
 import 'features/library/recent_changes.dart';
@@ -29,6 +31,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Phone-first and portrait only; the manifest locks Android the same way.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  lookupUserAgent = userAgentFor((await PackageInfo.fromPlatform()).version);
   runApp(
     await bootstrap(
       await appDataDirectory(),

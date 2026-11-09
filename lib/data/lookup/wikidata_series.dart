@@ -8,6 +8,7 @@ import '../models/follow_kind.dart';
 import '../upcoming/creator_lookup.dart';
 import '../upcoming/creator_status.dart';
 import 'rate_limiter.dart';
+import '../user_agent.dart';
 
 /// Which series a book belongs to, and its number, from Wikidata (Library ›
 /// Book in a long series). No key. The book is found by its title with the
@@ -24,8 +25,9 @@ class WikidataSeries with LookupHttp implements InactiveLookup {
     Uri? apiUrl,
     Uri? sparqlUrl,
     this.timeout = defaultHttpTimeout,
-    this.userAgent = 'Libri',
-  }) : _apiUrl = apiUrl ?? Uri.https('www.wikidata.org', '/w/api.php'),
+    String? userAgent,
+  }) : userAgent = userAgent ?? lookupUserAgent,
+       _apiUrl = apiUrl ?? Uri.https('www.wikidata.org', '/w/api.php'),
        _sparqlUrl = sparqlUrl ?? Uri.https('query.wikidata.org', '/sparql'),
        limiter = RateLimiter(const Duration(seconds: 1));
 

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../net/http_transport.dart';
 import 'http_lookup_source.dart';
 import 'rate_limiter.dart';
+import '../user_agent.dart';
 
 /// What ARM knows of an AniList entry (section 10c): the TMDB show it is
 /// on, the TVDB show and, for a seasonal anime, the TVDB season it is;
@@ -21,8 +22,9 @@ class ArmIds with LookupHttp {
     this.client, {
     Uri? baseUrl,
     this.timeout = defaultHttpTimeout,
-    this.userAgent = 'Libri',
-  }) : _baseUrl = baseUrl ?? Uri.https('arm.haglund.dev', '/api/v2/ids'),
+    String? userAgent,
+  }) : userAgent = userAgent ?? lookupUserAgent,
+       _baseUrl = baseUrl ?? Uri.https('arm.haglund.dev', '/api/v2/ids'),
        limiter = RateLimiter(const Duration(milliseconds: 500));
 
   @override

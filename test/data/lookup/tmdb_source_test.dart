@@ -18,6 +18,7 @@ import 'package:library_app/data/models/season.dart';
 import 'package:library_app/data/models/series.dart';
 import 'package:library_app/data/models/follow_kind.dart';
 import 'package:library_app/data/upcoming/creator_status.dart';
+import 'package:library_app/data/user_agent.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -75,7 +76,7 @@ void main() {
       'include_adult': 'false',
     });
     expect(request.headers['Authorization'], 'Bearer eyJ.tmdb');
-    expect(request.headers['User-Agent'], 'Libri');
+    expect(request.headers['User-Agent'], lookupUserAgent);
 
     expect(hits.length, 3);
     expect(hits[0].source, 'tmdb:movie:564');

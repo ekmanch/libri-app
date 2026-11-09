@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:library_app/data/lookup/itunes_books.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/user_agent.dart';
 
 void main() {
   late List<http.Request> sent;
@@ -66,7 +67,7 @@ void main() {
       'media': 'ebook',
       'limit': '10',
     });
-    expect(request.headers['User-Agent'], 'Libri');
+    expect(request.headers['User-Agent'], lookupUserAgent);
 
     expect(hits, hasLength(2));
     final hit = hits.first;

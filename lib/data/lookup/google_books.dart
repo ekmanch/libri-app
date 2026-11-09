@@ -9,6 +9,7 @@ import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'rate_limiter.dart';
 import 'text_clean.dart';
+import '../user_agent.dart';
 
 /// Google Books, read by id only: one volume, "googlebooks:eOTEEQAAQBAJ",
 /// for the books found while its search was a source (2026-10-19 to
@@ -23,9 +24,10 @@ class GoogleBooks with LookupHttp {
     this.key = '',
     Uri? baseUrl,
     this.timeout = defaultHttpTimeout,
-    this.userAgent = 'Libri',
+    String? userAgent,
     Duration minGap = const Duration(milliseconds: 500),
-  }) : _baseUrl =
+  }) : userAgent = userAgent ?? lookupUserAgent,
+       _baseUrl =
            baseUrl ?? Uri.https('www.googleapis.com', '/books/v1/volumes'),
        limiter = RateLimiter(minGap);
 
