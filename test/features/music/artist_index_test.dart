@@ -25,7 +25,6 @@ void main() {
     final aic = artists.firstWhere((a) => a.name == 'Alice in Chains');
     expect(aic.countLabel, '1 album');
     expect(aic.initials, 'AI');
-    expect(aic.ratedTracks.length, 3);
     final cramps = artists.firstWhere((a) => a.name == 'The Cramps');
     expect(cramps.countLabel, '1 song');
     expect(cramps.albums, isEmpty);

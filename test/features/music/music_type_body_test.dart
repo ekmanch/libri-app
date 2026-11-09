@@ -27,7 +27,6 @@ void main() {
   final albums = visible.where((e) => e.kind != EntryKind.song).toList();
   final songs = visible.where((e) => e.kind == EntryKind.song).toList();
   final artists = visible.map((e) => e.creator).toSet().length;
-  final ratedTracks = albums.fold(0, (n, a) => n + (a.tracks?.length ?? 0));
 
   Future<void> pickMusic(WidgetTester tester) async {
     final chip = find.widgetWithText(ScrollingTab, 'Music');
@@ -112,20 +111,20 @@ void main() {
     expect(find.byType(ArtistRow), findsNothing);
   });
 
-  testWidgets('the Songs tab lists songs and rated tracks together', (
+  testWidgets('the Songs tab lists song entries, not songs rated on albums', (
     tester,
   ) async {
     await pumpApp(tester, const LibraryHomeScreen());
     await pickMusic(tester);
     await pickTab(tester, 'Songs');
-    expect(songItems(songs, albums).length, songs.length + ratedTracks);
     expect(find.byType(EntryRow), findsNWidgets(songs.length));
-    expect(find.byType(TrackRow), findsWidgets);
-    expect(find.text('Rooster'), findsOneWidget);
-    // One format for songs and rated tracks: artist and year.
-    expect(find.text('Alice in Chains · 1992'), findsNWidgets(3));
-    expect(find.text('10 / 10'), findsWidgets);
     expect(find.text('Bad Moon Rising'), findsOneWidget);
+    // Rooster is rated on Dirt, an album entry; it stays on the album.
+    expect(
+      albums.any((a) => a.tracks?.any((t) => t.title == 'Rooster') ?? false),
+      isTrue,
+    );
+    expect(find.text('Rooster'), findsNothing);
   });
 
   testWidgets('the view is remembered per tab', (tester) async {

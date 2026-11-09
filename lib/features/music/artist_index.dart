@@ -1,7 +1,6 @@
 import '../../data/models/entry.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/entry_kind.dart';
-import '../../data/models/track.dart';
 import '../../widgets/labels.dart';
 import '../library/entry_sections.dart';
 import '../library/library_sort.dart';
@@ -43,12 +42,6 @@ class ArtistSummary {
     if (words.isEmpty) return '?';
     return (words[0][0] + (words.length > 1 ? words[1][0] : '')).toUpperCase();
   }
-
-  /// Rated tracks on this artist's albums, with the album each is on.
-  List<(Entry album, Track track)> get ratedTracks => [
-    for (final album in albums)
-      for (final track in album.tracks ?? const <Track>[]) (album, track),
-  ];
 }
 
 /// The key artists sort by: lowercase, without a leading "The".

@@ -198,7 +198,7 @@ The First run screen has these states: Splash, Welcome ("Welcome to Libri"), Con
 - Opening an album writes nothing. The track list is fetched from the lookup and cached on the device.
 - Rating a track adds it to the album entry's `tracks` list. Clearing the rating removes it. Only rated tracks are stored.
 - A rated track is not a song entry. It has a title, a lookup ID and a rating, nothing else.
-- The Songs tab lists song entries and rated tracks together, both with the subtitle "Artist · Year": the year the song, or the album it is on, came out. Tapping a rated track opens its album. Plan rows, which also mix artists, use the same "Artist · Year" for songs. On an artist's own screen a song keeps "Album · Year".
+- The Songs tab lists song entries only, with the subtitle "Artist · Year". A rated track stays on its album and is shown only there: a song on a saved album is already in the library, and a song entry is for a song liked on its own (an album not liked as a whole, or one song by an artist). Liking a song never adds its album, and the Albums tab lists album entries only (owner's decision, 2026-11-09). Plan rows, which also mix artists, use the same "Artist · Year" for songs. On an artist's own screen a song keeps "Album · Year".
 - Offline with no cached track list: show the rated tracks and a line saying the full list needs a connection.
 
 ### Replace dialogs

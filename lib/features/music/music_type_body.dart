@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/entry.dart';
 import '../../data/models/entry_kind.dart';
-import '../../data/models/track.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/pinned_sliver.dart';
-import '../../widgets/row_ink_well.dart';
 import '../../widgets/chips.dart';
 import '../library/cover_grid_tile.dart';
 import '../../widgets/cover_image.dart';
@@ -30,7 +28,7 @@ import 'music_tab.dart';
 /// an Artists / Albums / Songs toggle instead of status segments, one count
 /// line for all three, no sort, and a view button whose choice is kept per tab.
 /// Albums and Songs are flat lists in title order; the Songs tab lists song
-/// entries and rated tracks together.
+/// entries only, not the songs rated on albums.
 class MusicTypeBody extends ConsumerStatefulWidget {
   const MusicTypeBody({
     super.key,
@@ -144,7 +142,7 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
       ),
       MusicTab.songs => SongList(
         key: const ValueKey(MusicTab.songs),
-        items: songItems(songs, albums),
+        songs: sortEntries(songs, LibrarySort.titleAz),
         view: view,
         color: color,
         onTap: widget.onOpenEntry,
@@ -240,37 +238,12 @@ class ArtistList extends StatelessWidget {
   }
 }
 
-/// One row of the Songs tab: a song entry, or a rated track on an album.
-class SongItem {
-  const SongItem.entry(this.entry) : track = null;
-  const SongItem.track(this.entry, Track this.track);
-
-  /// The song entry, or the album the track is on.
-  final Entry entry;
-  final Track? track;
-
-  String get title => track?.title ?? entry.title;
-}
-
-/// Song entries and the rated tracks of [albums], in title order.
-List<SongItem> songItems(List<Entry> songs, List<Entry> albums) {
-  final items = [
-    for (final song in songs) SongItem.entry(song),
-    for (final album in albums)
-      for (final track in album.tracks ?? const <Track>[])
-        SongItem.track(album, track),
-  ];
-  items.sort((a, b) {
-    final c = a.title.toLowerCase().compareTo(b.title.toLowerCase());
-    return c != 0 ? c : a.entry.title.compareTo(b.entry.title);
-  });
-  return items;
-}
-
+/// The Songs tab: the song entries only. A song rated on a saved album
+/// stays on that album (Music › Album with track ratings) and is not listed.
 class SongList extends StatelessWidget {
   const SongList({
     super.key,
-    required this.items,
+    required this.songs,
     required this.view,
     required this.color,
     required this.onTap,
@@ -279,7 +252,8 @@ class SongList extends StatelessWidget {
     this.pinnedExtent = 0,
   });
 
-  final List<SongItem> items;
+  /// Song entries in title order.
+  final List<Entry> songs;
   final EntryView view;
   final Color color;
   final void Function(Entry entry) onTap;
@@ -291,44 +265,30 @@ class SongList extends StatelessWidget {
   Widget build(BuildContext context) {
     final grid = view == EntryView.grid;
     final photo = view == EntryView.listWithPhotos;
-    Widget row(SongItem item) {
-      final leading = photo ? CoverImage(entry: item.entry, width: 40) : null;
-      final track = item.track;
-      if (track == null) {
-        return EntryRow.forEntry(
-          item.entry,
-          leading: leading,
-          subtitle: songSubtitle(item.entry),
-          onTap: () => onTap(item.entry),
-        );
-      }
-      return TrackRow(
-        title: track.title,
-        // The album's artist and year: one format with the song entries.
-        subtitle: songSubtitle(item.entry),
-        rating: track.rating,
-        leading: leading,
-        onTap: () => onTap(item.entry),
-      );
-    }
+    Widget row(Entry song) => EntryRow.forEntry(
+      song,
+      leading: photo ? CoverImage(entry: song, width: 40) : null,
+      subtitle: songSubtitle(song),
+      onTap: () => onTap(song),
+    );
 
-    return SectionedListBody<SongItem>(
-      itemCount: items.length,
-      sections: sectionsByTitle(items, (i) => i.title),
+    return SectionedListBody<Entry>(
+      itemCount: songs.length,
+      sections: sectionsByTitle(songs, (e) => e.title),
       grid: grid,
       rowExtent: EntryListMetrics.rowHeight(
         view,
         MediaQuery.textScalerOf(context),
       ),
       gridRowExtent: (width) =>
-          EntryListMetrics.gridRowExtent(width, items.first.entry.type),
+          EntryListMetrics.gridRowExtent(width, songs.first.type),
       gridTopPadding: EntryListMetrics.gridTopPadding,
       gridColumns: EntryListMetrics.gridColumns,
       color: color,
       controller: controller,
       leadingSlivers: leadingSlivers,
       pinnedExtent: pinnedExtent,
-      layoutKey: (view, items.length),
+      layoutKey: (view, songs.length),
       rowBuilder: (context, item) => row(item),
       flatSlivers: grid
           ? [
@@ -344,98 +304,25 @@ class SongList extends StatelessWidget {
                       mainAxisSpacing: EntryListMetrics.gridMainSpacing,
                       mainAxisExtent: EntryListMetrics.gridTileExtent(
                         constraints.crossAxisExtent,
-                        items.first.entry.type,
+                        songs.first.type,
                       ),
                     ),
-                    itemCount: items.length,
-                    itemBuilder: (context, i) {
-                      final item = items[i];
-                      return CoverGridTile(
-                        entry: item.entry,
-                        title: item.track?.title,
-                        caption: item.track == null
-                            ? item.entry.creator ?? ''
-                            : item.entry.title,
-                        onTap: () => onTap(item.entry),
-                      );
-                    },
+                    itemCount: songs.length,
+                    itemBuilder: (context, i) => CoverGridTile(
+                      entry: songs[i],
+                      caption: songs[i].creator ?? '',
+                      onTap: () => onTap(songs[i]),
+                    ),
                   ),
                 ),
               ),
             ]
           : [
               SliverList.builder(
-                itemCount: items.length,
-                itemBuilder: (context, i) => row(items[i]),
+                itemCount: songs.length,
+                itemBuilder: (context, i) => row(songs[i]),
               ),
             ],
-    );
-  }
-}
-
-/// A rated track in the Songs tab: title, "Artist · Album" and its rating
-/// where an entry row has its status mark. Opens the album.
-class TrackRow extends StatelessWidget {
-  const TrackRow({
-    super.key,
-    required this.title,
-    required this.subtitle,
-    required this.rating,
-    required this.onTap,
-    this.leading,
-  });
-
-  final String title;
-  final String subtitle;
-  final int rating;
-  final VoidCallback onTap;
-  final Widget? leading;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
-    return RowInkWell(
-      onTap: onTap,
-      child: Container(
-        constraints: BoxConstraints(minHeight: leading == null ? 56 : 76),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: colors.divider)),
-        ),
-        child: Row(
-          children: [
-            if (leading != null) ...[leading!, const SizedBox(width: 12)],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall!.copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              ratingLabel(rating),
-              style: theme.textTheme.labelMedium!.copyWith(fontSize: 12.5),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
