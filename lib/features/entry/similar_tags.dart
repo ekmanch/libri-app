@@ -51,6 +51,10 @@ const tagAliases = <String, String>{
   'turn-based-strategy-tbs': 'strategy',
   'real-time-strategy-rts': 'strategy',
   'slice-of-life': 'slice-of-life',
+  // Deezer's "Rap/Hip Hop", and the spellings other catalogs use.
+  'rap-hip-hop': 'hiphop',
+  'hip-hop-rap': 'hiphop',
+  'hip-hop': 'hiphop',
 };
 
 /// [normalizeTag] with any brackets dropped ("Role-playing (RPG)"), then

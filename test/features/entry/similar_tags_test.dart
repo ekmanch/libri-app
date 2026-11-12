@@ -68,5 +68,6 @@ void main() {
     expect(canonicalTag('#Horror tales'), 'horror');
     expect(canonicalTag('Role-playing RPG'), 'rpg');
     expect(canonicalTag('grunge'), 'grunge');
+    expect(canonicalTag('Rap/Hip Hop'), 'hiphop');
   });
 }
