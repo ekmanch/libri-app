@@ -60,6 +60,7 @@ const tagAliases = <String, String>{
   'alternativmusik': 'alternative',
   'filmmusik': 'movie-music',
   'film-scores': 'movie-music',
+  'electro': 'electronic',
 };
 
 /// [normalizeTag] with any brackets dropped ("Role-playing (RPG)"), then
@@ -67,6 +68,39 @@ const tagAliases = <String, String>{
 String canonicalTag(String raw) {
   final name = normalizeTag(raw.replaceAll(RegExp(r'[()\[\]]'), ' '));
   return tagAliases[name] ?? name;
+}
+
+/// A lookup's genre as the tags to offer for it: [canonicalTag], or, when
+/// [existing] has neither that tag nor one like it but has every tag the
+/// name is made of, those instead: "Indie Pop" is #indie and #pop, "Indie
+/// Rock/Rock pop" is #indie, #rock and #pop. A name with a word the
+/// library has no tag for stays whole.
+List<String> libraryTags(String raw, Set<String> existing) {
+  final name = canonicalTag(raw);
+  if (existing.contains(name) || findSimilarTag(name, existing) != null) {
+    return [name];
+  }
+  final words = name.split('-');
+  final tags = <String>[];
+  var start = 0;
+  while (start < words.length) {
+    // The longest run of words that is a tag, so "hack-and-slash" is found
+    // before "hack".
+    String? tag;
+    var end = words.length;
+    for (; end > start; end--) {
+      final run = words.sublist(start, end).join('-');
+      final candidate = tagAliases[run] ?? run;
+      if (existing.contains(candidate)) {
+        tag = candidate;
+        break;
+      }
+    }
+    if (tag == null) return [name];
+    if (!tags.contains(tag)) tags.add(tag);
+    start = end;
+  }
+  return tags;
 }
 
 /// The existing tag most like [candidate], or null when none is close.

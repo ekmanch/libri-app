@@ -72,5 +72,27 @@ void main() {
     expect(canonicalTag('Alternativmusik'), 'alternative');
     expect(canonicalTag('Filmmusik'), 'movie-music');
     expect(canonicalTag('Film Scores'), 'movie-music');
+    expect(canonicalTag('Electro'), 'electronic');
+  });
+
+  test('libraryTags turns a genre made of the library\'s tags into them', () {
+    const library = {'indie', 'pop', 'rock', 'electronic', 'hack-and-slash'};
+    expect(libraryTags('Indie Pop', library), ['indie', 'pop']);
+    expect(libraryTags('Indie Rock/Rock pop', library), [
+      'indie',
+      'rock',
+      'pop',
+    ]);
+    expect(libraryTags('Electro Pop', library), ['electronic', 'pop']);
+    expect(libraryTags('Hack and slash rock', library), [
+      'hack-and-slash',
+      'rock',
+    ]);
+    expect(libraryTags('Rock', library), ['rock']);
+    // A word the library has no tag for keeps the name whole.
+    expect(libraryTags('Indie Folk', library), ['indie-folk']);
+    expect(libraryTags('Grunge', library), ['grunge']);
+    // A tag like the whole name wins over its parts.
+    expect(libraryTags('Pop Rock', {...library, 'poprock'}), ['pop-rock']);
   });
 }

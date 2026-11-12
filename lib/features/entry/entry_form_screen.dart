@@ -741,20 +741,23 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final existing = library.allTags;
     final matched = <_Suggestion>[];
     final fresh = <String>[];
+    genres:
     for (final raw in match.tags) {
-      final name = canonicalTag(raw);
-      if (name.isEmpty) continue;
-      final hit = existing.contains(name)
-          ? name
-          : findSimilarTag(name, existing);
-      if (hit != null) {
-        if (!matched.any((s) => s.tag == hit)) {
-          matched.add((tag: hit, category: null));
+      // A genre made of the library's tags ("Indie Pop") is those tags.
+      for (final name in libraryTags(raw, existing)) {
+        if (name.isEmpty) continue;
+        final hit = existing.contains(name)
+            ? name
+            : findSimilarTag(name, existing);
+        if (hit != null) {
+          if (!matched.any((s) => s.tag == hit)) {
+            matched.add((tag: hit, category: null));
+          }
+        } else if (!fresh.contains(name)) {
+          fresh.add(name);
         }
-      } else if (!fresh.contains(name)) {
-        fresh.add(name);
+        if (matched.length + fresh.length == 6) break genres;
       }
-      if (matched.length + fresh.length == 6) break;
     }
     for (final s in matched) {
       if (!_tags.contains(s.tag)) _tags.add(s.tag);
