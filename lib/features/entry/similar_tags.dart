@@ -55,6 +55,11 @@ const tagAliases = <String, String>{
   'rap-hip-hop': 'hiphop',
   'hip-hop-rap': 'hiphop',
   'hip-hop': 'hiphop',
+  // Deezer's genres in Swedish, as it named them by the caller's country
+  // before the lookup asked for English, and "Film Scores".
+  'alternativmusik': 'alternative',
+  'filmmusik': 'movie-music',
+  'film-scores': 'movie-music',
 };
 
 /// [normalizeTag] with any brackets dropped ("Role-playing (RPG)"), then

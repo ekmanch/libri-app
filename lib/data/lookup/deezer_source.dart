@@ -36,8 +36,11 @@ class DeezerSource extends HttpLookupSource
   @override
   Set<MediaType> get types => const {MediaType.music};
 
+  /// Deezer names genres in the language of the caller's country
+  /// ("Alternativmusik" from Sweden) unless told which one to use.
   Map<String, String> get _headers => {
     'Accept': 'application/json',
+    'Accept-Language': 'en',
     'User-Agent': userAgent,
   };
 

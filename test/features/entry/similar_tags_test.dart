@@ -69,5 +69,8 @@ void main() {
     expect(canonicalTag('Role-playing RPG'), 'rpg');
     expect(canonicalTag('grunge'), 'grunge');
     expect(canonicalTag('Rap/Hip Hop'), 'hiphop');
+    expect(canonicalTag('Alternativmusik'), 'alternative');
+    expect(canonicalTag('Filmmusik'), 'movie-music');
+    expect(canonicalTag('Film Scores'), 'movie-music');
   });
 }
