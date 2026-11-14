@@ -44,6 +44,10 @@ class AppTextField extends StatelessWidget {
     this.keyboardType,
     this.inputFormatters,
     this.focusNode,
+    this.compact = false,
+    this.textAlign = TextAlign.start,
+    this.fontFamily,
+    this.semanticsLabel,
   });
 
   final TextEditingController? controller;
@@ -65,11 +69,29 @@ class AppTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
 
+  /// 44 px tall with 10 px corners, for a field in a row of a list (Music ›
+  /// Edit tracks).
+  final bool compact;
+  final TextAlign textAlign;
+
+  /// Another face than the body's: the monospace of a track's length.
+  final String? fontFamily;
+
+  /// Names a field that has no label above it, for a screen reader.
+  final String? semanticsLabel;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return TextField(
+    OutlineInputBorder? border(Color color) => compact
+        ? OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: color),
+          )
+        : null;
+    final field = TextField(
       controller: controller,
+      textAlign: textAlign,
       focusNode: focusNode,
       autofocus: autofocus,
       maxLines: maxLines,
@@ -83,20 +105,34 @@ class AppTextField extends StatelessWidget {
       onSubmitted: onSubmitted,
       style: theme.textTheme.bodyLarge!.copyWith(
         fontWeight: maxLines == 1 ? FontWeight.w500 : FontWeight.w400,
-        fontSize: maxLines == 1 ? 16 : 15.5,
+        fontSize: compact
+            ? 15
+            : maxLines == 1
+            ? 16
+            : 15.5,
         height: maxLines == 1 ? null : 1.4,
+        fontFamily: fontFamily,
       ),
       decoration: InputDecoration(
         hintText: hintText,
         errorText: errorText,
         counterText: '',
         fillColor: theme.colorScheme.surface,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: maxLines == 1 ? 15 : 12,
-        ),
+        isDense: compact,
+        constraints: compact ? const BoxConstraints.tightFor(height: 44) : null,
+        border: border(theme.colorScheme.outline),
+        enabledBorder: border(theme.colorScheme.outline),
+        focusedBorder: border(theme.colorScheme.primary),
+        contentPadding: compact
+            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 11)
+            : EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: maxLines == 1 ? 15 : 12,
+              ),
       ),
     );
+    final label = semanticsLabel;
+    return label == null ? field : Semantics(label: label, child: field);
   }
 }
 

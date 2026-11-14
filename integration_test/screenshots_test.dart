@@ -1126,8 +1126,129 @@ Future<void> walkMusicSearch(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
 }
 
+/// Music › Album: track list couldn't load; Album without an online match;
+/// Album: your own track list; Edit tracks and its three variants. Kind of
+/// Blue stands in for the album the lookup finds nothing for.
+Future<void> walkTracks(
+  WidgetTester tester, {
+  double scale = 1,
+  bool failed = false,
+}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  Future<void> start(FakeLookupSource source) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...fakeLookupOverrides(source: source),
+          libraryRepositoryProvider.overrideWithValue(
+            FixtureLibraryRepository(),
+          ),
+        ],
+        child: RepaintBoundary(
+          key: _root,
+          child: MediaQuery(
+            data: MediaQueryData.fromView(tester.view)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: const LibraryApp(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await pickChip(tester, 'Music');
+  }
+
+  Future<void> openAlbum(String artist, String album) async {
+    await tester.scrollUntilVisible(
+      find.text(artist),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    // Clear of the bar at the bottom, whatever the text size.
+    await tester.ensureVisible(find.text(artist));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(artist));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(album).first);
+    await tester.pumpAndSettle();
+  }
+
+  if (failed) {
+    await start(FakeLookupSource(failure: LookupFailure.offline));
+    await openAlbum('Alice in Chains', 'Dirt');
+    await capture(tester, '${prefix}a53-tracks-failed');
+    return;
+  }
+  await start(FakeLookupSource(noMatches: const {'kind of blue'}));
+  await openAlbum('Miles Davis', 'Kind of Blue');
+  await capture(tester, '${prefix}a53-tracks-no-match');
+  await tester.ensureVisible(find.text('Add tracks manually'));
+  await tester.tap(find.text('Add tracks manually'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a53-tracks-edit-empty');
+
+  final fields = find.byType(EditableText);
+  for (final (i, (title, length)) in const [
+    ('So What', '922'),
+    ('Freddie Freeloader', '946'),
+    ('Blue in Green', ''),
+  ].indexed) {
+    await tester.tap(find.text('+ Add track'));
+    await tester.pumpAndSettle();
+    await tester.enterText(fields.at(i * 2), title);
+    await tester.enterText(fields.at(i * 2 + 1), length);
+  }
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a53-tracks-edit');
+  await tester.enterText(
+    fields.last,
+    'All Blues 11:33\n5. Flamenco Sketches (9:26)',
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Add 2 tracks'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a53-tracks-edit-paste');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a53-tracks-edit-discard');
+  await tester.tap(find.text('Keep editing'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Add 2 tracks'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Blue in Green'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.bySemanticsLabel('9 out of 10'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Edit tracks'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a53-tracks-own');
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('album tracks by hand', (tester) async {
+    await walkTracks(tester);
+  });
+
+  testWidgets('album tracks that could not load', (tester) async {
+    await walkTracks(tester, failed: true);
+  });
+
+  testWidgets('album tracks that could not load at a larger text size', (
+    tester,
+  ) async {
+    await walkTracks(tester, scale: 1.3, failed: true);
+  });
+
+  testWidgets('album tracks by hand at a larger text size', (tester) async {
+    await walkTracks(tester, scale: 1.3);
+  });
 
   testWidgets('music search', (tester) async {
     await walkMusicSearch(tester);

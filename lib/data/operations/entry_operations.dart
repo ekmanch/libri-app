@@ -432,6 +432,46 @@ class DeleteEntry extends LibraryOperation {
   String summary(Library before) => 'Delete ${_title(before, entryId)}';
 }
 
+/// Replaces an album's own track list, made by hand for an album without an
+/// online match (Music › Edit tracks): the tracks in order, numbered from 1
+/// here, each with the rating it carries. An empty list stores none.
+@JsonSerializable()
+class SetTracks extends LibraryOperation {
+  const SetTracks(this.entryId, this.tracks);
+
+  factory SetTracks.fromJson(Map<String, Object?> json) =>
+      _$SetTracksFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetTracksToJson(this);
+
+  final String entryId;
+  final List<Track> tracks;
+
+  @override
+  Library apply(Library library) {
+    for (final track in tracks) {
+      final rating = track.rating;
+      if (rating != null && (rating < 1 || rating > 10)) {
+        throw ArgumentError.value(rating, 'rating', 'must be 1 to 10');
+      }
+    }
+    final entry = library.entryById(entryId);
+    if (entry == null) return library;
+    final numbered = [
+      for (final (i, track) in tracks.indexed) track.copyWith(n: i + 1),
+    ];
+    return _replaceEntry(
+      library,
+      entry.copyWith(tracks: numbered.isEmpty ? null : numbered),
+    );
+  }
+
+  @override
+  String summary(Library before) => tracks.isEmpty
+      ? 'Remove the tracks of ${_title(before, entryId)}'
+      : 'Edit the tracks of ${_title(before, entryId)}';
+}
+
 /// Keeps the online match found for an entry that had none, so every device
 /// reads the same one: `source` is set only while it is null, and a match the
 /// owner picked meanwhile stays.
@@ -478,8 +518,9 @@ class RateTrack extends LibraryOperation {
 
   @override
   Library apply(Library library) {
-    if (track.rating < 1 || track.rating > 10) {
-      throw ArgumentError.value(track.rating, 'rating', 'must be 1 to 10');
+    final rating = track.rating;
+    if (rating == null || rating < 1 || rating > 10) {
+      throw ArgumentError.value(rating, 'rating', 'must be 1 to 10');
     }
     final entry = library.entryById(entryId);
     if (entry == null) return library;
@@ -487,6 +528,9 @@ class RateTrack extends LibraryOperation {
     final index = tracks.indexWhere((t) => _sameTrack(t, track));
     if (index < 0) {
       tracks.add(track);
+    } else if (tracks[index].n != null) {
+      // A track of the album's own list keeps its number, title and length.
+      tracks[index] = tracks[index].copyWith(rating: rating);
     } else {
       tracks[index] = track;
     }
@@ -498,8 +542,10 @@ class RateTrack extends LibraryOperation {
       'Rate ${track.title} on ${_title(before, entryId)} ${track.rating} of 10';
 }
 
-/// Removes a track's rating. When no rated tracks remain the `tracks` field
-/// is dropped, since only rated tracks are stored.
+/// Removes a track's rating. A rated track of an album with an online match
+/// goes with it, since only rated tracks are stored there, and with none left
+/// the `tracks` field is dropped; a track of the album's own list (with `n`)
+/// stays, unrated.
 @JsonSerializable()
 class ClearTrackRating extends LibraryOperation {
   const ClearTrackRating(this.entryId, {this.trackId, this.title})
@@ -519,7 +565,13 @@ class ClearTrackRating extends LibraryOperation {
     final entry = library.entryById(entryId);
     if (entry == null || entry.tracks == null) return library;
     final probe = Track(title: title ?? '', id: trackId, rating: 1);
-    final tracks = entry.tracks!.where((t) => !_sameTrack(t, probe)).toList();
+    final tracks = [
+      for (final track in entry.tracks!)
+        if (!_sameTrack(track, probe))
+          track
+        else if (track.n != null)
+          track.copyWith(rating: null),
+    ];
     return _replaceEntry(
       library,
       entry.copyWith(tracks: tracks.isEmpty ? null : tracks),

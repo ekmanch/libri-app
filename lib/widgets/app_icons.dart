@@ -229,6 +229,19 @@ class AppIcons {
     ],
   );
 
+  /// Six dots: the handle a row is dragged by (Music › Edit tracks).
+  static const grip = StrokeIconData(
+    strokeWidth: 3,
+    polylines: [
+      [Offset(8.5, 5), Offset(8.5, 5.01)],
+      [Offset(15.5, 5), Offset(15.5, 5.01)],
+      [Offset(8.5, 12), Offset(8.5, 12.01)],
+      [Offset(15.5, 12), Offset(15.5, 12.01)],
+      [Offset(8.5, 19), Offset(8.5, 19.01)],
+      [Offset(15.5, 19), Offset(15.5, 19.01)],
+    ],
+  );
+
   /// Three dots: a menu for the thing on this screen (Plans › Plan menu).
   static const more = StrokeIconData(
     strokeWidth: 3,

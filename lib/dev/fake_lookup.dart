@@ -48,12 +48,17 @@ class FakeLookupSource extends LookupSource
     this.tmdbBySource = const {},
     this.partsBySource = const {},
     this.noCovers = const {'gatto'},
+    this.noMatches = const {},
   });
 
   /// The titles, as slugs, [coverChoices] has no cover for: a title the
   /// lookup finds nothing for, which gets a cover of your own (Add / edit
   /// entry › Pick a cover: no cover yet).
   final Set<String> noCovers;
+
+  /// Titles, in lower case, that [match] finds nothing for: an album
+  /// without an online match (Music › Album without an online match).
+  final Set<String> noMatches;
 
   /// The coming parts of seasons [seasonParts] answers, by source.
   final Map<String, List<ComingSeasonPart>> partsBySource;
@@ -176,6 +181,7 @@ class FakeLookupSource extends LookupSource
   }) async {
     await _call('match:$title:${type.name}');
     final wanted = title.trim().toLowerCase();
+    if (noMatches.contains(wanted)) return null;
     for (final match in fakeCatalog) {
       if (match.type == type &&
           match.title.toLowerCase() == wanted &&

@@ -18,6 +18,7 @@ import 'package:library_app/widgets/segmented_control.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
+import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 
 import '../../helpers/pump_app.dart';
@@ -273,7 +274,7 @@ void main() {
       expect(find.text('Rate'), findsNothing);
     });
 
-    testWidgets('offline without a cached list says it needs a connection', (
+    testWidgets('a list that could not be loaded says so, with Retry', (
       tester,
     ) async {
       await open(
@@ -281,11 +282,120 @@ void main() {
         entryId: 'music/master-of-puppets-metallica',
         lookupOverrides: fakeLookupOverrides(failure: LookupFailure.offline),
       );
+      expect(find.text('Couldn\u2019t load the track list.'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('1 rated'), findsOneWidget);
+      expect(find.text('Master of Puppets'), findsNWidgets(2)); // Title, track.
+      expect(find.text('Loading the track list\u2026'), findsNothing);
+    });
+
+    testWidgets('an album without an online match gets its tracks by hand', (
+      tester,
+    ) async {
+      const album = 'music/kind-of-blue-miles-davis';
+      // The editor's fields in order: a title and a length per row, then
+      // the paste box.
+      Finder field(String label) {
+        final fields = find.byType(EditableText);
+        final row = RegExp(r'Track (\d) (title|length)').firstMatch(label);
+        if (row == null) return fields.last;
+        final at = (int.parse(row.group(1)!) - 1) * 2;
+        return fields.at(row.group(2) == 'title' ? at : at + 1);
+      }
+
+      final container = await open(
+        tester,
+        entryId: album,
+        lookupOverrides: fakeLookupOverrides(
+          source: FakeLookupSource(noMatches: const {'kind of blue'}),
+        ),
+      );
       expect(
-        find.text('The full track list needs a connection.'),
+        find.text(
+          'This album has no online match, so its tracks aren\u2019t looked '
+          'up.',
+        ),
         findsOneWidget,
       );
-      expect(find.text('1 rated'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'\d rated')), findsNothing);
+
+      await tester.ensureVisible(find.text('Add tracks manually'));
+      await tester.tap(find.text('Add tracks manually'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'No tracks yet. Add them one by one, or paste a whole list below.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('+ Add track'));
+      await tester.pumpAndSettle();
+      await tester.enterText(field('Track 1 title'), 'So What');
+      await tester.enterText(field('Track 1 length'), '922');
+      await tester.enterText(
+        field('Paste a track list'),
+        '2. Freddie Freeloader 9:46\n3. Blue in Green (5:37)',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Add 2 tracks'));
+      await tester.tap(find.text('Add 2 tracks'));
+      await tester.pumpAndSettle();
+      expect(find.text('Add from paste'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      List<(int?, String, String?, int?)> stored() => [
+        for (final t
+            in repo(container).current!.entryById(album)!.tracks ?? const [])
+          (t.n, t.title, t.length, t.rating),
+      ];
+      expect(stored(), [
+        (1, 'So What', '9:22', null),
+        (2, 'Freddie Freeloader', '9:46', null),
+        (3, 'Blue in Green', '5:37', null),
+      ]);
+      expect(find.text('0 of 3 rated'), findsOneWidget);
+      expect(find.text('5:37'), findsOneWidget);
+
+      // A rating sits on its track and follows a rename.
+      await tester.ensureVisible(find.text('Blue in Green'));
+      await tester.tap(find.text('Blue in Green'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('9 out of 10'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.pumpAndSettle();
+      expect(stored().last, (3, 'Blue in Green', '5:37', 9));
+
+      await tester.ensureVisible(find.text('Edit tracks'));
+      await tester.tap(find.text('Edit tracks'));
+      await tester.pumpAndSettle();
+      await tester.enterText(field('Track 3 title'), 'Blue in Green (take 5)');
+      await tester.tap(find.byTooltip('Remove track 2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(stored(), [
+        (1, 'So What', '9:22', null),
+        (2, 'Blue in Green (take 5)', '5:37', 9),
+      ]);
+
+      // Back with changes asks; saving with no titled rows stores none.
+      await tester.ensureVisible(find.text('Edit tracks'));
+      await tester.tap(find.text('Edit tracks'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Remove track 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Discard your changes?'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Remove track 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(repo(container).current!.entryById(album)!.tracks, isNull);
+      expect(find.text('Add tracks manually'), findsOneWidget);
     });
 
     testWidgets('a rating stored under another id still shows, by title', (

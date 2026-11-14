@@ -161,20 +161,74 @@ void main() {
       expect(one.entryById(dirt.id)!.tracks!.single.title, 'Rooster');
     });
   });
-  test('SetSource sets a source only while there is none', () {
-    final library = sampleLibrary();
-    final bare = UpdateEntry(dirt.copyWith(source: null)).apply(library);
-    final kept = SetSource(dirt.id, 'deezer:album:1').apply(bare);
-    expect(kept.entryById(dirt.id)!.source, 'deezer:album:1');
-    final again = SetSource(dirt.id, 'deezer:album:2').apply(kept);
-    expect(again.entryById(dirt.id)!.source, 'deezer:album:1');
-    final decoded = decodeOperation(
-      encodeOperation(SetSource(dirt.id, 'deezer:album:1')),
-    );
-    expect(
-      (decoded as LibraryOperation).summary(library),
-      'Keep the online match of Dirt',
-    );
+  group('an album\u2019s own tracks', () {
+    const own = [
+      Track(title: 'So What', length: '9:22', rating: 10),
+      Track(title: 'Freddie Freeloader'),
+    ];
+
+    test('SetTracks numbers the tracks and an empty list stores none', () {
+      final library = SetTracks(dirt.id, own).apply(sampleLibrary());
+      expect(
+        [for (final t in library.entryById(dirt.id)!.tracks!) t.toJson()],
+        [
+          {'n': 1, 'title': 'So What', 'length': '9:22', 'rating': 10},
+          {'n': 2, 'title': 'Freddie Freeloader'},
+        ],
+      );
+      expect(
+        SetTracks(dirt.id, const []).apply(library).entryById(dirt.id)!.tracks,
+        isNull,
+      );
+      expect(
+        SetTracks(dirt.id, own).summary(library),
+        'Edit the tracks of Dirt',
+      );
+    });
+
+    test('a rating is set on the track and clearing it leaves the track', () {
+      var library = SetTracks(dirt.id, own).apply(sampleLibrary());
+      library = RateTrack(
+        dirt.id,
+        const Track(
+          title: 'Freddie Freeloader',
+          id: 'deezer:track:1',
+          rating: 8,
+        ),
+      ).apply(library);
+      library = ClearTrackRating(dirt.id, title: 'So What').apply(library);
+      expect(
+        [for (final t in library.entryById(dirt.id)!.tracks!) t.toJson()],
+        [
+          {'n': 1, 'title': 'So What', 'length': '9:22'},
+          {'n': 2, 'title': 'Freddie Freeloader', 'rating': 8},
+        ],
+      );
+    });
+
+    test('SetSource sets a source only while there is none', () {
+      final library = sampleLibrary();
+      final bare = UpdateEntry(dirt.copyWith(source: null)).apply(library);
+      final kept = SetSource(dirt.id, 'deezer:album:1').apply(bare);
+      expect(kept.entryById(dirt.id)!.source, 'deezer:album:1');
+      final again = SetSource(dirt.id, 'deezer:album:2').apply(kept);
+      expect(again.entryById(dirt.id)!.source, 'deezer:album:1');
+      expect(
+        const SetSource('x', 'deezer:album:1').summary(library),
+        startsWith('Keep the online match of'),
+      );
+      final decoded = decodeOperation(
+        encodeOperation(SetSource(dirt.id, 'deezer:album:1')),
+      );
+      expect(
+        (decoded as LibraryOperation).summary(library),
+        'Keep the online match of Dirt',
+      );
+      expect(
+        decodeOperation(encodeOperation(SetTracks(dirt.id, own))),
+        isA<SetTracks>().having((o) => o.tracks, 'tracks', own),
+      );
+    });
   });
 
   test('entry operations summarize themselves', () {

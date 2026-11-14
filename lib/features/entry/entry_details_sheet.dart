@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library_providers.dart';
-import '../../data/lookup/lookup_failure.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/text_clean.dart';
 import '../../data/lookup/track_info.dart';
@@ -37,6 +36,7 @@ import 'entry_form_screen.dart';
 import 'rating_sheet.dart';
 import 'seasons.dart';
 import 'series.dart';
+import 'tracks_editor_screen.dart';
 
 /// Opens the entry details sheet (Library › Entry details) for the entry with
 /// [entryId].
@@ -251,6 +251,8 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
               album: entry,
               trackList: ref.watch(trackListProvider(entry.id)),
               onRate: rateTrack,
+              onRetry: () => ref.invalidate(trackListProvider(entry.id)),
+              onEdit: () => openTracksEditor(context, entry),
             ),
           ],
           if (entry.note.isNotEmpty) ...[
@@ -380,19 +382,27 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
 
 /// The Tracks section of an album (Music › Album with track ratings). With a
 /// track list every track is listed, numbered, with its rating or "Rate"; the
-/// first six are shown until "Show all" is tapped. While it loads, when it
-/// could not be fetched (offline) or when the source has none, only the rated
-/// tracks are listed and a line says why.
+/// first six are shown until "Show all" is tapped. While it loads, or when
+/// the source has none, only the rated tracks are listed and a line says
+/// why; when it could not be loaded (Music › Album: track list couldn't
+/// load) the line says so over them, with Retry. An album
+/// without an online match is never looked up: it lists its own tracks
+/// (`Entry.tracks`, made in Music › Edit tracks) with their lengths and
+/// "Edit tracks", or says so with "Add tracks manually".
 class _TrackList extends StatefulWidget {
   const _TrackList({
     required this.album,
     required this.trackList,
     required this.onRate,
+    required this.onRetry,
+    required this.onEdit,
   });
 
   final Entry album;
   final AsyncValue<TrackList?> trackList;
   final Future<void> Function(TrackInfo track, Track? current) onRate;
+  final VoidCallback onRetry;
+  final VoidCallback onEdit;
 
   static const collapsedCount = 6;
 
@@ -417,64 +427,100 @@ class _TrackListState extends State<_TrackList> {
     return null;
   }
 
-  /// Why only the rated tracks are listed.
-  static String _reason(AsyncValue<TrackList?> value, bool anyRated) {
-    final String why;
-    if (value.isLoading) {
-      why = 'Loading the track list\u2026';
-    } else if (value.error case LookupException(
-      failure: LookupFailure.offline,
-    )) {
-      why = 'The full track list needs a connection.';
-    } else {
-      why = 'No track list was found for this album.';
-    }
-    return anyRated ? why : 'No tracks rated yet. $why';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final rated = widget.album.tracks ?? const <Track>[];
-    final full = widget.trackList.value?.tracks;
-    final List<(int? number, TrackInfo info, Track? rating)> rows;
-    if (full == null) {
-      rows = [
+    final stored = widget.album.tracks ?? const <Track>[];
+    final rated = [
+      for (final track in stored)
+        if (track.rating != null) track,
+    ];
+    final value = widget.trackList;
+    final failed = value.hasError && !value.isLoading;
+    final own = !failed && (value.value?.unmatched ?? false);
+    final full = own || failed ? null : value.value?.tracks;
+    // The number, the track, its length and its stored rating.
+    final List<(int?, TrackInfo, String?, Track?)> all;
+    if (own) {
+      all = [
+        for (final (i, track) in stored.indexed)
+          (
+            i + 1,
+            (id: track.id ?? '', title: track.title),
+            track.length,
+            track,
+          ),
+      ];
+    } else if (full == null) {
+      all = [
         for (final track in rated)
-          (null, (id: track.id ?? '', title: track.title), track),
+          (null, (id: track.id ?? '', title: track.title), null, track),
       ];
     } else {
-      final shown = _expanded || full.length <= _TrackList.collapsedCount
-          ? full
-          : full.sublist(0, _TrackList.collapsedCount);
-      rows = [
-        for (final (i, info) in shown.indexed) (i + 1, info, _ratingOf(info)),
+      all = [
+        for (final (i, info) in full.indexed)
+          (i + 1, info, null, _ratingOf(info)),
       ];
     }
+    final numbered = own || full != null;
+    final collapsed =
+        numbered && !_expanded && all.length > _TrackList.collapsedCount;
+    final rows = collapsed ? all.sublist(0, _TrackList.collapsedCount) : all;
     final muted = theme.textTheme.bodyMedium!.copyWith(
       fontSize: 13.5,
       color: colors.muted,
     );
+    final link = TextButton.styleFrom(
+      foregroundColor: theme.colorScheme.primary,
+      textStyle: theme.textTheme.labelMedium,
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(48, 48),
+      alignment: Alignment.centerLeft,
+    );
+    final String why;
+    if (value.isLoading) {
+      why = 'Loading the track list…';
+    } else if (failed) {
+      why = 'Couldn’t load the track list.';
+    } else {
+      why = 'No track list was found for this album.';
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionHeading(
           'Tracks',
           padding: EdgeInsets.zero,
-          trailing: full == null
-              ? '${rated.length} rated'
-              : '${rated.length} of ${full.length} rated',
+          trailing: own && stored.isEmpty
+              ? null
+              : numbered
+              ? '${rated.length} of ${all.length} rated'
+              : '${rated.length} rated',
         ),
         const SizedBox(height: 4),
-        for (final (number, info, rating) in rows)
+        if (failed) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 2),
+            child: Text(why, style: muted),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: widget.onRetry,
+              style: link,
+              child: const Text('Retry'),
+            ),
+          ),
+        ],
+        for (final (number, info, length, track) in rows)
           Semantics(
             button: true,
             label:
-                '${info.title}, ${rating == null ? 'not rated' : ratingLabel(rating.rating)}',
+                '${info.title}, ${track?.rating == null ? 'not rated' : ratingLabel(track?.rating)}',
             excludeSemantics: true,
             child: RowInkWell(
-              onTap: () => widget.onRate(info, rating),
+              onTap: () => widget.onRate(info, track),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 44),
                 decoration: BoxDecoration(
@@ -495,14 +541,20 @@ class _TrackListState extends State<_TrackList> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (length != null) ...[
+                      const SizedBox(width: 12),
+                      Text(length, style: muted),
+                    ],
                     const SizedBox(width: 12),
                     Text(
-                      rating == null ? 'Rate' : ratingLabel(rating.rating),
+                      track?.rating == null
+                          ? 'Rate'
+                          : ratingLabel(track?.rating),
                       style: theme.textTheme.labelMedium!.copyWith(
                         // An unrated track is quiet, so the list does not read
                         // as a column of calls to action (Music › Album with
                         // track ratings).
-                        color: rating == null
+                        color: track?.rating == null
                             ? LibraryColors.of(context).placeholder
                             : theme.colorScheme.onSurface,
                       ),
@@ -512,23 +564,43 @@ class _TrackListState extends State<_TrackList> {
               ),
             ),
           ),
-        if (full == null) ...[
+        if (own && stored.isEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            'This album has no online match, so its tracks aren\u2019t looked '
+            'up.',
+            style: muted,
+          ),
+          const SizedBox(height: 12),
+          AppButton(
+            label: 'Add tracks manually',
+            kind: AppButtonKind.outline,
+            onPressed: widget.onEdit,
+          ),
+        ] else if (!numbered && !failed) ...[
           const SizedBox(height: 8),
-          Text(_reason(widget.trackList, rated.isNotEmpty), style: muted),
-        ] else if (!_expanded && full.length > _TrackList.collapsedCount)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => setState(() => _expanded = true),
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.primary,
-                textStyle: theme.textTheme.labelMedium,
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(48, 48),
-                alignment: Alignment.centerLeft,
-              ),
-              child: Text('Show all ${full.length} tracks'),
-            ),
+          Text(
+            rated.isNotEmpty ? why : 'No tracks rated yet. $why',
+            style: muted,
+          ),
+        ],
+        if (collapsed || (own && stored.isNotEmpty))
+          Row(
+            children: [
+              if (collapsed)
+                TextButton(
+                  onPressed: () => setState(() => _expanded = true),
+                  style: link,
+                  child: Text('Show all ${all.length} tracks'),
+                ),
+              const Spacer(),
+              if (own)
+                TextButton(
+                  onPressed: widget.onEdit,
+                  style: link.copyWith(alignment: Alignment.centerRight),
+                  child: const Text('Edit tracks'),
+                ),
+            ],
           ),
       ],
     );

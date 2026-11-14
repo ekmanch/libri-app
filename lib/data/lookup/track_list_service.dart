@@ -5,12 +5,20 @@ import 'music_source.dart';
 import 'track_info.dart';
 import 'track_list_store.dart';
 
-/// A fetched track list, and whether it came from the device.
+/// A fetched track list, and whether it came from the device; or, with
+/// [unmatched], the answer that the album has no online match, so nothing is
+/// looked up and its tracks are the owner's own (`Entry.tracks`).
 class TrackList {
-  const TrackList(this.tracks, {required this.fromCache});
+  const TrackList(this.tracks, {required this.fromCache}) : unmatched = false;
+
+  const TrackList.unmatched()
+    : tracks = const [],
+      fromCache = false,
+      unmatched = true;
 
   final List<TrackInfo> tracks;
   final bool fromCache;
+  final bool unmatched;
 }
 
 /// The track list of an album (Music › Album with track ratings): from the
@@ -37,12 +45,14 @@ class TrackListService {
     return null;
   }
 
-  /// Null when no album id could be found (no source, no match). Throws
-  /// [LookupException] when the fetch fails, so the sheet can tell being
-  /// offline from an album the source does not know.
+  /// [TrackList.unmatched] when the album has no `source` and the match on
+  /// the device was made and found none; null when the source has no list
+  /// for the album. Throws [LookupException] when the match or the fetch
+  /// fails, so the sheet can tell a list that could not be loaded from an
+  /// album without one.
   Future<TrackList?> load(Entry album) async {
     final source = album.source ?? await resolver.matchedSource(album);
-    if (source == null) return null;
+    if (source == null) return const TrackList.unmatched();
     final cached = await store.read(source);
     if (cached != null) return TrackList(cached, fromCache: true);
     final music = _music;

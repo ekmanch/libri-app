@@ -67,8 +67,13 @@ Entry absorbSongs(Entry album, List<Entry> songs) {
   for (final song in songs) {
     final rating = song.rating;
     if (rating == null) continue;
-    if (tracks.any((t) => _norm(t.title) == _norm(song.title))) continue;
-    tracks.add(Track(title: song.title, rating: rating));
+    final at = tracks.indexWhere((t) => _norm(t.title) == _norm(song.title));
+    if (at < 0) {
+      tracks.add(Track(title: song.title, rating: rating));
+    } else if (tracks[at].rating == null) {
+      // A track of the album's own list, not rated yet.
+      tracks[at] = tracks[at].copyWith(rating: rating);
+    }
   }
   return album.copyWith(tracks: tracks.isEmpty ? null : tracks);
 }

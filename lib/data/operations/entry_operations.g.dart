@@ -102,6 +102,18 @@ DeleteEntry _$DeleteEntryFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$DeleteEntryToJson(DeleteEntry instance) =>
     <String, dynamic>{'entryId': instance.entryId};
 
+SetTracks _$SetTracksFromJson(Map<String, dynamic> json) => SetTracks(
+  json['entryId'] as String,
+  (json['tracks'] as List<dynamic>)
+      .map((e) => Track.fromJson(e as Map<String, dynamic>))
+      .toList(),
+);
+
+Map<String, dynamic> _$SetTracksToJson(SetTracks instance) => <String, dynamic>{
+  'entryId': instance.entryId,
+  'tracks': instance.tracks.map((e) => e.toJson()).toList(),
+};
+
 SetSource _$SetSourceFromJson(Map<String, dynamic> json) =>
     SetSource(json['entryId'] as String, json['source'] as String);
 
