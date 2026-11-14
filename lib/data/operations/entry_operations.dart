@@ -432,6 +432,33 @@ class DeleteEntry extends LibraryOperation {
   String summary(Library before) => 'Delete ${_title(before, entryId)}';
 }
 
+/// Keeps the online match found for an entry that had none, so every device
+/// reads the same one: `source` is set only while it is null, and a match the
+/// owner picked meanwhile stays.
+@JsonSerializable()
+class SetSource extends LibraryOperation {
+  const SetSource(this.entryId, this.source);
+
+  factory SetSource.fromJson(Map<String, Object?> json) =>
+      _$SetSourceFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetSourceToJson(this);
+
+  final String entryId;
+  final String source;
+
+  @override
+  Library apply(Library library) {
+    final entry = library.entryById(entryId);
+    if (entry == null || entry.source != null) return library;
+    return _replaceEntry(library, entry.copyWith(source: source));
+  }
+
+  @override
+  String summary(Library before) =>
+      'Keep the online match of ${_title(before, entryId)}';
+}
+
 bool _sameTrack(Track a, Track b) =>
     a.id != null && b.id != null ? a.id == b.id : a.title == b.title;
 

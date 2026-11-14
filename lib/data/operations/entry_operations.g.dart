@@ -102,6 +102,14 @@ DeleteEntry _$DeleteEntryFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$DeleteEntryToJson(DeleteEntry instance) =>
     <String, dynamic>{'entryId': instance.entryId};
 
+SetSource _$SetSourceFromJson(Map<String, dynamic> json) =>
+    SetSource(json['entryId'] as String, json['source'] as String);
+
+Map<String, dynamic> _$SetSourceToJson(SetSource instance) => <String, dynamic>{
+  'entryId': instance.entryId,
+  'source': instance.source,
+};
+
 RateTrack _$RateTrackFromJson(Map<String, dynamic> json) => RateTrack(
   json['entryId'] as String,
   Track.fromJson(json['track'] as Map<String, dynamic>),

@@ -95,6 +95,7 @@ Future<Widget> bootstrap(
       initialRecentChangesProvider.overrideWithValue(changed),
       if (api != null) gitHubApiFactoryProvider.overrideWithValue(api),
       artworkPrunerProvider.overrideWith(startArtworkPruner),
+      matchKeeperProvider.overrideWith(startMatchKeeper),
       seasonCheckProvider.overrideWith(fileSeasonCheck),
       releaseCheckProvider.overrideWith(fileReleaseCheck),
       movieDateStoreProvider.overrideWith(fileMovieDateStore),

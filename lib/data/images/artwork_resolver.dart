@@ -119,6 +119,23 @@ class ArtworkResolver {
   /// The lookup id the entry was matched to on the device, when known.
   String? cachedSource(Entry entry) => _recordOf(entry)?.source;
 
+  /// Told when an entry without a `source` is matched (the match keeper
+  /// writes an album's into the library).
+  void Function(Entry entry, String source)? onMatched;
+
+  /// The entry's match is in its `source` now ([after] is the entry with
+  /// it): its record follows, so the cover found is not looked for again.
+  void matchKept(Entry after) {
+    final record = _entries[after.id];
+    if (record == null) return;
+    _entries[after.id] = _Record(
+      key: keyFor(after),
+      url: record.url,
+      resolved: record.resolved,
+    );
+    _markDirty();
+  }
+
   /// The lookup id of an entry without a `source`: the one its cover was
   /// matched to, looking it up when needed (the track list of an album).
   /// Throws [LookupException] when the lookup gave no answer, so being
@@ -196,6 +213,7 @@ class ArtworkResolver {
       resolved: _now(),
     );
     _markDirty();
+    if (source != null && entry.source == null) onMatched?.call(entry, source);
     return url;
   }
 

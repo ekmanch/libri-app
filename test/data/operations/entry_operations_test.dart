@@ -161,6 +161,22 @@ void main() {
       expect(one.entryById(dirt.id)!.tracks!.single.title, 'Rooster');
     });
   });
+  test('SetSource sets a source only while there is none', () {
+    final library = sampleLibrary();
+    final bare = UpdateEntry(dirt.copyWith(source: null)).apply(library);
+    final kept = SetSource(dirt.id, 'deezer:album:1').apply(bare);
+    expect(kept.entryById(dirt.id)!.source, 'deezer:album:1');
+    final again = SetSource(dirt.id, 'deezer:album:2').apply(kept);
+    expect(again.entryById(dirt.id)!.source, 'deezer:album:1');
+    final decoded = decodeOperation(
+      encodeOperation(SetSource(dirt.id, 'deezer:album:1')),
+    );
+    expect(
+      (decoded as LibraryOperation).summary(library),
+      'Keep the online match of Dirt',
+    );
+  });
+
   test('entry operations summarize themselves', () {
     final library = sampleLibrary();
     expect(

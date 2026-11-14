@@ -487,4 +487,69 @@ void main() {
     expect(images.cachedFile(album), isNotNull);
     expect(images.cachedFile(stale), isNull);
   });
+
+  test('the match keeper writes an album\u2019s match into its source, once, '
+      'and never over a pick', () async {
+    stub.covers['Dirt'] = 'https://e.test/dirt.jpg';
+    stub.covers['Heat'] = 'https://e.test/heat.jpg';
+    final album = entry(
+      'music/dirt',
+      type: MediaType.music,
+      title: 'Dirt',
+      kind: EntryKind.album,
+    );
+    final movie = entry('movies/heat', title: 'Heat');
+    var library = Library(entries: [album, movie]);
+    final applied = <String>[];
+    final r = resolver();
+    final keeper = MatchKeeper(
+      resolver: r,
+      library: () => library,
+      apply: (operation) async {
+        applied.add(operation.summary(library));
+        library = operation.apply(library);
+      },
+    );
+    // Found as the cover is: the album's match is kept, the movie's is not.
+    await r.coverUrl(album);
+    await r.coverUrl(movie);
+    await pumpEventQueue();
+    expect(applied, ['Keep the online match of Dirt']);
+    final kept = library.entryById(album.id)!;
+    expect(kept.source, 'stub:Dirt');
+    // The record follows the entry: the cover is known without asking.
+    final asks = stub.asks.length;
+    expect(r.cachedCoverUrl(kept), 'https://e.test/dirt.jpg');
+    expect(await r.coverUrl(kept), 'https://e.test/dirt.jpg');
+    expect(stub.asks.length, asks);
+
+    // A match on record from an earlier session goes in when the library
+    // loads; one the owner picked meanwhile stays.
+    final other = entry(
+      'music/jar',
+      type: MediaType.music,
+      title: 'Jar',
+      kind: EntryKind.album,
+    );
+    stub.covers['Jar'] = 'https://e.test/jar.jpg';
+    keeper.stop();
+    await r.coverUrl(other);
+    await pumpEventQueue();
+    library = Library(
+      entries: [
+        kept,
+        other.copyWith(source: 'deezer:album:7'),
+      ],
+    );
+    final again = MatchKeeper(
+      resolver: r,
+      library: () => library,
+      apply: (operation) async => library = operation.apply(library),
+    );
+    await again.keepKnown(Library(entries: [kept, other]));
+    expect(library.entryById(other.id)!.source, 'deezer:album:7');
+    library = Library(entries: [kept, other]);
+    await again.keepKnown(library);
+    expect(library.entryById(other.id)!.source, 'stub:Jar');
+  });
 }

@@ -95,6 +95,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Covers and photos of entries that are gone get cleaned up once per
     // session, a little after the library loads.
     ref.listenManual(artworkPrunerProvider, (_, _) {});
+    ref.listenManual(matchKeeperProvider, (_, _) {});
     // The book search ranks by the languages read (DESIGN.md 10c).
     ref.listenManual(readingLanguagesProvider, (_, languages) {
       ref.read(lookupServiceProvider).readingLanguages = languages;

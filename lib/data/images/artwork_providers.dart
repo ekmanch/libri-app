@@ -8,7 +8,9 @@ import '../../dev/fake_images.dart';
 import '../../features/music/artist_index.dart';
 import '../library_providers.dart';
 import '../lookup/lookup_providers.dart';
+import '../models/entry.dart';
 import '../models/library.dart';
+import '../operations/operations.dart';
 import '../models/entry_kind.dart';
 import '../lookup/episode_service.dart';
 import '../lookup/series_check.dart';
@@ -76,6 +78,69 @@ void startArtworkPruner(Ref ref) {
     });
   }, fireImmediately: true);
   ref.onDispose(() => timer?.cancel());
+}
+
+/// Keeps the online match of an album in the library: an album without a
+/// `source` is matched by title on the device, and the match found is
+/// written into its `source` ([SetSource]), so every device reads the same
+/// one and a wrong one is corrected once, in Add / edit entry. Every match
+/// already on record goes in when the library first loads, each new one as
+/// it is found. The app shell watches it so it runs. Does nothing unless
+/// `main` overrides it with [startMatchKeeper], so no test writes a match
+/// it did not ask for.
+final matchKeeperProvider = Provider<void>((ref) {});
+
+/// The real keeper, for the root scope in `main`.
+void startMatchKeeper(Ref ref) {
+  final keeper = MatchKeeper(
+    resolver: ref.read(artworkResolverProvider),
+    apply: (operation) => ref.read(libraryRepositoryProvider).apply(operation),
+    library: () => ref.read(libraryProvider).value,
+  );
+  var done = false;
+  ref.listen(libraryProvider, (_, next) {
+    final library = next.value;
+    if (library == null || done) return;
+    done = true;
+    unawaited(keeper.keepKnown(library));
+  }, fireImmediately: true);
+  ref.onDispose(keeper.stop);
+}
+
+/// The keeper itself, also run by the tests. Albums only: songs and the
+/// other types are matched per device.
+class MatchKeeper {
+  MatchKeeper({
+    required this.resolver,
+    required this.apply,
+    required this.library,
+  }) {
+    resolver.onMatched = (entry, source) => unawaited(_keep(entry, source));
+  }
+
+  final ArtworkResolver resolver;
+  final Future<void> Function(LibraryOperation operation) apply;
+  final Library? Function() library;
+
+  void stop() => resolver.onMatched = null;
+
+  /// Writes every match on record for an album of [library] with no source.
+  Future<void> keepKnown(Library library) async {
+    await resolver.load();
+    for (final entry in library.entries) {
+      final source = entry.source == null ? resolver.cachedSource(entry) : null;
+      if (source != null) await _keep(entry, source);
+    }
+  }
+
+  Future<void> _keep(Entry entry, String source) async {
+    if (entry.kind != EntryKind.album || source.startsWith('fake:')) return;
+    // The entry as it is now: a match picked meanwhile stays.
+    if (library()?.entryById(entry.id)?.source != null) return;
+    await apply(SetSource(entry.id, source));
+    final after = library()?.entryById(entry.id);
+    if (after != null && after.source == source) resolver.matchKept(after);
+  }
 }
 
 /// The prune itself, also run by the tests. The covers of the upcoming
