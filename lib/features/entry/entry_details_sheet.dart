@@ -169,13 +169,17 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
     }
 
     Future<void> delete() async {
-      final ok = await confirmDeleteEntry(context, entry: entry, plans: plans);
-      if (!ok || !context.mounted) return;
-      // Close first: the repository publishes the change before its apply
-      // completes, and the sheet would close itself on seeing the entry
-      // gone, so a pop after the await would pop the screen underneath.
-      Navigator.of(context).pop();
-      await repository.apply(DeleteEntry(entry.id));
+      await confirmDeleteEntry(
+        context,
+        ref,
+        entry: entry,
+        plans: plans,
+        // Close first: the repository publishes the change before its
+        // apply completes, and the sheet would close itself on seeing the
+        // entry gone, so a pop after the await would pop the screen
+        // underneath.
+        beforeDelete: () => Navigator.of(context).pop(),
+      );
     }
 
     return SheetFrame(

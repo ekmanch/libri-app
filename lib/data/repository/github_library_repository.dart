@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../covers/cover_store.dart';
 import '../github/git_blob.dart';
 import '../github/github_api.dart';
 import '../library_codec.dart';
@@ -49,6 +50,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
     required this.repository,
     required this.path,
     required this.branch,
+    this.covers,
     this.debounce = const Duration(milliseconds: 2500),
     DateTime Function()? now,
     void Function(String message)? log,
@@ -57,6 +59,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
        settingsPath = settingsPathFor(path),
        _pending = PendingQueue(_file(directory, 'pending.json')),
        _metaStore = SyncMetaStore(_file(directory, 'sync.json')) {
+    covers?.onQueued = _coversQueued;
     _cache = LocalLibraryRepository(
       _file(directory, 'library.json'),
       seed: _download,
@@ -95,6 +98,12 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
   /// [SyncMeta.target]).
   String get _target => '$repository:$path@$branch';
 
+  /// The owner's own covers (`covers/` beside the library file, DESIGN.md
+  /// section 10d), or null without them (most tests). Their queued
+  /// changes go out in the same round as the library: the files first,
+  /// each a commit of its own, then the library, then the removals.
+  final CoverStore? covers;
+
   /// How long edits are gathered before they go out as one commit.
   final Duration debounce;
 
@@ -116,6 +125,9 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
   Future<void> _syncing = Future.value();
   bool _checkedOnLoad = false;
   bool _discarded = false;
+
+  /// The covers are listed at the first sync and after one that pulled.
+  bool _listCovers = true;
 
   // LibraryRepository
 
@@ -214,6 +226,8 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
       await _metaStore.delete();
     }
     await _pending.delete();
+    covers?.onQueued = null;
+    await covers?.clear(deleteFiles: !keepLibrary);
   }
 
   /// Waits for the writes and the syncs in progress. Does not start any.
@@ -222,10 +236,12 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
     await _cache.flush();
     await _settings.flush();
     await _pending.flush();
+    await covers?.flush();
   }
 
   void dispose() {
     _debounce?.cancel();
+    covers?.onQueued = null;
     _statusChanges.close();
     _cache.dispose();
     _settings.dispose();
@@ -352,6 +368,14 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
     return run;
   }
 
+  /// A cover file was added, removed or moved: it counts as a pending
+  /// change and goes out with the next round.
+  void _coversQueued() {
+    if (_discarded) return;
+    _setStatus(_status);
+    if ((covers?.pendingCount ?? 0) > 0) _restartDebounce();
+  }
+
   void _restartDebounce() {
     _debounce?.cancel();
     _debounce = Timer(debounce, () {
@@ -369,6 +393,10 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
       await _resolveInFlight();
       var conflict = await _check();
       if (!conflict && push) conflict = await _push();
+      if (_listCovers && covers != null) {
+        _listCovers = false;
+        await covers!.refresh();
+      }
       _setStatus(
         _status.copyWith(phase: conflict ? SyncPhase.conflict : SyncPhase.idle),
       );
@@ -592,6 +620,8 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
     }
     if (dropped.isNotEmpty) await _pending.remove(dropped);
     await _cache.replace(library);
+    // Whoever changed the library may have changed the covers with it.
+    _listCovers = true;
     await _saveMeta(
       SyncMeta(
         etag: raw.etag,
@@ -633,8 +663,22 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
   /// its base. Returns true when GitHub refused a sha: the file changed
   /// since the check, which is a conflict unless the check now says
   /// otherwise.
+  ///
+  /// Cover files go first, each in a commit of its own, so the library
+  /// never names a cover that is not on GitHub; the files to remove go
+  /// after the library, which by then no longer names them.
   Future<bool> _push() async {
+    final covers = this.covers;
+    if (covers != null && covers.pendingCount > 0) {
+      _setStatus(_status.copyWith(phase: SyncPhase.saving));
+      await covers.pushFiles();
+    }
     if (await _pushLibrary()) return true;
+    if (covers != null && covers.pendingCount > 0) {
+      _setStatus(_status.copyWith(phase: SyncPhase.saving));
+      await covers.pushRemovals(_cache.current!);
+      _setStatus(_status);
+    }
     return _pushSettings();
   }
 
@@ -748,11 +792,14 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
         _setStatus(_status.copyWith(phase: SyncPhase.checking));
         await _takeRemote(null, now, reapply: false);
         await _takeRemoteSettings(null, reapply: false);
+        await covers?.dropPending();
         _setStatus(_status.copyWith(phase: SyncPhase.idle));
         return;
       }
       _setStatus(_status.copyWith(phase: SyncPhase.saving));
+      await covers?.pushFiles();
       await _keepMineLibrary(now);
+      await covers?.pushRemovals(_cache.current!);
       await _keepMineSettings(now);
       _setStatus(_status.copyWith(phase: SyncPhase.idle));
     } on GitHubException catch (e) {
@@ -940,7 +987,9 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
   };
 
   void _setStatus(SyncStatus status) {
-    final next = status.copyWith(pendingCount: _pending.length);
+    final next = status.copyWith(
+      pendingCount: _pending.length + (covers?.pendingCount ?? 0),
+    );
     if (next == _status) return;
     _status = next;
     if (!_statusChanges.isClosed) _statusChanges.add(next);

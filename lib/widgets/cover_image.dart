@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/covers/cover_files.dart';
 import '../data/images/artwork_providers.dart';
 import '../data/images/artwork_resolver.dart';
+import '../data/library_providers.dart';
 import '../data/models/entry.dart';
+import '../data/models/entry_kind.dart';
 import 'cached_image.dart';
 import 'cover_placeholder.dart';
 
@@ -52,6 +55,7 @@ class _CoverImageState extends ConsumerState<CoverImage> {
     super.didUpdateWidget(old);
     if (old.entry.id != widget.entry.id ||
         old.entry.source != widget.entry.source ||
+        old.entry.coverFrom != widget.entry.coverFrom ||
         old.entry.title != widget.entry.title) {
       _url = null;
       _resolve();
@@ -64,16 +68,31 @@ class _CoverImageState extends ConsumerState<CoverImage> {
     super.dispose();
   }
 
+  /// The entry whose cover is shown: a song's album while the album is in
+  /// the library and shows one of the owner's own covers (DESIGN.md
+  /// section 10d), else the entry itself, whose lookup finds the album's
+  /// cover anyway.
+  Entry get _shown {
+    final entry = widget.entry;
+    if (entry.kind != EntryKind.song || isRepoCover(entry.coverFrom)) {
+      return entry;
+    }
+    final library = ref.read(libraryProvider).value;
+    if (library == null) return entry;
+    final owner = coverOwner(library, entry);
+    return isRepoCover(owner.coverFrom) ? owner : entry;
+  }
+
   void _resolve() {
     final resolver = _resolver;
-    final entry = widget.entry;
+    final entry = _shown;
     final cached = resolver.cachedCoverUrl(entry);
     if (cached != null) {
       _url = cached;
       return;
     }
     resolver.coverUrl(entry).then((url) {
-      if (!mounted || url == null || widget.entry.id != entry.id) return;
+      if (!mounted || url == null || _shown.id != entry.id) return;
       setState(() => _url = url);
     });
   }
@@ -81,6 +100,22 @@ class _CoverImageState extends ConsumerState<CoverImage> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
+    if (entry.kind == EntryKind.song) {
+      // The album's own cover changing changes the song's.
+      ref.listen(
+        libraryProvider.select((library) {
+          final value = library.value;
+          return value == null ? null : coverOwner(value, entry).coverFrom;
+        }),
+        (before, after) {
+          if (before == after) return;
+          setState(() {
+            _url = null;
+            _resolve();
+          });
+        },
+      );
+    }
     final placeholder =
         widget.placeholder ??
         CoverPlaceholder(

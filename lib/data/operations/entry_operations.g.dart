@@ -29,6 +29,18 @@ SetSeriesCover _$SetSeriesCoverFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$SetSeriesCoverToJson(SetSeriesCover instance) =>
     <String, dynamic>{'entryId': instance.entryId};
 
+SetCover _$SetCoverFromJson(Map<String, dynamic> json) => SetCover(
+  json['entryId'] as String,
+  coverFrom: json['coverFrom'] as String?,
+  keepMine: json['keepMine'] as bool? ?? false,
+);
+
+Map<String, dynamic> _$SetCoverToJson(SetCover instance) => <String, dynamic>{
+  'entryId': instance.entryId,
+  'coverFrom': instance.coverFrom,
+  'keepMine': instance.keepMine,
+};
+
 SetTmdbShow _$SetTmdbShowFromJson(Map<String, dynamic> json) =>
     SetTmdbShow(json['entryId'] as String, json['tmdb'] as String);
 

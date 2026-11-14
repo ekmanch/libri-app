@@ -35,6 +35,7 @@ _Entry _$EntryFromJson(Map<String, dynamic> json) => _Entry(
   source: json['source'] as String?,
   tmdb: json['tmdb'] as String?,
   coverFrom: json['cover_from'] as String?,
+  coverKeepMine: json['cover_keep_mine'] as bool?,
   platform: json['platform'] as String?,
   formats: (json['formats'] as List<dynamic>?)
       ?.map((e) => $enumDecode(_$BookFormatEnumMap, e))
@@ -76,6 +77,7 @@ Map<String, dynamic> _$EntryToJson(_Entry instance) => <String, dynamic>{
   'source': instance.source,
   'tmdb': ?instance.tmdb,
   'cover_from': ?instance.coverFrom,
+  'cover_keep_mine': ?instance.coverKeepMine,
   'platform': ?instance.platform,
   'formats': ?instance.formats?.map((e) => _$BookFormatEnumMap[e]!).toList(),
   'pages': ?instance.pages,

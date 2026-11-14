@@ -36,10 +36,18 @@ mixin _$Entry {
 /// type clears it.
 @JsonKey(includeIfNull: false) String? get tmdb;/// The lookup id of another match whose cover the entry shows (Add /
 /// edit entry › Pick a cover), "itunes:123456" or an Open Library
-/// edition, "openlibrary:OL7518154M"; left out while the cover is the
-/// match's own. The only cover data in the file: the image itself is
-/// found from it on the device. Changing the type clears it.
-@JsonKey(name: 'cover_from', includeIfNull: false) String? get coverFrom;@JsonKey(includeIfNull: false) String? get platform;@JsonKey(includeIfNull: false) List<BookFormat>? get formats;/// The page count, from the lookup or typed in Add / edit entry.
+/// edition, "openlibrary:OL7518154M"; or one of the owner's own files
+/// in the library repo, "repo:movies/the-mummy-1999.a3f9c2e.jpg" (the
+/// path under `covers/`). Left out while the cover is the match's own.
+/// The only cover data in the file: the image itself is found from it
+/// on the device. Changing the type clears a match's id; one of the
+/// owner's files moves to the new type's folder instead.
+@JsonKey(name: 'cover_from', includeIfNull: false) String? get coverFrom;/// Beside one of the owner's own covers (a `cover_from` that starts
+/// with "repo:", `lib/data/covers/cover_files.dart`): the owner keeps
+/// their cover, and neither app points out an online one for the title
+/// again (Add / edit entry › Pick a cover: an online cover is new).
+/// Only ever true: left out otherwise, and dropped with the cover.
+@JsonKey(name: 'cover_keep_mine', includeIfNull: false) bool? get coverKeepMine;@JsonKey(includeIfNull: false) String? get platform;@JsonKey(includeIfNull: false) List<BookFormat>? get formats;/// The page count, from the lookup or typed in Add / edit entry.
 @JsonKey(includeIfNull: false) int? get pages;/// The series the entry is part of (movies, books, games and anime
 /// movies), from the lookup or typed in Add / edit entry.
 @JsonKey(includeIfNull: false) Series? get series;@JsonKey(includeIfNull: false) EntryKind? get kind;@JsonKey(includeIfNull: false) String? get album;@JsonKey(includeIfNull: false) List<Track>? get tracks;/// Shows and anime series: which of the sources' splits the seasons
@@ -63,20 +71,20 @@ $EntryCopyWith<Entry> get copyWith => _$EntryCopyWithImpl<Entry>(this as Entry, 
 @override
 bool operator ==(Object other) {
   final _this = this as Entry;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Entry&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.released, _this.released) || other.released == _this.released)&&(identical(other.creator, _this.creator) || other.creator == _this.creator)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.rating, _this.rating) || other.rating == _this.rating)&&const DeepCollectionEquality().equals(other.tags, _this.tags)&&const DeepCollectionEquality().equals(other.tagCategories, _this.tagCategories)&&(identical(other.note, _this.note) || other.note == _this.note)&&(identical(other.description, _this.description) || other.description == _this.description)&&(identical(other.seasonalOnly, _this.seasonalOnly) || other.seasonalOnly == _this.seasonalOnly)&&(identical(other.added, _this.added) || other.added == _this.added)&&(identical(other.source, _this.source) || other.source == _this.source)&&(identical(other.tmdb, _this.tmdb) || other.tmdb == _this.tmdb)&&(identical(other.coverFrom, _this.coverFrom) || other.coverFrom == _this.coverFrom)&&(identical(other.platform, _this.platform) || other.platform == _this.platform)&&const DeepCollectionEquality().equals(other.formats, _this.formats)&&(identical(other.pages, _this.pages) || other.pages == _this.pages)&&(identical(other.series, _this.series) || other.series == _this.series)&&(identical(other.kind, _this.kind) || other.kind == _this.kind)&&(identical(other.album, _this.album) || other.album == _this.album)&&const DeepCollectionEquality().equals(other.tracks, _this.tracks)&&(identical(other.seasonsFrom, _this.seasonsFrom) || other.seasonsFrom == _this.seasonsFrom)&&const DeepCollectionEquality().equals(other.seasons, _this.seasons));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Entry&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.released, _this.released) || other.released == _this.released)&&(identical(other.creator, _this.creator) || other.creator == _this.creator)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.rating, _this.rating) || other.rating == _this.rating)&&const DeepCollectionEquality().equals(other.tags, _this.tags)&&const DeepCollectionEquality().equals(other.tagCategories, _this.tagCategories)&&(identical(other.note, _this.note) || other.note == _this.note)&&(identical(other.description, _this.description) || other.description == _this.description)&&(identical(other.seasonalOnly, _this.seasonalOnly) || other.seasonalOnly == _this.seasonalOnly)&&(identical(other.added, _this.added) || other.added == _this.added)&&(identical(other.source, _this.source) || other.source == _this.source)&&(identical(other.tmdb, _this.tmdb) || other.tmdb == _this.tmdb)&&(identical(other.coverFrom, _this.coverFrom) || other.coverFrom == _this.coverFrom)&&(identical(other.coverKeepMine, _this.coverKeepMine) || other.coverKeepMine == _this.coverKeepMine)&&(identical(other.platform, _this.platform) || other.platform == _this.platform)&&const DeepCollectionEquality().equals(other.formats, _this.formats)&&(identical(other.pages, _this.pages) || other.pages == _this.pages)&&(identical(other.series, _this.series) || other.series == _this.series)&&(identical(other.kind, _this.kind) || other.kind == _this.kind)&&(identical(other.album, _this.album) || other.album == _this.album)&&const DeepCollectionEquality().equals(other.tracks, _this.tracks)&&(identical(other.seasonsFrom, _this.seasonsFrom) || other.seasonsFrom == _this.seasonsFrom)&&const DeepCollectionEquality().equals(other.seasons, _this.seasons));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Entry;
-  return Object.hashAll([runtimeType,_this.id,_this.type,_this.title,_this.released,_this.creator,_this.status,_this.rating,const DeepCollectionEquality().hash(_this.tags),const DeepCollectionEquality().hash(_this.tagCategories),_this.note,_this.description,_this.seasonalOnly,_this.added,_this.source,_this.tmdb,_this.coverFrom,_this.platform,const DeepCollectionEquality().hash(_this.formats),_this.pages,_this.series,_this.kind,_this.album,const DeepCollectionEquality().hash(_this.tracks),_this.seasonsFrom,const DeepCollectionEquality().hash(_this.seasons)]);
+  return Object.hashAll([runtimeType,_this.id,_this.type,_this.title,_this.released,_this.creator,_this.status,_this.rating,const DeepCollectionEquality().hash(_this.tags),const DeepCollectionEquality().hash(_this.tagCategories),_this.note,_this.description,_this.seasonalOnly,_this.added,_this.source,_this.tmdb,_this.coverFrom,_this.coverKeepMine,_this.platform,const DeepCollectionEquality().hash(_this.formats),_this.pages,_this.series,_this.kind,_this.album,const DeepCollectionEquality().hash(_this.tracks),_this.seasonsFrom,const DeepCollectionEquality().hash(_this.seasons)]);
 }
 
 @override
 String toString() {
   final _this = this as Entry;
-  return 'Entry(id: ${_this.id}, type: ${_this.type}, title: ${_this.title}, released: ${_this.released}, creator: ${_this.creator}, status: ${_this.status}, rating: ${_this.rating}, tags: ${_this.tags}, tagCategories: ${_this.tagCategories}, note: ${_this.note}, description: ${_this.description}, seasonalOnly: ${_this.seasonalOnly}, added: ${_this.added}, source: ${_this.source}, tmdb: ${_this.tmdb}, coverFrom: ${_this.coverFrom}, platform: ${_this.platform}, formats: ${_this.formats}, pages: ${_this.pages}, series: ${_this.series}, kind: ${_this.kind}, album: ${_this.album}, tracks: ${_this.tracks}, seasonsFrom: ${_this.seasonsFrom}, seasons: ${_this.seasons})';
+  return 'Entry(id: ${_this.id}, type: ${_this.type}, title: ${_this.title}, released: ${_this.released}, creator: ${_this.creator}, status: ${_this.status}, rating: ${_this.rating}, tags: ${_this.tags}, tagCategories: ${_this.tagCategories}, note: ${_this.note}, description: ${_this.description}, seasonalOnly: ${_this.seasonalOnly}, added: ${_this.added}, source: ${_this.source}, tmdb: ${_this.tmdb}, coverFrom: ${_this.coverFrom}, coverKeepMine: ${_this.coverKeepMine}, platform: ${_this.platform}, formats: ${_this.formats}, pages: ${_this.pages}, series: ${_this.series}, kind: ${_this.kind}, album: ${_this.album}, tracks: ${_this.tracks}, seasonsFrom: ${_this.seasonsFrom}, seasons: ${_this.seasons})';
 }
 
 
@@ -87,7 +95,7 @@ abstract mixin class $EntryCopyWith<$Res>  {
   factory $EntryCopyWith(Entry value, $Res Function(Entry) _then) = _$EntryCopyWithImpl;
 @useResult
 $Res call({
- String id, MediaType type, String title,@ReleasedConverter() Released? released, String? creator, EntryStatus status, int? rating, List<String> tags,@JsonKey(name: 'tag_categories', includeIfNull: false) Map<String, List<TagCategory>>? tagCategories, String note, String description,@JsonKey(name: 'seasonal_only') bool seasonalOnly,@DateOnlyConverter() DateTime added, String? source,@JsonKey(includeIfNull: false) String? tmdb,@JsonKey(name: 'cover_from', includeIfNull: false) String? coverFrom,@JsonKey(includeIfNull: false) String? platform,@JsonKey(includeIfNull: false) List<BookFormat>? formats,@JsonKey(includeIfNull: false) int? pages,@JsonKey(includeIfNull: false) Series? series,@JsonKey(includeIfNull: false) EntryKind? kind,@JsonKey(includeIfNull: false) String? album,@JsonKey(includeIfNull: false) List<Track>? tracks,@JsonKey(name: 'seasons_from', includeIfNull: false) String? seasonsFrom,@JsonKey(includeIfNull: false) List<Season>? seasons
+ String id, MediaType type, String title,@ReleasedConverter() Released? released, String? creator, EntryStatus status, int? rating, List<String> tags,@JsonKey(name: 'tag_categories', includeIfNull: false) Map<String, List<TagCategory>>? tagCategories, String note, String description,@JsonKey(name: 'seasonal_only') bool seasonalOnly,@DateOnlyConverter() DateTime added, String? source,@JsonKey(includeIfNull: false) String? tmdb,@JsonKey(name: 'cover_from', includeIfNull: false) String? coverFrom,@JsonKey(name: 'cover_keep_mine', includeIfNull: false) bool? coverKeepMine,@JsonKey(includeIfNull: false) String? platform,@JsonKey(includeIfNull: false) List<BookFormat>? formats,@JsonKey(includeIfNull: false) int? pages,@JsonKey(includeIfNull: false) Series? series,@JsonKey(includeIfNull: false) EntryKind? kind,@JsonKey(includeIfNull: false) String? album,@JsonKey(includeIfNull: false) List<Track>? tracks,@JsonKey(name: 'seasons_from', includeIfNull: false) String? seasonsFrom,@JsonKey(includeIfNull: false) List<Season>? seasons
 });
 
 
@@ -104,7 +112,7 @@ class _$EntryCopyWithImpl<$Res>
 
 /// Create a copy of Entry
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? type = null,Object? title = null,Object? released = freezed,Object? creator = freezed,Object? status = null,Object? rating = freezed,Object? tags = null,Object? tagCategories = freezed,Object? note = null,Object? description = null,Object? seasonalOnly = null,Object? added = null,Object? source = freezed,Object? tmdb = freezed,Object? coverFrom = freezed,Object? platform = freezed,Object? formats = freezed,Object? pages = freezed,Object? series = freezed,Object? kind = freezed,Object? album = freezed,Object? tracks = freezed,Object? seasonsFrom = freezed,Object? seasons = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? type = null,Object? title = null,Object? released = freezed,Object? creator = freezed,Object? status = null,Object? rating = freezed,Object? tags = null,Object? tagCategories = freezed,Object? note = null,Object? description = null,Object? seasonalOnly = null,Object? added = null,Object? source = freezed,Object? tmdb = freezed,Object? coverFrom = freezed,Object? coverKeepMine = freezed,Object? platform = freezed,Object? formats = freezed,Object? pages = freezed,Object? series = freezed,Object? kind = freezed,Object? album = freezed,Object? tracks = freezed,Object? seasonsFrom = freezed,Object? seasons = freezed,}) {
   return _then(Entry(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
@@ -122,7 +130,8 @@ as bool,added: null == added ? _self.added : added // ignore: cast_nullable_to_n
 as DateTime,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as String?,tmdb: freezed == tmdb ? _self.tmdb : tmdb // ignore: cast_nullable_to_non_nullable
 as String?,coverFrom: freezed == coverFrom ? _self.coverFrom : coverFrom // ignore: cast_nullable_to_non_nullable
-as String?,platform: freezed == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
+as String?,coverKeepMine: freezed == coverKeepMine ? _self.coverKeepMine : coverKeepMine // ignore: cast_nullable_to_non_nullable
+as bool?,platform: freezed == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
 as String?,formats: freezed == formats ? _self.formats : formats // ignore: cast_nullable_to_non_nullable
 as List<BookFormat>?,pages: freezed == pages ? _self.pages : pages // ignore: cast_nullable_to_non_nullable
 as int?,series: freezed == series ? _self.series : series // ignore: cast_nullable_to_non_nullable
@@ -228,10 +237,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  MediaType type,  String title, @ReleasedConverter()  Released? released,  String? creator,  EntryStatus status,  int? rating,  List<String> tags, @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories,  String note,  String description, @JsonKey(name: 'seasonal_only')  bool seasonalOnly, @DateOnlyConverter()  DateTime added,  String? source, @JsonKey(includeIfNull: false)  String? tmdb, @JsonKey(name: 'cover_from', includeIfNull: false)  String? coverFrom, @JsonKey(includeIfNull: false)  String? platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false)  int? pages, @JsonKey(includeIfNull: false)  Series? series, @JsonKey(includeIfNull: false)  EntryKind? kind, @JsonKey(includeIfNull: false)  String? album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false)  String? seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  MediaType type,  String title, @ReleasedConverter()  Released? released,  String? creator,  EntryStatus status,  int? rating,  List<String> tags, @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories,  String note,  String description, @JsonKey(name: 'seasonal_only')  bool seasonalOnly, @DateOnlyConverter()  DateTime added,  String? source, @JsonKey(includeIfNull: false)  String? tmdb, @JsonKey(name: 'cover_from', includeIfNull: false)  String? coverFrom, @JsonKey(name: 'cover_keep_mine', includeIfNull: false)  bool? coverKeepMine, @JsonKey(includeIfNull: false)  String? platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false)  int? pages, @JsonKey(includeIfNull: false)  Series? series, @JsonKey(includeIfNull: false)  EntryKind? kind, @JsonKey(includeIfNull: false)  String? album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false)  String? seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Entry() when $default != null:
-return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_that.status,_that.rating,_that.tags,_that.tagCategories,_that.note,_that.description,_that.seasonalOnly,_that.added,_that.source,_that.tmdb,_that.coverFrom,_that.platform,_that.formats,_that.pages,_that.series,_that.kind,_that.album,_that.tracks,_that.seasonsFrom,_that.seasons);case _:
+return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_that.status,_that.rating,_that.tags,_that.tagCategories,_that.note,_that.description,_that.seasonalOnly,_that.added,_that.source,_that.tmdb,_that.coverFrom,_that.coverKeepMine,_that.platform,_that.formats,_that.pages,_that.series,_that.kind,_that.album,_that.tracks,_that.seasonsFrom,_that.seasons);case _:
   return orElse();
 
 }
@@ -249,10 +258,10 @@ return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  MediaType type,  String title, @ReleasedConverter()  Released? released,  String? creator,  EntryStatus status,  int? rating,  List<String> tags, @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories,  String note,  String description, @JsonKey(name: 'seasonal_only')  bool seasonalOnly, @DateOnlyConverter()  DateTime added,  String? source, @JsonKey(includeIfNull: false)  String? tmdb, @JsonKey(name: 'cover_from', includeIfNull: false)  String? coverFrom, @JsonKey(includeIfNull: false)  String? platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false)  int? pages, @JsonKey(includeIfNull: false)  Series? series, @JsonKey(includeIfNull: false)  EntryKind? kind, @JsonKey(includeIfNull: false)  String? album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false)  String? seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  MediaType type,  String title, @ReleasedConverter()  Released? released,  String? creator,  EntryStatus status,  int? rating,  List<String> tags, @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories,  String note,  String description, @JsonKey(name: 'seasonal_only')  bool seasonalOnly, @DateOnlyConverter()  DateTime added,  String? source, @JsonKey(includeIfNull: false)  String? tmdb, @JsonKey(name: 'cover_from', includeIfNull: false)  String? coverFrom, @JsonKey(name: 'cover_keep_mine', includeIfNull: false)  bool? coverKeepMine, @JsonKey(includeIfNull: false)  String? platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false)  int? pages, @JsonKey(includeIfNull: false)  Series? series, @JsonKey(includeIfNull: false)  EntryKind? kind, @JsonKey(includeIfNull: false)  String? album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false)  String? seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons)  $default,) {final _that = this;
 switch (_that) {
 case _Entry():
-return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_that.status,_that.rating,_that.tags,_that.tagCategories,_that.note,_that.description,_that.seasonalOnly,_that.added,_that.source,_that.tmdb,_that.coverFrom,_that.platform,_that.formats,_that.pages,_that.series,_that.kind,_that.album,_that.tracks,_that.seasonsFrom,_that.seasons);case _:
+return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_that.status,_that.rating,_that.tags,_that.tagCategories,_that.note,_that.description,_that.seasonalOnly,_that.added,_that.source,_that.tmdb,_that.coverFrom,_that.coverKeepMine,_that.platform,_that.formats,_that.pages,_that.series,_that.kind,_that.album,_that.tracks,_that.seasonsFrom,_that.seasons);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -269,10 +278,10 @@ return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  MediaType type,  String title, @ReleasedConverter()  Released? released,  String? creator,  EntryStatus status,  int? rating,  List<String> tags, @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories,  String note,  String description, @JsonKey(name: 'seasonal_only')  bool seasonalOnly, @DateOnlyConverter()  DateTime added,  String? source, @JsonKey(includeIfNull: false)  String? tmdb, @JsonKey(name: 'cover_from', includeIfNull: false)  String? coverFrom, @JsonKey(includeIfNull: false)  String? platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false)  int? pages, @JsonKey(includeIfNull: false)  Series? series, @JsonKey(includeIfNull: false)  EntryKind? kind, @JsonKey(includeIfNull: false)  String? album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false)  String? seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  MediaType type,  String title, @ReleasedConverter()  Released? released,  String? creator,  EntryStatus status,  int? rating,  List<String> tags, @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories,  String note,  String description, @JsonKey(name: 'seasonal_only')  bool seasonalOnly, @DateOnlyConverter()  DateTime added,  String? source, @JsonKey(includeIfNull: false)  String? tmdb, @JsonKey(name: 'cover_from', includeIfNull: false)  String? coverFrom, @JsonKey(name: 'cover_keep_mine', includeIfNull: false)  bool? coverKeepMine, @JsonKey(includeIfNull: false)  String? platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false)  int? pages, @JsonKey(includeIfNull: false)  Series? series, @JsonKey(includeIfNull: false)  EntryKind? kind, @JsonKey(includeIfNull: false)  String? album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false)  String? seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons)?  $default,) {final _that = this;
 switch (_that) {
 case _Entry() when $default != null:
-return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_that.status,_that.rating,_that.tags,_that.tagCategories,_that.note,_that.description,_that.seasonalOnly,_that.added,_that.source,_that.tmdb,_that.coverFrom,_that.platform,_that.formats,_that.pages,_that.series,_that.kind,_that.album,_that.tracks,_that.seasonsFrom,_that.seasons);case _:
+return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_that.status,_that.rating,_that.tags,_that.tagCategories,_that.note,_that.description,_that.seasonalOnly,_that.added,_that.source,_that.tmdb,_that.coverFrom,_that.coverKeepMine,_that.platform,_that.formats,_that.pages,_that.series,_that.kind,_that.album,_that.tracks,_that.seasonsFrom,_that.seasons);case _:
   return null;
 
 }
@@ -284,7 +293,7 @@ return $default(_that.id,_that.type,_that.title,_that.released,_that.creator,_th
 @JsonSerializable()
 
 class _Entry extends Entry {
-  const _Entry({required this.id, required this.type, required this.title, @ReleasedConverter() this.released, this.creator, required this.status, this.rating,  List<String> tags = const [], @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories, this.note = '', this.description = '', @JsonKey(name: 'seasonal_only') this.seasonalOnly = false, @DateOnlyConverter() required this.added, this.source, @JsonKey(includeIfNull: false) this.tmdb, @JsonKey(name: 'cover_from', includeIfNull: false) this.coverFrom, @JsonKey(includeIfNull: false) this.platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false) this.pages, @JsonKey(includeIfNull: false) this.series, @JsonKey(includeIfNull: false) this.kind, @JsonKey(includeIfNull: false) this.album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false) this.seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons}): _tags = tags,_tagCategories = tagCategories,_formats = formats,_tracks = tracks,_seasons = seasons,super._();
+  const _Entry({required this.id, required this.type, required this.title, @ReleasedConverter() this.released, this.creator, required this.status, this.rating,  List<String> tags = const [], @JsonKey(name: 'tag_categories', includeIfNull: false)  Map<String, List<TagCategory>>? tagCategories, this.note = '', this.description = '', @JsonKey(name: 'seasonal_only') this.seasonalOnly = false, @DateOnlyConverter() required this.added, this.source, @JsonKey(includeIfNull: false) this.tmdb, @JsonKey(name: 'cover_from', includeIfNull: false) this.coverFrom, @JsonKey(name: 'cover_keep_mine', includeIfNull: false) this.coverKeepMine, @JsonKey(includeIfNull: false) this.platform, @JsonKey(includeIfNull: false)  List<BookFormat>? formats, @JsonKey(includeIfNull: false) this.pages, @JsonKey(includeIfNull: false) this.series, @JsonKey(includeIfNull: false) this.kind, @JsonKey(includeIfNull: false) this.album, @JsonKey(includeIfNull: false)  List<Track>? tracks, @JsonKey(name: 'seasons_from', includeIfNull: false) this.seasonsFrom, @JsonKey(includeIfNull: false)  List<Season>? seasons}): _tags = tags,_tagCategories = tagCategories,_formats = formats,_tracks = tracks,_seasons = seasons,super._();
   factory _Entry.fromJson(Map<String, dynamic> json) => _$EntryFromJson(json);
 
 @override final  String id;
@@ -343,10 +352,19 @@ class _Entry extends Entry {
 @override@JsonKey(includeIfNull: false) final  String? tmdb;
 /// The lookup id of another match whose cover the entry shows (Add /
 /// edit entry › Pick a cover), "itunes:123456" or an Open Library
-/// edition, "openlibrary:OL7518154M"; left out while the cover is the
-/// match's own. The only cover data in the file: the image itself is
-/// found from it on the device. Changing the type clears it.
+/// edition, "openlibrary:OL7518154M"; or one of the owner's own files
+/// in the library repo, "repo:movies/the-mummy-1999.a3f9c2e.jpg" (the
+/// path under `covers/`). Left out while the cover is the match's own.
+/// The only cover data in the file: the image itself is found from it
+/// on the device. Changing the type clears a match's id; one of the
+/// owner's files moves to the new type's folder instead.
 @override@JsonKey(name: 'cover_from', includeIfNull: false) final  String? coverFrom;
+/// Beside one of the owner's own covers (a `cover_from` that starts
+/// with "repo:", `lib/data/covers/cover_files.dart`): the owner keeps
+/// their cover, and neither app points out an online one for the title
+/// again (Add / edit entry › Pick a cover: an online cover is new).
+/// Only ever true: left out otherwise, and dropped with the cover.
+@override@JsonKey(name: 'cover_keep_mine', includeIfNull: false) final  bool? coverKeepMine;
 @override@JsonKey(includeIfNull: false) final  String? platform;
  final  List<BookFormat>? _formats;
 @override@JsonKey(includeIfNull: false) List<BookFormat>? get formats {
@@ -404,18 +422,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Entry&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.title, title) || other.title == title)&&(identical(other.released, released) || other.released == released)&&(identical(other.creator, creator) || other.creator == creator)&&(identical(other.status, status) || other.status == status)&&(identical(other.rating, rating) || other.rating == rating)&&const DeepCollectionEquality().equals(other.tags, _tags)&&const DeepCollectionEquality().equals(other.tagCategories, _tagCategories)&&(identical(other.note, note) || other.note == note)&&(identical(other.description, description) || other.description == description)&&(identical(other.seasonalOnly, seasonalOnly) || other.seasonalOnly == seasonalOnly)&&(identical(other.added, added) || other.added == added)&&(identical(other.source, source) || other.source == source)&&(identical(other.tmdb, tmdb) || other.tmdb == tmdb)&&(identical(other.coverFrom, coverFrom) || other.coverFrom == coverFrom)&&(identical(other.platform, platform) || other.platform == platform)&&const DeepCollectionEquality().equals(other.formats, _formats)&&(identical(other.pages, pages) || other.pages == pages)&&(identical(other.series, series) || other.series == series)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.album, album) || other.album == album)&&const DeepCollectionEquality().equals(other.tracks, _tracks)&&(identical(other.seasonsFrom, seasonsFrom) || other.seasonsFrom == seasonsFrom)&&const DeepCollectionEquality().equals(other.seasons, _seasons));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Entry&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.title, title) || other.title == title)&&(identical(other.released, released) || other.released == released)&&(identical(other.creator, creator) || other.creator == creator)&&(identical(other.status, status) || other.status == status)&&(identical(other.rating, rating) || other.rating == rating)&&const DeepCollectionEquality().equals(other.tags, _tags)&&const DeepCollectionEquality().equals(other.tagCategories, _tagCategories)&&(identical(other.note, note) || other.note == note)&&(identical(other.description, description) || other.description == description)&&(identical(other.seasonalOnly, seasonalOnly) || other.seasonalOnly == seasonalOnly)&&(identical(other.added, added) || other.added == added)&&(identical(other.source, source) || other.source == source)&&(identical(other.tmdb, tmdb) || other.tmdb == tmdb)&&(identical(other.coverFrom, coverFrom) || other.coverFrom == coverFrom)&&(identical(other.coverKeepMine, coverKeepMine) || other.coverKeepMine == coverKeepMine)&&(identical(other.platform, platform) || other.platform == platform)&&const DeepCollectionEquality().equals(other.formats, _formats)&&(identical(other.pages, pages) || other.pages == pages)&&(identical(other.series, series) || other.series == series)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.album, album) || other.album == album)&&const DeepCollectionEquality().equals(other.tracks, _tracks)&&(identical(other.seasonsFrom, seasonsFrom) || other.seasonsFrom == seasonsFrom)&&const DeepCollectionEquality().equals(other.seasons, _seasons));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hashAll([runtimeType,id,type,title,released,creator,status,rating,const DeepCollectionEquality().hash(_tags),const DeepCollectionEquality().hash(_tagCategories),note,description,seasonalOnly,added,source,tmdb,coverFrom,platform,const DeepCollectionEquality().hash(_formats),pages,series,kind,album,const DeepCollectionEquality().hash(_tracks),seasonsFrom,const DeepCollectionEquality().hash(_seasons)]);
+    return Object.hashAll([runtimeType,id,type,title,released,creator,status,rating,const DeepCollectionEquality().hash(_tags),const DeepCollectionEquality().hash(_tagCategories),note,description,seasonalOnly,added,source,tmdb,coverFrom,coverKeepMine,platform,const DeepCollectionEquality().hash(_formats),pages,series,kind,album,const DeepCollectionEquality().hash(_tracks),seasonsFrom,const DeepCollectionEquality().hash(_seasons)]);
 }
 
 @override
 String toString() {
-    return 'Entry(id: $id, type: $type, title: $title, released: $released, creator: $creator, status: $status, rating: $rating, tags: $tags, tagCategories: $tagCategories, note: $note, description: $description, seasonalOnly: $seasonalOnly, added: $added, source: $source, tmdb: $tmdb, coverFrom: $coverFrom, platform: $platform, formats: $formats, pages: $pages, series: $series, kind: $kind, album: $album, tracks: $tracks, seasonsFrom: $seasonsFrom, seasons: $seasons)';
+    return 'Entry(id: $id, type: $type, title: $title, released: $released, creator: $creator, status: $status, rating: $rating, tags: $tags, tagCategories: $tagCategories, note: $note, description: $description, seasonalOnly: $seasonalOnly, added: $added, source: $source, tmdb: $tmdb, coverFrom: $coverFrom, coverKeepMine: $coverKeepMine, platform: $platform, formats: $formats, pages: $pages, series: $series, kind: $kind, album: $album, tracks: $tracks, seasonsFrom: $seasonsFrom, seasons: $seasons)';
 }
 
 
@@ -426,7 +444,7 @@ abstract mixin class _$EntryCopyWith<$Res> implements $EntryCopyWith<$Res> {
   factory _$EntryCopyWith(_Entry value, $Res Function(_Entry) _then) = __$EntryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, MediaType type, String title,@ReleasedConverter() Released? released, String? creator, EntryStatus status, int? rating, List<String> tags,@JsonKey(name: 'tag_categories', includeIfNull: false) Map<String, List<TagCategory>>? tagCategories, String note, String description,@JsonKey(name: 'seasonal_only') bool seasonalOnly,@DateOnlyConverter() DateTime added, String? source,@JsonKey(includeIfNull: false) String? tmdb,@JsonKey(name: 'cover_from', includeIfNull: false) String? coverFrom,@JsonKey(includeIfNull: false) String? platform,@JsonKey(includeIfNull: false) List<BookFormat>? formats,@JsonKey(includeIfNull: false) int? pages,@JsonKey(includeIfNull: false) Series? series,@JsonKey(includeIfNull: false) EntryKind? kind,@JsonKey(includeIfNull: false) String? album,@JsonKey(includeIfNull: false) List<Track>? tracks,@JsonKey(name: 'seasons_from', includeIfNull: false) String? seasonsFrom,@JsonKey(includeIfNull: false) List<Season>? seasons
+ String id, MediaType type, String title,@ReleasedConverter() Released? released, String? creator, EntryStatus status, int? rating, List<String> tags,@JsonKey(name: 'tag_categories', includeIfNull: false) Map<String, List<TagCategory>>? tagCategories, String note, String description,@JsonKey(name: 'seasonal_only') bool seasonalOnly,@DateOnlyConverter() DateTime added, String? source,@JsonKey(includeIfNull: false) String? tmdb,@JsonKey(name: 'cover_from', includeIfNull: false) String? coverFrom,@JsonKey(name: 'cover_keep_mine', includeIfNull: false) bool? coverKeepMine,@JsonKey(includeIfNull: false) String? platform,@JsonKey(includeIfNull: false) List<BookFormat>? formats,@JsonKey(includeIfNull: false) int? pages,@JsonKey(includeIfNull: false) Series? series,@JsonKey(includeIfNull: false) EntryKind? kind,@JsonKey(includeIfNull: false) String? album,@JsonKey(includeIfNull: false) List<Track>? tracks,@JsonKey(name: 'seasons_from', includeIfNull: false) String? seasonsFrom,@JsonKey(includeIfNull: false) List<Season>? seasons
 });
 
 
@@ -443,7 +461,7 @@ class __$EntryCopyWithImpl<$Res>
 
 /// Create a copy of Entry
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? type = null,Object? title = null,Object? released = freezed,Object? creator = freezed,Object? status = null,Object? rating = freezed,Object? tags = null,Object? tagCategories = freezed,Object? note = null,Object? description = null,Object? seasonalOnly = null,Object? added = null,Object? source = freezed,Object? tmdb = freezed,Object? coverFrom = freezed,Object? platform = freezed,Object? formats = freezed,Object? pages = freezed,Object? series = freezed,Object? kind = freezed,Object? album = freezed,Object? tracks = freezed,Object? seasonsFrom = freezed,Object? seasons = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? type = null,Object? title = null,Object? released = freezed,Object? creator = freezed,Object? status = null,Object? rating = freezed,Object? tags = null,Object? tagCategories = freezed,Object? note = null,Object? description = null,Object? seasonalOnly = null,Object? added = null,Object? source = freezed,Object? tmdb = freezed,Object? coverFrom = freezed,Object? coverKeepMine = freezed,Object? platform = freezed,Object? formats = freezed,Object? pages = freezed,Object? series = freezed,Object? kind = freezed,Object? album = freezed,Object? tracks = freezed,Object? seasonsFrom = freezed,Object? seasons = freezed,}) {
   return _then(_Entry(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
@@ -461,7 +479,8 @@ as bool,added: null == added ? _self.added : added // ignore: cast_nullable_to_n
 as DateTime,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as String?,tmdb: freezed == tmdb ? _self.tmdb : tmdb // ignore: cast_nullable_to_non_nullable
 as String?,coverFrom: freezed == coverFrom ? _self.coverFrom : coverFrom // ignore: cast_nullable_to_non_nullable
-as String?,platform: freezed == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
+as String?,coverKeepMine: freezed == coverKeepMine ? _self.coverKeepMine : coverKeepMine // ignore: cast_nullable_to_non_nullable
+as bool?,platform: freezed == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
 as String?,formats: freezed == formats ? _self._formats : formats // ignore: cast_nullable_to_non_nullable
 as List<BookFormat>?,pages: freezed == pages ? _self.pages : pages // ignore: cast_nullable_to_non_nullable
 as int?,series: freezed == series ? _self.series : series // ignore: cast_nullable_to_non_nullable

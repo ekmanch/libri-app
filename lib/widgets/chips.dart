@@ -395,11 +395,13 @@ class DashedChip extends StatelessWidget {
 }
 
 /// A 1 px dashed stadium outline, for something not set yet: a suggested
-/// chip, a season without a status.
+/// chip, a season without a status. With a [radius] the corners are that
+/// round instead: the Upload tile of Add / edit entry › Pick a cover.
 class DashedStadiumPainter extends CustomPainter {
-  const DashedStadiumPainter(this.color);
+  const DashedStadiumPainter(this.color, {this.radius});
 
   final Color color;
+  final double? radius;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -412,7 +414,7 @@ class DashedStadiumPainter extends CustomPainter {
       ..addRRect(
         RRect.fromRectAndRadius(
           rect.deflate(0.5),
-          Radius.circular(size.height / 2),
+          Radius.circular(radius ?? size.height / 2),
         ),
       );
     const dash = 4.0;
@@ -426,7 +428,8 @@ class DashedStadiumPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(DashedStadiumPainter old) => old.color != color;
+  bool shouldRepaint(DashedStadiumPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
 /// A 44 px chip for an active filter, with a cross that removes it. With

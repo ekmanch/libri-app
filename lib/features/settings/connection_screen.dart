@@ -17,6 +17,7 @@ import '../sync/conflict_dialog.dart';
 import '../sync/relative_time.dart';
 import '../sync/sync_state.dart';
 import '../sync/token_expiry.dart';
+import 'your_covers_screen.dart';
 
 /// Opens Settings › Library connection above everything, like Settings.
 Future<void> openConnectionScreen(BuildContext context) {
@@ -124,6 +125,8 @@ class ConnectionScreen extends ConsumerWidget {
     final connection = ref.watch(libraryConnectionProvider);
     final local = connection.keptLocally;
     final status = ref.watch(syncStatusProvider).value ?? SyncStatus.idle;
+    final covers = ref.watch(coverFilesProvider);
+    final library = ref.watch(libraryProvider).value;
     final expired =
         status.phase == SyncPhase.tokenProblem &&
         tokenHasExpired(connection, DateTime.now());
@@ -265,6 +268,53 @@ class ConnectionScreen extends ConsumerWidget {
                       label: 'Check for changes',
                       detail: 'When you open Libri, then every 30 seconds',
                       minHeight: 56,
+                    ),
+                  ],
+                  // Whenever the library has cover files of its own.
+                  if (library != null && covers.isNotEmpty) ...[
+                    const SectionHeading(
+                      'Your covers',
+                      padding: _sectionPadding,
+                    ),
+                    Container(
+                      constraints: const BoxConstraints(minHeight: 64),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: colors.divider),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Uploaded covers',
+                                  style: theme.textTheme.bodyLarge,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  uploadedCoversSummary(covers, library),
+                                  style: theme.textTheme.bodySmall!.copyWith(
+                                    fontSize: 14,
+                                    fontStyle: FontStyle.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          AppButton(
+                            label: 'Review',
+                            kind: AppButtonKind.outline,
+                            compact: true,
+                            horizontalPadding: 14,
+                            onPressed: () => openYourCoversScreen(context),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ],

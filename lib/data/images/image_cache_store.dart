@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../covers/cover_files.dart';
+import '../covers/cover_store.dart';
 import '../net/http_transport.dart';
 import '../storage/atomic_file.dart';
 import 'image_fetcher.dart';
@@ -26,6 +28,7 @@ class ImageCacheStore {
   ImageCacheStore(
     this.directory, {
     required this.fetcher,
+    this.covers,
     DateTime Function()? now,
     this.retryAfter = const Duration(hours: 6),
     this.offlineRetryAfter = const Duration(seconds: 30),
@@ -33,6 +36,11 @@ class ImageCacheStore {
 
   final Directory directory;
   final ImageFetcher fetcher;
+
+  /// The owner's own covers: a "repo:" key (a `cover_from` naming a file
+  /// in the library repo) is one of its files, kept in its own folder and
+  /// never in this cache, so every view draws it like a URL.
+  final CoverStore? covers;
   final Duration retryAfter;
   final Duration offlineRetryAfter;
   final DateTime Function() _now;
@@ -55,6 +63,7 @@ class ImageCacheStore {
   /// The file when it is already on the device, else null, without
   /// waiting: for the first frame of a row that scrolls into view.
   File? cachedFile(String url) {
+    if (repoCoverPath(url) case final path?) return covers?.readyFile(path);
     final key = keyFor(url);
     final file = fileFor(url);
     if (_present.contains(key)) return file;
@@ -68,6 +77,13 @@ class ImageCacheStore {
   /// The file, downloading it first when needed. Null when the download
   /// failed; the failure is remembered for a while.
   Future<CachedImage?> get(String url) {
+    if (repoCoverPath(url) case final path?) {
+      return (covers?.fetch(path) ?? Future.value(null)).then(
+        (found) => found == null
+            ? null
+            : CachedImage(found.$1, downloadedNow: found.$2),
+      );
+    }
     final cached = cachedFile(url);
     if (cached != null) {
       return Future.value(CachedImage(cached, downloadedNow: false));

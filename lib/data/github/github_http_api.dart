@@ -214,9 +214,8 @@ class GitHubHttpApi implements GitHubApi {
     );
   }
 
-  /// Removes a file in one commit. Not part of [GitHubApi]: the app never
-  /// deletes; the live test cleans up after itself with it.
-  Future<void> deleteFile(
+  @override
+  Future<void> removeFile(
     String path, {
     required String branch,
     required String sha,
@@ -236,6 +235,7 @@ class GitHubHttpApi implements GitHubApi {
   Future<List<TreeFile>> listFiles({
     required String branch,
     String suffix = '.json',
+    String prefix = '',
   }) async {
     final response = await _send(
       () => _client.get(
@@ -247,7 +247,9 @@ class GitHubHttpApi implements GitHubApi {
     final tree = _json(response)['tree'] as List<Object?>? ?? const [];
     return [
       for (final item in tree.cast<Map<String, Object?>>())
-        if (item['type'] == 'blob' && (item['path'] as String).endsWith(suffix))
+        if (item['type'] == 'blob' &&
+            (item['path'] as String).endsWith(suffix) &&
+            (item['path'] as String).startsWith(prefix))
           TreeFile(
             path: item['path'] as String,
             size: (item['size'] as num?)?.toInt() ?? 0,

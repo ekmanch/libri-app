@@ -1,3 +1,5 @@
+import '../covers/cover_store.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -21,17 +23,26 @@ import 'local_cache.dart';
 /// be read is never overwritten: it is renamed aside with an `.unreadable`
 /// suffix and the library starts again from [seed].
 class LocalLibraryRepository implements LibraryRepository {
-  LocalLibraryRepository(this.file, {required this.seed, File? settingsFile})
-    : _settings = settingsFile == null
-          ? null
-          : LocalCache<AppSettings>(
-              settingsFile,
-              seed: () async => emptySettingsText,
-              encode: encodeSettings,
-              decode: decodeSettings,
-            );
+  LocalLibraryRepository(
+    this.file, {
+    required this.seed,
+    File? settingsFile,
+    this.covers,
+  }) : _settings = settingsFile == null
+           ? null
+           : LocalCache<AppSettings>(
+               settingsFile,
+               seed: () async => emptySettingsText,
+               encode: encodeSettings,
+               decode: decodeSettings,
+             );
 
   final File file;
+
+  /// The owner's own covers, when the library is kept on the phone: the
+  /// `covers/` folder beside [file] is then the whole list (DESIGN.md
+  /// section 10d). Only carried here, for `coverStoreProvider`.
+  final CoverStore? covers;
   final LocalCache<AppSettings>? _settings;
   final _settingsChanges = StreamController<AppSettings>.broadcast();
   AppSettings _memorySettings = AppSettings.defaults;

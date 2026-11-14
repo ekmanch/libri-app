@@ -47,7 +47,13 @@ class FakeLookupSource extends LookupSource
     this.splitsBySource = const {},
     this.tmdbBySource = const {},
     this.partsBySource = const {},
+    this.noCovers = const {'gatto'},
   });
+
+  /// The titles, as slugs, [coverChoices] has no cover for: a title the
+  /// lookup finds nothing for, which gets a cover of your own (Add / edit
+  /// entry › Pick a cover: no cover yet).
+  final Set<String> noCovers;
 
   /// The coming parts of seasons [seasonParts] answers, by source.
   final Map<String, List<ComingSeasonPart>> partsBySource;
@@ -320,7 +326,7 @@ class FakeLookupSource extends LookupSource
   }) async {
     await _call('covers:$title:${type.name}');
     final slug = slugify(title);
-    if (slug.isEmpty) return const [];
+    if (slug.isEmpty || noCovers.contains(slug)) return const [];
     final shape = type == MediaType.music ? 'square' : 'poster';
     const editions = [
       (2019, 'Ebook'),

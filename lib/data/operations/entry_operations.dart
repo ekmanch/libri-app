@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import '../covers/cover_files.dart';
 import '../lookup/text_clean.dart';
 import '../models/entry.dart';
 import '../models/entry_id.dart';
@@ -45,10 +46,19 @@ Entry _withStatus(Entry entry, EntryStatus status) {
 }
 
 /// A show's status as its seasons give it; other entries as they are.
-Entry _derived(Entry entry) =>
-    entry.usesSeasons && (entry.seasons?.isNotEmpty ?? false)
-    ? entry.withSeasons(entry.seasons)
-    : entry;
+Entry _derived(Entry entry) => _withTidyCover(
+  entry.usesSeasons && (entry.seasons?.isNotEmpty ?? false)
+      ? entry.withSeasons(entry.seasons)
+      : entry,
+);
+
+/// `cover_keep_mine` is only ever true, and only beside one of the owner's
+/// own covers: anything else is left out.
+Entry _withTidyCover(Entry entry) =>
+    entry.coverKeepMine == null ||
+        (entry.coverKeepMine! && isRepoCover(entry.coverFrom))
+    ? entry
+    : entry.copyWith(coverKeepMine: null);
 
 /// [entry] with its category picks tidied against [library]'s tag map: a
 /// pick only for a tag on the entry that is in more than one category,
@@ -152,6 +162,50 @@ class SetSeriesCover extends LibraryOperation {
   @override
   String summary(Library before) =>
       'Use ${_title(before, entryId)} as the cover of its series';
+}
+
+/// Sets the cover an entry shows (Add / edit entry › Pick a cover, and
+/// Settings › Your covers: review when a cover in use is deleted):
+/// [coverFrom] is the lookup id of another match, "repo:" and the path of
+/// one of the owner's files, or null for the match's own cover. [keepMine]
+/// writes `cover_keep_mine`, which only stays beside one of the owner's
+/// files. A missing entry changes nothing.
+@JsonSerializable()
+class SetCover extends LibraryOperation {
+  const SetCover(this.entryId, {this.coverFrom, this.keepMine = false});
+
+  factory SetCover.fromJson(Map<String, Object?> json) =>
+      _$SetCoverFromJson(json);
+
+  Map<String, Object?> toJson() => _$SetCoverToJson(this);
+
+  final String entryId;
+  final String? coverFrom;
+  final bool keepMine;
+
+  @override
+  Library apply(Library library) {
+    final entry = library.entryById(entryId);
+    if (entry == null) return library;
+    final next = _withTidyCover(
+      entry.copyWith(
+        coverFrom: coverFrom,
+        coverKeepMine: keepMine ? true : null,
+      ),
+    );
+    return next == entry ? library : _replaceEntry(library, next);
+  }
+
+  @override
+  String summary(Library before) {
+    final title = _title(before, entryId);
+    if (isRepoCover(coverFrom)) {
+      return before.entryById(entryId)?.coverFrom == coverFrom
+          ? 'Keep your own cover for $title'
+          : 'Use your own cover for $title';
+    }
+    return 'Change the cover of $title';
+  }
 }
 
 /// Links an anime to the TMDB show its episode titles come from

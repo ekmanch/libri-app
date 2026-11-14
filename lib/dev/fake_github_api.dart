@@ -135,6 +135,15 @@ class FakeGitHubApi implements GitHubApi {
     return bytes == null ? null : utf8.decode(bytes);
   }
 
+  /// The file's bytes, or null.
+  Uint8List? bytes(String path) => _files[path];
+
+  /// Sets a file that is not text (a cover) as if someone else pushed it.
+  void setBytes(String path, List<int> bytes, {String? message}) {
+    _files[path] = Uint8List.fromList(bytes);
+    _record(path, message ?? 'Edit $path');
+  }
+
   /// Sets a file as if someone else pushed it, with a commit.
   void setFile(String path, String text, {String? message, DateTime? date}) {
     _files[path] = Uint8List.fromList(utf8.encode(text));
@@ -255,16 +264,38 @@ class FakeGitHubApi implements GitHubApi {
   }
 
   @override
+  Future<void> removeFile(
+    String path, {
+    required String branch,
+    required String sha,
+    required String message,
+  }) async {
+    lastBranch = branch;
+    await _call('DELETE $path');
+    _checkBranch(branch);
+    final current = _files[path];
+    if (current == null) {
+      throw const GitHubException(GitHubFailure.notFound, status: 404);
+    }
+    if (sha != gitBlobSha(current)) {
+      throw const GitHubException(GitHubFailure.conflict, status: 409);
+    }
+    _files.remove(path);
+    _record(path, message);
+  }
+
+  @override
   Future<List<TreeFile>> listFiles({
     required String branch,
     String suffix = '.json',
+    String prefix = '',
   }) async {
     lastBranch = branch;
     await _call('GET tree');
     _checkBranch(branch);
     return [
       for (final MapEntry(key: path, value: bytes) in _files.entries)
-        if (path.endsWith(suffix))
+        if (path.endsWith(suffix) && path.startsWith(prefix))
           TreeFile(path: path, size: bytes.length, sha: gitBlobSha(bytes)),
     ];
   }

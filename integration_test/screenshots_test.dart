@@ -10,13 +10,20 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:library_app/features/library/coming_soon_screen.dart';
 import 'package:library_app/features/library/home_sections.dart';
+import 'package:library_app/data/covers/cover_files.dart';
 import 'package:library_app/data/library_codec.dart';
+import 'package:library_app/data/models/entry.dart';
+import 'package:library_app/data/models/entry_kind.dart';
+import 'package:library_app/dev/fake_covers.dart';
+import 'package:library_app/dev/fake_images.dart';
+import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_source.dart';
@@ -745,7 +752,10 @@ Future<void> walkBook(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await tester.tap(find.bySemanticsLabel('Cover. Tap to change'));
   await tester.pumpAndSettle();
-  await tester.tap(find.bySemanticsLabel('The Shining, 2009 ·\u00a0Paperback'));
+  final paperback = find.bySemanticsLabel('The Shining, 2009 ·\u00a0Paperback');
+  await tester.ensureVisible(paperback);
+  await tester.pumpAndSettle();
+  await tester.tap(paperback);
   await tester.pumpAndSettle();
   await capture(tester, '${prefix}a49-pick-a-cover');
   await tester.tap(find.widgetWithText(FilledButton, 'Done'));
@@ -778,6 +788,226 @@ Future<void> walkBook(WidgetTester tester, {double scale = 1}) async {
   await capture(tester, '${prefix}a42-add-book-ebook-year');
   await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
+}
+
+/// Your own covers (canvas revision of 2026-11-14): Add / edit entry › Pick
+/// a cover and the states after it, Fit your cover, Library › Delete
+/// confirmation: with a cover file, and Settings › Your covers: review.
+/// The cover files are drawn on the spot and kept in a temporary folder,
+/// so the tiles show pictures.
+Future<void> walkOwnCovers(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  const mummyId = 'movies/the-mummy-1999';
+  const dirtId = 'music/dirt-alice-in-chains';
+  final directory = Directory.systemTemp.createTempSync('libri-walk-covers');
+  addTearDown(() => directory.deleteSync(recursive: true));
+  final store = fakeCoverStore(
+    directory: directory,
+    files: demoCoverFiles(yours: [mummyId, dirtId]),
+  );
+  await tester.runAsync(store.refresh);
+  final sources = FakeCoverSources(
+    photo: fakeCoverPng('a-photo'),
+    file: fakeCoverPng('a-file'),
+    clipboard: fakeCoverPng('copied'),
+  );
+  final pictures = FakeCoverPictures();
+  final fixture = decodeLibrary(
+    await rootBundle.loadString(FixtureLibraryRepository.assetPath),
+  );
+  final mummyCover = repoCoverFrom(demoCoverPath(mummyId));
+  final rooster = Entry(
+    id: 'music/rooster-alice-in-chains',
+    type: MediaType.music,
+    title: 'Rooster',
+    creator: 'Alice in Chains',
+    status: EntryStatus.done,
+    added: DateTime(2026, 10, 1),
+    kind: EntryKind.song,
+    album: 'Dirt',
+  );
+  final library = fixture.copyWith(
+    entries: [
+      for (final entry in fixture.entries)
+        if (entry.id == mummyId)
+          // No online cover when the file was picked: one turns up now.
+          entry.copyWith(source: 'tmdb:movie:564', coverFrom: mummyCover)
+        else if (entry.id == dirtId)
+          entry.copyWith(
+            coverFrom: repoCoverFrom(demoCoverPath(dirtId)),
+            coverKeepMine: true,
+          )
+        else
+          entry,
+      rooster,
+    ],
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(
+          FixtureLibraryRepository(
+            loadJson: () async => encodeLibrary(library),
+          ),
+        ),
+        coverStoreProvider.overrideWithValue(store),
+        coverSourcesProvider.overrideWithValue(sources),
+        coverPicturesProvider.overrideWithValue(pictures),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  final navigator = tester.state<NavigatorState>(find.byType(Navigator).first);
+  Future<void> push(Widget screen) async {
+    unawaited(navigator.push(MaterialPageRoute<void>(builder: (_) => screen)));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> back() async {
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openPicker() async {
+    await tester.tap(find.bySemanticsLabel('Cover. Tap to change'));
+    await tester.pumpAndSettle();
+    await waitForImages(tester);
+  }
+
+  Future<void> uploadFrom(String source) async {
+    await tester.tap(find.text('Upload'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(source));
+    await tester.pumpAndSettle();
+  }
+
+  // The form on a title that shows one of your files, which had no online
+  // cover when it was picked: Pick a cover flags the one there is now.
+  await push(EntryFormScreen.edit(library.entryById(mummyId)!));
+  await waitForImages(tester);
+  await capture(tester, '${prefix}a52-form-your-cover');
+  await openPicker();
+  await capture(tester, '${prefix}a52-cover-new-online');
+  await tester.tap(find.text('Keep mine'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a52-cover-yours');
+  // Long-press your cover.
+  await tester.longPress(find.bySemanticsLabel('Your cover, Yours'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a52-cover-file-menu');
+  await tester.tap(find.text('Cancel'));
+  await tester.pumpAndSettle();
+  // Upload from, with an image on the clipboard.
+  await tester.tap(find.text('Upload'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a52-cover-upload-from');
+  // Reading the image.
+  sources.gate = Completer<void>();
+  await tester.tap(find.text('Photo library'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a52-cover-reading');
+  sources.gate!.complete();
+  sources.gate = null;
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 2);
+  await capture(tester, '${prefix}a52-cover-just-uploaded');
+  // Not an image.
+  pictures.notAnImage = true;
+  await uploadFrom('Files');
+  await capture(tester, '${prefix}a52-cover-not-an-image');
+  pictures.notAnImage = false;
+  // Fit your cover: a wide image, then a tall one.
+  pictures.size = (1920, 1080);
+  await uploadFrom('Files');
+  await capture(tester, '${prefix}a52-cover-fit');
+  await tester.tap(find.text('Back'));
+  await tester.pumpAndSettle();
+  pictures.size = (1080, 2400);
+  await uploadFrom('Files');
+  await capture(tester, '${prefix}a52-cover-fit-tall');
+  await tester.tap(find.text('Back'));
+  await tester.pumpAndSettle();
+  pictures.size = (1000, 1500);
+  // Picking an online cover while yours is in use.
+  final matchCover = find.bySemanticsLabel(
+    RegExp('^The Mummy, .*The match’s cover'),
+  );
+  await tester.ensureVisible(matchCover);
+  await tester.pumpAndSettle();
+  await tester.tap(matchCover);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a52-cover-delete-your-file');
+  await tester.tap(find.text('Cancel'));
+  await tester.pumpAndSettle();
+  await back();
+  await back();
+
+  // A title the lookup has no cover for.
+  await push(
+    const EntryFormScreen.create(type: MediaType.movies, title: 'Gatto'),
+  );
+  await capture(tester, '${prefix}a52-form-no-cover');
+  await openPicker();
+  await capture(tester, '${prefix}a52-cover-none-online');
+  await back();
+  await back();
+
+  // A song uses its album's cover.
+  await push(EntryFormScreen.edit(rooster));
+  await openPicker();
+  await capture(tester, '${prefix}a52-cover-song-album');
+  await back();
+  await back();
+
+  // Library › Delete confirmation: with a cover file.
+  await pickChip(tester, 'Movies');
+  // A lazy list: scroll until the row is built.
+  await tester.scrollUntilVisible(
+    find.text('The Mummy'),
+    200,
+    scrollable: homeList(),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('The Mummy').last);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Delete'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Delete'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a52-delete-with-cover-file');
+  await tester.tap(find.text('Cancel'));
+  await tester.pumpAndSettle();
+  await closeSheet(tester);
+
+  // Settings › Library connection: Your covers, and the review.
+  await push(const ConnectionScreen());
+  await tester.scrollUntilVisible(
+    find.text('Uploaded covers'),
+    100,
+    scrollable: find
+        .descendant(
+          of: find.byType(ConnectionScreen),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}d6-connection-your-covers');
+  await tester.tap(find.text('Review'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 3);
+  await capture(tester, '${prefix}d6-your-covers-review');
+  await back();
+  await back();
 }
 
 /// Add / edit entry › Platform picker and Game search on a platform: a
@@ -923,6 +1153,14 @@ void main() {
 
   testWidgets('book page count at a larger text size', (tester) async {
     await walkBook(tester, scale: 1.3);
+  });
+
+  testWidgets('own covers', (tester) async {
+    await walkOwnCovers(tester);
+  });
+
+  testWidgets('own covers at a larger text size', (tester) async {
+    await walkOwnCovers(tester, scale: 1.3);
   });
 
   testWidgets('show seasons', (tester) async {

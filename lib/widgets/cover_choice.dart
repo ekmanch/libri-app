@@ -14,6 +14,9 @@ class CoverChoice extends StatelessWidget {
     required this.width,
     required this.picked,
     required this.onTap,
+    this.onLongPress,
+    this.badge,
+    this.badgeAccent = false,
     this.lines = const [],
   });
 
@@ -22,6 +25,15 @@ class CoverChoice extends StatelessWidget {
   final double width;
   final bool picked;
   final VoidCallback onTap;
+
+  /// A long press, e.g. the Delete file sheet of one of your own covers.
+  final VoidCallback? onLongPress;
+
+  /// A small pill in the cover's top left corner: "Yours" on one of your
+  /// own covers (dark), "New" on an online cover that turned up later
+  /// (the accent, with [badgeAccent]).
+  final String? badge;
+  final bool badgeAccent;
   final List<String> lines;
 
   /// The cover's width inside the ring.
@@ -34,10 +46,12 @@ class CoverChoice extends StatelessWidget {
     return Semantics(
       button: true,
       selected: picked,
-      label: [title, ...lines].join(', '),
+      label: [title, ?badge, ...lines].join(', '),
+      onLongPressHint: onLongPress == null ? null : 'More',
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(10),
         child: SizedBox(
           width: width,
@@ -55,7 +69,43 @@ class CoverChoice extends StatelessWidget {
                         : Colors.transparent,
                   ),
                 ),
-                child: cover,
+                child: badge == null
+                    ? cover
+                    : Stack(
+                        children: [
+                          cover,
+                          Positioned(
+                            left: 4,
+                            top: 4,
+                            child: Container(
+                              height: 20,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                              ),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: badgeAccent
+                                    ? theme.colorScheme.primary
+                                    : colors.coverBadge,
+                              ),
+                              child: Text(
+                                badge!,
+                                textScaler: TextScaler.noScaling,
+                                style: theme.textTheme.labelSmall!.copyWith(
+                                  fontSize: 11,
+                                  height: 1,
+                                  letterSpacing: 0,
+                                  fontWeight: FontWeight.w700,
+                                  color: badgeAccent
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
               const SizedBox(height: 6),
               Text(

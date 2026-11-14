@@ -55,7 +55,7 @@ void main() {
 
   tearDownAll(() async {
     if (sha != null) {
-      await api.deleteFile(
+      await api.removeFile(
         path,
         branch: branch,
         sha: sha!,

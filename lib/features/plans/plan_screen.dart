@@ -1087,8 +1087,7 @@ class _Pool extends ConsumerWidget {
       final plans = library.plans
           .where((p) => p.itemFor(entry.id) != null)
           .toList();
-      final ok = await confirmDeleteEntry(context, entry: entry, plans: plans);
-      if (ok) await repository.apply(DeleteEntry(entry.id));
+      await confirmDeleteEntry(context, ref, entry: entry, plans: plans);
     }
 
     return ListView(

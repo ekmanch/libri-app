@@ -32,6 +32,7 @@ final imageCacheProvider = Provider<ImageCacheStore>(
   (ref) => ImageCacheStore(
     Directory(ref.watch(appCacheDirectoryProvider).path),
     fetcher: ref.watch(imageFetcherProvider),
+    covers: ref.watch(coverStoreProvider),
   ),
 );
 

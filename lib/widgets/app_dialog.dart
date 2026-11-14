@@ -20,6 +20,7 @@ class AppDialog extends StatelessWidget {
     this.body,
     this.content,
     this.note,
+    this.footer,
     required this.actions,
     this.actionsLayout = DialogActionsLayout.row,
   });
@@ -38,6 +39,10 @@ class AppDialog extends StatelessWidget {
 
   /// A quieter second paragraph, e.g. what happens in the GitHub history.
   final String? note;
+
+  /// Right above the buttons, after the note: the "Also delete its cover
+  /// file" checkbox of Library › Delete confirmation: with a cover file.
+  final Widget? footer;
   final List<Widget> actions;
   final DialogActionsLayout actionsLayout;
 
@@ -78,7 +83,8 @@ class AppDialog extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 20),
+            if (footer != null) ...[const SizedBox(height: 8), footer!],
+            SizedBox(height: footer == null ? 20 : 12),
             switch (actionsLayout) {
               DialogActionsLayout.row => Row(
                 children: [

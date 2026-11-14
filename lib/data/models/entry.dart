@@ -64,10 +64,20 @@ abstract class Entry with _$Entry {
 
     /// The lookup id of another match whose cover the entry shows (Add /
     /// edit entry › Pick a cover), "itunes:123456" or an Open Library
-    /// edition, "openlibrary:OL7518154M"; left out while the cover is the
-    /// match's own. The only cover data in the file: the image itself is
-    /// found from it on the device. Changing the type clears it.
+    /// edition, "openlibrary:OL7518154M"; or one of the owner's own files
+    /// in the library repo, "repo:movies/the-mummy-1999.a3f9c2e.jpg" (the
+    /// path under `covers/`). Left out while the cover is the match's own.
+    /// The only cover data in the file: the image itself is found from it
+    /// on the device. Changing the type clears a match's id; one of the
+    /// owner's files moves to the new type's folder instead.
     @JsonKey(name: 'cover_from', includeIfNull: false) String? coverFrom,
+
+    /// Beside one of the owner's own covers (a `cover_from` that starts
+    /// with "repo:", `lib/data/covers/cover_files.dart`): the owner keeps
+    /// their cover, and neither app points out an online one for the title
+    /// again (Add / edit entry › Pick a cover: an online cover is new).
+    /// Only ever true: left out otherwise, and dropped with the cover.
+    @JsonKey(name: 'cover_keep_mine', includeIfNull: false) bool? coverKeepMine,
     // Games.
     @JsonKey(includeIfNull: false) String? platform,
     // Books.

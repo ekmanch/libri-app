@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../covers/cover_files.dart';
 import '../lookup/deezer_source.dart';
 import '../lookup/lookup_failure.dart';
 import '../lookup/lookup_service.dart';
@@ -110,7 +111,10 @@ class ArtworkResolver {
 
   /// The cover URL when it is already known, without waiting. Null before
   /// [load], for a miss, and for an entry never looked at.
-  String? cachedCoverUrl(Entry entry) => _recordOf(entry)?.url;
+  /// One of the owner's own files (a "repo:" `cover_from`) is its own
+  /// answer: nothing is looked up for it.
+  String? cachedCoverUrl(Entry entry) =>
+      isRepoCover(entry.coverFrom) ? entry.coverFrom : _recordOf(entry)?.url;
 
   /// The lookup id the entry was matched to on the device, when known.
   String? cachedSource(Entry entry) => _recordOf(entry)?.source;
@@ -123,7 +127,7 @@ class ArtworkResolver {
     await load();
     final record = _recordOf(entry);
     if (record != null) return record.source;
-    await coverUrl(entry);
+    await _lookedUpCoverUrl(entry);
     final after = _recordOf(entry);
     if (after == null) {
       final failure = _failures[entry.id];
@@ -134,7 +138,11 @@ class ArtworkResolver {
 
   /// The cover URL, looking it up when needed; null when there is none
   /// (or none could be fetched right now).
-  Future<String?> coverUrl(Entry entry) async {
+  Future<String?> coverUrl(Entry entry) => isRepoCover(entry.coverFrom)
+      ? Future.value(entry.coverFrom)
+      : _lookedUpCoverUrl(entry);
+
+  Future<String?> _lookedUpCoverUrl(Entry entry) async {
     await load();
     final record = _recordOf(entry);
     if (record != null) {
@@ -198,8 +206,14 @@ class ArtworkResolver {
   /// and series go by.
   Future<(String?, String?)> _findCover(Entry entry) async {
     if (entry.coverFrom case final coverFrom?) {
-      final provider = lookups.sourceOf(coverFrom);
-      final url = await provider?.pickedCoverUrl(coverFrom, type: entry.type);
+      // One of the owner's own files is its own image key: the image
+      // cache hands it to the cover store, and no lookup stands between.
+      final provider = isRepoCover(coverFrom)
+          ? null
+          : lookups.sourceOf(coverFrom);
+      final url = isRepoCover(coverFrom)
+          ? coverFrom
+          : await provider?.pickedCoverUrl(coverFrom, type: entry.type);
       if (entry.source != null) return (url, null);
       final (_, matched) = await _findCover(entry.copyWith(coverFrom: null));
       return (url, matched);

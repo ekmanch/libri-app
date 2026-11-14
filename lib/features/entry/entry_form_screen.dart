@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/covers/cover_files.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
 import '../../data/models/app_settings.dart';
@@ -240,8 +241,18 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   /// The lookup id of another match whose cover the entry shows (Add / edit
   /// entry › Cover from another match), or null for the match's own.
-  /// Cleared with the source when the type changes.
+  /// Cleared with the source when the type changes. Or one of your own
+  /// files, "repo:…" (Add / edit entry › Pick a cover: with your own
+  /// cover), which stays through a type change: its file moves instead.
   String? _coverFrom;
+
+  /// `cover_keep_mine` beside one of your own covers: kept as it was
+  /// unless a pick changes it.
+  bool _coverKeepMine = false;
+
+  /// The cover of the album a song is from, once Pick a cover changed it
+  /// from here (a song uses its album's cover).
+  String? _albumCoverUrl;
 
   /// The match's own cover, and the cover picked from another match, as
   /// shown in the form; null until known.
@@ -313,6 +324,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     _tmdbId = TextEditingController(text: tmdbShowId(_tmdb) ?? '');
     _tmdbFocus.addListener(_onTmdbFocus);
     _coverFrom = entry?.coverFrom;
+    _coverKeepMine = entry?.coverKeepMine ?? false;
     _ownCoverUrl = match?.cacheCoverUrl;
     if (entry != null) {
       final resolver = ref.read(artworkResolverProvider);
@@ -1039,24 +1051,58 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   }
 
   /// Add / edit entry › Pick a cover, on the entry's type and title: a pick
-  /// changes only the cover.
-  Future<void> _pickCover() async {
+  /// changes only the cover, and waits for Save. A song whose album is in
+  /// the library uses the album's cover, so its picker works on the album
+  /// and saves there at once. [askForMatchCover] is "Use the match’s
+  /// cover" while one of your own files is the cover.
+  Future<void> _pickCover({bool askForMatchCover = false}) async {
     final title = _title.text.trim();
     if (title.isEmpty) return;
     final creator = _creator.text.trim();
+    final library = ref.read(libraryProvider).value;
+    final year = _usesSeasons
+        ? _seasons.firstOrNull?.released?.year
+        : _released?.year;
+    final id =
+        widget.entry?.id ??
+        EntryId.generate(
+          type: _type,
+          title: title,
+          year: year?.toString(),
+          artist: creator.isEmpty ? null : creator,
+          existingIds: library?.entries.map((e) => e.id) ?? const [],
+        );
+    if (library != null &&
+        _type == MediaType.music &&
+        _kind == EntryKind.song) {
+      final song = _buildEntry(library.entries.map((e) => e.id));
+      final album = coverOwner(library, song);
+      if (album.id != song.id) {
+        await showCoverPicker(
+          context,
+          subject: CoverSubject.album(album, song: title),
+          onPicked: (pick) => setState(() => _albumCoverUrl = pick.url),
+        );
+        return;
+      }
+    }
     await showCoverPicker(
       context,
-      type: _type,
-      title: title,
-      creator: creator.isEmpty ? null : creator,
-      source: _source,
+      subject: CoverSubject(
+        id: id,
+        type: _type,
+        title: title,
+        year: year,
+        creator: creator.isEmpty ? null : creator,
+        source: _source,
+        coverFrom: _coverFrom,
+        keepMine: _coverKeepMine,
+      ),
       ownCoverUrl: _ownCoverUrl,
-      ownYear: _usesSeasons
-          ? _seasons.firstOrNull?.released?.year
-          : _released?.year,
-      coverFrom: _coverFrom,
+      askForMatchCover: askForMatchCover,
       onPicked: (pick) => setState(() {
         _coverFrom = pick.coverFrom;
+        _coverKeepMine = pick.keepMine;
         _pickedCoverUrl = pick.url;
       }),
     );
@@ -1068,7 +1114,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         _source = null;
         _tmdb = null;
         _tmdbId.text = '';
-        _coverFrom = null;
+        // A match's id means nothing in another type; one of your own
+        // files stays the cover, and moves with the entry on Save.
+        if (!isRepoCover(_coverFrom)) _coverFrom = null;
         _splits = null;
         _splitsKey = null;
         _seasonsFrom = null;
@@ -1210,6 +1258,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           ? _typedTmdb
           : null,
       coverFrom: _coverFrom,
+      coverKeepMine: _coverKeepMine && isRepoCover(_coverFrom) ? true : null,
       platform: _type == MediaType.games && platform.isNotEmpty
           ? platform
           : null,
@@ -1302,6 +1351,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     final Entry saved;
     if (widget.isEditing) {
+      entry = await _withCoversMoved(entry);
       await repository.apply(UpdateEntry(entry));
       saved = entry;
       // A pick replaces the cover, whether it brought a new source or the
@@ -1322,6 +1372,31 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       await repository.apply(DeleteEntry(old.id));
     }
     if (mounted) Navigator.pop(context, saved);
+  }
+
+  /// A type change takes the entry's own cover files along: each file
+  /// named after it moves from its old type's folder to the new one's,
+  /// and `cover_from` follows the one it shows (DESIGN.md section 10d).
+  Future<Entry> _withCoversMoved(Entry entry) async {
+    final before = widget.entry;
+    if (before == null || before.type == entry.type) return entry;
+    final store = ref.read(coverStoreProvider);
+    await store.load();
+    final folder = coverFolder(entry.type);
+    var coverFrom = entry.coverFrom;
+    for (final file in coverCandidates(store.files, before.type, before.id)) {
+      if (file.folder == folder) continue;
+      final to = coverPathIn(entry.type, file.path);
+      await store.move(
+        file.path,
+        to,
+        summary: 'Move a cover of ${entry.title} to $folder',
+      );
+      if (repoCoverPath(coverFrom) == file.path) coverFrom = repoCoverFrom(to);
+    }
+    return coverFrom == entry.coverFrom
+        ? entry
+        : entry.copyWith(coverFrom: coverFrom);
   }
 
   @override
@@ -1407,10 +1482,31 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   _FormCover(
                     type: _type,
                     title: _title.text.trim(),
-                    url: _coverFrom == null ? _ownCoverUrl : _pickedCoverUrl,
-                    fromOther: _coverFrom != null,
+                    url:
+                        _albumCoverUrl ??
+                        (_coverFrom == null
+                            ? _ownCoverUrl
+                            : isRepoCover(_coverFrom)
+                            ? _coverFrom
+                            : _pickedCoverUrl),
+                    source: isRepoCover(_coverFrom)
+                        ? _FormCoverSource.yours
+                        : _coverFrom != null
+                        ? _FormCoverSource.otherMatch
+                        : _ownCoverUrl == null &&
+                              _albumCoverUrl == null &&
+                              _title.text.trim().isNotEmpty
+                        ? _FormCoverSource.none
+                        : _FormCoverSource.match,
+                    canReset: isRepoCover(_coverFrom)
+                        ? _ownCoverUrl != null
+                        : _coverFrom != null,
                     onTap: _pickCover,
-                    onReset: () => setState(() => _coverFrom = null),
+                    // Leaving one of your own files asks about the file,
+                    // which Pick a cover does.
+                    onReset: () => isRepoCover(_coverFrom)
+                        ? _pickCover(askForMatchCover: true)
+                        : setState(() => _coverFrom = null),
                   ),
                   const SizedBox(height: 14),
                   const FieldLabel('Title'),
@@ -1847,14 +1943,19 @@ extension on BookFormat {
 
 /// The cover at the top of the form (Add / edit entry › Cover from another
 /// match): the cover with a small pencil badge, which opens Pick a cover
-/// when tapped, and beside it "From the match · tap to change", or after a
-/// pick "From another match" with "Use the match’s cover".
+/// when tapped, and beside it "From the match · tap to change", after a
+/// pick "From another match", with one of your own files "Your cover",
+/// and with none "No cover yet · tap to add"; "Use the match’s cover"
+/// while any other cover is picked and the match has one.
+enum _FormCoverSource { none, match, otherMatch, yours }
+
 class _FormCover extends StatelessWidget {
   const _FormCover({
     required this.type,
     required this.title,
     required this.url,
-    required this.fromOther,
+    required this.source,
+    required this.canReset,
     required this.onTap,
     required this.onReset,
   });
@@ -1862,7 +1963,8 @@ class _FormCover extends StatelessWidget {
   final MediaType type;
   final String title;
   final String? url;
-  final bool fromOther;
+  final _FormCoverSource source;
+  final bool canReset;
   final VoidCallback onTap;
   final VoidCallback onReset;
 
@@ -1906,11 +2008,15 @@ class _FormCover extends StatelessWidget {
                     url: url,
                     width: width,
                     height: width / CoverPlaceholder.aspectRatio(type),
-                    placeholder: CoverPlaceholder(
-                      entry: draft,
-                      width: width,
-                      fontSize: 9.5,
-                    ),
+                    // No cover yet: an empty tile, not the lettered
+                    // placeholder that stands for a cover on its way.
+                    placeholder: source == _FormCoverSource.none
+                        ? ColoredBox(color: theme.colorScheme.surface)
+                        : CoverPlaceholder(
+                            entry: draft,
+                            width: width,
+                            fontSize: 9.5,
+                          ),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   Positioned(
@@ -1952,13 +2058,13 @@ class _FormCover extends StatelessWidget {
                   style: theme.textTheme.labelSmall!.copyWith(letterSpacing: 0),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  fromOther
-                      ? 'From another match'
-                      : 'From the match · tap to change',
-                  style: hint,
-                ),
-                if (fromOther) ...[
+                Text(switch (source) {
+                  _FormCoverSource.none => 'No cover yet · tap to add',
+                  _FormCoverSource.match => 'From the match · tap to change',
+                  _FormCoverSource.otherMatch => 'From another match',
+                  _FormCoverSource.yours => 'Your cover',
+                }, style: hint),
+                if (canReset) ...[
                   const SizedBox(height: 8),
                   TouchTarget(
                     child: Semantics(

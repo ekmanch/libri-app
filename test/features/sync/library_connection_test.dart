@@ -173,6 +173,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         appDataDirectoryProvider.overrideWithValue(dir),
+        appCacheDirectoryProvider.overrideWithValue(dir),
         initialConnectionProvider.overrideWithValue(
           const LibraryConnection(connected: false, keptLocally: true),
         ),

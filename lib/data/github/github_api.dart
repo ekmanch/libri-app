@@ -141,10 +141,21 @@ abstract interface class GitHubApi {
     String? sha,
   });
 
-  /// Every blob on [branch] whose path ends in [suffix].
+  /// Removes the file in one commit; [sha] is the blob sha of the file as
+  /// it is. Only cover files are ever removed (`lib/data/covers/`).
+  Future<void> removeFile(
+    String path, {
+    required String branch,
+    required String sha,
+    required String message,
+  });
+
+  /// Every blob on [branch] whose path starts with [prefix] and ends in
+  /// [suffix].
   Future<List<TreeFile>> listFiles({
     required String branch,
     String suffix = '.json',
+    String prefix = '',
   });
 
   /// The newest commits that touched [path], newest first.

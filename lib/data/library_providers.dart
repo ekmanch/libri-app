@@ -10,6 +10,10 @@ import 'package:http/http.dart' as http;
 import '../dev/demo_states.dart';
 import '../dev/fake_github_api.dart';
 import '../features/sync/sync_state.dart';
+import 'covers/cover_files.dart';
+import 'covers/cover_picture.dart';
+import 'covers/cover_sources.dart';
+import 'covers/cover_store.dart';
 import 'github/github_api.dart';
 import 'github/github_http_api.dart';
 import 'library_codec.dart';
@@ -23,6 +27,7 @@ import 'repository/github_library_repository.dart';
 import 'repository/library_repository.dart';
 import 'repository/library_sync.dart';
 import 'repository/local_library_repository.dart';
+import 'storage/json_file.dart';
 import 'sync/sync_status.dart';
 
 /// The folder for the files Libri keeps on the device. Overridden in
@@ -97,6 +102,7 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
       settingsFile: File(
         '${directory.path}${Platform.pathSeparator}settings.json',
       ),
+      covers: _coverStore(ref),
     );
     ref.onDispose(repository.dispose);
     return repository;
@@ -113,10 +119,78 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
     repository: target.repository,
     path: target.file,
     branch: target.branch,
+    covers: _coverStore(
+      ref,
+      remote: GitHubCoverRemote(
+        api,
+        branch: target.branch,
+        libraryFile: target.file,
+      ),
+    ),
   );
   ref.onDispose(repository.dispose);
   return repository;
 });
+
+/// The owner's own covers (DESIGN.md section 10d), which belong to the
+/// repository: the files in `covers/` beside the library file on GitHub,
+/// or, with the library kept on the phone, the folder itself. A repository
+/// without them (the fixture, most tests) has an empty list kept in
+/// memory.
+final coverStoreProvider = Provider<CoverStore>((ref) {
+  final repository = ref.watch(libraryRepositoryProvider);
+  final covers = switch (repository) {
+    GitHubLibraryRepository() => repository.covers,
+    LocalLibraryRepository() => repository.covers,
+    _ => null,
+  };
+  if (covers != null) return covers;
+  final empty = CoverStore();
+  ref.onDispose(empty.dispose);
+  return empty;
+});
+
+/// The store for a library in the phone's data folder: this phone's copies
+/// in `covers/` there, the list in `covers.json` under the cache folder and
+/// the queue in `cover_changes.json`. [remote] is null for a library kept
+/// on the phone.
+CoverStore _coverStore(Ref ref, {CoverRemote? remote}) {
+  final data = ref.watch(appDataDirectoryProvider).path;
+  final cache = ref.watch(appCacheDirectoryProvider).path;
+  final separator = Platform.pathSeparator;
+  final store = CoverStore(
+    directory: Directory('$data$separator$coversFolder'),
+    remote: remote,
+    listFile: JsonFile(File('$cache${separator}covers.json')),
+    queueFile: JsonFile(File('$data${separator}cover_changes.json')),
+  );
+  ref.onDispose(store.dispose);
+  return store;
+}
+
+/// The cover files as they are now ([CoverStore.files]): rebuilt when one
+/// is added, removed or listed.
+final coverFilesProvider = Provider<List<CoverFile>>((ref) {
+  final store = ref.watch(coverStoreProvider);
+  void changed() => ref.invalidateSelf();
+  store.addListener(changed);
+  ref.onDispose(() => store.removeListener(changed));
+  // The list of the last session shows before GitHub is asked again.
+  store.load().ignore();
+  return store.files;
+});
+
+/// Decodes, scales and encodes an uploaded cover. The tests and the walks
+/// override it.
+final coverPicturesProvider = Provider<CoverPictures>(
+  (ref) => const EngineCoverPictures(),
+);
+
+/// Where an uploaded cover is picked from. The tests and the walks
+/// override it.
+final coverSourcesProvider = Provider<CoverSources>(
+  (ref) => const PlatformCoverSources(),
+);
 
 /// The library as it is now, updated after every applied operation.
 /// Disposed when nothing shows it (after a disconnect), so a reconnect

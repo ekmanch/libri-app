@@ -17,6 +17,13 @@ enum AppButtonKind {
   /// accent-colored button.
   destructive,
 
+  /// Neutral fill, red text: deleting cover files ("Delete my file" in
+  /// Add / edit entry › Pick a cover: switching to an online cover, "Delete
+  /// 3 files" in Settings › Your covers: review). Never a red fill. The
+  /// fill is the raised surface on a sheet or a screen and, in a dialog,
+  /// whose own color that nearly is, the lighter neutral one.
+  neutralDestructive,
+
   /// Plain text, 44 px tall: "Cancel" under a stack of choices.
   text,
 
@@ -115,6 +122,19 @@ class AppButton extends StatelessWidget {
           FilledButton.styleFrom(
             backgroundColor: colors.neutralFill,
             foregroundColor: scheme.onSurface,
+          ),
+        ),
+        child: child,
+      ),
+      AppButtonKind.neutralDestructive => FilledButton(
+        onPressed: onPressed,
+        style: style(
+          FilledButton.styleFrom(
+            backgroundColor:
+                context.findAncestorWidgetOfExactType<Dialog>() == null
+                ? colors.surfaceHigh
+                : colors.neutralFill,
+            foregroundColor: colors.dangerText,
           ),
         ),
         child: child,

@@ -275,6 +275,61 @@ class AppIcons {
     circles: [StrokeCircle(Offset(12, 12), 3)],
   );
 
+  /// An arrow up out of a tray: Upload (Add / edit entry › Pick a cover).
+  static const upload = StrokeIconData(
+    polylines: [
+      [Offset(12, 16), Offset(12, 5)],
+      [Offset(7, 10), Offset(12, 5), Offset(17, 10)],
+      [Offset(5, 19), Offset(19, 19)],
+    ],
+  );
+
+  /// A photo with a hill and a sun: Photo library (Pick a cover: upload
+  /// from).
+  static const photo = StrokeIconData(
+    rects: [Rect.fromLTRB(4, 5, 20, 19)],
+    polylines: [
+      [
+        Offset(4, 16),
+        Offset(9, 11),
+        Offset(13, 15),
+        Offset(16, 12),
+        Offset(20, 16),
+      ],
+    ],
+    circles: [StrokeCircle(Offset(9, 9), 1.2)],
+  );
+
+  /// A folder with a tab: Files (Pick a cover: upload from).
+  static const files = StrokeIconData(
+    polylines: [
+      [
+        Offset(4, 6),
+        Offset(10, 6),
+        Offset(12, 8),
+        Offset(20, 8),
+        Offset(20, 18),
+        Offset(4, 18),
+        Offset(4, 6),
+      ],
+    ],
+  );
+
+  /// A clipboard: Paste image (Pick a cover: upload from).
+  static const clipboard = StrokeIconData(
+    rects: [Rect.fromLTRB(9, 4, 15, 7)],
+    polylines: [
+      [
+        Offset(9, 5),
+        Offset(6, 5),
+        Offset(6, 20),
+        Offset(18, 20),
+        Offset(18, 5),
+        Offset(15, 5),
+      ],
+    ],
+  );
+
   /// A bin, for Delete.
   static const trash = StrokeIconData(
     polylines: [

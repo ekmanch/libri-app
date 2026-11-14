@@ -10,10 +10,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/covers/cover_files.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
+import 'package:library_app/dev/fake_covers.dart';
 import 'package:library_app/dev/fake_github_api.dart';
+import 'package:library_app/dev/fake_images.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/features/entry/new_entry_screen.dart';
@@ -768,6 +771,132 @@ void main() {
     report.addAll(audit.findings);
     failures.addAll(audit.failures);
   });
+
+  // Your own covers need cover files in the library repo, which the fixture
+  // has not: The Mummy shows one of its own, uploaded when the lookup had no
+  // cover for it.
+  for (final (label, mode, scale) in [
+    ('dark', ThemeMode.dark, 1.0),
+    ('light', ThemeMode.light, 1.0),
+    ('dark x1.3', ThemeMode.dark, 1.3),
+  ]) {
+    testWidgets('audit your own covers $label', (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(360, 780);
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+      final handle = tester.ensureSemantics();
+      const mummyId = 'movies/the-mummy-1999';
+      final fixture = loadFixture();
+      final library = fixture.copyWith(
+        entries: [
+          for (final entry in fixture.entries)
+            entry.id == mummyId
+                ? entry.copyWith(
+                    source: 'tmdb:movie:564',
+                    coverFrom: repoCoverFrom(demoCoverPath(mummyId)),
+                  )
+                : entry,
+        ],
+      );
+      final store = fakeCoverStore(files: demoCoverFiles(yours: [mummyId]));
+      await store.refresh();
+      final pictures = FakeCoverPictures(size: (1920, 1080));
+      final container = ProviderContainer(
+        overrides: [
+          ...fakeLookupOverrides(),
+          libraryRepositoryProvider.overrideWithValue(
+            FixtureLibraryRepository(
+              loadJson: () async => encodeLibrary(library),
+            ),
+          ),
+          coverStoreProvider.overrideWithValue(store),
+          coverSourcesProvider.overrideWithValue(
+            FakeCoverSources(
+              file: fakeCoverPng('a-file'),
+              clipboard: fakeCoverPng('copied'),
+            ),
+          ),
+          coverPicturesProvider.overrideWithValue(pictures),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(displayPreferencesProvider.notifier).setThemeMode(mode);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const LibraryApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final audit = _Audit(tester, label);
+      await audit.step('your own covers: the picker', () async {
+        await audit.pickChip('Movies');
+        await audit.tapText('The Mummy');
+        await tester.ensureVisible(find.text('Delete'));
+        await audit.tapText('Delete');
+        await audit.check('Library › Delete confirmation: with a cover file');
+        await audit.tapText('Cancel');
+        await audit.tapText('Edit');
+        await audit.check('Add / edit entry › with your own cover');
+        await audit.tap(find.bySemanticsLabel('Cover. Tap to change'));
+        await audit.check(
+          'Add / edit entry › Pick a cover: an online cover is new',
+        );
+        await audit.tapText('Keep mine');
+        await audit.check(
+          'Add / edit entry › Pick a cover: with your own cover',
+        );
+        final yours = find.bySemanticsLabel('Your cover, Yours');
+        await tester.ensureVisible(yours);
+        await tester.pumpAndSettle();
+        await tester.longPress(yours);
+        await tester.pumpAndSettle();
+        await audit.check(
+          'Add / edit entry › Pick a cover: long-press your cover',
+        );
+        await audit.tapText('Cancel');
+        await audit.tapText('Upload');
+        await audit.check('Add / edit entry › Pick a cover: upload from');
+        await audit.tapText('Files');
+        await audit.check('Add / edit entry › Fit your cover');
+        await audit.tapText('Back');
+        pictures.notAnImage = true;
+        await audit.tapText('Upload');
+        await audit.tapText('Files');
+        await audit.check('Add / edit entry › Pick a cover: not an image');
+        await audit.tap(
+          find.bySemanticsLabel(RegExp('^The Mummy, .*The match’s cover')),
+        );
+        await audit.check(
+          'Add / edit entry › Pick a cover: switching to an online cover',
+        );
+        await audit.tapText('Cancel');
+        await audit.tap(find.widgetWithText(FilledButton, 'Done'));
+        await audit.back();
+        await audit.closeSheet();
+        await audit.pickChip('Home');
+      });
+      await audit.step('your own covers: the review', () async {
+        await audit.tap(find.byTooltip('Settings'));
+        await audit.tapText('Library source');
+        await audit.reveal(find.text('Uploaded covers'));
+        await audit.check('Settings › Library connection with your covers');
+        await audit.tapText('Review');
+        await audit.check('Settings › Your covers: review');
+        await audit.tapText('Cancel');
+        await audit.back();
+        await audit.back();
+      });
+      handle.dispose();
+      report.addAll(audit.findings);
+      failures.addAll(audit.failures);
+    });
+  }
 
   tearDownAll(() {
     final text = [

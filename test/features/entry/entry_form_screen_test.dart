@@ -206,11 +206,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Pick a cover'), findsOneWidget);
       expect(
-        find.text('Other matches for “Dracula”. Only the cover changes.'),
+        find.text('Dracula · 1897. Only the cover changes.'),
         findsOneWidget,
       );
       expect(find.text('The match’s cover'), findsOneWidget);
-      await tester.tap(find.bySemanticsLabel('Dracula, 2009 ·\u00a0Paperback'));
+      // Under Your covers, the online ones may sit below the fold.
+      final paperback = find.bySemanticsLabel('Dracula, 2009 ·\u00a0Paperback');
+      await tester.ensureVisible(paperback);
+      await tester.pumpAndSettle();
+      await tester.tap(paperback);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Done'));
       await tester.pumpAndSettle();
