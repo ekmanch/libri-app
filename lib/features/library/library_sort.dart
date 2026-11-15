@@ -139,7 +139,7 @@ List<Entry> sortEntries(Iterable<Entry> entries, LibrarySort sort) {
   return list;
 }
 
-/// The order of search hits (Library › Search), the home's old order: In
+/// The order the old Search screen listed its hits in, the home's old order: In
 /// progress, then Want, then Done, then DNF; newest added first within each.
 List<Entry> homeOrder(Iterable<Entry> entries) {
   int rank(EntryStatus s) => switch (s) {

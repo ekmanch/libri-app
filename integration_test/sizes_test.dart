@@ -24,6 +24,7 @@ import 'package:library_app/features/shell/floating_nav_bar.dart';
 import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/features/library/filter_sheet.dart';
 import 'package:library_app/main.dart';
+import 'package:library_app/widgets/search_field.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/underline_tabs.dart';
 
@@ -220,11 +221,17 @@ Future<void> _walk(_Walk w) async {
   await w.step('a5 search', () async {
     await w.pickChip('Home');
     await revealHeader(tester);
-    await w.tapText('Search titles and tags');
-    await tester.enterText(find.byType(TextField), 'hal');
+    final box = find.descendant(
+      of: find.byType(SearchField),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(box, 'king');
     await tester.pumpAndSettle();
-    await w.shot('a5-search');
-    await w.tapText('Cancel');
+    await w.shot('a55-search-home');
+    await w.tap(find.text('BOOKS · 2'));
+    await w.shot('a55-search-in-other-types');
+    await w.tap(find.byTooltip('Clear search'));
+    await w.pickChip('Home');
   });
   await w.step('a6, d11, a7, a9, a8-edit', () async {
     await w.pickChip('Movies');

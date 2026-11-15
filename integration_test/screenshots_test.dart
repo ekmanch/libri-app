@@ -58,6 +58,7 @@ import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/main.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/search_field.dart';
 import 'package:library_app/widgets/underline_tabs.dart';
 import 'package:library_app/widgets/entry_row.dart';
 import 'package:library_app/features/entry/tag_picker_sheet.dart';
@@ -1071,6 +1072,65 @@ Future<void> walkGamePlatform(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
 }
 
+/// The library home's search box.
+Finder searchBox() => find.descendant(
+  of: find.byType(SearchField),
+  matching: find.byType(TextField),
+);
+
+/// Library › Search: Home, results by type; Search: a tag matches; Search:
+/// no results anywhere; Search: nothing here, results in another type;
+/// Search: Music › Artists; Search: the query follows you to Albums.
+Future<void> walkLibrarySearch(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  seasonClock = () => DateTime(2026, 10, 11);
+  addTearDown(() => seasonClock = DateTime.now);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(FixtureLibraryRepository()),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  Future<void> search(String query, String name) async {
+    await revealHeader(tester);
+    await tester.tap(searchBox());
+    await tester.pumpAndSettle();
+    await tester.enterText(searchBox(), query);
+    await tester.pumpAndSettle();
+    await waitForImages(tester);
+    await capture(tester, '${prefix}a55-search-$name');
+  }
+
+  await search('king', 'home');
+  await search('class', 'home-tag');
+  await search('zelda', 'home-none');
+  await pickChip(tester, 'Movies');
+  await search('hallow', 'tag');
+  await search('king', 'in-other-types');
+  await pickChip(tester, 'Games');
+  await search('king', 'elsewhere');
+  await search('zelda', 'none');
+  await pickChip(tester, 'Music');
+  await search('pink', 'music-artists');
+  await tester.tap(find.text('Albums 1'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a55-search-music-albums');
+  await tester.tap(find.text('Songs 0'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a55-search-music-songs-none');
+}
+
 /// Library › Music: sort menu, artists; Music: albums, sorted by artist;
 /// Music: sort menu, albums and songs: the Artists tab's sheet and the tab by
 /// Most albums, then Albums as a list with covers by artist and its sheet.
@@ -1337,6 +1397,14 @@ void main() {
     await walkTracks(tester, scale: 1.3);
   });
 
+  testWidgets('library search', (tester) async {
+    await walkLibrarySearch(tester);
+  });
+
+  testWidgets('library search at a larger text size', (tester) async {
+    await walkLibrarySearch(tester, scale: 1.3);
+  });
+
   testWidgets('music sort', (tester) async {
     await walkMusicSort(tester);
   });
@@ -1576,14 +1644,8 @@ void main() {
     await tester.tap(find.text('Clear all'));
     await tester.pumpAndSettle();
 
-    // Library › Search.
-    await tester.tap(find.text('Search titles and tags'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'hal');
-    await tester.pumpAndSettle();
-    await capture(tester, 'a5-search');
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    // Library › Search: Home, results by type and its sibling states have
+    // a walk of their own (walkLibrarySearch).
 
     // Library › Entry details and what opens from it: Rating picker, Add to
     // plan, Delete confirmation.
@@ -2841,11 +2903,11 @@ void main() {
     await tester.pumpAndSettle();
     await shot('l5-filtered-short');
     await tapText('Clear all');
-    await tapText('Search titles and tags');
-    await tester.enterText(find.byType(TextField), 'hal');
+    await tester.enterText(searchBox(), 'king');
     await tester.pumpAndSettle();
-    await shot('a5-search');
-    await tapText('Cancel');
+    await shot('a55-search-home');
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ScrollingTab, 'Movies'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(

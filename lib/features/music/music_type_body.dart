@@ -13,12 +13,15 @@ import '../library/entry_list_body.dart';
 import '../library/entry_list_views.dart';
 import '../library/entry_sections.dart';
 import '../library/home_type_provider.dart';
+import '../library/library_search.dart';
 import '../library/library_sort.dart';
+import '../library/search_results.dart';
 import '../library/sectioned_list_body.dart';
 import '../library/sort_sheet.dart';
 import '../library/view_menu.dart';
 import '../settings/display_preferences.dart';
 import '../settings/entry_view.dart';
+import '../shell/app_shell.dart';
 import 'artist_index.dart';
 import 'artist_tiles.dart';
 import 'music_tab.dart';
@@ -37,7 +40,15 @@ class MusicTypeBody extends ConsumerStatefulWidget {
     required this.onOpenArtist,
     this.controller,
     this.leadingSlivers = const [],
+    this.search,
   });
+
+  /// Set while the list is searched (Library › Search: Music › Artists;
+  /// Search: the query follows you to Albums): each tab is narrowed to its
+  /// matches and says how many it has, the count reads "1 of 348 artists",
+  /// and the lists are flat, with the matching tags above and the other
+  /// types' results under them.
+  final ListSearch? search;
 
   /// The visible music entries.
   final List<Entry> entries;
@@ -62,15 +73,34 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
     final prefs = ref.watch(displayPreferencesProvider);
     final view = prefs.viewForMusic(tab);
     final artistsSort = prefs.musicArtistsSort;
-    final artists = artistIndex(widget.entries, sort: artistsSort);
-    final albums = widget.entries
-        .where((e) => e.kind != EntryKind.song)
-        .toList();
-    final songs = widget.entries
-        .where((e) => e.kind == EntryKind.song)
-        .toList();
+    final search = widget.search;
+    final q = search?.q;
+    final allArtists = artistIndex(widget.entries, sort: artistsSort);
+    // An artist is found by name; albums and songs as every entry is.
+    final artists = q == null
+        ? allArtists
+        : [
+            for (final artist in allArtists)
+              if (artist.name.toLowerCase().contains(q)) artist,
+          ];
+    final matching = q == null
+        ? widget.entries
+        : searchEntries(widget.entries, q);
+    bool isSong(Entry e) => e.kind == EntryKind.song;
+    final albums = matching.where((e) => !isSong(e)).toList();
+    final songs = matching.where(isSong).toList();
     final notifier = ref.read(displayPreferencesProvider.notifier);
     final sort = prefs.sortForMusic(tab);
+    int shownOf(MusicTab t) => switch (t) {
+      MusicTab.artists => artists.length,
+      MusicTab.albums => albums.length,
+      MusicTab.songs => songs.length,
+    };
+    final total = switch (tab) {
+      MusicTab.artists => allArtists.length,
+      MusicTab.albums => widget.entries.where((e) => !isSong(e)).length,
+      MusicTab.songs => widget.entries.where(isSong).length,
+    };
 
     final tabs = SliverToBoxAdapter(
       child: Padding(
@@ -78,7 +108,12 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         padding: const EdgeInsets.only(top: 4),
         child: ChoiceChips<MusicTab>(
           options: [
-            for (final t in MusicTab.values) ChoiceChipOption(t, t.label),
+            for (final t in MusicTab.values)
+              // While searching each tab says how many it found.
+              ChoiceChipOption(
+                t,
+                search == null ? t.label : '${t.label} ${shownOf(t)}',
+              ),
           ],
           selected: tab,
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -97,11 +132,9 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         child: Row(
           children: [
             Text(
-              musicCountLabel(tab, switch (tab) {
-                MusicTab.artists => artists.length,
-                MusicTab.albums => albums.length,
-                MusicTab.songs => songs.length,
-              }),
+              search == null
+                  ? musicCountLabel(tab, total)
+                  : '${shownOf(tab)} of ${musicCountLabel(tab, total)}',
               style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
             ),
             // The count is short; a long sort label cuts off before it
@@ -131,8 +164,48 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         ),
       ),
     );
-    final leading = [...widget.leadingSlivers, tabs, count];
+    final leading = [
+      ...widget.leadingSlivers,
+      tabs,
+      count,
+      if (search != null && search.tags.isNotEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: SearchTagRow(tags: search.tags, onTap: search.onOpenTag),
+          ),
+        ),
+    ];
     final pinned = countExtent;
+    final flat = search != null;
+    final trailing = [
+      if (search != null && search.others.isNotEmpty)
+        SliverToBoxAdapter(
+          child: OtherTypesSection(
+            others: search.others,
+            onTap: search.onOpenType,
+          ),
+        ),
+    ];
+
+    if (search != null && shownOf(tab) == 0) {
+      return CustomScrollView(
+        key: ValueKey((tab, 'empty')),
+        controller: widget.controller,
+        slivers: [
+          ...leading,
+          SliverToBoxAdapter(
+            child: SearchEmpty(
+              title: noMatchTitle(tab.label.toLowerCase(), search.query),
+              search: search,
+            ),
+          ),
+          const SliverPadding(
+            padding: EdgeInsets.only(bottom: AppShell.contentBottomPadding),
+          ),
+        ],
+      );
+    }
 
     return switch (tab) {
       MusicTab.artists => ArtistList(
@@ -145,6 +218,8 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         controller: widget.controller,
         leadingSlivers: leading,
         pinnedExtent: pinned,
+        flat: flat,
+        trailingSlivers: trailing,
       ),
       MusicTab.albums => EntryListBody(
         key: const ValueKey(MusicTab.albums),
@@ -157,6 +232,8 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         controller: widget.controller,
         leadingSlivers: leading,
         pinnedExtent: pinned,
+        flat: flat,
+        trailingSlivers: trailing,
       ),
       MusicTab.songs => SongList(
         key: const ValueKey(MusicTab.songs),
@@ -168,6 +245,8 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         controller: widget.controller,
         leadingSlivers: leading,
         pinnedExtent: pinned,
+        flat: flat,
+        trailingSlivers: trailing,
       ),
     };
   }
@@ -188,7 +267,13 @@ class ArtistList extends StatelessWidget {
     this.controller,
     this.leadingSlivers = const [],
     this.pinnedExtent = 0,
+    this.flat = false,
+    this.trailingSlivers = const [],
   });
+
+  /// See [EntryListBody.flat] and [EntryListBody.trailingSlivers].
+  final bool flat;
+  final List<Widget> trailingSlivers;
 
   /// In the order to show.
   final List<ArtistSummary> artists;
@@ -213,7 +298,9 @@ class ArtistList extends StatelessWidget {
         ArtistRow(artist: artist, photo: photo, onTap: () => onTap(artist));
     return SectionedListBody<ArtistSummary>(
       itemCount: artists.length,
-      sections: artistSections(artists, sort: sort, today: today),
+      sections: flat
+          ? const []
+          : artistSections(artists, sort: sort, today: today),
       grid: grid,
       rowExtent: ArtistRow.extent(
         photo: photo,
@@ -228,41 +315,43 @@ class ArtistList extends StatelessWidget {
       controller: controller,
       leadingSlivers: leadingSlivers,
       pinnedExtent: pinnedExtent,
-      layoutKey: (view, artists.length, sort),
+      layoutKey: (view, artists.length, sort, flat),
       rowBuilder: (context, artist) => row(artist),
-      flatSlivers: grid
-          ? [
-              SliverPadding(
-                padding: const EdgeInsets.only(
-                  top: EntryListMetrics.gridTopPadding,
-                ),
-                sliver: SliverLayoutBuilder(
-                  builder: (context, constraints) => SliverGrid.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: EntryListMetrics.gridColumns,
-                      crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
-                      mainAxisSpacing: EntryListMetrics.gridMainSpacing,
-                      mainAxisExtent: ArtistGridTile.extent(
-                        EntryListMetrics.gridTileWidth(
-                          constraints.crossAxisExtent,
+      flatSlivers:
+          (grid
+              ? <Widget>[
+                  SliverPadding(
+                    padding: const EdgeInsets.only(
+                      top: EntryListMetrics.gridTopPadding,
+                    ),
+                    sliver: SliverLayoutBuilder(
+                      builder: (context, constraints) => SliverGrid.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: EntryListMetrics.gridColumns,
+                          crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
+                          mainAxisSpacing: EntryListMetrics.gridMainSpacing,
+                          mainAxisExtent: ArtistGridTile.extent(
+                            EntryListMetrics.gridTileWidth(
+                              constraints.crossAxisExtent,
+                            ),
+                          ),
+                        ),
+                        itemCount: artists.length,
+                        itemBuilder: (context, i) => ArtistGridTile(
+                          artist: artists[i],
+                          onTap: () => onTap(artists[i]),
                         ),
                       ),
                     ),
-                    itemCount: artists.length,
-                    itemBuilder: (context, i) => ArtistGridTile(
-                      artist: artists[i],
-                      onTap: () => onTap(artists[i]),
-                    ),
                   ),
-                ),
-              ),
-            ]
-          : [
-              SliverList.builder(
-                itemCount: artists.length,
-                itemBuilder: (context, i) => row(artists[i]),
-              ),
-            ],
+                ]
+              : <Widget>[
+                  SliverList.builder(
+                    itemCount: artists.length,
+                    itemBuilder: (context, i) => row(artists[i]),
+                  ),
+                ]) +
+          (flat ? trailingSlivers : const []),
     );
   }
 }
@@ -280,7 +369,13 @@ class SongList extends StatelessWidget {
     this.controller,
     this.leadingSlivers = const [],
     this.pinnedExtent = 0,
+    this.flat = false,
+    this.trailingSlivers = const [],
   });
+
+  /// See [EntryListBody.flat] and [EntryListBody.trailingSlivers].
+  final bool flat;
+  final List<Widget> trailingSlivers;
 
   /// Song entries, already sorted by [sort].
   final List<Entry> songs;
@@ -305,7 +400,7 @@ class SongList extends StatelessWidget {
 
     return SectionedListBody<Entry>(
       itemCount: songs.length,
-      sections: sectionEntries(songs, sort),
+      sections: flat ? const [] : sectionEntries(songs, sort),
       grid: grid,
       rowExtent: EntryListMetrics.rowHeight(
         view,
@@ -319,41 +414,43 @@ class SongList extends StatelessWidget {
       controller: controller,
       leadingSlivers: leadingSlivers,
       pinnedExtent: pinnedExtent,
-      layoutKey: (view, songs.length, sort),
+      layoutKey: (view, songs.length, sort, flat),
       rowBuilder: (context, item) => row(item),
-      flatSlivers: grid
-          ? [
-              SliverPadding(
-                padding: const EdgeInsets.only(
-                  top: EntryListMetrics.gridTopPadding,
-                ),
-                sliver: SliverLayoutBuilder(
-                  builder: (context, constraints) => SliverGrid.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: EntryListMetrics.gridColumns,
-                      crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
-                      mainAxisSpacing: EntryListMetrics.gridMainSpacing,
-                      mainAxisExtent: EntryListMetrics.gridTileExtent(
-                        constraints.crossAxisExtent,
-                        songs.first.type,
+      flatSlivers:
+          (grid
+              ? <Widget>[
+                  SliverPadding(
+                    padding: const EdgeInsets.only(
+                      top: EntryListMetrics.gridTopPadding,
+                    ),
+                    sliver: SliverLayoutBuilder(
+                      builder: (context, constraints) => SliverGrid.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: EntryListMetrics.gridColumns,
+                          crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
+                          mainAxisSpacing: EntryListMetrics.gridMainSpacing,
+                          mainAxisExtent: EntryListMetrics.gridTileExtent(
+                            constraints.crossAxisExtent,
+                            songs.first.type,
+                          ),
+                        ),
+                        itemCount: songs.length,
+                        itemBuilder: (context, i) => CoverGridTile(
+                          entry: songs[i],
+                          caption: songs[i].creator ?? '',
+                          onTap: () => onTap(songs[i]),
+                        ),
                       ),
                     ),
-                    itemCount: songs.length,
-                    itemBuilder: (context, i) => CoverGridTile(
-                      entry: songs[i],
-                      caption: songs[i].creator ?? '',
-                      onTap: () => onTap(songs[i]),
-                    ),
                   ),
-                ),
-              ),
-            ]
-          : [
-              SliverList.builder(
-                itemCount: songs.length,
-                itemBuilder: (context, i) => row(songs[i]),
-              ),
-            ],
+                ]
+              : <Widget>[
+                  SliverList.builder(
+                    itemCount: songs.length,
+                    itemBuilder: (context, i) => row(songs[i]),
+                  ),
+                ]) +
+          (flat ? trailingSlivers : const []),
     );
   }
 }

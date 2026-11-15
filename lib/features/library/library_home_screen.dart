@@ -20,6 +20,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/pinned_sliver.dart';
+import '../../widgets/search_field.dart';
 import '../entry/series.dart';
 import '../music/music_tab.dart';
 import '../settings/display_preferences.dart';
@@ -37,7 +38,7 @@ import 'library_filter.dart';
 import 'library_filter_provider.dart';
 import 'library_sort.dart';
 import 'library_search.dart';
-import 'search_screen.dart';
+import 'search_results.dart';
 import 'series_groups.dart';
 import 'sort_sheet.dart';
 import 'view_menu.dart';
@@ -49,7 +50,8 @@ import 'view_menu.dart';
 /// Music gets its artist, album and song tabs instead (Library › Music:
 /// artists, text view). Also shows filtered results (Library › Filtered
 /// results, one type and several types) and the empty states (Library ›
-/// Empty states).
+/// Empty states). The search box narrows whichever of these is shown
+/// (Library › Search: Music › Artists; [librarySearchProvider]).
 ///
 /// Home and the types are pages side by side, in chip order: a swipe left or
 /// right on the content moves to the next or the previous one, as a tap on
@@ -122,6 +124,10 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   /// [homeTypeProvider] follows when the pages come to rest.
   late final ValueNotifier<MediaType?> _shown;
 
+  /// The text of the search box; [librarySearchProvider] follows it, and it
+  /// follows the provider when the query is cleared from elsewhere.
+  final _search = TextEditingController();
+
   /// The header's height, measured, for the room the pages leave for it.
   final _headerHeight = ValueNotifier<double>(0);
 
@@ -147,6 +153,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     for (final scroll in _scrolls) {
       scroll.dispose();
     }
+    _search.dispose();
     _chipScroll.dispose();
     _pages.dispose();
     _shown.dispose();
@@ -262,6 +269,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       return;
     }
     ref.read(libraryFilterProvider.notifier).clear();
+    ref.read(librarySearchProvider.notifier).clear();
     ref.read(homeTypeProvider.notifier).set(null);
     ref.read(homeStatusProvider.notifier).clear();
     ref.read(homeMusicTabProvider.notifier).set(MusicTab.artists);
@@ -306,38 +314,21 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   void _openSettings() =>
       (widget.onOpenSettings ?? () => openSettingsScreen(context))();
 
-  Future<void> _openSearch() async {
-    // The chip row is hidden while a filter is active, so search is scoped
-    // to the picked type only when the chip can be seen.
-    final type = ref.read(libraryFilterProvider).isActive
-        ? null
-        : ref.read(homeTypeProvider);
-    // Full screen, above the floating navigation (Library › Search has none).
-    final tag = await Navigator.of(context, rootNavigator: true).push<TagMatch>(
-      MaterialPageRoute(
-        builder: (searchContext) => SearchScreen(
-          type: type,
-          onOpenEntry: widget.onOpenEntry,
-          onAddEntry: (title) {
-            Navigator.pop(searchContext);
-            widget.onAddEntry?.call(type: type, title: title);
-          },
-        ),
-      ),
-    );
-    if (tag != null && mounted) {
-      ref
-          .read(libraryFilterProvider.notifier)
-          .set(
-            LibraryFilter(
-              types: {?type},
-              tags: {tag.name},
-              tagCategories: {
-                if (tag.category case final category?) tag.name: {category},
-              },
-            ),
-          );
-    }
+  /// Typed in the search box: the list shown is narrowed to the matches,
+  /// from its top (Library › Search: Music › Artists).
+  void _onQuery(String query) {
+    ref.read(librarySearchProvider.notifier).set(query);
+    final paged = !ref.read(libraryFilterProvider).isActive;
+    final position = _positionOf(paged ? _scrolls[_page.round()] : _scroll);
+    if (position != null && position.pixels > 0) position.jumpTo(0);
+  }
+
+  /// The query changed. Cleared from elsewhere (another type picked, a tag's
+  /// results opened), the box empties and lets go of the keyboard.
+  void _onQueryChanged(String query) {
+    if (_search.text == query) return;
+    _search.text = query;
+    if (query.isEmpty) FocusManager.instance.primaryFocus?.unfocus();
   }
 
   @override
@@ -349,6 +340,8 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     final library = libraryAsync.value;
     ref.listen(homeReturnProvider, (_, _) => _onReturn());
     ref.listen(homeTypeProvider, (_, type) => _showPage(type));
+    ref.listen(librarySearchProvider, (_, query) => _onQueryChanged(query));
+    final query = normalizeQuery(ref.watch(librarySearchProvider));
 
     if (library == null && !libraryAsync.hasError) {
       // The first load (First run › First load).
@@ -376,7 +369,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     if (library == null) {
       instead = _loadFailed(libraryAsync.error);
     } else if (filter.isActive) {
-      instead = _filtered(library, filter, prefs, colors);
+      instead = _filtered(library, filter, prefs, colors, query);
     } else {
       instead = null;
     }
@@ -437,9 +430,10 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
           child: _SearchRow(
+            controller: _search,
             hint: searchHint(chips ? type : null),
             filterCount: filter.count,
-            onSearch: _openSearch,
+            onQuery: _onQuery,
             onFilters: library == null ? null : () => _openFilters(library),
           ),
         ),
@@ -505,6 +499,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
                               top: top,
                               onOpenEntry: widget.onOpenEntry,
                               onOpenPlan: widget.onOpenPlan,
+                              onAddEntry: widget.onAddEntry,
                             )
                           : HomeTypePage(
                               type: type,
@@ -622,17 +617,20 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   /// Filtered results (Library › Filtered results, one type and several types):
   /// removable chips, then the count and sort row, which pins, then the rows
   /// grouped by type; a long list gets a rail (Library › Filtered results, one
-  /// type and several types).
+  /// type and several types). A query in the search box narrows them like
+  /// any other list ([q], normalized; empty when there is none).
   Widget _filtered(
     Library library,
     LibraryFilter filter,
     DisplayPreferences prefs,
     LibraryColors colors,
+    String q,
   ) {
     final theme = Theme.of(context);
     final header = _headerSliver(library, prefs);
+    final filtered = filter.apply(library.entries).toList();
     final matching = sortEntries(
-      filter.apply(library.entries),
+      q.isEmpty ? filtered : searchEntries(filtered, q),
       prefs.filteredSort,
     );
 
@@ -652,7 +650,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
               ),
             // With no results the empty state's button clears the filters, so
             // the chip row has no link of its own (Library › Empty states).
-            if (matching.isNotEmpty)
+            if (filtered.isNotEmpty)
               TextButton(
                 onPressed: () =>
                     ref.read(libraryFilterProvider.notifier).clear(),
@@ -668,6 +666,31 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
       ),
     );
 
+    if (matching.isEmpty && filtered.isNotEmpty) {
+      final typed = ref.read(librarySearchProvider).trim();
+      return _scrollView([
+        header,
+        chips,
+        SliverToBoxAdapter(
+          child: SearchEmpty(
+            title: noMatchTitle('entries', typed),
+            search: ListSearch(
+              query: typed,
+              q: q,
+              type: null,
+              tags: const [],
+              others: const {},
+              onOpenTag: (_) {},
+              onOpenType: (_) {},
+              onAdd: () => widget.onAddEntry?.call(
+                type: filter.types.length == 1 ? filter.types.single : null,
+                title: typed,
+              ),
+            ),
+          ),
+        ),
+      ]);
+    }
     if (matching.isEmpty) {
       return _scrollView([
         header,
@@ -694,7 +717,9 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
           children: [
             Expanded(
               child: Text(
-                '${matching.length} ${matching.length == 1 ? 'entry' : 'entries'}',
+                q.isEmpty
+                    ? '${matching.length} ${matching.length == 1 ? 'entry' : 'entries'}'
+                    : '${matching.length} of ${filtered.length} ${filtered.length == 1 ? 'entry' : 'entries'}',
                 style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
               ),
             ),
@@ -711,7 +736,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     );
     final types = matching.map((e) => e.type).toSet();
     return EntryListBody(
-      key: ValueKey(filter),
+      key: ValueKey((filter, q)),
       entries: matching,
       sort: prefs.filteredSort,
       view: EntryView.text,
@@ -730,24 +755,25 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   }
 }
 
-/// The search field button and the filters button with its badge.
+/// The search box and the filters button with its badge.
 class _SearchRow extends StatelessWidget {
   const _SearchRow({
+    required this.controller,
     required this.hint,
     required this.filterCount,
-    required this.onSearch,
+    required this.onQuery,
     required this.onFilters,
   });
 
+  final TextEditingController controller;
   final String hint;
   final int filterCount;
-  final VoidCallback onSearch;
+  final ValueChanged<String> onQuery;
   final VoidCallback? onFilters;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
       side: BorderSide(color: theme.colorScheme.outline),
@@ -755,34 +781,13 @@ class _SearchRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Material(
-            color: theme.colorScheme.surface,
-            shape: shape,
-            child: InkWell(
-              onTap: onSearch,
-              customBorder: shape,
-              child: Container(
-                height: 52,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  children: [
-                    StrokeIcon(AppIcons.search, color: colors.muted),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        hint,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyLarge!.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: colors.muted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          child: SearchField(
+            controller: controller,
+            hintText: hint,
+            clearTooltip: 'Clear search',
+            // The accent outline says the list is narrowed, typing or not.
+            accentWhileFilled: true,
+            onChanged: onQuery,
           ),
         ),
         const SizedBox(width: 8),

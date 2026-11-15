@@ -50,6 +50,7 @@ enum HomeSectionKind {
 class HomeRowData {
   HomeRowData(
     Entry this.entry, {
+    this.kind,
     this.detail,
     this.right = '',
     this.emphasized = false,
@@ -63,6 +64,7 @@ class HomeRowData {
     required this.id,
     required this.title,
     required this.type,
+    this.kind,
     this.detail,
     this.right = '',
     this.emphasized = false,
@@ -77,6 +79,10 @@ class HomeRowData {
   final String id;
   final String title;
   final MediaType type;
+
+  /// What the row calls itself where the type's word will not do: "Album"
+  /// or "Song" for music among search results. The type's word when null.
+  final String? kind;
   final String? detail;
   final String right;
   final bool emphasized;
@@ -85,7 +91,7 @@ class HomeRowData {
 
   /// "Book · Stephen King", or just "Book".
   String get subtitle =>
-      [type.singular, ?detail].where((s) => s.isNotEmpty).join(' · ');
+      [kind ?? type.singular, ?detail].where((s) => s.isNotEmpty).join(' · ');
 }
 
 /// A home section with its rows, at most [limit] of [total].

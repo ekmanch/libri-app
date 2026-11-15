@@ -9,6 +9,7 @@ import 'package:library_app/data/models/entry_status.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/features/music/music_tab.dart';
+import 'package:library_app/features/library/active_plan_card.dart';
 import 'package:library_app/features/library/coming_soon_screen.dart';
 import 'package:library_app/features/library/cover_grid_tile.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
@@ -24,7 +25,9 @@ import 'package:library_app/features/library/library_filter_provider.dart';
 import 'package:library_app/features/library/library_home_screen.dart';
 import 'package:library_app/features/library/home_pages.dart';
 import 'package:library_app/features/library/library_sort.dart';
-import 'package:library_app/features/library/search_screen.dart';
+import 'package:library_app/features/library/library_search.dart';
+import 'package:library_app/features/library/search_results.dart';
+import 'package:library_app/widgets/search_field.dart';
 import 'package:library_app/features/library/tag_list_screen.dart';
 import 'package:library_app/data/models/tag_category.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
@@ -1491,57 +1494,278 @@ void main() {
     expect(container.read(libraryFilterProvider).isActive, isFalse);
   });
 
-  testWidgets('search can pick a tag, which filters the home', (tester) async {
-    final container = await pumpApp(tester, const LibraryHomeScreen());
-    await tester.tap(find.text('Search titles and tags'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'ghib');
-    await tester.pumpAndSettle();
-    expect(find.text('#studio-ghibli'), findsOneWidget);
-    expect(find.text('Tagged #studio-ghibli'.toUpperCase()), findsOneWidget);
-    await tester.tap(find.text('#studio-ghibli'));
-    await tester.pumpAndSettle();
-    expect(container.read(libraryFilterProvider).tags, {'studio-ghibli'});
-    expect(find.text('ANIME'), findsOneWidget);
-  });
-
-  testWidgets('with a type picked, search covers only that type', (
-    tester,
-  ) async {
-    final container = await pumpApp(tester, const LibraryHomeScreen());
-    await pickChip(tester, 'Movies');
-    await tester.tap(find.text('Search movies'));
-    await tester.pumpAndSettle();
-    expect(find.text('Search movies'), findsOneWidget); // The field's hint.
-    await tester.enterText(find.byType(TextField), 'ghib');
-    await tester.pumpAndSettle();
-    expect(find.text('#studio-ghibli'), findsNothing); // Only anime has it.
-    expect(find.text('No results for "ghib"'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'hallow');
-    await tester.pumpAndSettle();
-    expect(find.text('#halloween'), findsOneWidget);
-    await tester.tap(find.text('#halloween'));
-    await tester.pumpAndSettle();
-    expect(
-      container.read(libraryFilterProvider),
-      const LibraryFilter(types: {MediaType.movies}, tags: {'halloween'}),
+  group('search in the list', () {
+    Finder box() => find.descendant(
+      of: find.byType(SearchField),
+      matching: find.byType(TextField),
     );
-    expect(find.text('MOVIES'), findsOneWidget);
-    expect(find.text('SHOWS'), findsNothing);
-  });
+    Future<void> type(WidgetTester tester, String text) async {
+      await tester.enterText(box(), text);
+      await tester.pumpAndSettle();
+    }
 
-  testWidgets('search shows an empty state for no results', (tester) async {
-    await pumpApp(tester, const LibraryHomeScreen());
-    await tester.tap(find.text('Search titles and tags'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'zelda');
-    await tester.pumpAndSettle();
-    expect(find.text('No results for "zelda"'), findsOneWidget);
-    expect(find.text('Add "zelda"'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(find.byType(LibraryHomeScreen), findsOneWidget);
+    Finder inTabs(String label) => find.descendant(
+      of: find.byType(ChoiceChips<MusicTab>),
+      matching: find.text(label),
+    );
+
+    testWidgets('a type list is narrowed in place: "2 of 11 books"', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Books');
+      final books = visibleOf(MediaType.books).length;
+      await type(tester, 'king');
+      // No screen of its own: the tabs, the chips and the sort are there.
+      expect(find.byType(ScrollingTabs<MediaType?>), findsOneWidget);
+      expect(find.byType(StatusChips), findsOneWidget);
+      expect(find.text('2 of $books books'), findsOneWidget);
+      expect(find.text('The Shining'), findsOneWidget);
+      expect(find.text('The Long Walk'), findsOneWidget);
+      expect(find.text('Dracula'), findsNothing);
+      // The status chips keep working, and keep the query.
+      await tester.tap(inSegments('Want'));
+      await tester.pumpAndSettle();
+      expect(find.text('The Shining'), findsOneWidget);
+      expect(find.text('The Long Walk'), findsNothing);
+      expect(container.read(librarySearchProvider), 'king');
+      // The clear button brings the list back.
+      await tester.tap(find.byTooltip('Clear search'));
+      await tester.pumpAndSettle();
+      expect(container.read(librarySearchProvider), '');
+      expect(find.textContaining(' of '), findsNothing);
+    });
+
+    testWidgets('the box has the accent outline while it holds a query', (
+      tester,
+    ) async {
+      await pumpApp(tester, const LibraryHomeScreen());
+      Color outline() =>
+          ((tester
+                              .widget<Container>(
+                                find
+                                    .descendant(
+                                      of: find.byType(SearchField),
+                                      matching: find.byType(Container),
+                                    )
+                                    .first,
+                              )
+                              .decoration!
+                          as BoxDecoration)
+                      .border!
+                  as Border)
+              .top
+              .color;
+      final theme = Theme.of(tester.element(find.byType(SearchField)));
+      expect(outline(), theme.colorScheme.outline);
+      await type(tester, 'king');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(outline(), theme.colorScheme.primary);
+    });
+
+    testWidgets('a long list searched has no rail and no series rows', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        const LibraryHomeScreen(),
+        library: padForLongLists(fixture),
+      );
+      await pickChip(tester, 'Movies');
+      expect(find.byKey(EntryListBody.railKey), findsOneWidget);
+      await type(tester, 'halloween');
+      expect(find.textContaining(' of '), findsOneWidget);
+      expect(find.byKey(EntryListBody.railKey), findsNothing);
+      expect(find.byKey(EntryListBody.thumbKey), findsNothing);
+    });
+
+    testWidgets('other types with results are listed under the results', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Movies');
+      await type(tester, 'king');
+      expect(find.text('Paddington 2'), findsOneWidget);
+      expect(find.text('IN OTHER TYPES'), findsOneWidget);
+      expect(find.text('2 results in Books'), findsOneWidget);
+      // Tapping one opens that type with the query kept.
+      await tester.tap(find.text('2 results in Books'));
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.books);
+      expect(container.read(librarySearchProvider), 'king');
+      expect(find.text('The Long Walk'), findsOneWidget);
+      expect(find.text('1 result in Movies'), findsOneWidget);
+      // Another type picked the usual way clears it.
+      await pickChip(tester, 'Games');
+      expect(container.read(librarySearchProvider), '');
+      expect(tester.widget<TextField>(box()).controller!.text, '');
+    });
+
+    testWidgets('a swipe to another type clears the query', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Movies');
+      await type(tester, 'king');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await swipe(tester, left: true);
+      expect(container.read(homeTypeProvider), MediaType.shows);
+      expect(container.read(librarySearchProvider), '');
+    });
+
+    testWidgets('nothing here: the other types and Add', (tester) async {
+      MediaType? addedType;
+      String? addedTitle;
+      final container = await pumpApp(
+        tester,
+        LibraryHomeScreen(
+          onAddEntry: ({type, title}) {
+            addedType = type;
+            addedTitle = title;
+          },
+        ),
+      );
+      await pickChip(tester, 'Games');
+      await type(tester, 'King');
+      expect(find.text('No games match “King”'), findsOneWidget);
+      expect(
+        find.text('It is in your library under another type.'),
+        findsOneWidget,
+      );
+      expect(find.text('1 result in Movies'), findsOneWidget);
+      expect(find.text('2 results in Books'), findsOneWidget);
+      expect(find.text('IN OTHER TYPES'), findsNothing);
+      await tester.tap(find.text('Add “King”'));
+      expect(addedType, MediaType.games);
+      expect(addedTitle, 'King');
+      await tester.tap(find.text('1 result in Movies'));
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.movies);
+      expect(find.text('Paddington 2'), findsOneWidget);
+
+      await type(tester, 'zzzz');
+      expect(find.text('No movies match “zzzz”'), findsOneWidget);
+      expect(
+        find.text(
+          'Check the spelling, or add it to your library as a new entry.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a matching tag is a chip above its entries', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Movies');
+      await type(tester, 'hallow');
+      final tagged = fixture
+          .entriesOfType(MediaType.movies)
+          .where((e) => !e.seasonalOnly && e.tags.contains('halloween'))
+          .toList();
+      expect(find.byType(SearchTagRow), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SearchTagRow),
+          matching: find.textContaining('#halloween  ${tagged.length}'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(tagged.first.title), findsOneWidget);
+      await tester.tap(find.textContaining('#halloween  '));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(libraryFilterProvider),
+        const LibraryFilter(types: {MediaType.movies}, tags: {'halloween'}),
+      );
+      expect(container.read(librarySearchProvider), '');
+    });
+
+    testWidgets('music: the query follows the tabs, each with its count', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Music');
+      final artists = find.textContaining(RegExp(r'^\d+ artists$'));
+      final total = tester.widget<Text>(artists).data!.split(' ').first;
+      await type(tester, 'pink');
+      expect(inTabs('Artists 1'), findsOneWidget);
+      expect(inTabs('Albums 1'), findsOneWidget);
+      expect(inTabs('Songs 0'), findsOneWidget);
+      expect(find.text('1 of $total artists'), findsOneWidget);
+      expect(find.text('Pink Floyd'), findsOneWidget);
+      await tester.tap(inTabs('Albums 1'));
+      await tester.pumpAndSettle();
+      expect(container.read(librarySearchProvider), 'pink');
+      expect(find.text('The Dark Side of the Moon'), findsOneWidget);
+      expect(find.text('Abbey Road'), findsNothing);
+      await tester.tap(inTabs('Songs 0'));
+      await tester.pumpAndSettle();
+      expect(find.text('No songs match “pink”'), findsOneWidget);
+    });
+
+    testWidgets('Home: one section per type with results, in type order', (
+      tester,
+    ) async {
+      fixHomeDay();
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      expect(find.byType(ActivePlanCard), findsOneWidget);
+      await type(tester, 'king');
+      // The plan card and the sections give way to the results.
+      expect(find.byType(ActivePlanCard), findsNothing);
+      expect(find.text('COMING SOON'), findsNothing);
+      expect(find.text('3 results'), findsOneWidget);
+      expect(find.text('MOVIES · 1'), findsOneWidget);
+      expect(find.text('BOOKS · 2'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('MOVIES · 1')).dy,
+        lessThan(tester.getTopLeft(find.text('BOOKS · 2')).dy),
+      );
+      expect(find.text('Book · Stephen King'), findsNWidgets(2));
+      // A heading opens its type with the query kept.
+      await tester.tap(find.text('BOOKS · 2'));
+      await tester.pumpAndSettle();
+      expect(container.read(homeTypeProvider), MediaType.books);
+      expect(container.read(librarySearchProvider), 'king');
+      final books = visibleOf(MediaType.books).length;
+      expect(find.text('2 of $books books'), findsOneWidget);
+    });
+
+    testWidgets('Home: music lists albums and songs, not artists', (
+      tester,
+    ) async {
+      await pumpApp(tester, const LibraryHomeScreen());
+      await type(tester, 'the cramps');
+      expect(find.text('MUSIC · 1'), findsOneWidget);
+      expect(find.text('Human Fly'), findsOneWidget);
+      expect(find.text('Song · The Cramps'), findsOneWidget);
+    });
+
+    testWidgets('Home: no results anywhere', (tester) async {
+      String? added;
+      await pumpApp(
+        tester,
+        LibraryHomeScreen(onAddEntry: ({type, title}) => added = title),
+      );
+      await type(tester, 'zelda');
+      expect(find.text('No results for “zelda”'), findsOneWidget);
+      await tester.tap(find.text('Add “zelda”'));
+      expect(added, 'zelda');
+    });
+
+    testWidgets('filtered results are narrowed too', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      container
+          .read(libraryFilterProvider.notifier)
+          .set(const LibraryFilter(tags: {'halloween'}));
+      await tester.pumpAndSettle();
+      final all = fixture.entries
+          .where((e) => !e.seasonalOnly && e.tags.contains('halloween'))
+          .length;
+      await type(tester, 'king');
+      expect(find.text('1 of $all entries'), findsOneWidget);
+      expect(find.text('The Shining'), findsOneWidget);
+      await tester.tap(find.text('Clear all'));
+      await tester.pumpAndSettle();
+      expect(container.read(librarySearchProvider), '');
+    });
   });
 
   testWidgets('an empty library shows an empty state', (tester) async {

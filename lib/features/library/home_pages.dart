@@ -33,7 +33,9 @@ import 'home_sections.dart';
 import 'home_type_provider.dart';
 import 'library_filter.dart';
 import 'library_filter_provider.dart';
+import 'library_search.dart';
 import 'library_sort.dart';
+import 'search_results.dart';
 import 'recent_changes.dart';
 import 'series_groups.dart';
 import 'sort_sheet.dart';
@@ -77,12 +79,14 @@ class HomeSectionsPage extends ConsumerWidget {
     required this.top,
     this.onOpenEntry,
     this.onOpenPlan,
+    this.onAddEntry,
   });
 
   final ScrollController controller;
   final Widget top;
   final void Function(Entry entry)? onOpenEntry;
   final void Function(Plan plan)? onOpenPlan;
+  final void Function({MediaType? type, String? title})? onAddEntry;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,6 +97,25 @@ class HomeSectionsPage extends ConsumerWidget {
         EntryView.listWithPhotos;
     final plan = activePlan(library);
     final visible = LibraryFilter.none.apply(library.entries);
+    final q = ref.watch(pageQueryProvider(null));
+    if (q.isNotEmpty) {
+      // Searched: the plan and the sections give way to the results.
+      return HomeSearchResults(
+        controller: controller,
+        top: top,
+        results: sortEntries(searchEntries(visible, q), LibrarySort.titleAz),
+        search: ListSearch.of(
+          ref,
+          library: library,
+          visible: visible,
+          type: null,
+          q: q,
+          onAddEntry: onAddEntry,
+        ),
+        covers: covers,
+        onOpenEntry: onOpenEntry,
+      );
+    }
     final sections = homeSections(
       visible,
       today: seasonClock(),
@@ -244,9 +267,21 @@ class HomeTypePage extends ConsumerWidget {
         ],
       );
     }
+    final q = ref.watch(pageQueryProvider(type));
+    final search = q.isEmpty
+        ? null
+        : ListSearch.of(
+            ref,
+            library: library,
+            visible: LibraryFilter.none.apply(library.entries),
+            type: type,
+            q: q,
+            onAddEntry: onAddEntry,
+          );
     if (type == MediaType.music) {
       return MusicTypeBody(
         entries: visible,
+        search: search,
         controller: controller,
         leadingSlivers: [top],
         onOpenEntry: (entry) => onOpenEntry?.call(entry),
@@ -256,8 +291,10 @@ class HomeTypePage extends ConsumerWidget {
     }
     final prefs = ref.watch(displayPreferencesProvider);
     final status = ref.watch(homeStatusProvider.select((s) => s[type]));
+    final ofStatus = visible.where((e) => status == null || e.status == status);
+    final total = ofStatus.length;
     final shown = sortEntries(
-      visible.where((e) => status == null || e.status == status),
+      search == null ? ofStatus : searchEntries(ofStatus, q),
       prefs.sortFor(type),
     );
     final view = prefs.viewFor(type);
@@ -288,7 +325,10 @@ class HomeTypePage extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                countLabel(type, shown.length),
+                // Searched: "2 of 120 movies".
+                search == null
+                    ? countLabel(type, total)
+                    : '${shown.length} of ${countLabel(type, total)}',
                 style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
               ),
             ),
@@ -310,6 +350,36 @@ class HomeTypePage extends ConsumerWidget {
       ),
     );
 
+    final tagRow = search == null || search.tags.isEmpty
+        ? null
+        : SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: SearchTagRow(tags: search.tags, onTap: search.onOpenTag),
+            ),
+          );
+    if (search != null && shown.isEmpty) {
+      // Library › Search: nothing here, results in another type; Search:
+      // no results anywhere.
+      return CustomScrollView(
+        controller: controller,
+        slivers: [
+          top,
+          segments,
+          count,
+          ?tagRow,
+          SliverToBoxAdapter(
+            child: SearchEmpty(
+              title: noMatchTitle(countNoun(type, 2), search.query),
+              search: search,
+            ),
+          ),
+          const SliverPadding(
+            padding: EdgeInsets.only(bottom: AppShell.contentBottomPadding),
+          ),
+        ],
+      );
+    }
     if (shown.isEmpty) {
       return CustomScrollView(
         controller: controller,
@@ -338,9 +408,20 @@ class HomeTypePage extends ConsumerWidget {
       view: view,
       color: LibraryColors.of(context).forType(type),
       controller: controller,
-      leadingSlivers: [top, segments, count],
+      leadingSlivers: [top, segments, count, ?tagRow],
       pinnedExtent: countExtent,
-      groupSeries: groupsSeriesFor(status),
+      // Searched: every match is a row of its own, a series' parts too.
+      groupSeries: search == null && groupsSeriesFor(status),
+      flat: search != null,
+      trailingSlivers: [
+        if (search != null && search.others.isNotEmpty)
+          SliverToBoxAdapter(
+            child: OtherTypesSection(
+              others: search.others,
+              onTap: search.onOpenType,
+            ),
+          ),
+      ],
       onTap: (entry) => onOpenEntry?.call(entry),
       onTapSeries: (group) => openSeriesPage(context, group.parts.first.id),
     );

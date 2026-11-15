@@ -28,6 +28,7 @@ import 'package:library_app/features/shell/floating_nav_bar.dart';
 import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/features/sync/token_expiry_dialog.dart';
 import 'package:library_app/main.dart';
+import 'package:library_app/widgets/search_field.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
 import 'package:library_app/widgets/underline_tabs.dart';
@@ -225,11 +226,25 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
   });
   await a.step('search', () async {
     await a.pickChip('Home');
-    await a.tapText('Search titles and tags');
-    await tester.enterText(find.byType(TextField), 'hal');
+    final box = find.descendant(
+      of: find.byType(SearchField),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(box, 'hal');
     await tester.pumpAndSettle();
-    await a.check('Library › Search');
-    await a.tapText('Cancel');
+    await a.check('Library › Search: a tag matches');
+    await tester.enterText(box, 'king');
+    await tester.pumpAndSettle();
+    await a.check('Library › Search: Home, results by type');
+    await a.tap(find.text('BOOKS · 2'));
+    await a.check('Library › Search: Music › Artists (books)');
+    await a.pickChip('Games');
+    await tester.enterText(box, 'king');
+    await tester.pumpAndSettle();
+    await a.check('Library › Search: nothing here, results in another type');
+    await a.tap(find.byTooltip('Clear search'));
+    // Back where the next steps start from, the chip row at its start.
+    await a.pickChip('Home');
   });
   await a.step('details', () async {
     await a.pickChip('Movies');

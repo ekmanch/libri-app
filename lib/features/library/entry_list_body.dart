@@ -30,6 +30,8 @@ class EntryListBody extends StatelessWidget {
     required this.onTap,
     this.onTapSeries,
     this.groupSeries = false,
+    this.flat = false,
+    this.trailingSlivers = const [],
     this.today,
     this.bottomPadding = AppShell.contentBottomPadding,
     this.typeColors,
@@ -53,6 +55,14 @@ class EntryListBody extends StatelessWidget {
 
   /// Whether a long list groups its series.
   final bool groupSeries;
+
+  /// A list being searched (Library › Search: Music › Artists): the rows
+  /// alone, with no section headers, no rail and no thumb however long it
+  /// is, and [trailingSlivers] after them.
+  final bool flat;
+
+  /// What follows the rows of a [flat] list ("In other types").
+  final List<Widget> trailingSlivers;
   final DateTime? today;
 
   /// Space kept clear of the floating navigation; the rail ends above it.
@@ -133,10 +143,12 @@ class EntryListBody extends StatelessWidget {
         final type = entries.isEmpty ? MediaType.movies : entries.first.type;
         return SectionedListBody<LibraryRow>(
           itemCount: rows.length,
-          sections: byType != null && types.length > 1
+          sections: flat
+              ? const []
+              : byType != null && types.length > 1
               ? byType
               : sectionRows(rows, sort, today: today),
-          plainSections: byType,
+          plainSections: flat ? null : byType,
           grid: view == EntryView.grid,
           rowExtent: EntryListMetrics.rowHeight(view, scaler),
           gridRowExtent: (width) => EntryListMetrics.gridRowExtent(width, type),
@@ -147,7 +159,7 @@ class EntryListBody extends StatelessWidget {
           controller: controller,
           leadingSlivers: leadingSlivers,
           pinnedExtent: pinnedExtent,
-          layoutKey: (sort, view, entries, grouped),
+          layoutKey: (sort, view, entries, grouped, flat),
           rowBuilder: (context, row) => entryListRow(
             row,
             view: view,
@@ -155,14 +167,17 @@ class EntryListBody extends StatelessWidget {
             onTapSeries: onTapSeries,
             today: today,
           ),
-          flatSlivers: entryListSlivers(
-            rows: rows,
-            view: view,
-            onTap: onTap,
-            onTapSeries: onTapSeries,
-            today: today,
-            caption: caption,
-          ),
+          flatSlivers: [
+            ...entryListSlivers(
+              rows: rows,
+              view: view,
+              onTap: onTap,
+              onTapSeries: onTapSeries,
+              today: today,
+              caption: caption,
+            ),
+            if (flat) ...trailingSlivers,
+          ],
         );
       },
     );
