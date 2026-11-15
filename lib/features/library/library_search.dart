@@ -47,11 +47,18 @@ String normalizeQuery(String query) {
 
 /// Whether [entry] is a result for [q] (already normalized, see
 /// [normalizeQuery]): its title, its creator or one of its tags contains it,
-/// whatever the case (the Library › Search: Music › Artists note).
+/// whatever the case (the Library › Search: Music › Artists note), or, for
+/// an album, the title of one of its rated tracks, as on the desktop: the
+/// unrated titles are known only where the album's list has been fetched.
 bool matchesQuery(Entry entry, String q) =>
     entry.title.toLowerCase().contains(q) ||
     (entry.creator?.toLowerCase().contains(q) ?? false) ||
-    entry.tags.any((tag) => tag.toLowerCase().contains(q));
+    entry.tags.any((tag) => tag.toLowerCase().contains(q)) ||
+    (entry.tracks?.any(
+          (track) =>
+              track.rating != null && track.title.toLowerCase().contains(q),
+        ) ??
+        false);
 
 /// The entries of [entries] that match [q], in their order.
 List<Entry> searchEntries(Iterable<Entry> entries, String q) => [

@@ -1126,9 +1126,13 @@ Future<void> walkLibrarySearch(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(find.text('Albums 1'));
   await tester.pumpAndSettle();
   await capture(tester, '${prefix}a55-search-music-albums');
-  await tester.tap(find.text('Songs 0'));
+  // Songs, searched: every track of the artist's album, rated or not.
+  await tester.tap(find.text('Songs 10'));
   await tester.pumpAndSettle();
-  await capture(tester, '${prefix}a55-search-music-songs-none');
+  await capture(tester, '${prefix}a55-search-music-songs');
+  await pickView(tester, 'List with photos');
+  await waitForImages(tester);
+  await capture(tester, '${prefix}a55-search-music-songs-list');
 }
 
 /// Library › Music: sort menu, artists; Music: albums, sorted by artist;

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/lookup/lookup_providers.dart';
+import '../../data/lookup/track_info.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_kind.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
+import '../../widgets/labels.dart';
 import '../../widgets/pinned_sliver.dart';
 import '../../widgets/chips.dart';
 import '../library/cover_grid_tile.dart';
@@ -25,6 +28,7 @@ import '../shell/app_shell.dart';
 import 'artist_index.dart';
 import 'artist_tiles.dart';
 import 'music_tab.dart';
+import 'song_search.dart';
 
 /// The music list with Music picked on the home (Library › Music: artists, text
 /// view; Music: artists, list with photos; Music: artists, grid with photos):
@@ -60,6 +64,10 @@ class MusicTypeBody extends ConsumerStatefulWidget {
   final ScrollController? controller;
   final List<Widget> leadingSlivers;
 
+  /// How many album track lists a search waits for at a time, so one that
+  /// names many artists is no burst of requests (the desktop's number).
+  static const trackListsAtOnce = 6;
+
   @override
   ConsumerState<MusicTypeBody> createState() => _MusicTypeBodyState();
 }
@@ -91,10 +99,33 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
     final songs = matching.where(isSong).toList();
     final notifier = ref.read(displayPreferencesProvider.notifier);
     final sort = prefs.sortForMusic(tab);
+    // Searched, Songs also lists the tracks of albums ([songsMatching]):
+    // every track of an artist the search names. Only the rated ones are in
+    // the library, so those albums' lists are asked for while the search is
+    // on show, a few at a time; until one is here its stored tracks stand
+    // in.
+    List<SongItem>? songItems;
+    if (q != null) {
+      final found = sortEntries(matching, prefs.sortForMusic(MusicTab.songs));
+      final lists = <String, List<TrackInfo>>{};
+      var waiting = 0;
+      for (final album in found) {
+        if (isSong(album) || !namesArtist(album, q)) continue;
+        final list = ref.watch(trackListProvider(album.id));
+        if (list.isLoading) {
+          if (++waiting >= MusicTypeBody.trackListsAtOnce) break;
+          continue;
+        }
+        final value = list.hasError ? null : list.value;
+        if (value != null && !value.unmatched) lists[album.id] = value.tracks;
+      }
+      songItems = songsMatching(found, q, fetched: (a) => lists[a.id]);
+    }
+    final withTracks = songItems?.any((s) => s.isTrack) ?? false;
     int shownOf(MusicTab t) => switch (t) {
       MusicTab.artists => artists.length,
       MusicTab.albums => albums.length,
-      MusicTab.songs => songs.length,
+      MusicTab.songs => songItems?.length ?? songs.length,
     };
     final total = switch (tab) {
       MusicTab.artists => allArtists.length,
@@ -134,6 +165,10 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
             Text(
               search == null
                   ? musicCountLabel(tab, total)
+                  // Album tracks are not among the saved songs the total
+                  // counts, so with them the line is the number found.
+                  : tab == MusicTab.songs && withTracks
+                  ? musicCountLabel(tab, shownOf(tab))
                   : '${shownOf(tab)} of ${musicCountLabel(tab, total)}',
               style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
             ),
@@ -233,6 +268,17 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         leadingSlivers: leading,
         pinnedExtent: pinned,
         flat: flat,
+        trailingSlivers: trailing,
+      ),
+      MusicTab.songs when songItems != null => SongSearchList(
+        key: const ValueKey((MusicTab.songs, 'search')),
+        songs: songItems,
+        view: view,
+        color: color,
+        onTap: widget.onOpenEntry,
+        controller: widget.controller,
+        leadingSlivers: leading,
+        pinnedExtent: pinned,
         trailingSlivers: trailing,
       ),
       MusicTab.songs => SongList(
@@ -451,6 +497,128 @@ class SongList extends StatelessWidget {
                   ),
                 ]) +
           (flat ? trailingSlivers : const []),
+    );
+  }
+}
+
+/// The Songs tab while it is searched: the song entries found and the album
+/// tracks the search brings in ([songsMatching]), as one flat list in the
+/// tab's view. A track shows its album's cover and "Artist · Year", its
+/// rating in the status mark's place, and opens its album.
+class SongSearchList extends StatelessWidget {
+  const SongSearchList({
+    super.key,
+    required this.songs,
+    required this.view,
+    required this.color,
+    required this.onTap,
+    this.controller,
+    this.leadingSlivers = const [],
+    this.pinnedExtent = 0,
+    this.trailingSlivers = const [],
+  });
+
+  /// In the order to show; not empty.
+  final List<SongItem> songs;
+  final EntryView view;
+  final Color color;
+
+  /// A song entry tapped, or the album of a track.
+  final void Function(Entry entry) onTap;
+  final ScrollController? controller;
+  final List<Widget> leadingSlivers;
+  final double pinnedExtent;
+  final List<Widget> trailingSlivers;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final grid = view == EntryView.grid;
+    final photo = view == EntryView.listWithPhotos;
+    Widget row(SongItem song) {
+      final entry = song.entry;
+      final leading = photo ? CoverImage(entry: entry, width: 40) : null;
+      if (!song.isTrack) {
+        return EntryRow.forEntry(
+          entry,
+          leading: leading,
+          subtitle: songSubtitle(entry),
+          onTap: () => onTap(entry),
+        );
+      }
+      return EntryRow(
+        title: song.title,
+        subtitle: songSubtitle(entry),
+        leading: leading,
+        trailing: song.rating == null
+            ? const SizedBox.shrink()
+            : Text(
+                ratingLabel(song.rating),
+                style: theme.textTheme.bodySmall!.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+        onTap: () => onTap(entry),
+      );
+    }
+
+    return SectionedListBody<SongItem>(
+      itemCount: songs.length,
+      sections: const [],
+      grid: grid,
+      rowExtent: EntryListMetrics.rowHeight(
+        view,
+        MediaQuery.textScalerOf(context),
+      ),
+      gridRowExtent: (width) =>
+          EntryListMetrics.gridRowExtent(width, songs.first.entry.type),
+      gridTopPadding: EntryListMetrics.gridTopPadding,
+      gridColumns: EntryListMetrics.gridColumns,
+      color: color,
+      controller: controller,
+      leadingSlivers: leadingSlivers,
+      pinnedExtent: pinnedExtent,
+      layoutKey: (view, songs.length),
+      rowBuilder: (context, item) => row(item),
+      flatSlivers: [
+        if (grid)
+          SliverPadding(
+            padding: const EdgeInsets.only(
+              top: EntryListMetrics.gridTopPadding,
+            ),
+            sliver: SliverLayoutBuilder(
+              builder: (context, constraints) => SliverGrid.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: EntryListMetrics.gridColumns,
+                  crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
+                  mainAxisSpacing: EntryListMetrics.gridMainSpacing,
+                  mainAxisExtent: EntryListMetrics.gridTileExtent(
+                    constraints.crossAxisExtent,
+                    songs.first.entry.type,
+                  ),
+                ),
+                itemCount: songs.length,
+                itemBuilder: (context, i) {
+                  final song = songs[i];
+                  return CoverGridTile(
+                    entry: song.entry,
+                    title: song.title,
+                    caption: song.entry.creator ?? '',
+                    // A track has no status of its own.
+                    done: song.isTrack ? false : null,
+                    onTap: () => onTap(song.entry),
+                  );
+                },
+              ),
+            ),
+          )
+        else
+          SliverList.builder(
+            itemCount: songs.length,
+            itemBuilder: (context, i) => row(songs[i]),
+          ),
+        ...trailingSlivers,
+      ],
     );
   }
 }

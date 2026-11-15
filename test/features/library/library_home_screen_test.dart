@@ -1688,7 +1688,8 @@ void main() {
       await type(tester, 'pink');
       expect(inTabs('Artists 1'), findsOneWidget);
       expect(inTabs('Albums 1'), findsOneWidget);
-      expect(inTabs('Songs 0'), findsOneWidget);
+      // Every track of the artist's album, from its fetched list.
+      expect(inTabs('Songs 10'), findsOneWidget);
       expect(find.text('1 of $total artists'), findsOneWidget);
       expect(find.text('Pink Floyd'), findsOneWidget);
       await tester.tap(inTabs('Albums 1'));
@@ -1696,9 +1697,39 @@ void main() {
       expect(container.read(librarySearchProvider), 'pink');
       expect(find.text('The Dark Side of the Moon'), findsOneWidget);
       expect(find.text('Abbey Road'), findsNothing);
-      await tester.tap(inTabs('Songs 0'));
+    });
+
+    testWidgets('music: Songs lists the tracks of an artist the search names', (
+      tester,
+    ) async {
+      Entry? opened;
+      await pumpApp(
+        tester,
+        LibraryHomeScreen(onOpenEntry: (entry) => opened = entry),
+      );
+      await pickChip(tester, 'Music');
+      await tester.tap(inTabs('Songs'));
       await tester.pumpAndSettle();
-      expect(find.text('No songs match “pink”'), findsOneWidget);
+      // Unsearched, the tab lists the saved songs only.
+      expect(find.text('Time'), findsNothing);
+      await type(tester, 'pink');
+      // Album tracks are not among the saved songs: no "of".
+      expect(find.text('10 songs'), findsOneWidget);
+      expect(find.text('Speak to Me'), findsOneWidget);
+      expect(find.text('Time'), findsOneWidget);
+      // A rated track shows its rating; a tap opens its album.
+      expect(find.text('10 / 10'), findsOneWidget);
+      await tester.tap(find.text('Time'));
+      expect(opened?.title, 'The Dark Side of the Moon');
+
+      // A rated track found by its own title is that song alone.
+      await type(tester, 'rooster');
+      expect(find.text('1 song'), findsOneWidget);
+      expect(find.text('Rooster'), findsOneWidget);
+      expect(find.text('Them Bones'), findsNothing);
+
+      await type(tester, 'zzzz');
+      expect(find.text('No songs match “zzzz”'), findsOneWidget);
     });
 
     testWidgets('Home: one section per type with results, in type order', (
