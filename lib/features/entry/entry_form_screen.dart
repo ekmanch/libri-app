@@ -13,6 +13,7 @@ import '../../data/models/app_settings.dart';
 import '../../data/models/book_format.dart';
 import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/lookup_providers.dart';
+import '../../data/lookup/platform_release.dart';
 import '../../data/lookup/season_split_service.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_id.dart';
@@ -153,6 +154,13 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   /// go by (Add / edit entry › Book: year from the ebook edition). Held
   /// here only, never saved; cleared once the owner touches the date.
   bool _releasedFromEbook = false;
+
+  /// Whether [_released] is the lookup's date and not one the owner picked:
+  /// only then does a game's date follow its platforms ([_dateByPlatforms]).
+  bool _releasedFromLookup = false;
+
+  /// The default platform from Settings, once read ([_readDefaultPlatform]).
+  String? _defaultPlatform;
   late EntryStatus _status;
   late int? _rating;
   late List<String> _tags;
@@ -286,6 +294,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     );
     _released = entry?.released ?? match?.released;
     _releasedFromEbook = entry == null && (match?.releasedFromEbook ?? false);
+    _releasedFromLookup = entry == null && match?.released != null;
     _note = TextEditingController(text: entry?.note ?? '');
     _otherPlatform = TextEditingController();
     for (final platform in [
@@ -296,15 +305,17 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     }
     _platformsOn.addAll(splitPlatforms(entry?.platform));
     // A new game starts with the default platform from Settings picked,
-    // when the game came out on it. The settings come with the library
-    // (`settings.json`), so they are read as the form opens.
-    if (entry == null && _type == MediaType.games) {
-      unawaited(_pickDefaultPlatform());
+    // when the game came out on it, and any game's date goes by it. The
+    // settings come with the library (`settings.json`), so they are read
+    // as the form opens.
+    if (_type == MediaType.games) {
+      unawaited(_readDefaultPlatform(pick: entry == null));
     }
     // A game found on one platform starts with that one picked too.
     if (match?.searchedPlatform case final platform?) {
       _platformsOn.add(_addPlatformOption(platform));
     }
+    _dateByPlatforms();
     _album = TextEditingController(text: entry?.album ?? match?.album ?? '');
     _status = entry?.status ?? EntryStatus.want;
     _rating = entry?.rating;
@@ -532,6 +543,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       onChanged: (released) => setState(() {
         _released = released;
         _releasedFromEbook = false;
+        _releasedFromLookup = false;
       }),
     );
     if (mounted) setState(() => _releasedFromEbook = false);
@@ -705,23 +717,50 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   /// Adds a chip unless one with the same platform is there already.
   /// Returns the chip's name.
-  /// Ticks the default platform from Settings among a new game's platforms,
-  /// once the settings are read; nothing when the user already picked one.
-  Future<void> _pickDefaultPlatform() async {
+  /// Reads the default platform from Settings, which a game's date goes
+  /// by, and with [pick] ticks it among a new game's platforms; no tick
+  /// when the user already picked one.
+  Future<void> _readDefaultPlatform({required bool pick}) async {
     final AppSettings settings;
     try {
       settings = await ref.read(libraryRepositoryProvider).loadSettings();
     } on Object {
       return;
     }
-    if (!mounted || _platformsOn.isNotEmpty) return;
+    if (!mounted) return;
     final wanted = settings.defaultPlatform;
     final name = wanted == null ? null : normalizePlatform(wanted);
-    final picked = _platformOptions.where(
-      (p) => p.toLowerCase() == name?.toLowerCase(),
+    final picked = pick && _platformsOn.isEmpty
+        ? _platformOptions.where((p) => p.toLowerCase() == name?.toLowerCase())
+        : const <String>[];
+    setState(() {
+      _defaultPlatform = wanted;
+      _platformsOn.addAll(picked.toList());
+      _dateByPlatforms();
+    });
+  }
+
+  /// Dates a game from a lookup by the platforms picked: its first release
+  /// on them, on the default platform alone when that is picked
+  /// (`datedPlatforms`), "Not set" while the lookup lists one of them
+  /// without a date, and its first release anywhere when it lists none of
+  /// them. A date the owner picked stays.
+  void _dateByPlatforms() {
+    final match = _match;
+    if (!_releasedFromLookup ||
+        match == null ||
+        _type != MediaType.games ||
+        match.platformReleases.isEmpty) {
+      return;
+    }
+    final there = releaseOn(
+      match.platformReleases,
+      datedPlatforms(
+        _platformOptions.where(_platformsOn.contains),
+        _defaultPlatform,
+      ),
     );
-    if (picked.isEmpty) return;
-    setState(() => _platformsOn.addAll(picked));
+    _released = there.listed ? there.released : match.released;
   }
 
   String _addPlatformOption(String platform) {
@@ -740,6 +779,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       _platformsOn.add(_addPlatformOption(name));
       _otherPlatform.clear();
       _otherPlatformOpen = false;
+      _dateByPlatforms();
     });
   }
 
@@ -1006,6 +1046,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     if (match.released case final released?) {
       _released = released;
       _releasedFromEbook = !widget.isEditing && match.releasedFromEbook;
+      _releasedFromLookup = true;
     }
     if (match.description.isNotEmpty) _description = match.description;
     if (match.pages case final pages?) _pages.text = '$pages';
@@ -1042,6 +1083,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     if (match.searchedPlatform case final platform?) {
       _platformsOn.add(_addPlatformOption(platform));
     }
+    _dateByPlatforms();
     // The tag suggestions are matched against the library on the next
     // build, as for a new entry.
     _suggestedExisting = const [];
@@ -1710,6 +1752,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                               if (!_platformsOn.remove(platform)) {
                                 _platformsOn.add(platform);
                               }
+                              _dateByPlatforms();
                             }),
                           ),
                         if (!_otherPlatformOpen)

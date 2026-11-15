@@ -12,6 +12,7 @@ import 'igdb_token_store.dart';
 import 'lookup_failure.dart';
 import 'lookup_match.dart';
 import 'lookup_source.dart';
+import 'platform_release.dart';
 import 'text_clean.dart';
 
 /// Games from IGDB, which sits behind Twitch: a client id and secret turn
@@ -56,7 +57,8 @@ class IgdbSource extends HttpLookupSource implements CreatorLookup {
       'name,first_release_date,summary,cover.image_id,platforms.name,'
       'involved_companies.company.name,involved_companies.developer,'
       'genres.name,language_supports.language.locale,'
-      'language_supports.language_support_type';
+      'language_supports.language_support_type,release_dates.platform,'
+      'release_dates.date,release_dates.date_format';
 
   /// [_fields] and what ranks a search hit: its platforms' types, how many
   /// ratings it has and the game it is a port of.
@@ -246,6 +248,7 @@ class IgdbSource extends HttpLookupSource implements CreatorLookup {
         for (final p in objectsAt(game, 'platforms'))
           if (stringAt(p, 'name') case final n?) _platform(n),
       ],
+      platformReleases: _platformReleases(game),
       tags: [for (final g in objectsAt(game, 'genres')) ?stringAt(g, 'name')],
       language: _language(game),
       coverUrl: imageId == null ? null : coverUrlFor(imageId),
@@ -347,8 +350,7 @@ class IgdbSource extends HttpLookupSource implements CreatorLookup {
     int limit = 10,
   }) async {
     final games = await _games(
-      'search ${_quote(query)}; fields $_fields,release_dates.platform,'
-      'release_dates.date,release_dates.date_format; '
+      'search ${_quote(query)}; fields $_fields; '
       'where version_parent = null & game_type != (13, 14) & '
       'platforms = (${platform.id}); limit $limit;',
     );
@@ -386,24 +388,56 @@ class IgdbSource extends HttpLookupSource implements CreatorLookup {
     };
   }
 
+  /// The game's platforms by spelled-out name, each with its first release
+  /// there ([_releasedOn]): null for a platform listed without a date.
+  /// Two of IGDB's platforms under one name share the earlier date.
+  static Map<String, Released?> _platformReleases(Map<String, Object?> game) {
+    final releases = <String, Released?>{};
+    for (final p in objectsAt(game, 'platforms')) {
+      final id = p['id'];
+      final name = stringAt(p, 'name');
+      if (id is! num || name == null) continue;
+      final key = normalizePlatform(_platform(name));
+      final released = _releasedOn(game, id.toInt());
+      final known = releases[key];
+      releases[key] =
+          known == null ||
+              (released != null &&
+                  released.availableFrom.isBefore(known.availableFrom))
+          ? released
+          : known;
+    }
+    return releases;
+  }
+
   /// A unix time as the full date it falls on, in UTC.
   static Released _dayOf(int epoch) {
     final date = DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true);
     return Released(date.year, date.month, date.day);
   }
 
-  /// The game's first release as IGDB has it now, for the daily check of
-  /// games not out yet: its earliest dated release with that release's
-  /// precision (a game "coming in 2027" stays a year), else its
-  /// `first_release_date` as a full date; null when IGDB has no date.
+  /// The game's release as IGDB has it now, for the daily check of games
+  /// not out yet: its first release on [platforms], the ones the entry
+  /// counts (`datedPlatforms`), and null while IGDB lists one of them
+  /// without a date, so the entry keeps its own. When IGDB lists the game
+  /// on none of them, or none are given, its first release anywhere: the
+  /// earliest dated release with that release's precision (a game "coming
+  /// in 2027" stays a year), else its `first_release_date` as a full date;
+  /// null when IGDB has no date.
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     final games = await _games(
-      'fields first_release_date,release_dates.date,'
-      'release_dates.date_format; where id = ${_parse(source)}; limit 1;',
+      'fields first_release_date,platforms.name,release_dates.platform,'
+      'release_dates.date,release_dates.date_format; '
+      'where id = ${_parse(source)}; limit 1;',
     );
     final game = games.firstOrNull;
     if (game == null) return null;
+    final there = releaseOn(_platformReleases(game), platforms);
+    if (there.listed) return there.released;
     if (_releasedOn(game, null) case final released?) return released;
     return switch (game['first_release_date']) {
       final num epoch => _dayOf(epoch.toInt()),

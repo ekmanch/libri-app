@@ -113,6 +113,7 @@ void main() {
         'cover.image_id,platforms.name,involved_companies.company.name,'
         'involved_companies.developer,genres.name,'
         'language_supports.language.locale,language_supports.language_support_type,'
+        'release_dates.platform,release_dates.date,release_dates.date_format,'
         'platforms.platform_type,total_rating_count,parent_game';
     expect(
       sent[1].body,
@@ -791,6 +792,44 @@ void main() {
       expect(await igdb.releaseDate('igdb:1'), const Released(2027, 5));
       expect(sent.last.body, contains('where id = 1'));
       expect(sent.last.body, contains('release_dates.date_format'));
+    });
+
+    test('the first release on the platforms asked for; none while one is '
+        'listed without a date; anywhere when none is listed', () async {
+      final igdb = source(
+        (_) async => json(200, [
+          {
+            'id': 1,
+            'first_release_date': 1795046400, // 2026-11-19
+            'platforms': [
+              {'id': 167, 'name': 'PlayStation 5'},
+              {'id': 6, 'name': 'PC (Microsoft Windows)'},
+              {'id': 508, 'name': 'Nintendo Switch 2'},
+            ],
+            'release_dates': [
+              {'platform': 167, 'date': 1795046400, 'date_format': 0},
+              {'platform': 6, 'date': 1806451200, 'date_format': 1}, // Mar 2027
+              {'platform': 508, 'date_format': 7}, // To be announced.
+            ],
+          },
+        ]),
+      );
+      expect(
+        await igdb.releaseDate('igdb:1', platforms: ['PC']),
+        const Released(2027, 3),
+      );
+      expect(sent.last.body, contains('platforms.name'));
+      expect(sent.last.body, contains('release_dates.platform'));
+      expect(
+        await igdb.releaseDate('igdb:1', platforms: ['PlayStation 5', 'PC']),
+        const Released(2026, 11, 19),
+      );
+      expect(await igdb.releaseDate('igdb:1', platforms: ['Switch 2']), isNull);
+      expect(
+        await igdb.releaseDate('igdb:1', platforms: ['Linux']),
+        const Released(2026, 11, 19),
+      );
+      expect(await igdb.releaseDate('igdb:1'), const Released(2026, 11, 19));
     });
 
     test('without dated releases, the first release date as a day', () async {

@@ -102,8 +102,15 @@ abstract class LookupSource {
   /// now, for the daily check of entries not out yet (Library › Home:
   /// Coming soon): as precise as the provider says, or null when it has no
   /// date or cannot answer by id (a show, whose seasons carry the dates).
-  /// Null means nothing learned: the entry keeps its date.
-  Future<Released?> releaseDate(String source) async => null;
+  /// Null means nothing learned: the entry keeps its date. For a game,
+  /// [platforms] are the ones the entry counts (`datedPlatforms`): the
+  /// date is its first release on them, and null while the provider lists
+  /// one of them without a date; a game the provider lists on none of
+  /// them, like every other type, gets its first release anywhere.
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async => null;
 
   /// A movie's release dates by kind (in cinemas, digital), for the daily
   /// check and Settings › Movies › Release dates (DESIGN.md 10c); null from

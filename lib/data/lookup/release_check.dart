@@ -1,6 +1,7 @@
 import '../models/entry.dart';
 import '../models/library.dart';
 import '../models/media_type.dart';
+import '../models/platform_names.dart';
 import '../models/released.dart';
 import '../operations/entry_operations.dart';
 import '../operations/library_operation.dart';
@@ -10,6 +11,7 @@ import 'lookup_failure.dart';
 import 'lookup_service.dart';
 import 'lookup_source.dart';
 import 'movie_dates.dart';
+import 'platform_release.dart';
 
 /// The daily check of release dates (Library › Home: Coming soon). Once a
 /// day it asks the lookup about every entry linked to a lookup whose
@@ -26,7 +28,12 @@ import 'movie_dates.dart';
 /// within the last [digitalWindow] days is asked as well, so a digital
 /// date that follows the cinemas is learned. A book's date is that of its
 /// earliest edition in the [languages] the owner reads when the lookup
-/// lists its editions.
+/// lists its editions. A game's date is its first release on the platforms
+/// the entry is saved for, on the default platform from Settings alone
+/// when that is among them (`datedPlatforms`): a console date says nothing
+/// to an owner who plays on PC. A platform the lookup lists without a date
+/// leaves the entry's own, and one it does not list at all falls back to
+/// the first release anywhere.
 ///
 /// A date the lookup no longer has leaves the entry's own: the owner may
 /// know better than a record that went blank. The day is recorded only
@@ -68,7 +75,8 @@ class ReleaseCheck {
 
   /// Runs the check when it is due today (always with [force]), asking
   /// about every entry [isAsked], or with [include] only those it says.
-  /// [languages] are the ones the owner reads, for a book's edition.
+  /// [languages] are the ones the owner reads, for a book's edition;
+  /// [defaultPlatform] is the one from Settings, for a game's date.
   /// [control] hears of each entry asked and can stop the run, which then
   /// records no day.
   Future<List<LibraryOperation>> run(
@@ -77,6 +85,7 @@ class ReleaseCheck {
     bool force = false,
     bool Function(Entry entry)? include,
     Set<String> languages = const {},
+    String? defaultPlatform,
     CheckControl? control,
   }) async {
     if (_running) return const [];
@@ -104,6 +113,7 @@ class ReleaseCheck {
             entry,
             source,
             languages: languages,
+            defaultPlatform: defaultPlatform,
             onDates: (found) {
               if (dates[entry.source!] != found) datesChanged = true;
               dates[entry.source!] = found;
@@ -143,6 +153,7 @@ class ReleaseCheck {
     Entry entry,
     LookupSource source, {
     required Set<String> languages,
+    required String? defaultPlatform,
     required void Function(MovieDates dates) onDates,
   }) async {
     final id = entry.source!;
@@ -157,6 +168,15 @@ class ReleaseCheck {
     if (entry.type == MediaType.books && languages.isNotEmpty) {
       final edition = await source.editionRelease(id, languages: languages);
       if (edition?.released case final released?) return released;
+    }
+    if (entry.type == MediaType.games) {
+      return source.releaseDate(
+        id,
+        platforms: datedPlatforms(
+          splitPlatforms(entry.platform),
+          defaultPlatform,
+        ),
+      );
     }
     return source.releaseDate(id);
   }

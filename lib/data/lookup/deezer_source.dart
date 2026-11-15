@@ -212,7 +212,10 @@ class DeezerSource extends HttpLookupSource
   /// The album's release date as Deezer has it now (a song's album's), for
   /// the daily check of music not out yet.
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     final album = await _albumOf(source);
     return album == null ? null : _released(album);
   }

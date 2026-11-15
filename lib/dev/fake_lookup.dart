@@ -6,6 +6,7 @@ import '../data/lookup/lookup_failure.dart';
 import '../data/lookup/lookup_match.dart';
 import '../data/lookup/lookup_source.dart';
 import '../data/lookup/movie_dates.dart';
+import '../data/lookup/platform_release.dart';
 import '../data/models/follow_kind.dart';
 import '../data/upcoming/creator_lookup.dart';
 import '../data/upcoming/creator_status.dart';
@@ -40,6 +41,7 @@ class FakeLookupSource extends LookupSource
     this.episodesBySeason = const {},
     this.seriesBySource = const {},
     this.releasedBySource = const {},
+    this.platformReleasesBySource = const {},
     this.inactiveByName = const {},
     this.releasesByCreator = const {},
     this.movieDatesBySource = const {},
@@ -92,6 +94,11 @@ class FakeLookupSource extends LookupSource
   /// Release dates [releaseDate] answers, by source; any other source gets
   /// null, as from a provider with no date.
   final Map<String, Released?> releasedBySource;
+
+  /// A game's first release by platform, as [releaseDate] is asked with
+  /// the platforms an entry counts; a game not here answers with
+  /// [releasedBySource] whatever the platforms.
+  final Map<String, Map<String, Released?>> platformReleasesBySource;
 
   /// Episodes [seasonEpisodes] answers, by show source and season, ahead
   /// of the built-in ones.
@@ -269,9 +276,16 @@ class FakeLookupSource extends LookupSource
   }
 
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     await _call('released:$source');
-    return releasedBySource[source];
+    final there = releaseOn(
+      platformReleasesBySource[source] ?? const {},
+      platforms,
+    );
+    return there.listed ? there.released : releasedBySource[source];
   }
 
   @override

@@ -1083,7 +1083,10 @@ query (\$id: Int, \$page: Int, \$perPage: Int) {
   /// anime not out yet (an anime movie, or one whose kind is not known
   /// yet; a series goes by its seasons).
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     final data = await _query(_byIdQuery, {'id': _parse(source)});
     final media = data['Media'] as Map<String, Object?>?;
     return media == null ? null : _date(media['startDate']);

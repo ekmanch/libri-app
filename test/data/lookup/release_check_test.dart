@@ -92,6 +92,7 @@ void main() {
     LookupFailure? failure,
     bool configured = true,
     Map<String, Released?> released = const {},
+    Map<String, Map<String, Released?>> platformReleases = const {},
     Map<String, MovieDates?> movieDates = const {},
     Map<String, EditionRelease?> editions = const {},
     Map<String, MovieDates> recorded = const {},
@@ -100,6 +101,7 @@ void main() {
       failure: failure,
       configured: configured,
       releasedBySource: released,
+      platformReleasesBySource: platformReleases,
       movieDatesBySource: movieDates,
       editionsBySource: editions,
     );
@@ -240,6 +242,81 @@ void main() {
     });
   });
 
+  group('a game goes by the platforms it is saved for', () {
+    const consoles = Released(2026, 11, 19);
+    // The dates the run writes to the game.
+    Future<List<Released?>> dated(Future<List<LibraryOperation>> run) async => [
+      for (final operation in await run)
+        if (operation is SetReleased && operation.entryId == game.id)
+          operation.released,
+    ];
+
+    Future<List<Released?>> runFor(
+      String? platform, {
+      Map<String, Released?> byPlatform = const {
+        'PlayStation 5': consoles,
+        'PC': Released(2027, 3),
+        'Switch 2': null,
+      },
+      String? defaultPlatform = 'PC',
+    }) {
+      setUpCheck(
+        released: {'igdb:1': consoles},
+        platformReleases: {'igdb:1': byPlatform},
+      );
+      return dated(
+        check.run(
+          Library(entries: [game.copyWith(platform: platform)]),
+          now,
+          force: true,
+          defaultPlatform: defaultPlatform,
+        ),
+      );
+    }
+
+    test('the default platform when the entry names it', () async {
+      expect(await runFor('PlayStation 5, PC'), [const Released(2027, 3)]);
+    });
+
+    test('else the first release among its own', () async {
+      expect(
+        await runFor('PlayStation 5, PC', defaultPlatform: 'Switch'),
+        isEmpty, // The console date it has.
+      );
+      expect(await runFor('PC', defaultPlatform: null), [
+        const Released(2027, 3),
+      ]);
+    });
+
+    test('a platform listed without a date leaves the entry\'s own', () async {
+      expect(await runFor('Switch 2'), isEmpty);
+    });
+
+    test('a platform the lookup does not list, or no platform, takes the '
+        'first release anywhere', () async {
+      const delayed = Released(2027, 5, 26);
+      for (final platform in ['Linux', null]) {
+        setUpCheck(
+          released: {'igdb:1': delayed},
+          platformReleases: {
+            'igdb:1': {'PlayStation 5': delayed},
+          },
+        );
+        expect(
+          await dated(
+            check.run(
+              Library(entries: [game.copyWith(platform: platform)]),
+              now,
+              force: true,
+              defaultPlatform: 'PC',
+            ),
+          ),
+          [delayed],
+        );
+      }
+    });
+  });
+
   test('isAsked: linked, not a show or anime series, not out or undated', () {
     expect(ReleaseCheck.isAsked(game, today), isTrue);
     expect(ReleaseCheck.isAsked(undated, today), isTrue);
@@ -353,7 +430,10 @@ void main() {
 /// A provider whose server is down: a 503 for every date.
 class _ServerErrorSource extends FakeLookupSource {
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     calls.add('released:$source');
     throw const LookupException(LookupFailure.other, status: 503);
   }

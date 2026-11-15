@@ -42,7 +42,10 @@ class _Scripted extends LookupSource implements MusicSource {
   }
 
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     datesAsked.add(source);
     await gate?.future;
     return dates[source];

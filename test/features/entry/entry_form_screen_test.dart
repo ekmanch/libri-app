@@ -1135,6 +1135,50 @@ void main() {
       );
     });
 
+    testWidgets('a new game is dated by the platforms picked', (tester) async {
+      final match =
+          FakeLookupSource.catalogSearch(
+            'the last of us',
+            type: MediaType.games,
+          ).first.copyWith(
+            released: const Released(2013, 6, 14),
+            platforms: ['PlayStation 5', 'PC', 'Switch 2'],
+            platformReleases: const {
+              'PlayStation 5': Released(2022, 9, 2),
+              'PC': Released(2023, 3, 28),
+              'Switch 2': null,
+            },
+          );
+      await pumpApp(tester, EntryFormScreen.create(match: match));
+      Future<void> toggle(String name) async {
+        await scrollTo(tester, find.widgetWithText(PillChip, name));
+        await tester.tap(find.widgetWithText(PillChip, name));
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> expectReleased(String text) async {
+        await scrollUpTo(tester, find.text('Released'));
+        expect(
+          find.bySemanticsLabel(RegExp('Released, $text')),
+          findsOneWidget,
+        );
+      }
+
+      // PC, the default platform, starts picked and dates the game.
+      await expectReleased('Mar 28, 2023');
+      // It still does with another platform beside it.
+      await toggle('PlayStation 5');
+      await expectReleased('Mar 28, 2023');
+      await toggle('PC');
+      await expectReleased('Sep 2, 2022');
+      // No platform: the first release anywhere.
+      await toggle('PlayStation 5');
+      await expectReleased('Jun 14, 2013');
+      // Listed without a date: not known yet.
+      await toggle('Switch 2');
+      await expectReleased('Not set');
+    });
+
     testWidgets('no default platform means nothing is picked', (tester) async {
       final match = FakeLookupSource.catalogSearch(
         'the last of us',

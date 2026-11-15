@@ -637,7 +637,10 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
   /// books not out yet: Open Library's first publication year for a work,
   /// Apple's release date for an ebook, Google's for a volume.
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     final LookupMatch? book;
     if (_isApple(source)) {
       book = await _apple.book(source);

@@ -328,6 +328,7 @@ class UpcomingScheduler {
           force: everything,
           include: entryDue,
           languages: languages,
+          defaultPlatform: settings.defaultPlatform,
           control: control,
         );
         for (final operation in operations) {

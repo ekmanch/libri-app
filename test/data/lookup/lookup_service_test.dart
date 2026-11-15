@@ -122,7 +122,10 @@ class _Music extends _Stub implements MusicSource {
   }
 
   @override
-  Future<Released?> releaseDate(String source) async => const Released(1992);
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async => const Released(1992);
 
   @override
   Future<List<TrackInfo>> albumTracks(String albumSource) async => const [];

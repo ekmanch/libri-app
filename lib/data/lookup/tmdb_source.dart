@@ -272,7 +272,10 @@ class TmdbSource extends HttpLookupSource implements CreatorLookup {
   /// daily check of movies not out yet; null for a show, whose seasons
   /// carry the dates, and for a movie TMDB has no date for.
   @override
-  Future<Released?> releaseDate(String source) async {
+  Future<Released?> releaseDate(
+    String source, {
+    List<String> platforms = const [],
+  }) async {
     final (kind, id) = _parse(source);
     if (kind != 'movie') return null;
     final json = await _get('movie/$id');

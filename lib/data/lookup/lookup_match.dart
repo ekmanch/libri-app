@@ -24,6 +24,7 @@ class LookupMatch {
     this.albumSource,
     this.recordType,
     this.platforms = const [],
+    this.platformReleases = const {},
     this.companies = const [],
     this.cast = const [],
     this.tags = const [],
@@ -71,6 +72,12 @@ class LookupMatch {
 
   /// For a game: the platforms it is out on, as the lookup lists them.
   final List<String> platforms;
+
+  /// For a game: its first release on each of [platforms], by the
+  /// platform's spelled-out name, null for one the lookup lists without a
+  /// date. The form dates a new game by the platforms picked
+  /// (`releaseOn`); empty from a lookup that does not say. Never stored.
+  final Map<String, Released?> platformReleases;
 
   /// The companies behind it, as the lookup names them: production
   /// companies for a movie or show, studios for an anime, developers for a
@@ -166,6 +173,7 @@ class LookupMatch {
     String? albumSource,
     String? recordType,
     List<String>? platforms,
+    Map<String, Released?>? platformReleases,
     List<String>? companies,
     List<String>? cast,
     List<String>? tags,
@@ -195,6 +203,7 @@ class LookupMatch {
     albumSource: albumSource ?? this.albumSource,
     recordType: recordType ?? this.recordType,
     platforms: platforms ?? this.platforms,
+    platformReleases: platformReleases ?? this.platformReleases,
     companies: companies ?? this.companies,
     cast: cast ?? this.cast,
     tags: tags ?? this.tags,
@@ -228,6 +237,7 @@ class LookupMatch {
       other.albumSource == albumSource &&
       other.recordType == recordType &&
       listEquals(other.platforms, platforms) &&
+      mapEquals(other.platformReleases, platformReleases) &&
       listEquals(other.companies, companies) &&
       listEquals(other.cast, cast) &&
       listEquals(other.tags, tags) &&
