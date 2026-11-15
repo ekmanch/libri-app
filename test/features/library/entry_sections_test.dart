@@ -72,6 +72,34 @@ void main() {
     expect(sections[2].entries.length, 2);
   });
 
+  test('newest added: more years than the rail holds merge into Older', () {
+    final entries = sortEntries([
+      mummy.copyWith(title: 'now', added: DateTime(today.year, 2, 1)),
+      for (var back = 1; back <= 30; back++)
+        mummy.copyWith(title: 'y$back', added: DateTime(today.year - back)),
+    ], LibrarySort.newestAdded);
+    final sections = sectionEntries(
+      entries,
+      LibrarySort.newestAdded,
+      today: today,
+    );
+    expect(sections.length, maxRailLabels);
+    expect(sections[1].label, '${today.year - 1}');
+    expect(sections[maxRailLabels - 2].label, '${today.year - 22}');
+    expect(sections.last.label, 'Older');
+    expect(sections.last.railLabel, 'Older');
+    expect(sections.last.entries.length, 8);
+    // One year fewer fits, and nothing merges.
+    expect(
+      sectionEntries(
+        entries.take(24).toList(),
+        LibrarySort.newestAdded,
+        today: today,
+      ).last.label,
+      '${today.year - 23}',
+    );
+  });
+
   test('title order groups by first letter, digits and symbols under #', () {
     final entries = sortEntries([
       mummy.copyWith(title: 'Amélie'),

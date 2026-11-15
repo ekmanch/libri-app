@@ -46,6 +46,12 @@ class ArtistSummary {
 
   bool get isVariousArtists => names.isVariousArtists(name);
 
+  /// The day the artist's most recently added album or song was added.
+  DateTime get newestAdded => [
+    ...albums,
+    ...songs,
+  ].map((e) => e.added).reduce((a, b) => a.isAfter(b) ? a : b);
+
   /// "7 albums, 2 songs", "1 song".
   String get countLabel => albumsAndSongsLabel(albums.length, songs.length);
 
@@ -131,26 +137,91 @@ List<ArtistSummary> artistIndex(
   return artists;
 }
 
-/// Letter sections for the artist list by name and its rail (Library › Music:
-/// artists, text view; Long list: music artists A–Z). "Various Artists" gets
-/// its own last section. The other orders are one list with no sections.
-List<ListSection<ArtistSummary>> artistSections(List<ArtistSummary> artists) {
-  final sections = <ListSection<ArtistSummary>>[];
-  ListSection<ArtistSummary>? open;
-  for (final artist in artists) {
-    final label = artist.isVariousArtists
-        ? ArtistSummary.variousArtists
-        : artistLetter(artist.name);
-    if (open == null || open.label != label) {
-      open = ListSection(
-        label: label,
-        railLabel: artist.isVariousArtists ? 'VA' : label,
-        bubbleLabel: label,
-        items: [],
+/// The sections of the artist list and its rail, which follow the sort
+/// (Library › Music: sort menu, artists; the n_musicsort and n_rail notes):
+/// letters by name, with "Various Artists" its own last section; the months
+/// added, as in the entry lists, for newest added; the counts, highest first,
+/// for most albums and most songs, with the artists that have none under "No
+/// albums" or "No songs" at the end.
+List<ListSection<ArtistSummary>> artistSections(
+  List<ArtistSummary> artists, {
+  ArtistsSort sort = ArtistsSort.nameAz,
+  DateTime? today,
+}) {
+  switch (sort) {
+    case ArtistsSort.nameAz:
+      return sectionsBy(artists, (artist) {
+        if (artist.isVariousArtists) {
+          return (
+            label: ArtistSummary.variousArtists,
+            railLabel: 'VA',
+            bubbleLabel: ArtistSummary.variousArtists,
+          );
+        }
+        final letter = artistLetter(artist.name);
+        return (label: letter, railLabel: letter, bubbleLabel: letter);
+      });
+    case ArtistsSort.newestAdded:
+      final now = today ?? DateTime.now();
+      return mergeOldestAdded<ArtistSummary, ListSection<ArtistSummary>>(
+        sectionsBy(
+          artists,
+          (artist) => addedSectionLabels(artist.newestAdded, now),
+        ),
+        (items) => ListSection(
+          label: olderAddedLabel,
+          railLabel: olderAddedLabel,
+          bubbleLabel: olderAddedLabel,
+          items: items,
+        ),
       );
-      sections.add(open);
-    }
-    open.items.add(artist);
+    case ArtistsSort.mostAlbums:
+      return _countSections(artists, (a) => a.albums.length, 'album');
+    case ArtistsSort.mostSongs:
+      return _countSections(artists, (a) => a.songs.length, 'song');
   }
-  return sections;
+}
+
+/// Sections by how many [noun]s an artist has, for a list already in that
+/// order: every count on its own while that fits the rail ([maxRailLabels]),
+/// otherwise 1 to 10 one by one and ranges above.
+List<ListSection<ArtistSummary>> _countSections(
+  List<ArtistSummary> artists,
+  int Function(ArtistSummary artist) countOf,
+  String noun,
+) {
+  final exact = sectionsBy(
+    artists,
+    (artist) => _countLabels(countOf(artist), noun, ranges: false),
+  );
+  if (exact.length <= maxRailLabels) return exact;
+  return sectionsBy(
+    artists,
+    (artist) => _countLabels(countOf(artist), noun, ranges: true),
+  );
+}
+
+/// "16 albums" ("16" on the rail), "1 song", "No albums" ("None", as the
+/// rail is too narrow for more); with [ranges], "11–15 albums" to "Over 50
+/// albums" ("50+") above ten.
+SectionLabels _countLabels(int count, String noun, {required bool ranges}) {
+  if (count == 0) {
+    final label = 'No ${noun}s';
+    return (label: label, railLabel: 'None', bubbleLabel: label);
+  }
+  if (ranges && count > 50) {
+    final label = 'Over 50 ${noun}s';
+    return (label: label, railLabel: '50+', bubbleLabel: label);
+  }
+  final short = !ranges || count <= 10
+      ? '$count'
+      : count <= 15
+      ? '11–15'
+      : count <= 20
+      ? '16–20'
+      : count <= 30
+      ? '21–30'
+      : '31–50';
+  final label = '$short ${count == 1 ? noun : '${noun}s'}';
+  return (label: label, railLabel: short, bubbleLabel: label);
 }

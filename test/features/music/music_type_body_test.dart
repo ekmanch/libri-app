@@ -238,7 +238,7 @@ void main() {
     expect(prefs().musicArtistsSort, ArtistsSort.mostAlbums);
   });
 
-  testWidgets('artists by anything but name are one list with no rail', (
+  testWidgets('long artists by most albums get count headings and a rail', (
     tester,
   ) async {
     final container = await pumpApp(
@@ -250,13 +250,18 @@ void main() {
         .read(displayPreferencesProvider.notifier)
         .setMusicArtistsSort(ArtistsSort.mostAlbums);
     await pickMusic(tester);
-    expect(find.byKey(EntryListBody.railKey), findsNothing);
+    expect(find.byKey(EntryListBody.railKey), findsOneWidget);
     expect(find.text('A'), findsNothing);
     final counts = tester
         .widgetList<ArtistRow>(find.byType(ArtistRow))
         .map((r) => r.artist.albums.length)
         .toList();
     expect(counts, [...counts]..sort((a, b) => b.compareTo(a)));
+    // Artists with songs only stay in the list, under the last heading.
+    await tester.tap(find.text('None'));
+    await tester.pumpAndSettle();
+    expect(find.text('NO ALBUMS'), findsOneWidget);
+    expect(find.widgetWithText(ArtistRow, 'The Cramps'), findsOneWidget);
   });
 
   testWidgets('long albums by artist get the artists\' letters on the rail', (

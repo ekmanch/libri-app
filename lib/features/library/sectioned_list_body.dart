@@ -514,15 +514,20 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
         decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
       );
     }
-    return Text(
-      section.railLabel,
-      maxLines: 1,
-      softWrap: false,
-      style: theme.textTheme.labelSmall!.copyWith(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0,
-        color: current ? theme.colorScheme.onSurface : colors.muted,
+    // A label wider than the rail ("31–50", "None" at a large text size)
+    // shrinks to fit instead of losing its end.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        section.railLabel,
+        maxLines: 1,
+        softWrap: false,
+        style: theme.textTheme.labelSmall!.copyWith(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+          color: current ? theme.colorScheme.onSurface : colors.muted,
+        ),
       ),
     );
   }

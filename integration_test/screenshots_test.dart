@@ -36,6 +36,8 @@ import 'package:library_app/dev/fake_github_api.dart';
 import 'package:library_app/dev/fake_lookup.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/dev/long_lists.dart';
+import 'package:library_app/features/library/sort_sheet.dart';
+import 'package:library_app/features/music/artist_index.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/data/storage/connection_store.dart';
 import 'package:library_app/features/entry/dropped_season_dialog.dart';
@@ -1111,6 +1113,47 @@ Future<void> walkMusicSort(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await waitForImages(tester, count: 4);
   await capture(tester, '${prefix}a54-music-albums-by-artist');
+
+  // A long artist list: every sort has its headings and the rail (the
+  // n_musicsort and n_rail notes).
+  final long = padForLongLists(
+    decodeLibrary(
+      await File(FixtureLibraryRepository.assetPath).readAsString(),
+    ),
+  );
+  await tester.pumpWidget(const SizedBox());
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(
+          FixtureLibraryRepository(loadJson: () async => encodeLibrary(long)),
+        ),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await pickChip(tester, 'Music');
+  for (final (sort, name) in [
+    ('Most albums', 'most-albums'),
+    ('Most songs', 'most-songs'),
+    ('Newest added', 'newest-added'),
+  ]) {
+    await tester.tap(find.byType(SortButton<ArtistsSort>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(sort).last);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    await capture(tester, '${prefix}a54-music-artists-$name-long');
+  }
 }
 
 /// Add / edit entry › Music search: albums, … songs, … an artist's albums

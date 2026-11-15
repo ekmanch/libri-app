@@ -138,7 +138,7 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
       MusicTab.artists => ArtistList(
         key: const ValueKey(MusicTab.artists),
         artists: artists,
-        sectioned: artistsSort == ArtistsSort.nameAz,
+        sort: artistsSort,
         view: view,
         color: color,
         onTap: widget.onOpenArtist,
@@ -173,14 +173,15 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
   }
 }
 
-/// The artists in the chosen view. By name they have letter sections and the
-/// alphabet rail when the list is long (Library › Long list: music artists
-/// A–Z); the other orders are one list with no headings and no rail.
+/// The artists in the chosen view. A long list gets the sections of its sort
+/// ([artistSections]) with the jump rail, or the grid's fast-scroll thumb
+/// (Library › Long list: music artists A–Z; the n_musicsort note).
 class ArtistList extends StatelessWidget {
   const ArtistList({
     super.key,
     required this.artists,
-    this.sectioned = true,
+    this.sort = ArtistsSort.nameAz,
+    this.today,
     required this.view,
     required this.color,
     required this.onTap,
@@ -192,8 +193,11 @@ class ArtistList extends StatelessWidget {
   /// In the order to show.
   final List<ArtistSummary> artists;
 
-  /// Whether [artists] are in name order, and so get letter sections.
-  final bool sectioned;
+  /// The order [artists] are in; the sections follow it.
+  final ArtistsSort sort;
+
+  /// The day the months added count from; the clock's when null.
+  final DateTime? today;
   final EntryView view;
   final Color color;
   final void Function(ArtistSummary artist) onTap;
@@ -209,7 +213,7 @@ class ArtistList extends StatelessWidget {
         ArtistRow(artist: artist, photo: photo, onTap: () => onTap(artist));
     return SectionedListBody<ArtistSummary>(
       itemCount: artists.length,
-      sections: sectioned ? artistSections(artists) : const [],
+      sections: artistSections(artists, sort: sort, today: today),
       grid: grid,
       rowExtent: ArtistRow.extent(
         photo: photo,
@@ -224,7 +228,7 @@ class ArtistList extends StatelessWidget {
       controller: controller,
       leadingSlivers: leadingSlivers,
       pinnedExtent: pinnedExtent,
-      layoutKey: (view, artists.length, sectioned),
+      layoutKey: (view, artists.length, sort),
       rowBuilder: (context, artist) => row(artist),
       flatSlivers: grid
           ? [

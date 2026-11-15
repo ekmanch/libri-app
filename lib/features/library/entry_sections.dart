@@ -39,10 +39,77 @@ const _months = [
   'December',
 ];
 
+/// The most labels the jump rail holds (the n_rail note). A sort that gives
+/// more sections has them merged, far end first, and the list's headings are
+/// the same merged sections, so a jump lands on a heading that says what the
+/// rail said. Letters, decades and ratings never get that far.
+const maxRailLabels = 24;
+
+/// What a section is called in its three places; see [ListSection].
+typedef SectionLabels = ({String label, String railLabel, String bubbleLabel});
+
+/// The section of something added on [added]: its month in the current year
+/// ("October 2026", "Oct"), its year before that.
+SectionLabels addedSectionLabels(DateTime added, DateTime now) {
+  if (added.year == now.year) {
+    final month = _months[added.month - 1];
+    return (
+      label: '$month ${added.year}',
+      railLabel: month.substring(0, 3),
+      bubbleLabel: '${month.substring(0, 3)} ${added.year}',
+    );
+  }
+  final year = '${added.year}';
+  return (label: year, railLabel: year, bubbleLabel: year);
+}
+
+/// Sections of an already sorted list: a new one wherever [labelsOf] gives
+/// another heading.
+List<ListSection<T>> sectionsBy<T>(
+  List<T> sorted,
+  SectionLabels Function(T item) labelsOf,
+) {
+  final sections = <ListSection<T>>[];
+  ListSection<T>? open;
+  for (final item in sorted) {
+    final labels = labelsOf(item);
+    if (open == null || open.label != labels.label) {
+      open = ListSection<T>(
+        label: labels.label,
+        railLabel: labels.railLabel,
+        bubbleLabel: labels.bubbleLabel,
+        items: [],
+      );
+      sections.add(open);
+    }
+    open.items.add(item);
+  }
+  return sections;
+}
+
+/// Month-added sections that fit the rail: when there are more than
+/// [maxRailLabels], the oldest years become one last section, "Older". The
+/// months of the current year, at most twelve, always stay.
+List<S> mergeOldestAdded<T, S extends ListSection<T>>(
+  List<S> sections,
+  S Function(List<T> items) older,
+) {
+  if (sections.length <= maxRailLabels) return sections;
+  final kept = maxRailLabels - 1;
+  return [
+    ...sections.take(kept),
+    older([for (final s in sections.skip(kept)) ...s.items]),
+  ];
+}
+
+/// The last section of a merged month-added list.
+const olderAddedLabel = 'Older';
+
 /// Groups an already sorted list into sections that follow the sort: decades
 /// for the year orders (with "Older" before 1960 and a last section for
 /// entries without a date), months of the current year and then whole years
-/// for newest added, first letters for title order with "#" for digits, the
+/// for newest added (the oldest years as "Older" when there are more than
+/// [maxRailLabels]), first letters for title order with "#" for digits, the
 /// artist's letter for artist order, and the ratings that exist (10 down to
 /// 1, then Unrated) for the rating order.
 List<EntrySection> sectionEntries(
@@ -67,27 +134,26 @@ List<EntrySection> sectionEntries(
     }
     open.entries.add(entry);
   }
-  return sections;
+  if (sort != LibrarySort.newestAdded) return sections;
+  return mergeOldestAdded<Entry, EntrySection>(
+    sections,
+    (entries) => EntrySection(
+      label: olderAddedLabel,
+      railLabel: olderAddedLabel,
+      bubbleLabel: olderAddedLabel,
+      entries: entries,
+    ),
+  );
 }
 
 EntrySection _keyOf(Entry entry, LibrarySort sort, DateTime now) {
   switch (sort) {
     case LibrarySort.newestAdded:
-      final added = entry.added;
-      if (added.year == now.year) {
-        final month = _months[added.month - 1];
-        return EntrySection(
-          label: '$month ${added.year}',
-          railLabel: month.substring(0, 3),
-          bubbleLabel: '${month.substring(0, 3)} ${added.year}',
-          entries: const [],
-        );
-      }
-      final year = '${added.year}';
+      final labels = addedSectionLabels(entry.added, now);
       return EntrySection(
-        label: year,
-        railLabel: year,
-        bubbleLabel: year,
+        label: labels.label,
+        railLabel: labels.railLabel,
+        bubbleLabel: labels.bubbleLabel,
         entries: const [],
       );
     case LibrarySort.yearNewest:
@@ -239,24 +305,10 @@ List<EntrySection> sectionEntriesByType(
 List<ListSection<T>> sectionsByTitle<T>(
   List<T> sorted,
   String Function(T item) titleOf,
-) {
-  final sections = <ListSection<T>>[];
-  ListSection<T>? open;
-  for (final item in sorted) {
-    final letter = titleLetter(titleOf(item));
-    if (open == null || open.label != letter) {
-      open = ListSection<T>(
-        label: letter,
-        railLabel: letter,
-        bubbleLabel: letter,
-        items: [],
-      );
-      sections.add(open);
-    }
-    open.items.add(item);
-  }
-  return sections;
-}
+) => sectionsBy(sorted, (item) {
+  final letter = titleLetter(titleOf(item));
+  return (label: letter, railLabel: letter, bubbleLabel: letter);
+});
 
 /// "A" to "Z" for a title that starts with a letter once folded to ASCII,
 /// otherwise "#".
