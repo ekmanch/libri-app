@@ -6,6 +6,7 @@
 //   flutter test integration_test/screenshots_test.dart -d linux
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -21,7 +22,11 @@ import 'package:library_app/data/covers/cover_files.dart';
 import 'package:library_app/data/library_codec.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
+import 'package:library_app/data/covers/cover_store.dart';
+import 'package:library_app/dev/fake_artists.dart';
 import 'package:library_app/dev/fake_covers.dart';
+import 'package:library_app/features/music/artist_photo_sheet.dart';
+import 'package:library_app/features/music/artist_screen.dart';
 import 'package:library_app/dev/fake_images.dart';
 import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/data/library_providers.dart';
@@ -211,6 +216,251 @@ Future<void> waitForImages(WidgetTester tester, {int count = 1}) async {
     if (find.byType(Image).evaluate().length >= count) break;
   }
   await tester.pumpAndSettle();
+}
+
+/// Apple Music on the phone at [scale] (DESIGN.md 10c "Apple Music on
+/// demand" and 10e): Add / edit entry › Music search: match not shown and
+/// the two Extended search states, Pick a cover: more covers found; Music ›
+/// Artist, text view with its photo, Artist photo, larger, Pick a photo and
+/// its states, Artist photo: your pick wasn't saved; Settings › Library
+/// connection: artist photos not ready yet, and ready. Captures are
+/// prefixed "large-text-" above 1.
+Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  const dirtId = 'music/dirt-alice-in-chains';
+  final directory = Directory.systemTemp.createTempSync('libri-walk-artists');
+  addTearDown(() => directory.deleteSync(recursive: true));
+  final store = fakeCoverStore(directory: directory);
+  final remote = store.remote! as FakeCoverRemote;
+  await tester.runAsync(store.refresh);
+  final sources = FakeCoverSources(
+    photo: fakeCoverPng('a-photo', square: true),
+    file: fakeCoverPng('a-file', square: true),
+    clipboard: fakeCoverPng('copied', square: true),
+  );
+  final pictures = FakeCoverPictures(size: (1000, 1000));
+  final fixture = decodeLibrary(
+    await rootBundle.loadString(FixtureLibraryRepository.assetPath),
+  );
+  final library = fixture.copyWith(
+    entries: [
+      ...fixture.entries,
+      Entry(
+        id: 'music/impera-ghost',
+        type: MediaType.music,
+        title: 'Impera',
+        released: const Released(2022),
+        creator: 'Ghost',
+        status: EntryStatus.done,
+        added: DateTime(2026, 10, 1),
+        kind: EntryKind.album,
+      ),
+    ],
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        // Apple has no photo for Pink Floyd here.
+        ...fakeLookupOverrides(
+          appleArtists: FakeAppleArtists(noPhoto: {'pink-floyd'}),
+        ),
+        libraryRepositoryProvider.overrideWithValue(
+          FixtureLibraryRepository(
+            loadJson: () async => encodeLibrary(library),
+          ),
+        ),
+        coverStoreProvider.overrideWithValue(store),
+        coverSourcesProvider.overrideWithValue(sources),
+        coverPicturesProvider.overrideWithValue(pictures),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  final navigator = tester.state<NavigatorState>(find.byType(Navigator).first);
+  Future<void> push(Widget screen) async {
+    unawaited(navigator.push(MaterialPageRoute<void>(builder: (_) => screen)));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> back() async {
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+  }
+
+  /// The store and the image cache work off the real clock.
+  Future<void> settle({int images = 1}) async {
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await waitForImages(tester, count: images);
+  }
+
+  // The music search's footer, and what Extended search adds.
+  await tester.tap(find.byType(AddButton));
+  await tester.pumpAndSettle();
+  final music = find.widgetWithText(ScrollingTab, 'Music');
+  await tester.dragUntilVisible(
+    music,
+    find.byWidgetPredicate(
+      (w) => w is ListView && w.scrollDirection == Axis.horizontal,
+    ),
+    const Offset(-80, 0),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(music);
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'But We Did');
+  await tester.pump(NewEntryScreen.debounce);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a56-music-match-not-shown');
+  await tester.tap(find.text('Extended search'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester);
+  await capture(tester, '${prefix}a56-music-extended-more');
+  // The button took the focus: the field gets it back first.
+  await tester.tap(find.byType(TextField));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'ghost');
+  await tester.pump(NewEntryScreen.debounce);
+  await waitForImages(tester, count: 5);
+  await tester.tap(find.text('Extended search'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a56-music-extended-none');
+  await tester.tap(find.byTooltip('Back'));
+  await tester.pumpAndSettle();
+
+  // Pick a cover for an album: more covers on demand.
+  await push(EntryFormScreen.edit(library.entryById(dirtId)!));
+  await waitForImages(tester);
+  await tester.tap(find.bySemanticsLabel('Cover. Tap to change'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 3);
+  const more = 'None of these? Search for more covers';
+  await tester.ensureVisible(find.text(more));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a56-cover-more-link');
+  await tester.tap(find.text(more));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 6);
+  await capture(tester, '${prefix}a56-cover-more-found');
+  await tester.tap(find.text('Done').last);
+  await tester.pumpAndSettle();
+  await back();
+
+  // An artist's page, text view: the round photo (a library cover for
+  // now), larger, and the picker.
+  await push(const ArtistScreen(name: 'Alice in Chains'));
+  await settle();
+  await capture(tester, '${prefix}a56-artist-text-view');
+  final photo = find.bySemanticsLabel(
+    'Alice in Chains. Tap to see the photo, long-press to change it',
+  );
+  await tester.tap(photo);
+  await tester.pumpAndSettle();
+  await settle();
+  await capture(tester, '${prefix}a56-artist-photo-larger');
+  await tester.tap(find.text('Change photo'));
+  await tester.pumpAndSettle();
+  await settle(images: 4);
+  await capture(tester, '${prefix}a56-artist-pick-photo');
+  await tester.tap(find.text('Upload'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a56-artist-pick-upload-from');
+  await tester.tap(find.text('Photo library'));
+  await tester.pumpAndSettle();
+  await settle(images: 4);
+  await capture(tester, '${prefix}a56-artist-pick-own');
+  await tester.tap(find.text('Done').last);
+  await tester.pumpAndSettle();
+  await settle();
+  await capture(tester, '${prefix}a56-artist-with-own-photo');
+  await back();
+
+  // Several artists of the name: the others, loaded on demand.
+  await push(const ArtistScreen(name: 'Ghost'));
+  await settle();
+  await tester.longPress(find.text('Ghost').first);
+  await tester.pumpAndSettle();
+  await settle(images: 3);
+  await tester.tap(find.textContaining('Not the right artist?'));
+  await tester.pumpAndSettle();
+  await settle(images: 6);
+  await capture(tester, '${prefix}a56-artist-pick-others');
+  await tester.tap(find.text('Done').last);
+  await tester.pumpAndSettle();
+  await back();
+
+  // No photo found: the album covers and Upload.
+  await push(const ArtistScreen(name: 'Pink Floyd'));
+  await settle();
+  await tester.longPress(find.text('Pink Floyd').first);
+  await tester.pumpAndSettle();
+  await settle(images: 2);
+  await capture(tester, '${prefix}a56-artist-pick-none');
+  await tester.tap(find.text('Done').last);
+  await tester.pumpAndSettle();
+
+  // A pick another device's photo replaced.
+  final context = tester.element(find.byType(ArtistScreen));
+  showDroppedPhotos(context, const [
+    DroppedPhoto(path: 'artists/pink-floyd.jpg', name: 'Pink Floyd'),
+  ]);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a56-artist-photo-dropped');
+  ScaffoldMessenger.of(context).clearSnackBars();
+  await tester.pumpAndSettle();
+  await back();
+
+  // The Artists tab with photos: the file, else a library cover.
+  await pickChip(tester, 'Music');
+  await pickView(tester, 'List with photos');
+  await settle(images: 5);
+  await capture(tester, '${prefix}a56-music-artists-list');
+  await pickView(tester, 'Grid with photos');
+  await settle(images: 6);
+  await capture(tester, '${prefix}a56-music-artists-grid');
+  await pickView(tester, 'Text');
+
+  // Settings › Library connection: waiting for the desktop, then counts.
+  Future<void> showArtistRow() async {
+    await tester.scrollUntilVisible(
+      find.text('Artist photos'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ConnectionScreen),
+            matching: find.byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  await push(const ConnectionScreen());
+  await showArtistRow();
+  await capture(tester, '${prefix}a56-connection-artist-photos-waiting');
+  remote.files['artists/_missing.json'] = Uint8List.fromList(
+    '{\n  "version": 1,\n  "backfilled": "2026-11-15",\n  "artists": {}\n}\n'
+        .codeUnits,
+  );
+  await tester.runAsync(store.refresh);
+  await tester.pumpAndSettle();
+  await showArtistRow();
+  await capture(tester, '${prefix}a56-connection-artist-photos');
+  await back();
 }
 
 /// A tag chip inside one group of the tag picker or the filter sheet.
@@ -1449,6 +1699,16 @@ void main() {
 
   testWidgets('own covers at a larger text size', (tester) async {
     await walkOwnCovers(tester, scale: 1.3);
+  });
+
+  testWidgets('apple music and artist photos', (tester) async {
+    await walkArtistPhotos(tester);
+  });
+
+  testWidgets('apple music and artist photos at a larger text size', (
+    tester,
+  ) async {
+    await walkArtistPhotos(tester, scale: 1.3);
   });
 
   testWidgets('show seasons', (tester) async {

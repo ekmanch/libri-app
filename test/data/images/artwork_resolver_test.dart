@@ -268,7 +268,7 @@ void main() {
     expect(stub.asks.length, 2);
   });
 
-  test('no failure is ever recorded as a miss, for covers or photos, so '
+  test('no failure is ever recorded as a miss, so '
       'the next session asks again', () async {
     final failures = <(LookupFailure, int?)>[
       (LookupFailure.offline, null), // a timeout too
@@ -286,7 +286,6 @@ void main() {
       final r = resolver();
       final x = entry('movies/x$i', title: 'X$i');
       expect(await r.coverUrl(x), isNull);
-      expect(await r.artistPhotoUrl('Artist $i'), isNull);
       await r.flush();
       expect(
         (await file.read())?['entries'] as Map? ?? const {},
@@ -299,10 +298,8 @@ void main() {
         ..failure = null
         ..failureStatus = null;
       stub.covers['X$i'] = 'https://img/x$i.jpg';
-      stub.photos['Artist $i'] = 'https://img/a$i.jpg';
       final next = resolver();
       expect(await next.coverUrl(x), 'https://img/x$i.jpg');
-      expect(await next.artistPhotoUrl('Artist $i'), 'https://img/a$i.jpg');
     }
   });
 
@@ -310,14 +307,11 @@ void main() {
     final r = resolver();
     final y = entry('movies/y-2000', title: 'Y');
     expect(await r.coverUrl(y), isNull);
-    expect(await r.artistPhotoUrl('Nobody'), isNull);
     await r.flush();
     stub.covers['Y'] = 'https://img/y.jpg';
-    stub.photos['Nobody'] = 'https://img/nobody.jpg';
     final next = resolver();
     expect(await next.coverUrl(y), isNull);
-    expect(await next.artistPhotoUrl('Nobody'), isNull);
-    expect(stub.asks, ['match:Y:movies:null:null', 'photo:Nobody']);
+    expect(stub.asks, ['match:Y:movies:null:null']);
   });
 
   test(
@@ -341,12 +335,10 @@ void main() {
         },
       });
       stub.covers['B'] = 'https://img/b.jpg';
-      stub.photos['Kate Bush'] = 'https://img/kate.jpg';
       final r = resolver();
       expect(await r.coverUrl(a), 'https://img/a.jpg');
       expect(await r.coverUrl(b), 'https://img/b.jpg');
-      expect(await r.artistPhotoUrl('Kate Bush'), 'https://img/kate.jpg');
-      expect(stub.asks, ['match:B:movies:null:null', 'photo:Kate Bush']);
+      expect(stub.asks, ['match:B:movies:null:null']);
       await r.flush();
       expect((await file.read())!['version'], 2);
     },
@@ -387,42 +379,80 @@ void main() {
   );
 
   test(
-    'artist photos go through the music source and skip Various Artists',
+    "the music source's artist photo is asked only on demand (Pick a "
+    "photo's Another photo), never recorded, and skips Various Artists",
     () async {
       stub.photos['Alice in Chains'] = 'https://img/aic.jpg';
       final r = resolver();
-      expect(await r.artistPhotoUrl('Alice in Chains'), 'https://img/aic.jpg');
-      expect(r.cachedArtistPhotoUrl('alice in chains'), 'https://img/aic.jpg');
-      expect(await r.artistPhotoUrl('Various Artists'), isNull);
-      expect(await r.artistPhotoUrl('Nobody'), isNull);
-      expect(stub.asks, ['photo:Alice in Chains', 'photo:Nobody']);
+      expect(
+        await r.anotherArtistPhoto('Alice in Chains'),
+        'https://img/aic.jpg',
+      );
+      expect(
+        await r.anotherArtistPhoto('Alice in Chains'),
+        'https://img/aic.jpg',
+      );
+      expect(await r.anotherArtistPhoto('Various Artists'), isNull);
+      expect(await r.anotherArtistPhoto('Nobody'), isNull);
+      expect(stub.asks, [
+        'photo:Alice in Chains',
+        'photo:Alice in Chains',
+        'photo:Nobody',
+      ]);
+      stub.failure = LookupFailure.offline;
+      expect(await r.anotherArtistPhoto('Alice in Chains'), isNull);
+      await r.flush();
+      expect((await file.read())?['artists'], isNull);
     },
   );
+
+  test("the artist photos an earlier build recorded are dropped, so the "
+      'next prune takes their files', () async {
+    final resolved = now.toUtc().toIso8601String();
+    final a = entry('movies/a', title: 'A');
+    await file.write({
+      'version': 2,
+      'entries': {
+        'movies/a': {
+          'key': ArtworkResolver.keyFor(a),
+          'url': 'https://img/a.jpg',
+          'resolved': resolved,
+        },
+      },
+      'artists': {
+        'kate bush': {
+          'key': 'kate bush',
+          'url': 'https://img/kate.jpg',
+          'resolved': resolved,
+        },
+      },
+    });
+    final r = resolver();
+    expect(await r.prune(entries: [a]), {'https://img/a.jpg'});
+    final json = (await file.read())!;
+    expect(json.containsKey('artists'), isFalse);
+    expect((json['entries'] as Map).keys, ['movies/a']);
+  });
 
   test(
     'forget drops a record; prune drops the records of what is gone',
     () async {
       stub.covers['A'] = 'https://img/A.jpg';
       stub.covers['B'] = 'https://img/B.jpg';
-      stub.photos['Kate Bush'] = 'https://img/kate.jpg';
-      stub.photos['Old Artist'] = 'https://img/old.jpg';
       final r = resolver();
       final a = entry('movies/A', title: 'A');
       await r.coverUrl(a);
       await r.coverUrl(entry('movies/B', title: 'B'));
-      await r.artistPhotoUrl('Kate Bush');
-      await r.artistPhotoUrl('Old Artist');
 
       r.forget('movies/A');
       expect(r.cachedCoverUrl(a), isNull);
       await r.coverUrl(a);
       expect(stub.asks.where((s) => s == 'match:A:movies:null:null').length, 2);
 
-      final kept = await r.prune(entries: [a], artists: ['kate bush']);
-      expect(kept, {'https://img/A.jpg', 'https://img/kate.jpg'});
+      final kept = await r.prune(entries: [a]);
+      expect(kept, {'https://img/A.jpg'});
       final json = await file.read();
       expect((json!['entries'] as Map).keys, ['movies/A']);
-      expect((json['artists'] as Map).keys, ['kate bush']);
     },
   );
 

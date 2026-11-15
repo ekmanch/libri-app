@@ -1,6 +1,7 @@
 import '../../data/models/entry.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/entry_kind.dart';
+import '../../widgets/artist_photo.dart' show artistInitials;
 import '../../widgets/labels.dart';
 import '../library/entry_sections.dart';
 import '../library/library_sort.dart';
@@ -56,15 +57,7 @@ class ArtistSummary {
   String get countLabel => albumsAndSongsLabel(albums.length, songs.length);
 
   /// Up to two initials for the photo placeholder: "AC" for Alice in Chains.
-  String get initials {
-    final words = name
-        .replaceAll('&', '')
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .toList();
-    if (words.isEmpty) return '?';
-    return (words[0][0] + (words.length > 1 ? words[1][0] : '')).toUpperCase();
-  }
+  String get initials => artistInitials(name);
 }
 
 /// The letter an artist is listed under, "#" for names starting with a

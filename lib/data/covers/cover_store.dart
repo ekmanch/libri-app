@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import '../github/github_api.dart';
 import '../models/library.dart';
 import '../storage/atomic_file.dart';
 import '../storage/json_file.dart';
+import 'artist_photos.dart';
 import 'cover_files.dart';
 
 /// The library repo's `covers/` folder as the phone reaches it: the list,
@@ -131,8 +133,152 @@ sealed class CoverChange {
           to: json['to'] as String,
           summary: summary,
         );
+      case 'put' when path is String && json['sha'] is String:
+        return ArtistPhotoPut(
+          path,
+          sha: json['sha'] as String,
+          size: (json['size'] as num?)?.toInt() ?? 0,
+          seen: _seenFrom(json['seen']),
+          picked: json['picked'] == true,
+          name: json['name'] as String? ?? '',
+          summary: summary,
+        );
+      case 'remove' when path is String:
+        return ArtistPhotoRemove(
+          path,
+          seen: _seenFrom(json['seen']),
+          name: json['name'] as String? ?? '',
+          summary: summary,
+        );
+      case 'missing':
+        final edit = MissingEdit.fromJson(json['edit']);
+        return edit == null ? null : MissingChange(edit, summary: summary);
     }
     return null;
+  }
+
+  static List<String?> _seenFrom(Object? json) => [
+    for (final sha in json as List<Object?>? ?? const [])
+      if (sha == null || sha is String) sha as String?,
+  ];
+}
+
+/// An artist's photo set on this phone (DESIGN.md section 10e): the one
+/// fixed file `artists/<slug>.jpg`, written only over what this phone saw
+/// there. [seen] lists the blobs the path may hold on GitHub (null for no
+/// file): what GitHub last listed, the copy here, and what the changes
+/// still queued for the path allowed, so a second pick before a push may
+/// meet the first. [picked] says the owner chose the picture (a pick or
+/// an upload, not a fetch), so a dropped one is said.
+class ArtistPhotoPut extends CoverChange {
+  const ArtistPhotoPut(
+    this.path, {
+    required this.sha,
+    required this.size,
+    required this.seen,
+    required this.picked,
+    required this.name,
+    required String summary,
+  }) : super(summary);
+
+  final String path;
+  final String sha;
+  final int size;
+  final List<String?> seen;
+  final bool picked;
+
+  /// The artist's name as the library spells it, for the message.
+  final String name;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'change': 'put',
+    'path': path,
+    'sha': sha,
+    'size': size,
+    'seen': seen,
+    'picked': picked,
+    'name': name,
+    'summary': summary,
+  };
+}
+
+/// "Use automatic": the artist's file removed, on the same condition as
+/// [ArtistPhotoPut].
+class ArtistPhotoRemove extends CoverChange {
+  const ArtistPhotoRemove(
+    this.path, {
+    required this.seen,
+    required this.name,
+    required String summary,
+  }) : super(summary);
+
+  final String path;
+  final List<String?> seen;
+  final String name;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'change': 'remove',
+    'path': path,
+    'seen': seen,
+    'name': name,
+    'summary': summary,
+  };
+}
+
+/// One edit to `artists/_missing.json`. The file is never sent whole: the
+/// push reads GitHub's copy and applies the queued edits to it.
+class MissingChange extends CoverChange {
+  const MissingChange(this.edit, {required String summary}) : super(summary);
+
+  final MissingEdit edit;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'change': 'missing',
+    'edit': edit.toJson(),
+    'summary': summary,
+  };
+}
+
+/// How a photo came to be the artist's file, as this phone remembers it
+/// (the file itself says nothing): one the owner picked among the tiles,
+/// or one they uploaded. A fetched photo, and any photo set on another
+/// device, has no kind here.
+enum PhotoKind { picked, uploaded }
+
+/// A photo the owner picked (or a "Use automatic") that a push dropped:
+/// GitHub already had a file this phone never saw, so GitHub's stands.
+class DroppedPhoto {
+  const DroppedPhoto({
+    required this.path,
+    required this.name,
+    this.removal = false,
+  });
+
+  final String path;
+  final String name;
+
+  /// It was a "Use automatic" that was refused.
+  final bool removal;
+
+  Map<String, Object?> toJson() => {
+    'path': path,
+    'name': name,
+    'removal': removal,
+  };
+
+  static DroppedPhoto? fromJson(Object? json) {
+    if (json is! Map<String, Object?>) return null;
+    final path = json['path'];
+    final name = json['name'];
+    if (path is! String || name is! String) return null;
+    return DroppedPhoto(
+      path: path,
+      name: name,
+      removal: json['removal'] == true,
+    );
   }
 }
 
@@ -244,6 +390,22 @@ class CoverStore extends ChangeNotifier {
 
   List<CoverFile> _remote = const [];
   List<CoverFile> _files = const [];
+  List<CoverFile> _covers = const [];
+  Map<String, CoverFile> _artists = const {};
+
+  /// GitHub's `artists/_missing.json` as last read; null when there is
+  /// none. [_missingUnreadable] when it is in a form this build cannot
+  /// read, and so is left alone.
+  MissingArtists? _missingBase;
+  bool _missingUnreadable = false;
+  final List<DroppedPhoto> _dropped = [];
+
+  /// The owner's own photos, by path: the blob they chose and how.
+  final Map<String, (String sha, PhotoKind kind)> _photoKinds = {};
+
+  /// Called when the copy of a path was replaced on this phone, so a
+  /// decoded image of the old file can be dropped.
+  VoidCallback? onCopyReplaced;
   final List<CoverChange> _queue = [];
 
   /// The blob sha of each copy on this phone, by path.
@@ -260,8 +422,49 @@ class CoverStore extends ChangeNotifier {
   /// Called when a change is queued, so the sync can pick it up.
   VoidCallback? onQueued;
 
-  /// The files to show: GitHub's with the queued changes on top.
-  List<CoverFile> get files => _files;
+  /// The cover files to show: GitHub's with the queued changes on top,
+  /// without the artists' folder, which is no title's (see
+  /// [artistPhotos]).
+  List<CoverFile> get files => _covers;
+
+  /// The artists' photos, `artists/<slug>.jpg`, by slug.
+  Map<String, CoverFile> get artistPhotos => _artists;
+
+  /// The artist [name]'s file, when there is one.
+  CoverFile? artistPhoto(String name) => _artists[artistSlug(name)];
+
+  /// Whether the artist [name]'s file is one the owner picked or uploaded
+  /// on this phone; null for a fetched photo, for one set on another
+  /// device, and with no file.
+  PhotoKind? photoKindOf(String name) {
+    final file = artistPhoto(name);
+    final kept = file == null ? null : _photoKinds[file.path];
+    return kept != null && kept.$1 == file!.sha ? kept.$2 : null;
+  }
+
+  /// The artists tried with nothing found and the day the desktop's first
+  /// run finished: GitHub's record with the edits queued here on top, and
+  /// without the artists that have a file. Empty when the repo has no
+  /// record, or one this build cannot read.
+  MissingArtists get missing => (_missingBase ?? MissingArtists()).merged([
+    for (final change in _queue)
+      if (change is MissingChange) change.edit,
+  ], _artists.containsKey);
+
+  /// The day the desktop finished the first full run, which the phone
+  /// waits for before it fetches anything; null until then.
+  DateTime? get backfilled => _missingUnreadable ? null : missing.backfilled;
+
+  /// The picks a push dropped for another device's photo, until the owner
+  /// has been told ([clearDropped]).
+  List<DroppedPhoto> get dropped => List.unmodifiable(_dropped);
+
+  Future<void> clearDropped() async {
+    if (_dropped.isEmpty) return;
+    _dropped.clear();
+    await _saveQueue();
+    notifyListeners();
+  }
 
   CoverFile? fileAt(String path) {
     for (final file in _files) {
@@ -273,6 +476,10 @@ class CoverStore extends ChangeNotifier {
   /// The changes not on GitHub yet.
   int get pendingCount => _queue.length;
   List<CoverChange> get pending => List.unmodifiable(_queue);
+
+  /// Whether the list has come this session (GitHub's, or the folder's
+  /// for a library kept on this phone).
+  bool get hasListed => _listedAt != null;
 
   /// Whether the list has never come, or is older than [coverListingAge].
   bool get isStale {
@@ -296,6 +503,16 @@ class CoverStore extends ChangeNotifier {
           if (value is String) _local[key] = value;
         }
       }
+      final kinds = json['photos'];
+      if (kinds is Map<String, Object?>) {
+        for (final MapEntry(:key, :value) in kinds.entries) {
+          if (value case {'sha': final String sha, 'kind': final String kind}) {
+            for (final known in PhotoKind.values) {
+              if (known.name == kind) _photoKinds[key] = (sha, known);
+            }
+          }
+        }
+      }
     }
     final queue = await queueFile?.read();
     if (queue != null) {
@@ -303,8 +520,13 @@ class CoverStore extends ChangeNotifier {
         final change = CoverChange.fromJson(item);
         if (change != null) _queue.add(change);
       }
+      for (final item in queue['dropped'] as List<Object?>? ?? const []) {
+        final dropped = DroppedPhoto.fromJson(item);
+        if (dropped != null) _dropped.add(dropped);
+      }
     }
     if (remote == null) await _scan();
+    await _readMissing(fetch: false);
     _rebuild();
   }();
 
@@ -337,6 +559,51 @@ class CoverStore extends ChangeNotifier {
     _rebuild();
     await _saveList();
     await _dropStrayCopies();
+    await _readMissing(fetch: true);
+  }
+
+  /// Reads `artists/_missing.json` as the list names it: the copy here
+  /// when it is that blob, else ([fetch]) GitHub's.
+  Future<void> _readMissing({required bool fetch}) async {
+    final listed = _remote
+        .where((f) => f.path == artistsMissingPath)
+        .firstOrNull;
+    final before = (_missingBase?.encode(), _missingUnreadable);
+    if (listed == null) {
+      _missingBase = null;
+      _missingUnreadable = false;
+    } else {
+      Uint8List? bytes;
+      if (_local[artistsMissingPath] == listed.sha) {
+        bytes = await readCopy(artistsMissingPath);
+      }
+      if (bytes == null && fetch && remote != null) {
+        try {
+          bytes = await remote!.download(artistsMissingPath);
+          await _writeCopy(artistsMissingPath, bytes, gitBlobSha(bytes));
+          await _saveList();
+        } on GitHubException catch (e) {
+          _log('Could not fetch the artists without a photo: $e');
+        } on FileSystemException catch (e) {
+          _log('Could not keep the artists without a photo: $e');
+        }
+      }
+      if (bytes != null) _setMissing(utf8.decode(bytes, allowMalformed: true));
+    }
+    if (before != (_missingBase?.encode(), _missingUnreadable)) {
+      notifyListeners();
+    }
+  }
+
+  void _setMissing(String text) {
+    try {
+      _missingBase = MissingArtists.decode(text);
+      _missingUnreadable = false;
+    } on MissingFormatException catch (e) {
+      _log('Leaving the artists without a photo alone: $e');
+      _missingBase = null;
+      _missingUnreadable = true;
+    }
   }
 
   /// The folder on this phone as the whole list: the library is kept
@@ -390,12 +657,29 @@ class CoverStore extends ChangeNotifier {
               sha: moved.sha,
             );
           }
+        case ArtistPhotoPut():
+          files[change.path] = CoverFile(
+            path: change.path,
+            size: change.size,
+            sha: change.sha,
+          );
+        case ArtistPhotoRemove():
+          files.remove(change.path);
+        case MissingChange():
+          break;
       }
     }
     final next = files.values.toList()
       ..sort((a, b) => a.path.compareTo(b.path));
     if (!listEquals(next, _files)) {
       _files = List.unmodifiable(next);
+      _covers = List.unmodifiable([
+        for (final file in next)
+          if (!isArtistPath(file.path)) file,
+      ]);
+      _artists = Map.unmodifiable({
+        for (final file in next) ?artistSlugOfPath(file.path): file,
+      });
       notifyListeners();
     }
   }
@@ -407,6 +691,11 @@ class CoverStore extends ChangeNotifier {
         'version': _version,
         'files': [for (final file in _remote) file.toJson()],
         'local': _local,
+        if (_photoKinds.isNotEmpty)
+          'photos': {
+            for (final MapEntry(:key, :value) in _photoKinds.entries)
+              key: {'sha': value.$1, 'kind': value.$2.name},
+          },
       });
     } on FileSystemException catch (e) {
       _log('Could not write the cover list: $e');
@@ -416,6 +705,8 @@ class CoverStore extends ChangeNotifier {
   Future<void> _saveQueue() async {
     await queueFile?.write({
       'changes': [for (final change in _queue) change.toJson()],
+      if (_dropped.isNotEmpty)
+        'dropped': [for (final dropped in _dropped) dropped.toJson()],
     });
   }
 
@@ -516,6 +807,7 @@ class CoverStore extends ChangeNotifier {
   }
 
   Future<void> _writeCopy(String path, Uint8List bytes, String sha) async {
+    final replaced = _local.containsKey(path) && _local[path] != sha;
     final file = _fileFor(path);
     if (file == null) {
       _memory[path] = bytes;
@@ -523,6 +815,7 @@ class CoverStore extends ChangeNotifier {
       await writeBytesAtomically(file, bytes);
     }
     _local[path] = sha;
+    if (replaced) onCopyReplaced?.call();
   }
 
   Future<void> _deleteCopy(String path) async {
@@ -680,6 +973,275 @@ class CoverStore extends ChangeNotifier {
     onQueued?.call();
   }
 
+  // Artist photos (DESIGN.md section 10e) ------------------------------------
+
+  bool _isPhotoChange(CoverChange change, String path) =>
+      (change is ArtistPhotoPut && change.path == path) ||
+      (change is ArtistPhotoRemove && change.path == path);
+
+  /// The blobs [path] may hold on GitHub as far as this phone knows: what
+  /// GitHub last listed (null for no file), the copy here, and what the
+  /// changes still queued for the path allowed.
+  List<String?> _seenAt(String path) => {
+    _remote.where((f) => f.path == path).firstOrNull?.sha,
+    ?_local[path],
+    for (final change in _queue)
+      if (change is ArtistPhotoPut && change.path == path)
+        ...change.seen
+      else if (change is ArtistPhotoRemove && change.path == path)
+        ...change.seen,
+  }.toList();
+
+  /// Makes [bytes] the photo of the artist [name]: kept on this phone and
+  /// shown at once, saved with the next sync unless GitHub then holds a
+  /// file this phone never saw. [picked] for the owner's own choice (a
+  /// pick or, with [uploaded], an upload), false for a fetched one. A
+  /// second one before the first was pushed replaces it. Null for a name
+  /// that has no file.
+  Future<CoverFile?> putArtistPhoto(
+    String name,
+    Uint8List bytes, {
+    required bool picked,
+    bool uploaded = false,
+    required String summary,
+  }) async {
+    await load();
+    final path = artistPhotoPath(name);
+    if (path == null) return null;
+    final sha = gitBlobSha(bytes);
+    final seen = _seenAt(path);
+    await _writeCopy(path, bytes, sha);
+    if (picked) {
+      _photoKinds[path] = (
+        sha,
+        uploaded ? PhotoKind.uploaded : PhotoKind.picked,
+      );
+    } else {
+      _photoKinds.remove(path);
+    }
+    final file = CoverFile(path: path, size: bytes.length, sha: sha);
+    if (remote == null) {
+      _remote = [
+        for (final other in _remote)
+          if (other.path != path) other,
+        file,
+      ];
+      await _editLocalMissing(const []);
+    } else {
+      _queue.removeWhere((c) => _isPhotoChange(c, path));
+      final listed = _remote.where((f) => f.path == path).firstOrNull;
+      if (listed?.sha != sha) {
+        _queue.add(
+          ArtistPhotoPut(
+            path,
+            sha: sha,
+            size: bytes.length,
+            seen: seen,
+            picked: picked,
+            name: name,
+            summary: summary,
+          ),
+        );
+      }
+    }
+    _dropped.removeWhere((d) => d.path == path);
+    await _saveQueue();
+    _rebuild();
+    await _saveList();
+    notifyListeners();
+    onQueued?.call();
+    return file;
+  }
+
+  /// "Use automatic": removes the artist [name]'s file, from this phone at
+  /// once and from GitHub with the next sync, on the same condition as a
+  /// photo is put.
+  Future<void> removeArtistPhoto(String name, {required String summary}) async {
+    await load();
+    final path = artistPhotoPath(name);
+    if (path == null || fileAt(path) == null) return;
+    final seen = _seenAt(path);
+    if (remote == null) {
+      _remote = [
+        for (final file in _remote)
+          if (file.path != path) file,
+      ];
+    } else {
+      _queue.removeWhere((c) => _isPhotoChange(c, path));
+      _queue.add(
+        ArtistPhotoRemove(path, seen: seen, name: name, summary: summary),
+      );
+    }
+    _dropped.removeWhere((d) => d.path == path);
+    _photoKinds.remove(path);
+    await _saveQueue();
+    await _deleteCopy(path);
+    _rebuild();
+    await _saveList();
+    notifyListeners();
+    onQueued?.call();
+  }
+
+  /// Records one edit to `artists/_missing.json` ("asked, nothing found"),
+  /// merged into GitHub's copy with the next sync.
+  Future<void> recordMissing(
+    MissingEdit edit, {
+    required String summary,
+  }) async {
+    await load();
+    if (remote == null) {
+      await _editLocalMissing([edit]);
+    } else {
+      _queue.add(MissingChange(edit, summary: summary));
+      await _saveQueue();
+    }
+    notifyListeners();
+    onQueued?.call();
+  }
+
+  /// With the library kept on this phone the file is the record itself.
+  Future<void> _editLocalMissing(List<MissingEdit> edits) async {
+    final bytes = await readCopy(artistsMissingPath);
+    final theirs = bytes == null
+        ? null
+        : utf8.decode(bytes, allowMalformed: true);
+    final String? text;
+    try {
+      text = mergedMissing(
+        theirs,
+        edits,
+        (slug) => _remote.any((f) => f.path == '$artistsFolder/$slug.jpg'),
+      );
+    } on MissingFormatException catch (e) {
+      _log('Leaving the artists without a photo alone: $e');
+      return;
+    }
+    if (text == null) return;
+    final written = Uint8List.fromList(utf8.encode(text));
+    final sha = gitBlobSha(written);
+    await _writeCopy(artistsMissingPath, written, sha);
+    _remote = [
+      for (final other in _remote)
+        if (other.path != artistsMissingPath) other,
+      CoverFile(path: artistsMissingPath, size: written.length, sha: sha),
+    ];
+    _setMissing(text);
+  }
+
+  /// The artists' part of a push: the last put or removal of each artist's
+  /// file is made when GitHub holds what this phone saw there, else it is
+  /// dropped and GitHub's file stands; then the queued edits are merged
+  /// into GitHub's `_missing.json`, which also loses every artist that has
+  /// a file by now.
+  Future<void> _pushArtists(
+    CoverRemote remote,
+    Map<String, CoverFile> tree,
+  ) async {
+    final last = <String, CoverChange>{};
+    for (final change in _queue) {
+      if (change is ArtistPhotoPut) last[change.path] = change;
+      if (change is ArtistPhotoRemove) last[change.path] = change;
+    }
+    var photoAdded = false;
+    for (final MapEntry(key: path, value: change) in last.entries) {
+      final listed = tree[path];
+      switch (change) {
+        case ArtistPhotoPut():
+          if (listed?.sha == change.sha) {
+            // It landed already and the answer was lost.
+            photoAdded = true;
+          } else if (change.seen.contains(listed?.sha)) {
+            final bytes = await readCopy(path);
+            if (bytes == null || gitBlobSha(bytes) != change.sha) {
+              _log('The photo $path is gone from this phone.');
+            } else {
+              await remote.put(
+                path,
+                bytes,
+                message: change.summary,
+                sha: listed?.sha,
+              );
+              tree[path] = CoverFile(
+                path: path,
+                size: bytes.length,
+                sha: change.sha,
+              );
+              photoAdded = true;
+            }
+          } else {
+            // GitHub has a file this phone never saw: it stands, and the
+            // copy here goes so GitHub's is fetched.
+            _log('Dropping the photo $path: another device set one first.');
+            await _deleteCopy(path);
+            if (change.picked) {
+              _dropped.add(DroppedPhoto(path: path, name: change.name));
+            }
+          }
+        case ArtistPhotoRemove():
+          if (listed == null) {
+            // Gone already.
+          } else if (change.seen.contains(listed.sha)) {
+            await remote.remove(path, sha: listed.sha, message: change.summary);
+            tree.remove(path);
+          } else {
+            _log('Keeping the photo $path: another device set one first.');
+            _dropped.add(
+              DroppedPhoto(path: path, name: change.name, removal: true),
+            );
+          }
+        default:
+          break;
+      }
+      _queue.removeWhere((c) => _isPhotoChange(c, path));
+      await _saveQueue();
+    }
+
+    final edits = _queue.whereType<MissingChange>().toList();
+    if (edits.isEmpty && !photoAdded) return;
+    final listed = tree[artistsMissingPath];
+    // Without a record and with nothing to record there is nothing to do.
+    if (listed == null && edits.isEmpty) return;
+    final theirs = listed == null
+        ? null
+        : utf8.decode(
+            await remote.download(artistsMissingPath),
+            allowMalformed: true,
+          );
+    try {
+      final text = mergedMissing(theirs, [
+        for (final change in edits) change.edit,
+      ], (slug) => tree.containsKey('$artistsFolder/$slug.jpg'));
+      if (text != null) {
+        final bytes = Uint8List.fromList(utf8.encode(text));
+        await remote.put(
+          artistsMissingPath,
+          bytes,
+          message: edits.isEmpty
+              ? 'Update the artists without a photo'
+              : edits.last.summary,
+          sha: listed?.sha,
+        );
+        final sha = gitBlobSha(bytes);
+        tree[artistsMissingPath] = CoverFile(
+          path: artistsMissingPath,
+          size: bytes.length,
+          sha: sha,
+        );
+        await _writeCopy(artistsMissingPath, bytes, sha);
+        _setMissing(text);
+      } else if (theirs != null) {
+        _setMissing(theirs);
+      }
+    } on MissingFormatException catch (e) {
+      // A record in another form is left as it is; the edits are dropped.
+      _log('Leaving the artists without a photo alone: $e');
+      _missingBase = null;
+      _missingUnreadable = true;
+    }
+    _queue.removeWhere((c) => c is MissingChange);
+    await _saveQueue();
+  }
+
   // Sync ---------------------------------------------------------------------
 
   /// GitHub's list during a push, kept between its two halves.
@@ -743,12 +1305,17 @@ class CoverStore extends ChangeNotifier {
             );
           }
         case CoverDelete():
+        case ArtistPhotoPut():
+        case ArtistPhotoRemove():
+        case MissingChange():
           break;
       }
     }
+    await _pushArtists(remote, tree);
     _remote = tree.values.toList();
     _rebuild();
     await _saveList();
+    notifyListeners();
   }
 
   /// After the library file is saved: the removals, and the old place of
@@ -767,7 +1334,10 @@ class CoverStore extends ChangeNotifier {
       final (path, summary) = switch (change) {
         CoverDelete() => (change.path, change.summary),
         CoverMove() => (change.from, change.summary),
-        CoverUpload() => (null, ''),
+        CoverUpload() ||
+        ArtistPhotoPut() ||
+        ArtistPhotoRemove() ||
+        MissingChange() => (null, ''),
       };
       if (path == null) continue;
       final listed = tree[path];
@@ -800,6 +1370,10 @@ class CoverStore extends ChangeNotifier {
   Future<void> clear({required bool deleteFiles}) async {
     await load();
     _queue.clear();
+    _dropped.clear();
+    _photoKinds.clear();
+    _missingBase = null;
+    _missingUnreadable = false;
     _remote = const [];
     _listedAt = null;
     await queueFile?.delete();

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/painting.dart' show PaintingBinding;
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'dart:ui' show PlatformDispatcher;
@@ -10,6 +11,7 @@ import 'package:http/http.dart' as http;
 import '../dev/demo_states.dart';
 import '../dev/fake_github_api.dart';
 import '../features/sync/sync_state.dart';
+import 'covers/artist_photos.dart';
 import 'covers/cover_files.dart';
 import 'covers/cover_picture.dart';
 import 'covers/cover_sources.dart';
@@ -19,7 +21,10 @@ import 'github/github_http_api.dart';
 import 'library_codec.dart';
 import 'lookup/iso_languages.dart';
 import 'models/app_settings.dart';
+import 'models/entry.dart';
+import 'models/entry_kind.dart';
 import 'models/library.dart';
+import 'models/media_type.dart';
 import 'operations/library_operation.dart';
 import 'operations/settings_operations.dart';
 import 'repository/fixture_library_repository.dart';
@@ -164,6 +169,11 @@ CoverStore _coverStore(Ref ref, {CoverRemote? remote}) {
     listFile: JsonFile(File('$cache${separator}covers.json')),
     queueFile: JsonFile(File('$data${separator}cover_changes.json')),
   );
+  // A photo replaced under its fixed name (an artist's) must not be drawn
+  // from the decode of the old file.
+  store.onCopyReplaced = () => PaintingBinding.instance.imageCache
+    ..clear()
+    ..clearLiveImages();
   ref.onDispose(store.dispose);
   return store;
 }
@@ -179,6 +189,59 @@ final coverFilesProvider = Provider<List<CoverFile>>((ref) {
   store.load().ignore();
   return store.files;
 });
+
+/// The artists' photos in the library repo, `covers/artists/<slug>.jpg`,
+/// by slug ([CoverStore.artistPhotos]; DESIGN.md section 10e).
+final artistPhotoFilesProvider = Provider<Map<String, CoverFile>>((ref) {
+  final store = ref.watch(coverStoreProvider);
+  void changed() => ref.invalidateSelf();
+  store.addListener(changed);
+  ref.onDispose(() => store.removeListener(changed));
+  store.load().ignore();
+  return store.artistPhotos;
+});
+
+/// The photo picks a sync dropped for another device's photo, until the
+/// owner has been told ([CoverStore.dropped]).
+final droppedPhotosProvider = Provider<List<DroppedPhoto>>((ref) {
+  final store = ref.watch(coverStoreProvider);
+  void changed() => ref.invalidateSelf();
+  store.addListener(changed);
+  ref.onDispose(() => store.removeListener(changed));
+  store.load().ignore();
+  return store.dropped;
+});
+
+/// Everything saved by each artist, in the order their covers are lent to
+/// an artist without a photo (`artistCoverOrder`): the albums most recently
+/// added first, then the songs. By the artist's name in lower case, as the
+/// artist list groups them, and from the whole library whatever a list is
+/// filtered to.
+final artistCoverEntriesProvider = Provider<Map<String, List<Entry>>>((ref) {
+  final library = ref.watch(libraryProvider).value;
+  if (library == null) return const {};
+  final saved = <String, List<Entry>>{};
+  for (final entry in library.entries) {
+    if (entry.type != MediaType.music) continue;
+    saved.putIfAbsent(artistCoverKey(entry.creator), () => []).add(entry);
+  }
+  return {
+    for (final MapEntry(:key, value: entries) in saved.entries)
+      key: [
+        for (final i in artistCoverOrder([
+          for (final entry in entries)
+            (song: entry.kind == EntryKind.song, added: entry.added),
+        ]))
+          entries[i],
+      ],
+  };
+});
+
+/// The key of [artistCoverEntriesProvider] for an artist's name.
+String artistCoverKey(String? name) {
+  final trimmed = (name ?? '').trim().toLowerCase();
+  return trimmed.isEmpty ? 'unknown artist' : trimmed;
+}
 
 /// Decodes, scales and encodes an uploaded cover. The tests and the walks
 /// override it.

@@ -6,11 +6,13 @@ import '../../widgets/artist_photo.dart';
 import '../../widgets/row_ink_well.dart';
 import '../library/entry_list_views.dart';
 import 'artist_index.dart';
+import 'artist_photo_sheet.dart';
 
 /// One artist in the text or list view (Library › Music: artists, text view;
 /// Music: artists, list with photos): name and what is saved, "7 albums, 2
 /// songs". A text row is 48 dp with the count on the right; with [photo] the
-/// row is 64 dp, a 48 dp photo, and the count under the name.
+/// row is 64 dp, a 48 dp photo, and the count under the name. A long press
+/// opens Music › Pick a photo, in every view.
 class ArtistRow extends StatelessWidget {
   const ArtistRow({
     super.key,
@@ -37,9 +39,11 @@ class ArtistRow extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${artist.name}, ${artist.countLabel}',
+      onLongPressHint: 'Change photo',
       excludeSemantics: true,
       child: RowInkWell(
         onTap: onTap,
+        onLongPress: () => showArtistPhotoPicker(context, name: artist.name),
         child: Container(
           constraints: BoxConstraints(
             minHeight: photo ? photoHeight : textHeight,
@@ -124,9 +128,11 @@ class ArtistGridTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${artist.name}, ${artist.countLabel}',
+      onLongPressHint: 'Change photo',
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
+        onLongPress: () => showArtistPhotoPicker(context, name: artist.name),
         borderRadius: BorderRadius.circular(12),
         child: LayoutBuilder(
           builder: (context, constraints) => Column(

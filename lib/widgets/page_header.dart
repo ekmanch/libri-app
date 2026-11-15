@@ -13,6 +13,7 @@ class PageHeader extends StatelessWidget {
     this.onBack,
     this.leading,
     this.actions = const [],
+    this.onTitleLongPress,
   });
 
   final String title;
@@ -28,10 +29,25 @@ class PageHeader extends StatelessWidget {
   final Widget? leading;
   final List<Widget> actions;
 
+  /// A long press on the title (Music › Artist: the artist's name opens
+  /// Pick a photo).
+  final VoidCallback? onTitleLongPress;
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final hasBack = onBack != null;
+    // "Library connection" at a large text size on a narrow phone: shrink
+    // a little before cutting off.
+    final heading = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: Text(
+        title,
+        style: hasBack ? textTheme.headlineMedium : textTheme.headlineLarge,
+        maxLines: 1,
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
       child: Row(
@@ -60,19 +76,14 @@ class PageHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // "Library connection" at a large text size on a narrow
-                // phone: shrink a little before cutting off.
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    title,
-                    style: hasBack
-                        ? textTheme.headlineMedium
-                        : textTheme.headlineLarge,
-                    maxLines: 1,
+                if (onTitleLongPress == null)
+                  heading
+                else
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onLongPress: onTitleLongPress,
+                    child: heading,
                   ),
-                ),
                 if (subtitle case final subtitle?) ...[
                   const SizedBox(height: 2),
                   Text(

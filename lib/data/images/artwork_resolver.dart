@@ -13,8 +13,9 @@ import '../models/media_type.dart';
 import '../models/entry_kind.dart';
 import '../storage/json_file.dart';
 
-/// Finds the cover image of an entry and the photo of an artist, and
-/// remembers what it found in `artwork.json` on the device. An entry with
+/// Finds the cover image of an entry and remembers what it found in
+/// `artwork.json` on the device (an artist's photo is a file in the
+/// library repo, see `artist_photos.dart`). An entry with
 /// a `source` asks that provider for its cover; one without is matched by
 /// title, year and creator (a song by its album), on the device only, so
 /// `library.json` never changes. A record is dropped when the entry's
@@ -42,7 +43,6 @@ class ArtworkResolver {
   final DateTime Function() _now;
 
   final _entries = <String, _Record>{};
-  final _artists = <String, _Record>{};
 
   /// Why the last lookup of an entry did not work out (offline, rate
   /// limited, a server error, ...); in memory only, cleared by an answer,
@@ -61,13 +61,18 @@ class ArtworkResolver {
     final json = await cache?.read();
     if (json == null) return;
     _readInto(_entries, json['entries']);
-    _readInto(_artists, json['artists']);
+    // Deezer's artist photos are no longer used on their own (DESIGN.md
+    // 10e): the records of an earlier build go, and the next prune takes
+    // their image files.
+    if (json['artists'] case final Map<String, Object?> old
+        when old.isNotEmpty) {
+      _markDirty();
+    }
     if (json['version'] != _version) {
       // Version 1 recorded some failed lookups (a 404, a bad answer, an
       // artist's 5xx) as misses, indistinguishable from real ones: its
       // misses are all looked for again, its covers kept.
       _entries.removeWhere((_, r) => r.url == null);
-      _artists.removeWhere((_, r) => r.url == null);
       _markDirty();
     }
   }();
@@ -258,8 +263,6 @@ class ArtworkResolver {
 
   // Artists -----------------------------------------------------------------
 
-  static String _artistKey(String name) => name.trim().toLowerCase();
-
   MusicSource? get _music {
     for (final source in lookups.sources) {
       if (source.isConfigured && source is MusicSource) {
@@ -269,57 +272,33 @@ class ArtworkResolver {
     return null;
   }
 
-  String? cachedArtistPhotoUrl(String name) => _artists[_artistKey(name)]?.url;
-
-  Future<String?> artistPhotoUrl(String name) async {
-    await load();
-    final key = _artistKey(name);
-    if (DeezerSource.noPhoto.contains(key)) return null;
-    final record = _artists[key];
-    if (record != null) {
-      if (record.url != null) return record.url;
-      if (_now().difference(record.resolved) < missRetry) return null;
-    }
-    return _enqueue('artist:$key', () => _resolveArtist(name, key));
-  }
-
-  void releaseArtist(String name) => _release('artist:${_artistKey(name)}');
-
-  Future<String?> _resolveArtist(String name, String key) async {
+  /// The music source's own photo of the artist called [name], for Pick a
+  /// photo's "Another photo": asked only when that sheet opens, never
+  /// recorded and never shown on its own (DESIGN.md 10e). Null when there
+  /// is none or the source did not answer.
+  Future<String?> anotherArtistPhoto(String name) async {
+    if (DeezerSource.noPhoto.contains(name.trim().toLowerCase())) return null;
     final music = _music;
     if (music == null) return null;
-    final String? url;
     try {
-      url = await music.artistPhotoUrl(name);
+      return await music.artistPhotoUrl(name);
     } on LookupException {
-      // As for covers: only "no photo" is a miss.
       return null;
     }
-    _artists[key] = _Record(key: key, url: url, resolved: _now());
-    _markDirty();
-    return url;
   }
 
   // Housekeeping ------------------------------------------------------------
 
-  /// Drops the records of entries and artists that are gone and returns
-  /// the URLs still wanted, for the image cache's own prune.
-  Future<Set<String>> prune({
-    required Iterable<Entry> entries,
-    required Iterable<String> artists,
-  }) async {
+  /// Drops the records of entries that are gone and returns the URLs
+  /// still wanted, for the image cache's own prune.
+  Future<Set<String>> prune({required Iterable<Entry> entries}) async {
     await load();
     final ids = {for (final e in entries) e.id};
-    final names = {for (final a in artists) _artistKey(a)};
-    final before = _entries.length + _artists.length;
+    final before = _entries.length;
     _entries.removeWhere((id, _) => !ids.contains(id));
-    _artists.removeWhere((key, _) => !names.contains(key));
-    if (_entries.length + _artists.length != before) _markDirty();
+    if (_entries.length != before) _markDirty();
     await flush();
-    return {
-      for (final r in _entries.values) ?r.url,
-      for (final r in _artists.values) ?r.url,
-    };
+    return {for (final r in _entries.values) ?r.url};
   }
 
   /// Writes the records now, when something changed, and waits for any
@@ -337,7 +316,6 @@ class ArtworkResolver {
       await cache.write({
         'version': _version,
         'entries': {for (final e in _entries.entries) e.key: e.value.toJson()},
-        'artists': {for (final a in _artists.entries) a.key: a.value.toJson()},
       });
     }
     await cache.flush();

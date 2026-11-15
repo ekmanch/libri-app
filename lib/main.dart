@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_info.dart';
+import 'data/covers/artist_photo_providers.dart';
 import 'data/images/artwork_providers.dart';
 import 'data/github/token_store.dart';
 import 'data/library_codec.dart';
@@ -96,6 +97,10 @@ Future<Widget> bootstrap(
       if (api != null) gitHubApiFactoryProvider.overrideWithValue(api),
       artworkPrunerProvider.overrideWith(startArtworkPruner),
       matchKeeperProvider.overrideWith(startMatchKeeper),
+      artistPhotoFetchProvider.overrideWith(startArtistPhotoFetch),
+      artistPhotosWifiOnlyProvider.overrideWith(
+        (ref) => ref.watch(displayPreferencesProvider).upcomingWifiOnly,
+      ),
       seasonCheckProvider.overrideWith(fileSeasonCheck),
       releaseCheckProvider.overrideWith(fileReleaseCheck),
       movieDateStoreProvider.overrideWith(fileMovieDateStore),

@@ -1,0 +1,180 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/covers/artist_photos.dart';
+
+/// The desktop's cases (`assets/fixtures/artist_photos.json` in
+/// `ekmanch/libri-kde`), run as they are: the two apps must never differ.
+void main() {
+  final fixture = jsonDecode(
+    File('test/fixtures/artist_photos.json').readAsStringSync(),
+  ) as Map<String, Object?>;
+  List<Map<String, Object?>> cases(String rule) =>
+      (fixture[rule]! as List).cast<Map<String, Object?>>();
+  List<String> strings(Object? list) => (list! as List).cast<String>();
+  List<MissingEdit> edits(Object? list) => [
+    for (final edit in list! as List) MissingEdit.fromJson(edit)!,
+  ];
+
+  test('the copy is the desktop\'s, byte for byte, when its repo is here', () {
+    final desktop = File('../libri-kde/assets/fixtures/artist_photos.json');
+    if (!desktop.existsSync()) return;
+    expect(
+      File('test/fixtures/artist_photos.json').readAsBytesSync(),
+      desktop.readAsBytesSync(),
+    );
+  });
+
+  test('name_key', () {
+    for (final c in cases('name_key')) {
+      expect(artistNameKey(c['name']! as String), c['key'], reason: '$c');
+    }
+  });
+
+  test('same_name', () {
+    for (final c in cases('same_name')) {
+      expect(
+        sameArtistName(c['a']! as String, c['b']! as String),
+        c['same'],
+        reason: '$c',
+      );
+    }
+  });
+
+  test('file_path', () {
+    for (final c in cases('file_path')) {
+      expect(artistPhotoPath(c['name']! as String), c['path'], reason: '$c');
+    }
+    expect(artistSlugOfPath('artists/adele.jpg'), 'adele');
+    expect(artistSlugOfPath('artists/_missing.json'), isNull);
+    expect(artistSlugOfPath('music/adele.jpg'), isNull);
+    expect(isArtistPath('artists/_missing.json'), isTrue);
+    expect(isArtistPath('artistsx/a.jpg'), isFalse);
+  });
+
+  test('skipped', () {
+    for (final c in cases('skipped')) {
+      expect(isSkippedArtist(c['name']! as String), c['skipped'], reason: '$c');
+    }
+  });
+
+  test('og_image', () {
+    for (final c in cases('og_image')) {
+      expect(ogImage(c['html']! as String), c['url'], reason: '$c');
+    }
+  });
+
+  test('photo_url', () {
+    for (final c in cases('photo_url')) {
+      final og = c['og_image']! as String;
+      expect(artistArtOf(og).name, c['art'], reason: '$c');
+      expect(artistPhotoUrl(og), c['photo'], reason: '$c');
+    }
+  });
+
+  test('choose', () {
+    for (final c in cases('choose')) {
+      final chosen = chooseArtist(c['name']! as String, strings(c['owned']), [
+        for (final candidate in c['candidates']! as List)
+          ArtistCandidate.fromJson(candidate)!,
+      ]);
+      expect(chosen?.id, c['chosen'], reason: '${c['about']}');
+    }
+  });
+
+  test('missing: read, and written back to the same bytes', () {
+    for (final c in cases('missing')) {
+      final text = c['text']! as String;
+      final missing = MissingArtists.decode(text);
+      expect(
+        missing.backfilled == null
+            ? null
+            : formatArtistDay(missing.backfilled!),
+        c['backfilled'],
+      );
+      expect(missing.artists.keys.toList()..sort(), c['slugs']);
+      expect(missing.encode(), text);
+    }
+  });
+
+  test('missing_rewritten', () {
+    for (final c in cases('missing_rewritten')) {
+      expect(
+        MissingArtists.decode(c['read']! as String).encode(),
+        c['written'],
+      );
+    }
+  });
+
+  test('missing_refused', () {
+    for (final c in cases('missing_refused')) {
+      expect(
+        () => MissingArtists.decode(c['text']! as String),
+        throwsA(isA<MissingFormatException>()),
+        reason: '$c',
+      );
+    }
+  });
+
+  test('missing_merge', () {
+    for (final c in cases('missing_merge')) {
+      final files = strings(c['files']).toSet();
+      String? merge() => mergedMissing(
+        c['theirs'] as String?,
+        edits(c['edits']),
+        files.contains,
+      );
+      if (c['refused'] == true) {
+        expect(
+          merge,
+          throwsA(isA<MissingFormatException>()),
+          reason: '${c['about']}',
+        );
+      } else {
+        expect(merge(), c['written'], reason: '${c['about']}');
+      }
+    }
+  });
+
+  test('an edit survives the queue file', () {
+    for (final c in cases('missing_merge')) {
+      for (final edit in edits(c['edits'])) {
+        expect(
+          MissingEdit.fromJson(jsonDecode(jsonEncode(edit.toJson())))!.toJson(),
+          edit.toJson(),
+        );
+      }
+    }
+  });
+
+  test('due', () {
+    for (final c in cases('due')) {
+      final tried = TriedArtist(
+        name: 'A',
+        tried: parseArtistDay(c['tried'])!,
+        reason: MissingReason.noMatch,
+      );
+      expect(
+        tried.isDue(parseArtistDay(c['today'])!, parseArtistDay(c['added'])),
+        c['due'],
+        reason: '$c',
+      );
+    }
+    // Without an entry an artist is always due.
+    expect(
+      MissingArtists().isDue('adele', DateTime(2026, 11, 15), null),
+      isTrue,
+    );
+  });
+
+  test('cover_order', () {
+    for (final c in cases('cover_order')) {
+      final saved = [
+        for (final s in (c['saved']! as List).cast<Map<String, Object?>>())
+          (song: s['kind'] == 'song', added: parseArtistDay(s['added'])!),
+      ];
+      expect(artistCoverOrder(saved), c['order'], reason: '${c['about']}');
+    }
+  });
+}

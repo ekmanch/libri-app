@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/covers/artist_photos.dart';
 import 'package:library_app/data/covers/cover_store.dart';
 import 'package:library_app/data/github/git_blob.dart';
 import 'package:library_app/data/github/github_api.dart';
@@ -27,15 +29,20 @@ void main() {
   });
   tearDown(() => dir.deleteSync(recursive: true));
 
-  CoverStore store({bool remote = true, String libraryFile = 'library.json'}) {
+  CoverStore store({
+    bool remote = true,
+    String libraryFile = 'library.json',
+    String device = '',
+  }) {
     final sep = Platform.pathSeparator;
+    final root = device.isEmpty ? dir.path : '${dir.path}$sep$device';
     return CoverStore(
-      directory: Directory('${dir.path}${sep}covers'),
+      directory: Directory('$root${sep}covers'),
       remote: remote
           ? GitHubCoverRemote(github, branch: 'main', libraryFile: libraryFile)
           : null,
-      listFile: JsonFile(File('${dir.path}${sep}covers.json')),
-      queueFile: JsonFile(File('${dir.path}${sep}cover_changes.json')),
+      listFile: JsonFile(File('$root${sep}covers.json')),
+      queueFile: JsonFile(File('$root${sep}cover_changes.json')),
       now: () => now,
       log: logged.add,
     );
@@ -332,5 +339,315 @@ void main() {
     expect(file.existsSync(), isTrue);
     await covers.clear(deleteFiles: true);
     expect(file.existsSync(), isFalse);
+  });
+
+  group('artist photos (DESIGN.md 10e)', () {
+    const adele = 'covers/artists/adele.jpg';
+    const record = 'covers/artists/_missing.json';
+    const noMatch =
+        '{\n  "version": 1,\n  "backfilled": "2026-11-15",\n  "artists": {\n'
+        '    "adele": {"name": "Adele", "tried": "2026-11-15", '
+        '"reason": "no-match"}\n  }\n}\n';
+
+    Future<void> put(
+      CoverStore covers,
+      String picture, {
+      bool picked = true,
+      String name = 'Adele',
+    }) => covers.putArtistPhoto(
+      name,
+      bytes(picture),
+      picked: picked,
+      summary: 'Set the photo of $name',
+    );
+
+    test('the artists folder is no title\'s: listed apart, by slug, with '
+        'the record and its backfilled day', () async {
+      github.setBytes('covers/movies/the-mummy-1999.jpg', bytes('a'));
+      github.setBytes(adele, bytes('photo'));
+      github.setFile(record, noMatch.replaceFirst('"adele"', '"burial"'));
+      final covers = store();
+      expect(covers.backfilled, isNull);
+      await covers.refresh();
+      expect(covers.files.map((f) => f.path), ['movies/the-mummy-1999.jpg']);
+      expect(covers.artistPhotos.keys, ['adele']);
+      expect(covers.artistPhoto('ADELE')!.sha, gitBlobSha(bytes('photo')));
+      expect(covers.artistPhoto('!!!'), isNull);
+      expect(covers.backfilled, DateTime.utc(2026, 11, 15));
+      expect(covers.missing.artists.keys, ['burial']);
+
+      // The record of the last session is read without asking again.
+      final again = store();
+      await again.load();
+      expect(again.backfilled, DateTime.utc(2026, 11, 15));
+      expect(again.artistPhotos.keys, ['adele']);
+    });
+
+    test('a record in another form is left alone and nothing is fetched '
+        'by it', () async {
+      github.setFile(record, '{"version": 2, "backfilled": "2026-11-15"}');
+      final covers = store();
+      await covers.refresh();
+      expect(covers.backfilled, isNull);
+      expect(covers.missing.artists, isEmpty);
+    });
+
+    test(
+      'a pick shows at once from the phone\'s copy and is saved under the '
+      'fixed name; a second pick before the push replaces the first',
+      () async {
+        final covers = store();
+        await covers.refresh();
+        var replaced = 0;
+        covers.onCopyReplaced = () => replaced++;
+        await put(covers, 'first');
+        expect(covers.artistPhoto('Adele')!.sha, gitBlobSha(bytes('first')));
+        expect(covers.readyFile('artists/adele.jpg'), isNotNull);
+        expect(covers.files, isEmpty);
+        expect(replaced, 0);
+        await put(covers, 'second');
+        expect(replaced, 1);
+        expect(covers.pendingCount, 1);
+        await covers.pushFiles();
+        expect(writes(), ['PUT $adele']);
+        expect(github.bytes(adele), bytes('second'));
+        expect(covers.pendingCount, 0);
+        expect(covers.dropped, isEmpty);
+        final commits = await github.commits(adele, branch: 'main');
+        expect(commits.first.message, 'Set the photo of Adele');
+      },
+    );
+
+    test(
+      'two devices pick before syncing: the first to push wins, the '
+      'other\'s pick is dropped and said, and GitHub\'s file is shown',
+      () async {
+        final phone = store(device: 'phone');
+        final desktop = store(device: 'desktop');
+        await phone.refresh();
+        await desktop.refresh();
+        await put(desktop, 'the desktop\'s');
+        await put(phone, 'the phone\'s');
+        await desktop.pushFiles();
+        github.requests.clear();
+
+        await phone.pushFiles();
+        expect(writes(), isEmpty);
+        expect(github.bytes(adele), bytes('the desktop\'s'));
+        expect(phone.pendingCount, 0);
+        expect(phone.dropped.single.name, 'Adele');
+        expect(phone.dropped.single.removal, isFalse);
+        expect(
+          phone.artistPhoto('Adele')!.sha,
+          gitBlobSha(bytes('the desktop\'s')),
+        );
+        // The phone's own copy is gone, so GitHub's is fetched.
+        expect(phone.readyFile('artists/adele.jpg'), isNull);
+        final (file, _) = (await phone.fetch('artists/adele.jpg'))!;
+        expect(file.readAsBytesSync(), bytes('the desktop\'s'));
+
+        // Told once, and kept over a restart until then.
+        final restarted = store(device: 'phone');
+        await restarted.load();
+        expect(restarted.dropped.single.name, 'Adele');
+        await restarted.clearDropped();
+        expect(restarted.dropped, isEmpty);
+
+        // Picking again, now over a file this phone has seen, goes through.
+        await put(phone, 'the phone\'s again');
+        expect(phone.dropped, isEmpty);
+        await phone.pushFiles();
+        expect(github.bytes(adele), bytes('the phone\'s again'));
+      },
+    );
+
+    test('a fetched photo dropped the same way is not said', () async {
+      final phone = store(device: 'phone');
+      await phone.refresh();
+      github.setBytes(adele, bytes('the desktop\'s'));
+      await put(phone, 'fetched', picked: false);
+      await phone.pushFiles();
+      expect(writes(), isEmpty);
+      expect(phone.dropped, isEmpty);
+      expect(github.bytes(adele), bytes('the desktop\'s'));
+    });
+
+    test('a pick over a photo this phone listed replaces it', () async {
+      github.setBytes(adele, bytes('fetched'));
+      final covers = store();
+      await covers.refresh();
+      await put(covers, 'mine');
+      await covers.pushFiles();
+      expect(github.bytes(adele), bytes('mine'));
+      expect(covers.dropped, isEmpty);
+    });
+
+    test('a push whose answer was lost is not sent twice', () async {
+      final covers = store();
+      await covers.refresh();
+      await put(covers, 'mine');
+      github.setBytes(adele, bytes('mine'));
+      await covers.pushFiles();
+      expect(writes(), isEmpty);
+      expect(covers.pendingCount, 0);
+      expect(covers.dropped, isEmpty);
+    });
+
+    test('Use automatic removes the file; a refused one is said the same '
+        'way', () async {
+      github.setBytes(adele, bytes('mine'));
+      final covers = store();
+      await covers.refresh();
+      await covers.removeArtistPhoto(
+        'Adele',
+        summary: 'Remove the photo of Adele',
+      );
+      expect(covers.artistPhoto('Adele'), isNull);
+      await covers.pushFiles();
+      expect(writes(), ['DELETE $adele']);
+      expect(github.bytes(adele), isNull);
+      expect(covers.dropped, isEmpty);
+
+      // Changed on another device first: it stays.
+      github.setBytes(adele, bytes('mine'));
+      await covers.refresh();
+      await covers.removeArtistPhoto(
+        'Adele',
+        summary: 'Remove the photo of Adele',
+      );
+      github.setBytes(adele, bytes('another device\'s'));
+      github.requests.clear();
+      await covers.pushFiles();
+      expect(writes(), isEmpty);
+      expect(covers.dropped.single.removal, isTrue);
+      expect(covers.dropped.single.name, 'Adele');
+      expect(
+        covers.artistPhoto('Adele')!.sha,
+        gitBlobSha(bytes('another device\'s')),
+      );
+    });
+
+    test('a pick and then Use automatic before the push sends nothing '
+        'when GitHub had no file', () async {
+      final covers = store();
+      await covers.refresh();
+      await put(covers, 'mine');
+      await covers.removeArtistPhoto(
+        'Adele',
+        summary: 'Remove the photo of Adele',
+      );
+      await covers.pushFiles();
+      expect(writes(), isEmpty);
+      expect(covers.pendingCount, 0);
+    });
+
+    test('the record is merged per artist with GitHub\'s copy: the '
+        'desktop\'s cases (missing_merge)', () async {
+      final fixture = jsonDecode(
+        File('test/fixtures/artist_photos.json').readAsStringSync(),
+      ) as Map<String, Object?>;
+      final cases = (fixture['missing_merge']! as List)
+          .cast<Map<String, Object?>>();
+      for (final (i, c) in cases.indexed) {
+        final about = '${c['about']}';
+        github = FakeGitHubApi();
+        final theirs = c['theirs'] as String?;
+        if (theirs != null) github.setFile(record, theirs);
+        for (final slug in (c['files']! as List).cast<String>()) {
+          github.setBytes('covers/artists/$slug.jpg', bytes(slug));
+        }
+        final covers = store(device: 'case$i');
+        await covers.refresh();
+        for (final edit in c['edits']! as List) {
+          await covers.recordMissing(
+            MissingEdit.fromJson(edit)!,
+            summary: 'Record artists without a photo',
+          );
+        }
+        github.requests.clear();
+        await covers.pushFiles();
+        // With nothing to record the store never reads the record, so a
+        // file in another layout is only rewritten along with an edit.
+        final written = (c['edits']! as List).isEmpty
+            ? null
+            : c['written'] as String?;
+        expect(github.text(record), written ?? theirs, reason: about);
+        expect(
+          writes(),
+          written == null ? isEmpty : ['PUT $record'],
+          reason: about,
+        );
+        expect(covers.pendingCount, 0, reason: about);
+      }
+    });
+
+    test(
+      'the record shows with the queued edits on top, before any push',
+      () async {
+        github.setFile(record, noMatch);
+        final covers = store();
+        await covers.refresh();
+        await covers.recordMissing(
+          MissingSet(
+            'burial',
+            TriedArtist(
+              name: 'Burial',
+              tried: DateTime.utc(2026, 11, 16),
+              reason: MissingReason.noPhoto,
+            ),
+          ),
+          summary: 'Record Burial as having no photo',
+        );
+        expect(covers.missing.artists.keys, ['adele', 'burial']);
+        expect(covers.pendingCount, 1);
+        await covers.pushFiles();
+        expect(covers.missing.artists.keys, ['adele', 'burial']);
+        final commits = await github.commits(record, branch: 'main');
+        expect(commits.first.message, 'Record Burial as having no photo');
+      },
+    );
+
+    test('a photo for an artist on the record takes them off it, with no '
+        'edit of its own', () async {
+      github.setFile(record, noMatch);
+      final covers = store();
+      await covers.refresh();
+      await put(covers, 'mine');
+      // Off the record here at once, since the artist has a file.
+      expect(covers.missing.artists, isEmpty);
+      await covers.pushFiles();
+      expect(writes(), ['PUT $adele', 'PUT $record']);
+      expect(github.text(record), contains('"artists": {}'));
+      expect(github.text(record), contains('"backfilled": "2026-11-15"'));
+    });
+
+    test('with the library on the phone a photo and the record are '
+        'written at once', () async {
+      final covers = store(remote: false);
+      await covers.load();
+      await covers.recordMissing(
+        MissingSet(
+          'adele',
+          TriedArtist(
+            name: 'Adele',
+            tried: DateTime.utc(2026, 11, 15),
+            reason: MissingReason.noMatch,
+          ),
+        ),
+        summary: '',
+      );
+      expect(covers.missing.artists.keys, ['adele']);
+      expect(covers.pendingCount, 0);
+      await put(covers, 'mine');
+      expect(covers.artistPhoto('Adele'), isNotNull);
+      expect(covers.missing.artists, isEmpty);
+      expect(covers.files, isEmpty);
+      final sep = Platform.pathSeparator;
+      expect(
+        File('${dir.path}${sep}covers${sep}artists${sep}_missing.json')
+            .readAsStringSync(),
+        '{\n  "version": 1,\n  "artists": {}\n}\n',
+      );
+    });
   });
 }

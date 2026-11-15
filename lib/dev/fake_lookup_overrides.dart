@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/misc.dart';
 
+import '../data/covers/artist_photo_providers.dart';
 import '../data/images/artwork_providers.dart';
 import '../data/images/artwork_resolver.dart';
 import '../data/library_providers.dart';
@@ -24,6 +25,7 @@ import '../data/lookup/track_list_store.dart';
 import '../data/upcoming/creator_check.dart';
 import '../data/upcoming/creator_lookup.dart';
 import '../data/upcoming/creator_status.dart';
+import 'fake_artists.dart';
 import 'fake_images.dart';
 import 'fake_lookup.dart';
 
@@ -54,7 +56,10 @@ List<Override> fakeLookupOverrides({
   FoundReleaseStore? foundReleases,
   MovieDateStore? movieDates,
   List<String> systemLanguages = const ['sv', 'en'],
+  FakeAppleArtists? appleArtists,
 }) => [
+  // Apple's artists and their photos: nobody is asked.
+  appleArtistsProvider.overrideWithValue(appleArtists ?? FakeAppleArtists()),
   systemLanguagesProvider.overrideWithValue(systemLanguages),
   movieDateStoreProvider.overrideWithValue(
     movieDates ?? MemoryMovieDateStore(),

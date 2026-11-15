@@ -18,6 +18,7 @@ import '../settings/display_preferences.dart';
 import '../settings/entry_view.dart';
 import '../shell/app_shell.dart';
 import 'artist_index.dart';
+import 'artist_photo_sheet.dart';
 import 'music_tab.dart';
 
 /// Opens one artist (Music › Artist, text view; Artist, with photos) inside the
@@ -87,6 +88,11 @@ class ArtistScreen extends ConsumerWidget {
                   shape: BoxShape.circle,
                 ),
               ),
+              // A long press on the name, like one on the photo, opens
+              // Music › Pick a photo.
+              onTitleLongPress: artist == null
+                  ? null
+                  : () => showArtistPhotoPicker(context, name: artist.name),
             ),
             if (artist == null)
               Padding(
@@ -103,17 +109,31 @@ class ArtistScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 4, 10, 0),
                 child: Row(
                   children: [
-                    // With a photo view chosen the artist's photo leads the
-                    // count line (Music › Artist, with photos); the count and
-                    // sort stack beside it.
-                    if (photo) ...[
-                      ArtistPhoto(
-                        name: artist.name,
-                        initials: artist.initials,
-                        size: 72,
+                    // The artist's round photo leads the count line, in the
+                    // text view too (Music › Artist, text view; Artist,
+                    // with photos). A tap shows it larger
+                    // (Music › Artist photo, larger); a long press opens
+                    // Music › Pick a photo.
+                    Semantics(
+                      button: true,
+                      label:
+                          '${artist.name}. Tap to see the photo, long-press '
+                          'to change it',
+                      excludeSemantics: true,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () =>
+                            showArtistPhotoViewer(context, name: artist.name),
+                        onLongPress: () =>
+                            showArtistPhotoPicker(context, name: artist.name),
+                        child: ArtistPhoto(
+                          name: artist.name,
+                          initials: artist.initials,
+                          size: 72,
+                        ),
                       ),
-                      const SizedBox(width: 14),
-                    ],
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Builder(
                         builder: (context) {
@@ -130,18 +150,14 @@ class ArtistScreen extends ConsumerWidget {
                                 .read(displayPreferencesProvider.notifier)
                                 .setArtistSort(sort),
                           );
-                          return photo
-                              ? Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [count, sort],
-                                )
-                              : Row(
-                                  children: [
-                                    Expanded(child: count),
-                                    sort,
-                                  ],
-                                );
+                          // Beside the photo the two stack, in every
+                          // view: side by side they do not fit a narrow
+                          // phone at a large text size.
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [count, sort],
+                          );
                         },
                       ),
                     ),

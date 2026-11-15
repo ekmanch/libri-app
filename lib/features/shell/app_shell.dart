@@ -12,6 +12,7 @@ import '../library/home_return_provider.dart';
 import '../library/home_type_provider.dart';
 import '../library/library_home_screen.dart';
 import '../library/recent_changes.dart';
+import '../music/artist_photo_sheet.dart';
 import '../settings/display_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../data/models/plan.dart';
@@ -25,6 +26,7 @@ import '../sync/sync_state.dart';
 import '../sync/token_expiry.dart';
 import '../sync/token_expiry_dialog.dart';
 import '../upcoming/upcoming_checks.dart';
+import '../../data/covers/artist_photo_providers.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
 import '../../data/lookup/lookup_providers.dart';
@@ -96,6 +98,23 @@ class _AppShellState extends ConsumerState<AppShell> {
     // session, a little after the library loads.
     ref.listenManual(artworkPrunerProvider, (_, _) {});
     ref.listenManual(matchKeeperProvider, (_, _) {});
+    ref.listenManual(artistPhotoFetchProvider, (_, _) {});
+    // A photo pick a sync dropped for another device's is said once, with
+    // Pick again (Music › Artist photo: your pick wasn't saved).
+    ref.listenManual(droppedPhotosProvider, (_, dropped) {
+      if (dropped.isEmpty || !mounted) return;
+      showDroppedPhotos(
+        context,
+        dropped,
+        margin: const EdgeInsets.fromLTRB(
+          20,
+          0,
+          20,
+          AppShell.contentBottomPadding,
+        ),
+      );
+      ref.read(coverStoreProvider).clearDropped();
+    }, fireImmediately: true);
     // The book search ranks by the languages read (DESIGN.md 10c).
     ref.listenManual(readingLanguagesProvider, (_, languages) {
       ref.read(lookupServiceProvider).readingLanguages = languages;

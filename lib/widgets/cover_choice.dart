@@ -17,6 +17,7 @@ class CoverChoice extends StatelessWidget {
     this.onLongPress,
     this.badge,
     this.badgeAccent = false,
+    this.round = false,
     this.lines = const [],
   });
 
@@ -34,6 +35,9 @@ class CoverChoice extends StatelessWidget {
   /// (the accent, with [badgeAccent]).
   final String? badge;
   final bool badgeAccent;
+
+  /// A round tile (Music › Pick a photo): the ring follows the disc.
+  final bool round;
   final List<String> lines;
 
   /// The cover's width inside the ring.
@@ -61,7 +65,8 @@ class CoverChoice extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  shape: round ? BoxShape.circle : BoxShape.rectangle,
+                  borderRadius: round ? null : BorderRadius.circular(10),
                   border: Border.all(
                     width: 2,
                     color: picked
@@ -75,8 +80,8 @@ class CoverChoice extends StatelessWidget {
                         children: [
                           cover,
                           Positioned(
-                            left: 4,
-                            top: 4,
+                            left: round ? 0 : 4,
+                            top: round ? 0 : 4,
                             child: Container(
                               height: 20,
                               padding: const EdgeInsets.symmetric(

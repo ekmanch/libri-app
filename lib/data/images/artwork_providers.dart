@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../dev/demo_states.dart';
 import '../../dev/fake_images.dart';
-import '../../features/music/artist_index.dart';
 import '../library_providers.dart';
 import '../lookup/lookup_providers.dart';
 import '../models/entry.dart';
@@ -169,10 +168,7 @@ class ArtworkPruner {
   static const delay = Duration(seconds: 15);
 
   Future<void> run(Library library) async {
-    final keep = await resolver.prune(
-      entries: library.entries,
-      artists: [for (final artist in artistIndex(library.entries)) artist.name],
-    );
+    final keep = await resolver.prune(entries: library.entries);
     for (final part in await upcoming?.read() ?? const <UpcomingPart>[]) {
       if (part.cover case final cover?) keep.add(cover);
     }

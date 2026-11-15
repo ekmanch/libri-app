@@ -127,6 +127,15 @@ class ConnectionScreen extends ConsumerWidget {
     final status = ref.watch(syncStatusProvider).value ?? SyncStatus.idle;
     final covers = ref.watch(coverFilesProvider);
     final library = ref.watch(libraryProvider).value;
+    // The photos and the record change the Artist photos row.
+    ref.watch(artistPhotoFilesProvider);
+    final artistPhotos = library == null
+        ? null
+        : artistPhotosSummary(
+            library,
+            ref.watch(coverStoreProvider),
+            local: local,
+          );
     final expired =
         status.phase == SyncPhase.tokenProblem &&
         tokenHasExpired(connection, DateTime.now());
@@ -270,52 +279,86 @@ class ConnectionScreen extends ConsumerWidget {
                       minHeight: 56,
                     ),
                   ],
-                  // Whenever the library has cover files of its own.
-                  if (library != null && covers.isNotEmpty) ...[
+                  // Whenever the library has cover files of its own, or
+                  // artists whose photos are kept with them.
+                  if (library != null &&
+                      (covers.isNotEmpty || artistPhotos != null)) ...[
                     const SectionHeading(
                       'Your covers',
                       padding: _sectionPadding,
                     ),
-                    Container(
-                      constraints: const BoxConstraints(minHeight: 64),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: colors.divider),
+                    if (covers.isNotEmpty)
+                      Container(
+                        constraints: const BoxConstraints(minHeight: 64),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: colors.divider),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Uploaded covers',
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    uploadedCoversSummary(covers, library),
+                                    style: theme.textTheme.bodySmall!.copyWith(
+                                      fontSize: 14,
+                                      fontStyle: FontStyle.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            AppButton(
+                              label: 'Review',
+                              kind: AppButtonKind.outline,
+                              compact: true,
+                              horizontalPadding: 14,
+                              onPressed: () => openYourCoversScreen(context),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Uploaded covers',
-                                  style: theme.textTheme.bodyLarge,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  uploadedCoversSummary(covers, library),
-                                  style: theme.textTheme.bodySmall!.copyWith(
-                                    fontSize: 14,
-                                    fontStyle: FontStyle.normal,
-                                  ),
-                                ),
-                              ],
+                    // Read-only: the first full run is the desktop's.
+                    if (artistPhotos != null)
+                      Container(
+                        constraints: const BoxConstraints(minHeight: 64),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: colors.divider),
+                          ),
+                        ),
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Artist photos',
+                              style: theme.textTheme.bodyLarge,
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          AppButton(
-                            label: 'Review',
-                            kind: AppButtonKind.outline,
-                            compact: true,
-                            horizontalPadding: 14,
-                            onPressed: () => openYourCoversScreen(context),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              artistPhotos,
+                              style: theme.textTheme.bodySmall!.copyWith(
+                                fontSize: 14,
+                                height: 1.4,
+                                fontStyle: FontStyle.normal,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ],
               ),

@@ -19,6 +19,7 @@ enum CoverSourceChoice { photos, files, clipboard }
 Future<CoverSourceChoice?> showCoverSourceSheet(
   BuildContext context, {
   required bool withPaste,
+  String title = 'Upload a cover',
 }) => showAppSheet<CoverSourceChoice>(
   context,
   builder: (context) {
@@ -87,7 +88,7 @@ Future<CoverSourceChoice?> showCoverSourceSheet(
     );
 
     return SheetFrame(
-      title: 'Upload a cover',
+      title: title,
       scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

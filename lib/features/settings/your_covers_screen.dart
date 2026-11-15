@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/covers/artist_photo_fetcher.dart';
 import '../../data/covers/cover_files.dart';
+import '../../data/covers/cover_store.dart';
 import '../../data/library_providers.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_kind.dart';
@@ -25,6 +27,29 @@ String uploadedCoversSummary(List<CoverFile> files, Library library) {
     if (unused > 0) '$unused unused',
     coverSizeLabel(size),
   ].join(' · ');
+}
+
+/// The read-only Artist photos row of Settings › Library connection (and
+/// its state "artist photos not ready yet"; DESIGN.md section 10e): the
+/// phone never runs the first full run, so until the desktop has finished
+/// it the row says it is waiting; after that, how many of the artists that
+/// can have a photo have one. Null when the library has no artists. With
+/// the library kept on this phone ([local]) there is no desktop run to
+/// wait for, and nothing is looked up.
+String? artistPhotosSummary(
+  Library library,
+  CoverStore covers, {
+  bool local = false,
+}) {
+  final (:have, :total) = artistPhotoCounts(library, covers);
+  if (total == 0) return null;
+  final count =
+      '$have of $total ${total == 1 ? 'artist has' : 'artists have'} one.';
+  if (local) return count;
+  if (covers.backfilled == null) {
+    return 'Waiting for the first run on the desktop.';
+  }
+  return '$count New artists are looked up as you add them.';
 }
 
 void openYourCoversScreen(BuildContext context) {

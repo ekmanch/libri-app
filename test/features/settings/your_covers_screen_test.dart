@@ -97,10 +97,93 @@ void main() {
     expect(find.byType(YourCoversScreen), findsOneWidget);
   });
 
-  testWidgets('and not without any', (tester) async {
-    await pump(tester, const ConnectionScreen(), withFiles: const {});
+  testWidgets('and not without any, nor any artist', (tester) async {
+    await pump(
+      tester,
+      const ConnectionScreen(),
+      withFiles: const {},
+      withEntries: [mummy],
+    );
     expect(find.text('Uploaded covers'), findsNothing);
+    expect(find.text('Artist photos'), findsNothing);
     expect(find.text('YOUR COVERS'), findsNothing);
+  });
+
+  group('Artist photos (Settings › Library connection: artist photos not '
+      'ready yet)', () {
+    const record = 'artists/_missing.json';
+    Uint8List text(String text) => Uint8List.fromList(text.codeUnits);
+
+    testWidgets('a read-only row that waits for the desktop\'s first run', (
+      tester,
+    ) async {
+      await pump(tester, const ConnectionScreen(), withFiles: const {});
+      expect(find.text('YOUR COVERS'), findsOneWidget);
+      expect(find.text('Uploaded covers'), findsNothing);
+      expect(find.text('Artist photos'), findsOneWidget);
+      expect(
+        find.text('Waiting for the first run on the desktop.'),
+        findsOneWidget,
+      );
+      // No Pause, Resume or Check again here.
+      expect(find.text('Check again'), findsNothing);
+      expect(find.text('Review'), findsNothing);
+    });
+
+    testWidgets('after it, how many artists have one', (tester) async {
+      await pump(
+        tester,
+        const ConnectionScreen(),
+        withFiles: {
+          record: text(
+            '{\n  "version": 1,\n  "backfilled": "2026-11-15",\n'
+            '  "artists": {}\n}\n',
+          ),
+          'artists/alice-in-chains.jpg': text('photo'),
+          // A file for an artist no longer in the library is not counted.
+          'artists/gone.jpg': text('photo'),
+        },
+      );
+      expect(
+        find.text(
+          '1 of 1 artist has one. New artists are looked up as you add them.',
+        ),
+        findsOneWidget,
+      );
+      // The review of uploaded covers leaves the artists' folder alone.
+      expect(find.text('Uploaded covers'), findsNothing);
+    });
+
+    test(
+      'the artists\' folder and the record are no uploaded covers',
+      () async {
+        final store = fakeCoverStore(
+          files: {
+            ...files,
+            record: text('{}'),
+            'artists/alice-in-chains.jpg': text('photo'),
+          },
+        );
+        await store.refresh();
+        final library = Library(entries: entries);
+        expect(
+          store.files.map((f) => f.path),
+          isNot(contains(startsWith('artists/'))),
+        );
+        expect(
+          CoverReviewRow.of(store.files, library).map((r) => r.file.path),
+          isNot(contains(startsWith('artists/'))),
+        );
+        expect(
+          uploadedCoversSummary(store.files, library),
+          startsWith('4 covers · 2 unused'),
+        );
+        expect(
+          artistPhotosSummary(library, store, local: true),
+          '1 of 1 artist has one.',
+        );
+      },
+    );
   });
 
   testWidgets('the review preselects Delete for unused, Keep for the rest', (
