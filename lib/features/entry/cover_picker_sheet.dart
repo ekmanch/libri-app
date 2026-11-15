@@ -155,6 +155,13 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
   late String? _ownCoverUrl = widget.ownCoverUrl;
   LookupResult? _result;
 
+  /// More covers of an album from the second music catalog, asked for by
+  /// the link under Online (Pick a cover: more covers found): null until
+  /// asked, and whether the ask is on its way or failed.
+  List<LookupMatch>? _more;
+  bool _moreLoading = false;
+  bool _moreFailed = false;
+
   /// An image is being read, or Fit your cover is open on it.
   bool _reading = false;
 
@@ -201,6 +208,30 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
           creator: _subject.creator,
         );
     if (mounted) setState(() => _result = result);
+  }
+
+  /// "None of these? Search for more covers": asks the second catalog once
+  /// for the album and adds its covers to the grid. Music only.
+  Future<void> _searchMore() async {
+    if (_moreLoading || _more != null) return;
+    setState(() {
+      _moreLoading = true;
+      _moreFailed = false;
+    });
+    List<LookupMatch>? found;
+    try {
+      found = await ref
+          .read(lookupServiceProvider)
+          .moreMusicCovers(_subject.title, creator: _subject.creator);
+    } on LookupException {
+      found = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _moreLoading = false;
+      _more = found;
+      _moreFailed = found == null;
+    });
   }
 
   /// Whether the lookup is known to have a cover for the title: picking
@@ -389,6 +420,14 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
             match.cacheCoverUrl != _ownCoverUrl)
           match,
     ];
+    final listed = choices.length;
+    for (final match in _more ?? const <LookupMatch>[]) {
+      final url = match.cacheCoverUrl;
+      if (url != _ownCoverUrl && !choices.any((c) => c.cacheCoverUrl == url)) {
+        choices.add(match);
+      }
+    }
+    final moreFound = choices.length - listed;
     final hasOwnOnline = _ownCoverUrl != null;
     final onlineCount = (hasOwnOnline ? 1 : 0) + choices.length;
     // An online cover turned up for a title that has been using yours.
@@ -604,6 +643,38 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
               'above.',
               style: hint.copyWith(fontSize: 14.5, height: 1.45),
             ),
+          // Albums and songs only: one more ask, of the second catalog.
+          if (_square && result != null)
+            if (_more == null)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: _moreLoading ? null : _searchMore,
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    disabledForegroundColor: colors.muted,
+                    minimumSize: const Size(48, 48),
+                    padding: EdgeInsets.zero,
+                    alignment: AlignmentDirectional.centerStart,
+                    textStyle: theme.textTheme.labelMedium,
+                  ),
+                  child: Text(
+                    _moreLoading
+                        ? 'Searching…'
+                        : _moreFailed
+                        ? 'The search did not answer. Try again'
+                        : 'None of these? Search for more covers',
+                  ),
+                ),
+              )
+            else if (moreFound == 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text('No more covers found.', style: hint),
+                ),
+              ),
           const SizedBox(height: 8),
         ],
       ),

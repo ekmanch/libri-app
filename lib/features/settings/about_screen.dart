@@ -93,6 +93,13 @@ const dataSources = [
     logoHeight: 22,
   ),
   DataSource(
+    name: 'Apple Music',
+    description:
+        'Music: artist photos, and more albums, songs and covers when you '
+        'ask for them.',
+    url: 'https://music.apple.com',
+  ),
+  DataSource(
     name: 'AniList',
     description: 'Anime: details and covers.',
     url: 'https://anilist.co',

@@ -153,7 +153,7 @@ void main() {
     expect(find.text('All albums'), findsNWidgets(3));
     expect(find.text('412 albums'), findsOneWidget);
     expect(find.text('IS IT ONE OF THESE?'), findsNothing);
-    expect(find.text('Not listed?'), findsOneWidget);
+    expect(find.text('Match not shown?'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Impera'),
       100,
@@ -328,7 +328,7 @@ void main() {
     expect(find.text('No albums called that.'), findsOneWidget);
     await pickScope(tester, 'Songs');
     expect(find.text('No songs called that.'), findsOneWidget);
-    await tester.tap(find.text('Fill in the details myself'));
+    await tester.tap(find.text('Fill in myself'));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -384,6 +384,118 @@ void main() {
   testWidgets('"Look up again" on an album opens on Albums', (tester) async {
     await open(tester, pick: EntryKind.album);
     expect(selected(tester, 'Albums'), isTrue);
+  });
+
+  group('extended search (Add / edit entry › Music search: match not shown; '
+      'Extended search: more results, … nothing more)', () {
+    List<String> extended(FakeLookupSource fake) => [
+      for (final call in fake.calls)
+        if (call.startsWith('extended:')) call,
+    ];
+
+    testWidgets('a finished search offers it beside Fill in myself; what it '
+        'finds is listed on top under More results, with no source named, '
+        'and the button is gone', (tester) async {
+      final fake = await open(tester, title: 'But We Did');
+      expect(find.text('No albums called that.'), findsOneWidget);
+      expect(find.text('Match not shown?'), findsOneWidget);
+      expect(find.text('Extended search'), findsOneWidget);
+      expect(find.text('Fill in myself'), findsOneWidget);
+      // Never asked on its own.
+      expect(extended(fake), isEmpty);
+
+      await tester.tap(find.text('Extended search'));
+      await tester.pumpAndSettle();
+      expect(find.text('MORE RESULTS'), findsOneWidget);
+      expect(find.text('ALBUM · 2024'), findsOneWidget);
+      expect(find.text('Thomas Dybdahl'), findsOneWidget);
+      expect(find.textContaining('Apple'), findsNothing);
+      expect(find.textContaining('iTunes'), findsNothing);
+      expect(find.text('Still not listed?'), findsOneWidget);
+      expect(find.text('Extended search'), findsNothing);
+      expect(find.text('Fill in the details myself'), findsOneWidget);
+      expect(extended(fake), ['extended:albums:but we did']);
+
+      // The other list drops the rows and offers it again, for songs.
+      await pickScope(tester, 'Songs');
+      expect(find.text('MORE RESULTS'), findsNothing);
+      expect(find.text('Match not shown?'), findsOneWidget);
+      await tester.tap(find.text('Extended search'));
+      await tester.pumpAndSettle();
+      expect(find.text('SONG · 2024'), findsOneWidget);
+      expect(find.text('Thomas Dybdahl · But We Did'), findsOneWidget);
+      expect(extended(fake).last, 'extended:songs:but we did');
+    });
+
+    testWidgets('a row it found opens the form like any other', (tester) async {
+      await open(tester, title: 'But We Did');
+      await tester.tap(find.text('Extended search'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Thomas Dybdahl'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'But We Did'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Thomas Dybdahl'), findsOneWidget);
+    });
+
+    testWidgets('rows the first search already shows are not added: it says '
+        'it found nothing more', (tester) async {
+      final fake = await open(tester);
+      await tester.tap(find.text('Extended search'));
+      await tester.pumpAndSettle();
+      expect(find.text('Extended search found nothing more.'), findsOneWidget);
+      expect(find.text('MORE RESULTS'), findsNothing);
+      expect(find.text('Extended search'), findsNothing);
+      expect(find.text('Fill in the details myself'), findsOneWidget);
+      expect(extended(fake), ['extended:albums:ghost']);
+    });
+
+    testWidgets('other words offer it again and drop the rows', (tester) async {
+      await open(tester, title: 'But We Did');
+      await tester.tap(find.text('Extended search'));
+      await tester.pumpAndSettle();
+      expect(find.text('MORE RESULTS'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'ghost');
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+      expect(find.text('MORE RESULTS'), findsNothing);
+      expect(find.text('Thomas Dybdahl'), findsNothing);
+      expect(find.text('Extended search'), findsOneWidget);
+    });
+
+    testWidgets('it is not offered while browsing an artist', (tester) async {
+      final fake = await open(tester);
+      await tester.tap(find.text('Artist · 38 albums'));
+      await tester.pumpAndSettle();
+      expect(find.text('Extended search'), findsNothing);
+      expect(find.text('Not listed?'), findsOneWidget);
+      expect(find.text('Fill in the details myself'), findsOneWidget);
+      expect(extended(fake), isEmpty);
+    });
+
+    testWidgets('the footer hides while the keyboard is open', (tester) async {
+      await open(tester);
+      expect(find.text('Match not shown?'), findsOneWidget);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pump();
+      expect(find.text('Match not shown?'), findsNothing);
+      expect(find.text('Extended search'), findsNothing);
+      expect(find.text('Fill in myself'), findsNothing);
+      tester.view.resetViewInsets();
+      await tester.pump();
+      expect(find.text('Extended search'), findsOneWidget);
+    });
+
+    testWidgets('"Look up again" offers it too, without Fill in myself', (
+      tester,
+    ) async {
+      await open(tester, title: 'But We Did', pick: EntryKind.album);
+      expect(find.text('Fill in myself'), findsNothing);
+      await tester.tap(find.text('Extended search'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Thomas Dybdahl'));
+      await tester.pumpAndSettle();
+      expect(find.text('Picked itunes:album:1700000001'), findsOneWidget);
+    });
   });
 
   testWidgets('offline says so and offers to try again', (tester) async {

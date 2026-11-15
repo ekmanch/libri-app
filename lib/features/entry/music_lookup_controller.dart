@@ -9,6 +9,25 @@ import '../../data/lookup/music_lookup.dart';
 import '../../data/lookup/text_clean.dart';
 import '../../data/models/released.dart';
 
+/// Where a list's extended search stands (Add / edit entry › Music search:
+/// match not shown; Extended search: more results, … nothing more).
+enum ExtendedSearch {
+  /// Not asked for this query and scope: the button is offered.
+  idle,
+
+  /// The second catalog is being asked ("Searching…").
+  searching,
+
+  /// It added rows under "More results".
+  more,
+
+  /// It found nothing the first search had not shown.
+  none,
+
+  /// It could not be asked; the button stays, to try again.
+  failed,
+}
+
 /// One of the music lookup's two lists (albums, songs) as it stands.
 class MusicListState {
   /// The rows listed so far, every page asked.
@@ -45,8 +64,29 @@ class MusicListState {
   /// Counts what was asked, so an answer to an older ask is dropped.
   int _generation = 0;
 
+  /// The extended search of this list: asked once per query and scope.
+  ExtendedSearch extended = ExtendedSearch.idle;
+
+  /// What the extended search added: the rows the first search had not
+  /// shown, listed above it under "More results".
+  List<LookupMatch> extra = const [];
+
+  /// Why the extended search failed, while [extended] says it did.
+  LookupFailure? extendedFailure;
+
+  /// Counts the extended searches dropped, so a late answer is too.
+  int _extendedRun = 0;
+
+  void _dropExtended() {
+    _extendedRun++;
+    extended = ExtendedSearch.idle;
+    extra = const [];
+    extendedFailure = null;
+  }
+
   void _clear() {
     _generation++;
+    _dropExtended();
     matches = const [];
     total = null;
     next = null;
@@ -142,8 +182,10 @@ class MusicLookupController extends ChangeNotifier {
     _stopYears();
     for (final entry in _lists.entries) {
       if (entry.key == scope) {
-        // Kept on screen meanwhile; only what is on its way is dropped.
+        // Kept on screen meanwhile; only what is on its way is dropped,
+        // and what the extended search added for the old words.
         entry.value
+          .._dropExtended()
           .._generation += 1
           ..loadingMore = false
           ..moreFailed = false
@@ -169,11 +211,75 @@ class MusicLookupController extends ChangeNotifier {
   void setScope(MusicScope to) {
     if (to == scope) return;
     scope = to;
+    // The extended search was for the other list: its rows go, and the
+    // button is back.
+    for (final list in _lists.values) {
+      list._dropExtended();
+    }
     if (query.isNotEmpty && !current.loaded && !current.searching) {
       unawaited(_load(scope));
     } else {
       _notify();
     }
+  }
+
+  /// Whether Extended search is offered for the list shown: after every
+  /// finished search, with or without rows, until it has been asked; never
+  /// while one artist is browsed.
+  bool get offersExtended =>
+      artist == null &&
+      query.isNotEmpty &&
+      current.loaded &&
+      !current.searching &&
+      current.failure == null &&
+      (current.extended == ExtendedSearch.idle ||
+          current.extended == ExtendedSearch.searching ||
+          current.extended == ExtendedSearch.failed);
+
+  /// Whether [a] and [b] are one record to the eye: the same title by the
+  /// same artist, and for a song on the same album. The two catalogs share
+  /// no ids.
+  static bool sameRecord(LookupMatch a, LookupMatch b) =>
+      sameTitle(a.title, b.title) &&
+      sameTitle(a.creator ?? '', b.creator ?? '') &&
+      sameTitle(a.album ?? '', b.album ?? '');
+
+  /// Asks the second catalog once for the search and the list shown, and
+  /// lists what the first search did not show above it. Never automatic:
+  /// only the Extended search button calls it.
+  Future<void> extendedSearch() async {
+    final list = current;
+    if (!offersExtended || list.extended == ExtendedSearch.searching) return;
+    final asked = scope;
+    final run = ++list._extendedRun;
+    list
+      ..extended = ExtendedSearch.searching
+      ..extendedFailure = null;
+    _notify();
+    final List<LookupMatch> found;
+    try {
+      found = await _service.extendedMusic(query, asked);
+    } on LookupException catch (e) {
+      if (_disposed || run != list._extendedRun) return;
+      list
+        ..extended = ExtendedSearch.failed
+        ..extendedFailure = e.failure;
+      _notify();
+      return;
+    }
+    if (_disposed || run != list._extendedRun) return;
+    final fresh = <LookupMatch>[];
+    for (final hit in found) {
+      if (list.matches.any((m) => sameRecord(m, hit)) ||
+          fresh.any((m) => sameRecord(m, hit))) {
+        continue;
+      }
+      fresh.add(hit);
+    }
+    list
+      ..extra = fresh
+      ..extended = fresh.isEmpty ? ExtendedSearch.none : ExtendedSearch.more;
+    _notify();
   }
 
   /// Lists only [hit]'s albums or songs, newest first.
@@ -291,6 +397,13 @@ class MusicLookupController extends ChangeNotifier {
         ..failure = null
         ..epoch += 1;
       if (artist == null) artists = page.artists;
+    }
+    if (list.extra.isNotEmpty) {
+      // A later page may list what the extended search added.
+      list.extra = [
+        for (final hit in list.extra)
+          if (!rows.any((m) => sameRecord(m, hit))) hit,
+      ];
     }
     list
       ..matches = rows

@@ -196,9 +196,35 @@ class _MusicListPageState extends State<_MusicListPage>
     final songs = scope == MusicScope.songs;
     WidgetsBinding.instance.addPostFrameCallback((_) => _moreWhenNearEnd());
 
+    Widget row(LookupMatch match) => MusicRow(
+      match: match,
+      year: music.releasedOf(match)?.year,
+      detail: [
+        if (artist == null) ?match.creator,
+        if (songs) ?match.album,
+      ].where((s) => s.isNotEmpty).join(' · '),
+      opening: widget.openingSource == match.source,
+      onTap: switch (widget.onPick) {
+        final pick? => () => pick(match),
+        null => null,
+      },
+    );
+
     final head = <Widget>[
       if (artist != null)
         _BackToResults(query: music.query, onTap: music.closeArtist),
+      // What the extended search added, above the paged list (at its end
+      // it would never be seen); no row says where it came from.
+      if (artist == null &&
+          list.loaded &&
+          list.failure == null &&
+          list.extra.isNotEmpty) ...[
+        const SectionHeading(
+          'More results',
+          padding: EdgeInsets.fromLTRB(0, 16, 0, 2),
+        ),
+        for (final match in list.extra) row(match),
+      ],
       if (list.failure case final failure?)
         LookupNotice(switch (failure) {
           LookupFailure.notConfigured =>
@@ -282,26 +308,16 @@ class _MusicListPageState extends State<_MusicListPage>
         // A new list starts at its top.
         key: ValueKey((scope, list.epoch)),
         controller: _scroll,
+        // The footer under the list hides while the keyboard is open:
+        // scrolling the results closes it and brings the footer back.
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
         itemCount: head.length + rows.length + (tail == null ? 0 : 1),
         itemBuilder: (context, index) {
           if (index < head.length) return head[index];
           final at = index - head.length;
           if (at >= rows.length) return tail!;
-          final match = rows[at];
-          return MusicRow(
-            match: match,
-            year: music.releasedOf(match)?.year,
-            detail: [
-              if (artist == null) ?match.creator,
-              if (songs) ?match.album,
-            ].where((s) => s.isNotEmpty).join(' · '),
-            opening: widget.openingSource == match.source,
-            onTap: switch (widget.onPick) {
-              final pick? => () => pick(match),
-              null => null,
-            },
-          );
+          return row(rows[at]);
         },
       ),
     );

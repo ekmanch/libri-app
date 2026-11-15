@@ -36,7 +36,13 @@ class TrackListService {
   final ArtworkResolver resolver;
   final TrackListStore store;
 
-  MusicSource? get _music {
+  /// The source that lists the album [source]: the one that issued the id
+  /// (Apple Music for `itunes:album:<id>`), else the music source.
+  TrackSource? _tracksOf(String source) {
+    final issuer = lookups.sourceOf(source);
+    if (issuer != null && issuer.isConfigured && issuer is TrackSource) {
+      return issuer as TrackSource;
+    }
     for (final source in lookups.sources) {
       if (source.isConfigured && source is MusicSource) {
         return source as MusicSource;
@@ -55,7 +61,7 @@ class TrackListService {
     if (source == null) return const TrackList.unmatched();
     final cached = await store.read(source);
     if (cached != null) return TrackList(cached, fromCache: true);
-    final music = _music;
+    final music = _tracksOf(source);
     if (music == null) return null;
     final tracks = await music.albumTracks(source);
     if (tracks.isEmpty) return null;

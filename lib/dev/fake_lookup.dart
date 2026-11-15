@@ -30,7 +30,7 @@ import 'fake_music.dart';
 /// state, [failure] makes every call fail that way, and `configured:
 /// false` is a provider without its key.
 class FakeLookupSource extends LookupSource
-    implements MusicSource, CreatorLookup, InactiveLookup {
+    implements MusicSource, ExtendedMusicSource, CreatorLookup, InactiveLookup {
   FakeLookupSource({
     this.latency = Duration.zero,
     this.failure,
@@ -447,6 +447,69 @@ class FakeLookupSource extends LookupSource
     };
     await _call('music:${request.scope.name}:$list:${request.cursor}');
     return fakeMusicPage(request, limit: limit);
+  }
+
+  /// The second catalog (Add / edit entry › Extended search: more results):
+  /// "but we did" finds the mockup's one more row, an album or a song by
+  /// Thomas Dybdahl; "ghost" finds only Impera, which the first search
+  /// lists too, so nothing more; any other search finds nothing.
+  @override
+  Future<List<LookupMatch>> extendedSearch(
+    String query,
+    MusicScope scope,
+  ) async {
+    await _call('extended:${scope.name}:${query.toLowerCase()}');
+    final q = query.trim().toLowerCase();
+    final songs = scope == MusicScope.songs;
+    if (q.contains('but we did')) {
+      return [
+        LookupMatch(
+          type: MediaType.music,
+          title: 'But We Did',
+          source: songs ? 'itunes:track:1700000002' : 'itunes:album:1700000001',
+          creator: 'Thomas Dybdahl',
+          released: const Released(2024),
+          album: songs ? 'But We Did' : null,
+          albumSource: songs ? 'itunes:album:1700000001' : null,
+          recordType: songs ? null : 'album',
+          coverUrl: 'fake://cover/square/itunes:album:1700000001',
+        ),
+      ];
+    }
+    if (q.startsWith('ghost')) {
+      return [
+        LookupMatch(
+          type: MediaType.music,
+          title: songs ? 'Dance Macabre' : 'Impera',
+          source: songs ? 'itunes:track:1700000004' : 'itunes:album:1700000003',
+          creator: 'Ghost',
+          released: Released(songs ? 2018 : 2022),
+          album: songs ? 'Prequelle' : null,
+          recordType: songs ? null : 'album',
+          coverUrl: 'fake://cover/square/itunes:album:1700000003',
+        ),
+      ];
+    }
+    return const [];
+  }
+
+  /// Two more covers of any album but those in [noCovers].
+  @override
+  Future<List<LookupMatch>> moreCovers(String title, {String? creator}) async {
+    await _call('more-covers:$title');
+    final slug = slugify(title);
+    if (slug.isEmpty || noCovers.contains(slug)) return const [];
+    return [
+      for (final (i, year) in const [2011, 1997].indexed)
+        LookupMatch(
+          type: MediaType.music,
+          title: title,
+          source: 'itunes:album:${1800000001 + i}',
+          released: Released(year),
+          creator: creator,
+          coverUrl: 'fake://cover/square/itunes:album:$slug-${i + 1}',
+        ),
+    ];
   }
 
   /// The catalog, synchronously: a case-insensitive substring match on the

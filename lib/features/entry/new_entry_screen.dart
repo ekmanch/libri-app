@@ -339,6 +339,11 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
         ? _music.current.matches
         : result?.matches ?? const <LookupMatch>[];
     final inArtist = _isMusic && _music.artist != null;
+    // A finished music search has its own footer (Music search: match not
+    // shown); an artist's list keeps the plain one.
+    final musicSearch =
+        _isMusic && !inArtist && query.isNotEmpty && _music.query.isNotEmpty;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return PopScope(
       // Back from an artist's list returns to the results first.
@@ -517,7 +522,20 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
                         ],
                       ),
               ),
-              if (!widget.pick)
+              if (musicSearch && keyboardOpen)
+                // The footer of a music search hides while the keyboard is
+                // open; it is back once the results are scrolled or the
+                // keyboard closes.
+                const SizedBox.shrink()
+              else if (musicSearch && _music.current.loaded)
+                _MusicFooter(
+                  music: _music,
+                  onFill: widget.pick || _opening != null
+                      ? null
+                      : () => _open(),
+                  fillOffered: !widget.pick,
+                )
+              else if (!widget.pick)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                   child: Column(
@@ -542,6 +560,82 @@ class _NewEntryScreenState extends ConsumerState<NewEntryScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The footer under a finished music search (Add / edit entry › Music
+/// search: match not shown; Extended search: more results, … nothing more):
+/// "Match not shown?" over Extended search and Fill in myself; once the
+/// extended search was asked its button is gone until the query or the
+/// scope changes. Look up again has no Fill in myself.
+class _MusicFooter extends StatelessWidget {
+  const _MusicFooter({
+    required this.music,
+    required this.onFill,
+    required this.fillOffered,
+  });
+
+  final MusicLookupController music;
+  final VoidCallback? onFill;
+  final bool fillOffered;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final list = music.current;
+    final offered = music.offersExtended;
+    final searching = list.extended == ExtendedSearch.searching;
+    final label = switch (list.extended) {
+      ExtendedSearch.none => 'Extended search found nothing more.',
+      ExtendedSearch.more => 'Still not listed?',
+      ExtendedSearch.failed => switch (list.extendedFailure) {
+        LookupFailure.offline =>
+          'Extended search could not connect. Check your connection.',
+        LookupFailure.notConfigured =>
+          'Extended search is not set up on this build.',
+        _ => 'Extended search did not answer. Try again in a moment.',
+      },
+      _ => 'Match not shown?',
+    };
+    final fill = AppButton(
+      label: offered ? 'Fill in myself' : 'Fill in the details myself',
+      kind: AppButtonKind.outline,
+      onPressed: onFill,
+    );
+    final extended = AppButton(
+      label: searching ? 'Searching…' : 'Extended search',
+      kind: AppButtonKind.outline,
+      onPressed: searching ? null : music.extendedSearch,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+          if (offered || fillOffered) const SizedBox(height: 6),
+          if (offered && fillOffered)
+            Row(
+              children: [
+                Expanded(child: extended),
+                const SizedBox(width: 8),
+                Expanded(child: fill),
+              ],
+            )
+          else if (offered)
+            extended
+          else if (fillOffered)
+            fill,
+        ],
       ),
     );
   }

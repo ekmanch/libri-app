@@ -447,8 +447,8 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
     return parts[1];
   }
 
-  static bool _isApple(String source) =>
-      LookupMatch.providerOf(source) == ITunesBooks.id;
+  /// An Apple Books id; Apple Music's `itunes:album:<id>` is not one.
+  static bool _isApple(String source) => ITunesBooks.isBook(source);
 
   static bool _isGoogle(String source) =>
       LookupMatch.providerOf(source) == GoogleBooks.id;

@@ -18,6 +18,7 @@ import 'google_books.dart';
 import 'igdb_source.dart';
 import 'igdb_token_store.dart';
 import 'itunes_books.dart';
+import 'itunes_music.dart';
 import 'lookup_keys.dart';
 import 'lookup_service.dart';
 import 'lookup_source.dart';
@@ -46,6 +47,13 @@ import '../upcoming/creator_lookup.dart';
 import '../upcoming/creator_status.dart';
 import '../upcoming/upcoming_scheduler.dart';
 
+/// The one client for the iTunes Search API: Apple allows about twenty
+/// requests a minute per address, so the books lookup, the second music
+/// catalog and the artist photos share its limiter.
+final appleApiProvider = Provider<ITunesBooks>(
+  (ref) => ITunesBooks(ref.watch(httpClientProvider)),
+);
+
 /// The sources this build looks titles up in. The FIRST_RUN dev switch,
 /// the widget tests and the screenshot walks get the fake instead (see
 /// `lib/dev/fake_lookup_overrides.dart`). The real sources are added here
@@ -59,6 +67,9 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
   // AniList's chains lean on TMDB for episode titles and on ARM for the
   // map between the two (section 10c).
   final tmdb = TmdbSource(client, token: LookupKeys.tmdbReadToken);
+  // Apple Books, Apple Music and the artist photos ask one host at one
+  // pace.
+  final apple = ref.watch(appleApiProvider);
   return [
     IgdbSource(
       client,
@@ -81,11 +92,12 @@ final lookupSourcesProvider = Provider<List<LookupSource>>((ref) {
     ),
     OpenLibrarySource(
       client,
-      apple: ITunesBooks(client),
+      apple: apple,
       google: GoogleBooks(client, key: LookupKeys.googleBooksKey),
       wikidata: WikidataSeries(client),
     ),
     DeezerSource(client),
+    ITunesMusicSource(apple),
   ];
 });
 

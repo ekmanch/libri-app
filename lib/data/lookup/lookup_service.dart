@@ -268,6 +268,73 @@ class LookupService {
     return page;
   }
 
+  ExtendedMusicSource? get _extendedMusic {
+    for (final source in sources) {
+      if (source.isConfigured && source is ExtendedMusicSource) {
+        return source as ExtendedMusicSource;
+      }
+    }
+    return null;
+  }
+
+  /// The second music catalog's answers this session, by scope and query.
+  final _extendedCache = <String, List<LookupMatch>>{};
+
+  /// Every album or song the second music catalog finds for [query] (Add /
+  /// edit entry › Extended search: more results), asked once a session.
+  /// Only the Extended search button asks it. Throws [LookupException]:
+  /// not configured when this build has no second catalog.
+  Future<List<LookupMatch>> extendedMusic(
+    String query,
+    MusicScope scope,
+  ) async {
+    final key = '${scope.name}|${query.trim().toLowerCase()}';
+    if (_extendedCache[key] case final known?) return known;
+    final source = _extendedMusic;
+    if (source == null) {
+      throw const LookupException(LookupFailure.notConfigured);
+    }
+    final List<LookupMatch> found;
+    try {
+      found = await source.extendedSearch(query.trim(), scope);
+    } on LookupException {
+      rethrow;
+    } on Object catch (e) {
+      throw LookupException(LookupFailure.other, message: '$e');
+    }
+    _extendedCache[key] = found;
+    while (_extendedCache.length > cacheSize) {
+      _extendedCache.remove(_extendedCache.keys.first);
+    }
+    return found;
+  }
+
+  /// More covers for the album [title] by [creator] from the second music
+  /// catalog (Add / edit entry › Pick a cover: more covers found), one of
+  /// each image. Throws [LookupException] as [extendedMusic] does.
+  Future<List<LookupMatch>> moreMusicCovers(
+    String title, {
+    String? creator,
+  }) async {
+    final source = _extendedMusic;
+    if (source == null) {
+      throw const LookupException(LookupFailure.notConfigured);
+    }
+    final List<LookupMatch> found;
+    try {
+      found = await source.moreCovers(title.trim(), creator: creator);
+    } on LookupException {
+      rethrow;
+    } on Object catch (e) {
+      throw LookupException(LookupFailure.other, message: '$e');
+    }
+    final seen = <String>{};
+    return [
+      for (final hit in found)
+        if (hit.cacheCoverUrl case final url? when seen.add(url)) hit,
+    ];
+  }
+
   /// When the album with [albumSource] came out, from its source; null
   /// when the source has no date. Throws [LookupException].
   Future<Released?> albumReleased(String albumSource) async =>

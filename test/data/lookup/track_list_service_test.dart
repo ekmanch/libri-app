@@ -1,7 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:library_app/data/images/artwork_resolver.dart';
+import 'package:library_app/data/lookup/itunes_books.dart';
+import 'package:library_app/data/lookup/itunes_music.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
 import 'package:library_app/data/lookup/lookup_service.dart';
 import 'package:library_app/data/lookup/track_list_service.dart';
@@ -61,6 +66,43 @@ void main() {
       expect(fake.calls.where((c) => c.startsWith('match:')), isEmpty);
     },
   );
+
+  test('an album from the second catalog is listed by that catalog, never '
+      'by the music source', () async {
+    final apple = ITunesMusicSource(
+      ITunesBooks(
+        MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'results': [
+                {
+                  'wrapperType': 'track',
+                  'kind': 'song',
+                  'trackId': 1,
+                  'trackName': 'Sundance Kid',
+                  'trackNumber': 1,
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+        minGap: Duration.zero,
+      ),
+    );
+    // The fake answers for every id, so the catalog stands before it.
+    final lookups = LookupService([apple, fake]);
+    final s = TrackListService(
+      lookups: lookups,
+      resolver: ArtworkResolver(lookups: lookups),
+      store: store,
+    );
+    final list = await s.load(
+      album('music/vapen', title: 'Vapen', source: 'itunes:album:10'),
+    );
+    expect(list!.tracks, [(id: 'itunes:track:1', title: 'Sundance Kid')]);
+    expect(fake.calls.where((c) => c.startsWith('tracks:')), isEmpty);
+  });
 
   test('an album without a source goes through the device match', () async {
     final s = service();

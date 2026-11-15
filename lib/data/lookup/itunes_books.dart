@@ -122,13 +122,37 @@ class ITunesBooks with LookupHttp {
   Future<List<LookupMatch>> _results(
     String path,
     Map<String, String> query,
-  ) async {
-    final response = await send(
-      () => client.get(
-        _baseUrl.replace(path: path, queryParameters: query),
-        headers: _headers,
-      ),
+  ) async => [for (final item in await objects(path, query)) ?_match(item)];
+
+  /// The `results` of one request to the iTunes Search API, as Apple
+  /// answers them; the music catalog (`ITunesMusicSource`) asks through it
+  /// too, so the two keep one pace.
+  Future<List<Map<String, Object?>>> objects(
+    String path,
+    Map<String, String> query, {
+    bool once = false,
+  }) async {
+    Future<http.Response> request() => client.get(
+      _baseUrl.replace(path: path, queryParameters: query),
+      headers: _headers,
     );
+    final http.Response response;
+    if (once) {
+      // The artist photo work never sends a refused request again
+      // (DESIGN.md 10e): a 403 or a 429 goes back at once.
+      try {
+        response = await limiter.run(
+          () => sendOrOffline(request, timeout: timeout),
+        );
+      } on NetworkUnreachable catch (e) {
+        throw LookupException(LookupFailure.offline, message: e.message);
+      }
+      if (response.statusCode == 429) {
+        throw const LookupException(LookupFailure.rateLimited, status: 429);
+      }
+    } else {
+      response = await send(request);
+    }
     if (response.statusCode == 403) {
       throw LookupException(
         LookupFailure.rateLimited,
@@ -137,10 +161,14 @@ class ITunesBooks with LookupHttp {
       );
     }
     check(response);
-    return [
-      for (final item in objectsAt(decodeObject(response), 'results'))
-        ?_match(item),
-    ];
+    return objectsAt(decodeObject(response), 'results');
+  }
+
+  /// Whether [source] is an Apple Books id, "itunes:6756269989": two
+  /// parts. `itunes:album:<id>` and `itunes:track:<id>` are Apple Music's.
+  static bool isBook(String source) {
+    final parts = source.split(':');
+    return parts.length == 2 && parts[0] == id && parts[1].isNotEmpty;
   }
 
   /// One result as a match. The genres list "Books" among them, which no

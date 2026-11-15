@@ -8,6 +8,7 @@ import 'package:library_app/data/covers/cover_files.dart';
 import 'package:library_app/data/covers/cover_store.dart';
 import 'package:library_app/data/github/git_blob.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/lookup/lookup_providers.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -15,6 +16,8 @@ import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_covers.dart';
+import 'package:library_app/dev/fake_lookup.dart';
+import 'package:library_app/widgets/cover_choice.dart';
 import 'package:library_app/features/entry/cover_picker_sheet.dart';
 
 import '../../helpers/pump_app.dart';
@@ -558,5 +561,52 @@ void main() {
       'repo:$path',
     );
     expect(repo(container).current!.entryById(rooster.id)!.coverFrom, isNull);
+  });
+
+  group('more covers (Pick a cover: more covers found)', () {
+    const link = 'None of these? Search for more covers';
+
+    testWidgets('an album has the link under Online; it adds the second '
+        'catalog\'s covers once and goes; a pick is that cover\'s id', (
+      tester,
+    ) async {
+      final container = await open(
+        tester,
+        CoverSubject(
+          id: dirt.id,
+          type: MediaType.music,
+          title: 'Dirt',
+          creator: 'Alice in Chains',
+          stored: true,
+        ),
+        ownCoverUrl: null,
+      );
+      final fake =
+          container.read(lookupSourcesProvider).single as FakeLookupSource;
+      expect(fake.calls.where((c) => c.startsWith('more-covers:')), isEmpty);
+      final before = find.byType(CoverChoice).evaluate().length;
+      await tester.ensureVisible(find.text(link));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(link));
+      await tester.pumpAndSettle();
+      expect(find.text(link), findsNothing);
+      expect(find.byType(CoverChoice).evaluate().length, before + 2);
+      expect(fake.calls.where((c) => c.startsWith('more-covers:')), [
+        'more-covers:Dirt',
+      ]);
+      expect(find.textContaining('Apple'), findsNothing);
+
+      final added = tile('Dirt, 2011');
+      await tester.ensureVisible(added);
+      await tester.pumpAndSettle();
+      await tester.tap(added);
+      await tester.pumpAndSettle();
+      expect(picks.last.coverFrom, 'itunes:album:1800000001');
+    });
+
+    testWidgets('other types have no such link', (tester) async {
+      await open(tester, mummySubject());
+      expect(find.text(link), findsNothing);
+    });
   });
 }
