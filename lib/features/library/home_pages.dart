@@ -294,6 +294,7 @@ class HomeTypePage extends ConsumerWidget {
             ),
             SortButton(
               current: prefs.sortFor(type),
+              options: LibrarySort.general,
               onChanged: (sort) => ref
                   .read(displayPreferencesProvider.notifier)
                   .setSort(type, sort),

@@ -700,6 +700,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
             ),
             SortButton(
               current: prefs.filteredSort,
+              options: LibrarySort.general,
               onChanged: (sort) => ref
                   .read(displayPreferencesProvider.notifier)
                   .setFilteredSort(sort),

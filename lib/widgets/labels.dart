@@ -63,8 +63,8 @@ extension MediaTypeLabel on MediaType {
   };
 }
 
-/// "7 movies", "1 book", "3 anime". Music lists use [musicCountLabel]; in
-/// mixed contexts it falls back to "entries".
+/// "7 movies", "1 book", "3 anime". The music list counts its tabs itself
+/// (`musicCountLabel`); in mixed contexts music falls back to "entries".
 String countLabel(MediaType type, int count) =>
     '$count ${countNoun(type, count)}';
 
@@ -210,17 +210,6 @@ String albumsAndSongsLabel(int albums, int songs) {
   ];
   return parts.isEmpty ? '0 albums' : parts.join(', ');
 }
-
-/// The count line of the music list (Library › Music: artists, text view): "17
-/// artists, 13 albums, 5 songs".
-String musicCountLabel({
-  required int artists,
-  required int albums,
-  required int songs,
-}) =>
-    '$artists ${artists == 1 ? 'artist' : 'artists'}, '
-    '$albums ${albums == 1 ? 'album' : 'albums'}, '
-    '$songs ${songs == 1 ? 'song' : 'songs'}';
 
 /// What a plan row says when the entry was already done when it was added:
 /// a rewatch, a reread, a replay or a relisten.

@@ -1,17 +1,71 @@
 import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 
-/// The sort choices in Library › Sort menu, in menu order.
-enum LibrarySort { newestAdded, titleAz, yearNewest, yearOldest, ratingHighest }
+/// A choice in a "Sort by" sheet (Library › Sort menu).
+abstract interface class SortOption {
+  String get label;
+}
 
-extension LibrarySortLabel on LibrarySort {
+/// The sort choices in Library › Sort menu, in menu order. [artistAz] is
+/// offered by the music list's Albums and Songs tabs only (Library › Music:
+/// sort menu, albums and songs); the other lists offer [general].
+enum LibrarySort implements SortOption {
+  newestAdded,
+  titleAz,
+  artistAz,
+  yearNewest,
+  yearOldest,
+  ratingHighest;
+
+  /// The choices every list has.
+  static const general = [
+    newestAdded,
+    titleAz,
+    yearNewest,
+    yearOldest,
+    ratingHighest,
+  ];
+
+  @override
   String get label => switch (this) {
-    LibrarySort.newestAdded => 'Newest added',
-    LibrarySort.titleAz => 'Title, A to Z',
-    LibrarySort.yearNewest => 'Year, newest first',
-    LibrarySort.yearOldest => 'Year, oldest first',
-    LibrarySort.ratingHighest => 'Rating, highest first',
+    newestAdded => 'Newest added',
+    titleAz => 'Title, A to Z',
+    artistAz => 'Artist, A to Z',
+    yearNewest => 'Year, newest first',
+    yearOldest => 'Year, oldest first',
+    ratingHighest => 'Rating, highest first',
   };
+}
+
+/// Today's "Compilations"; pinned at the very end of anything in artist
+/// order, after Z.
+const variousArtistsName = 'Various Artists';
+
+/// Entries without a creator are listed under this name.
+const unknownArtistName = 'Unknown artist';
+
+/// The artist an entry is listed under.
+String artistNameOf(Entry entry) {
+  final name = (entry.creator ?? '').trim();
+  return name.isEmpty ? unknownArtistName : name;
+}
+
+bool isVariousArtists(String name) =>
+    name.trim().toLowerCase() == variousArtistsName.toLowerCase();
+
+/// The key artists sort by: lowercase, without a leading "The".
+String artistSortKey(String name) {
+  var key = name.trim().toLowerCase();
+  if (key.startsWith('the ')) key = key.substring(4).trimLeft();
+  return key;
+}
+
+/// The order of artists by name: [artistSortKey], "Various Artists" last.
+int compareArtistNames(String a, String b) {
+  final va = isVariousArtists(a), vb = isVariousArtists(b);
+  if (va != vb) return va ? 1 : -1;
+  final c = artistSortKey(a).compareTo(artistSortKey(b));
+  return c != 0 ? c : a.compareTo(b);
 }
 
 int _byTitle(Entry a, Entry b) => compareTitles(a.title, b.title);
@@ -45,6 +99,15 @@ int _byYear(Entry a, Entry b, {required bool newestFirst}) {
   return c != 0 ? c : _byTitle(a, b);
 }
 
+/// By artist ([compareArtistNames]), then by year within an artist, oldest
+/// first (Library › Music: albums, sorted by artist). Names that differ only
+/// in case are one artist, as in the Artists tab.
+int _byArtist(Entry a, Entry b) {
+  final na = artistNameOf(a), nb = artistNameOf(b);
+  if (na.toLowerCase() != nb.toLowerCase()) return compareArtistNames(na, nb);
+  return _byYear(a, b, newestFirst: false);
+}
+
 /// 10 first, down to 1; unrated entries last; ties by title. Albums and
 /// songs sort by their own rating.
 int _byRatingDesc(Entry a, Entry b) {
@@ -64,6 +127,8 @@ List<Entry> sortEntries(Iterable<Entry> entries, LibrarySort sort) {
       list.sort(_byAddedDesc(_positions(list)));
     case LibrarySort.titleAz:
       list.sort(_byTitle);
+    case LibrarySort.artistAz:
+      list.sort(_byArtist);
     case LibrarySort.yearNewest:
       list.sort((a, b) => _byYear(a, b, newestFirst: true));
     case LibrarySort.yearOldest:

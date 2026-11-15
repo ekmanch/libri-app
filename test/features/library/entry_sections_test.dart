@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/released.dart';
 import 'package:library_app/features/library/entry_sections.dart';
 import 'package:library_app/features/library/library_sort.dart';
@@ -83,6 +84,61 @@ void main() {
     expect(sections.map((s) => s.label), ['#', 'A', 'E']);
     expect(sections[0].entries.length, 2);
     expect(sections[1].entries.length, 2);
+  });
+
+  test('artist order: leading "The" ignored, Various Artists last, by year '
+      'within an artist, sections by the artist\'s letter', () {
+    Entry album(String artist, String title, int? year) => dirt.copyWith(
+      id: 'music/$title',
+      title: title,
+      creator: artist,
+      released: year == null ? null : Released(year),
+      tracks: null,
+    );
+    final entries = sortEntries([
+      album('Various Artists', 'Aaa', 1990),
+      album('Zebra', 'Early', 1980),
+      album('The Beatles', 'Revolver', 1966),
+      album('the beatles', 'Help!', 1965),
+      album('The Beatles', 'Undated', null),
+      album('', 'Nameless', 2000),
+      album('Björk', 'Post', 1995),
+      album('Björk', 'Debut', 1993),
+      album('2Pac', 'Me Against the World', 1995),
+    ], LibrarySort.artistAz);
+    expect(entries.map((e) => e.title), [
+      'Me Against the World',
+      'Help!',
+      'Revolver',
+      'Undated',
+      'Debut',
+      'Post',
+      'Nameless',
+      'Early',
+      'Aaa',
+    ]);
+    final sections = sectionEntries(entries, LibrarySort.artistAz);
+    expect(sections.map((s) => s.label), [
+      '#',
+      'B',
+      'U',
+      'Z',
+      'Various Artists',
+    ]);
+    expect(sections.last.railLabel, 'VA');
+    expect(sections[1].entries.length, 5);
+  });
+
+  test('Artist, A to Z is the music tabs\' alone', () {
+    expect(LibrarySort.general, isNot(contains(LibrarySort.artistAz)));
+    expect(LibrarySort.values.map((s) => s.label), [
+      'Newest added',
+      'Title, A to Z',
+      'Artist, A to Z',
+      'Year, newest first',
+      'Year, oldest first',
+      'Rating, highest first',
+    ]);
   });
 
   test('rating order: 10 down to 1, unrated last, ties by title', () {

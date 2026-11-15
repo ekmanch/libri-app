@@ -9,6 +9,7 @@ import '../../data/models/entry_kind.dart';
 import '../../theme/app_theme.dart';
 import '../library/coming_soon_tab.dart';
 import '../library/library_sort.dart';
+import '../music/artist_index.dart';
 import '../music/music_tab.dart';
 import 'entry_view.dart';
 
@@ -27,6 +28,8 @@ class DisplayPreferences {
     this.sortByType = const {},
     this.filteredSort = LibrarySort.newestAdded,
     this.artistSort = LibrarySort.yearOldest,
+    this.musicArtistsSort = ArtistsSort.nameAz,
+    this.musicSortByTab = const {},
     this.hiddenSeriesParts = const {},
     this.shownSeriesParts = const {},
     this.hiddenUpcoming = const {},
@@ -71,6 +74,15 @@ class DisplayPreferences {
   /// Order of the albums and songs on an artist's screen (Music › Artist, text
   /// view).
   final LibrarySort artistSort;
+
+  /// Order of the music list's Artists tab (Library › Music: sort menu,
+  /// artists).
+  final ArtistsSort musicArtistsSort;
+
+  /// Sort of the music list's Albums and Songs tabs, each remembered on its
+  /// own (Library › Music: sort menu, albums and songs); missing means
+  /// title, A to Z.
+  final Map<MusicTab, LibrarySort> musicSortByTab;
 
   /// The parts not in the library that the owner chose not to see, per
   /// series (Library › Series page: choose what to show): the series'
@@ -119,6 +131,10 @@ class DisplayPreferences {
   LibrarySort sortFor(MediaType type) =>
       sortByType[type] ?? LibrarySort.newestAdded;
 
+  /// The sort of the Albums or the Songs tab.
+  LibrarySort sortForMusic(MusicTab tab) =>
+      musicSortByTab[tab] ?? LibrarySort.titleAz;
+
   DisplayPreferences copyWith({
     ThemeMode? themeMode,
     AccentOption? accent,
@@ -130,6 +146,8 @@ class DisplayPreferences {
     Map<MediaType, LibrarySort>? sortByType,
     LibrarySort? filteredSort,
     LibrarySort? artistSort,
+    ArtistsSort? musicArtistsSort,
+    Map<MusicTab, LibrarySort>? musicSortByTab,
     Map<String, Set<String>>? hiddenSeriesParts,
     Map<String, Set<String>>? shownSeriesParts,
     Set<String>? hiddenUpcoming,
@@ -146,6 +164,8 @@ class DisplayPreferences {
     sortByType: sortByType ?? this.sortByType,
     filteredSort: filteredSort ?? this.filteredSort,
     artistSort: artistSort ?? this.artistSort,
+    musicArtistsSort: musicArtistsSort ?? this.musicArtistsSort,
+    musicSortByTab: musicSortByTab ?? this.musicSortByTab,
     hiddenSeriesParts: hiddenSeriesParts ?? this.hiddenSeriesParts,
     shownSeriesParts: shownSeriesParts ?? this.shownSeriesParts,
     hiddenUpcoming: hiddenUpcoming ?? this.hiddenUpcoming,
@@ -169,6 +189,10 @@ class DisplayPreferences {
     'sort': {for (final e in sortByType.entries) e.key.name: e.value.name},
     'filtered_sort': filteredSort.name,
     'artist_sort': artistSort.name,
+    'music_artists_sort': musicArtistsSort.name,
+    'music_sort': {
+      for (final e in musicSortByTab.entries) e.key.name: e.value.name,
+    },
     'hidden_series_parts': _partsJson(hiddenSeriesParts),
     'shown_series_parts': _partsJson(shownSeriesParts),
     'hidden_upcoming': [...hiddenUpcoming]..sort(),
@@ -230,13 +254,21 @@ class DisplayPreferences {
       comingSoonTab:
           byName(ComingSoonTab.values, json['coming_soon_tab']) ??
           defaults.comingSoonTab,
-      sortByType: mapOf(json['sort'], MediaType.values, LibrarySort.values),
+      // Artist, A to Z is the music tabs' alone.
+      sortByType: mapOf(json['sort'], MediaType.values, LibrarySort.general),
       filteredSort:
-          byName(LibrarySort.values, json['filtered_sort']) ??
+          byName(LibrarySort.general, json['filtered_sort']) ??
           defaults.filteredSort,
       artistSort:
-          byName(LibrarySort.values, json['artist_sort']) ??
+          byName(LibrarySort.general, json['artist_sort']) ??
           defaults.artistSort,
+      musicArtistsSort:
+          byName(ArtistsSort.values, json['music_artists_sort']) ??
+          defaults.musicArtistsSort,
+      musicSortByTab: mapOf(json['music_sort'], const [
+        MusicTab.albums,
+        MusicTab.songs,
+      ], LibrarySort.values),
       hiddenSeriesParts: _partsFromJson(json['hidden_series_parts']),
       shownSeriesParts: _partsFromJson(json['shown_series_parts']),
       hiddenUpcoming: switch (json['hidden_upcoming']) {
@@ -264,6 +296,8 @@ class DisplayPreferences {
       mapEquals(other.sortByType, sortByType) &&
       other.filteredSort == filteredSort &&
       other.artistSort == artistSort &&
+      other.musicArtistsSort == musicArtistsSort &&
+      mapEquals(other.musicSortByTab, musicSortByTab) &&
       _sameParts(other.hiddenSeriesParts, hiddenSeriesParts) &&
       _sameParts(other.shownSeriesParts, shownSeriesParts) &&
       setEquals(other.hiddenUpcoming, hiddenUpcoming) &&
@@ -291,6 +325,10 @@ class DisplayPreferences {
     Object.hashAllUnordered(sortByType.entries.map((e) => (e.key, e.value))),
     filteredSort,
     artistSort,
+    musicArtistsSort,
+    Object.hashAllUnordered(
+      musicSortByTab.entries.map((e) => (e.key, e.value)),
+    ),
     _partsHash(hiddenSeriesParts),
     _partsHash(shownSeriesParts),
     Object.hashAllUnordered(hiddenUpcoming),
@@ -358,6 +396,13 @@ class DisplayPreferencesNotifier extends Notifier<DisplayPreferences> {
 
   void setArtistSort(LibrarySort sort) =>
       state = state.copyWith(artistSort: sort);
+
+  void setMusicArtistsSort(ArtistsSort sort) =>
+      state = state.copyWith(musicArtistsSort: sort);
+
+  void setMusicSort(MusicTab tab, LibrarySort sort) => state = state.copyWith(
+    musicSortByTab: {...state.musicSortByTab, tab: sort},
+  );
 
   void setSort(MediaType type, LibrarySort sort) =>
       state = state.copyWith(sortByType: {...state.sortByType, type: sort});

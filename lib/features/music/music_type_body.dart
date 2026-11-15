@@ -5,7 +5,6 @@ import '../../data/models/entry.dart';
 import '../../data/models/entry_kind.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
-import '../../widgets/labels.dart';
 import '../../widgets/pinned_sliver.dart';
 import '../../widgets/chips.dart';
 import '../library/cover_grid_tile.dart';
@@ -16,6 +15,7 @@ import '../library/entry_sections.dart';
 import '../library/home_type_provider.dart';
 import '../library/library_sort.dart';
 import '../library/sectioned_list_body.dart';
+import '../library/sort_sheet.dart';
 import '../library/view_menu.dart';
 import '../settings/display_preferences.dart';
 import '../settings/entry_view.dart';
@@ -25,10 +25,10 @@ import 'music_tab.dart';
 
 /// The music list with Music picked on the home (Library › Music: artists, text
 /// view; Music: artists, list with photos; Music: artists, grid with photos):
-/// an Artists / Albums / Songs toggle instead of status segments, one count
-/// line for all three, no sort, and a view button whose choice is kept per tab.
-/// Albums and Songs are flat lists in title order; the Songs tab lists song
-/// entries only, not the songs rated on albums.
+/// an Artists / Albums / Songs toggle instead of status segments, a count of
+/// the tab shown, and a sort and a view button whose choices are kept per tab
+/// (Music: sort menu, artists; Music: sort menu, albums and songs). The Songs
+/// tab lists song entries only, not the songs rated on albums.
 class MusicTypeBody extends ConsumerStatefulWidget {
   const MusicTypeBody({
     super.key,
@@ -61,13 +61,16 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
     final color = LibraryColors.of(context).music;
     final prefs = ref.watch(displayPreferencesProvider);
     final view = prefs.viewForMusic(tab);
-    final artists = artistIndex(widget.entries);
+    final artistsSort = prefs.musicArtistsSort;
+    final artists = artistIndex(widget.entries, sort: artistsSort);
     final albums = widget.entries
         .where((e) => e.kind != EntryKind.song)
         .toList();
     final songs = widget.entries
         .where((e) => e.kind == EntryKind.song)
         .toList();
+    final notifier = ref.read(displayPreferencesProvider.notifier);
+    final sort = prefs.sortForMusic(tab);
 
     final tabs = SliverToBoxAdapter(
       child: Padding(
@@ -93,22 +96,36 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         padding: const EdgeInsets.fromLTRB(20, 0, 10, 0),
         child: Row(
           children: [
+            Text(
+              musicCountLabel(tab, switch (tab) {
+                MusicTab.artists => artists.length,
+                MusicTab.albums => albums.length,
+                MusicTab.songs => songs.length,
+              }),
+              style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
+            ),
+            // The count is short; a long sort label cuts off before it
+            // pushes the view button out.
             Expanded(
-              child: Text(
-                musicCountLabel(
-                  artists: artists.length,
-                  albums: albums.length,
-                  songs: songs.length,
-                ),
-                style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: tab == MusicTab.artists
+                    ? SortButton<ArtistsSort>(
+                        current: artistsSort,
+                        options: ArtistsSort.values,
+                        onChanged: notifier.setMusicArtistsSort,
+                      )
+                    : SortButton<LibrarySort>(
+                        current: sort,
+                        options: LibrarySort.values,
+                        onChanged: (s) => notifier.setMusicSort(tab, s),
+                      ),
               ),
             ),
             ViewMenuButton(
               current: view,
               photos: tab != MusicTab.albums,
-              onChanged: (v) => ref
-                  .read(displayPreferencesProvider.notifier)
-                  .setMusicView(tab, v),
+              onChanged: (v) => notifier.setMusicView(tab, v),
             ),
           ],
         ),
@@ -121,6 +138,7 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
       MusicTab.artists => ArtistList(
         key: const ValueKey(MusicTab.artists),
         artists: artists,
+        sectioned: artistsSort == ArtistsSort.nameAz,
         view: view,
         color: color,
         onTap: widget.onOpenArtist,
@@ -130,8 +148,8 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
       ),
       MusicTab.albums => EntryListBody(
         key: const ValueKey(MusicTab.albums),
-        entries: sortEntries(albums, LibrarySort.titleAz),
-        sort: LibrarySort.titleAz,
+        entries: sortEntries(albums, sort),
+        sort: sort,
         view: view,
         color: color,
         caption: (e) => e.creator ?? '',
@@ -142,7 +160,8 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
       ),
       MusicTab.songs => SongList(
         key: const ValueKey(MusicTab.songs),
-        songs: sortEntries(songs, LibrarySort.titleAz),
+        songs: sortEntries(songs, sort),
+        sort: sort,
         view: view,
         color: color,
         onTap: widget.onOpenEntry,
@@ -154,12 +173,14 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
   }
 }
 
-/// The artists in the chosen view, with letter sections and the alphabet
-/// rail when the list is long (Library › Long list: music artists A–Z).
+/// The artists in the chosen view. By name they have letter sections and the
+/// alphabet rail when the list is long (Library › Long list: music artists
+/// A–Z); the other orders are one list with no headings and no rail.
 class ArtistList extends StatelessWidget {
   const ArtistList({
     super.key,
     required this.artists,
+    this.sectioned = true,
     required this.view,
     required this.color,
     required this.onTap,
@@ -168,7 +189,11 @@ class ArtistList extends StatelessWidget {
     this.pinnedExtent = 0,
   });
 
+  /// In the order to show.
   final List<ArtistSummary> artists;
+
+  /// Whether [artists] are in name order, and so get letter sections.
+  final bool sectioned;
   final EntryView view;
   final Color color;
   final void Function(ArtistSummary artist) onTap;
@@ -184,7 +209,7 @@ class ArtistList extends StatelessWidget {
         ArtistRow(artist: artist, photo: photo, onTap: () => onTap(artist));
     return SectionedListBody<ArtistSummary>(
       itemCount: artists.length,
-      sections: artistSections(artists),
+      sections: sectioned ? artistSections(artists) : const [],
       grid: grid,
       rowExtent: ArtistRow.extent(
         photo: photo,
@@ -199,7 +224,7 @@ class ArtistList extends StatelessWidget {
       controller: controller,
       leadingSlivers: leadingSlivers,
       pinnedExtent: pinnedExtent,
-      layoutKey: (view, artists.length),
+      layoutKey: (view, artists.length, sectioned),
       rowBuilder: (context, artist) => row(artist),
       flatSlivers: grid
           ? [
@@ -244,6 +269,7 @@ class SongList extends StatelessWidget {
   const SongList({
     super.key,
     required this.songs,
+    this.sort = LibrarySort.titleAz,
     required this.view,
     required this.color,
     required this.onTap,
@@ -252,8 +278,9 @@ class SongList extends StatelessWidget {
     this.pinnedExtent = 0,
   });
 
-  /// Song entries in title order.
+  /// Song entries, already sorted by [sort].
   final List<Entry> songs;
+  final LibrarySort sort;
   final EntryView view;
   final Color color;
   final void Function(Entry entry) onTap;
@@ -274,7 +301,7 @@ class SongList extends StatelessWidget {
 
     return SectionedListBody<Entry>(
       itemCount: songs.length,
-      sections: sectionsByTitle(songs, (e) => e.title),
+      sections: sectionEntries(songs, sort),
       grid: grid,
       rowExtent: EntryListMetrics.rowHeight(
         view,
@@ -288,7 +315,7 @@ class SongList extends StatelessWidget {
       controller: controller,
       leadingSlivers: leadingSlivers,
       pinnedExtent: pinnedExtent,
-      layoutKey: (view, songs.length),
+      layoutKey: (view, songs.length, sort),
       rowBuilder: (context, item) => row(item),
       flatSlivers: grid
           ? [

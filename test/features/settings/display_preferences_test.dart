@@ -10,6 +10,7 @@ import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/library/coming_soon_tab.dart';
 import 'package:library_app/features/library/library_sort.dart';
+import 'package:library_app/features/music/artist_index.dart';
 import 'package:library_app/features/music/music_tab.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
@@ -87,6 +88,8 @@ void main() {
     sortByType: const {MediaType.books: LibrarySort.titleAz},
     filteredSort: LibrarySort.yearNewest,
     artistSort: LibrarySort.titleAz,
+    musicArtistsSort: ArtistsSort.mostAlbums,
+    musicSortByTab: const {MusicTab.albums: LibrarySort.artistAz},
     upcomingWifiOnly: true,
     hiddenSeriesParts: const {
       'books:dune': {'wikidata:Q7', 'wikidata:Q8'},
@@ -104,6 +107,24 @@ void main() {
       const DisplayPreferences(),
     );
     expect(DisplayPreferences.fromJson(const {}), const DisplayPreferences());
+  });
+
+  test('the music tabs keep their own sorts; Artist, A to Z is theirs', () {
+    const prefs = DisplayPreferences();
+    expect(prefs.musicArtistsSort, ArtistsSort.nameAz);
+    expect(prefs.sortForMusic(MusicTab.albums), LibrarySort.titleAz);
+    expect(prefs.sortForMusic(MusicTab.songs), LibrarySort.titleAz);
+    final read = DisplayPreferences.fromJson(const {
+      'sort': {'movies': 'artistAz'},
+      'filtered_sort': 'artistAz',
+      'artist_sort': 'artistAz',
+      'music_sort': {'songs': 'artistAz', 'artists': 'titleAz'},
+    });
+    expect(read.sortFor(MediaType.movies), LibrarySort.newestAdded);
+    expect(read.filteredSort, prefs.filteredSort);
+    expect(read.artistSort, prefs.artistSort);
+    expect(read.musicSortByTab, {MusicTab.songs: LibrarySort.artistAz});
+    expect(read.sortForMusic(MusicTab.albums), LibrarySort.titleAz);
   });
 
   test('unknown or broken values fall back to the defaults', () {

@@ -28,3 +28,15 @@ extension MusicTabLabel on MusicTab {
     MusicTab.songs => 'Songs',
   };
 }
+
+/// The count line of the music list, for the tab shown alone (Library › Music:
+/// sort menu, artists): "348 artists", "1 album", "83 songs". Songs are the
+/// saved song entries, never the tracks rated on an album.
+String musicCountLabel(MusicTab tab, int count) {
+  final (one, many) = switch (tab) {
+    MusicTab.artists => ('artist', 'artists'),
+    MusicTab.albums => ('album', 'albums'),
+    MusicTab.songs => ('song', 'songs'),
+  };
+  return '$count ${count == 1 ? one : many}';
+}

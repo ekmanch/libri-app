@@ -1069,6 +1069,50 @@ Future<void> walkGamePlatform(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
 }
 
+/// Library › Music: sort menu, artists; Music: albums, sorted by artist;
+/// Music: sort menu, albums and songs: the Artists tab's sheet and the tab by
+/// Most albums, then Albums as a list with covers by artist and its sheet.
+Future<void> walkMusicSort(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(FixtureLibraryRepository()),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await pickChip(tester, 'Music');
+  await tester.tap(find.text('Name, A to Z'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a54-music-sort-artists');
+  await tester.tap(find.text('Most albums'));
+  await tester.tap(find.text('Done'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a54-music-artists-most-albums');
+  await tester.tap(find.text('Albums'));
+  await tester.pumpAndSettle();
+  await pickView(tester, 'List with covers');
+  await tester.tap(find.text('Title, A to Z'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Artist, A to Z'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a54-music-sort-albums');
+  await tester.tap(find.text('Done'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 4);
+  await capture(tester, '${prefix}a54-music-albums-by-artist');
+}
+
 /// Add / edit entry › Music search: albums, … songs, … an artist's albums
 /// and … an artist's songs: New entry on Music with "ghost" typed, the
 /// switch flipped, then Ghost's row opened.
@@ -1248,6 +1292,14 @@ void main() {
 
   testWidgets('album tracks by hand at a larger text size', (tester) async {
     await walkTracks(tester, scale: 1.3);
+  });
+
+  testWidgets('music sort', (tester) async {
+    await walkMusicSort(tester);
+  });
+
+  testWidgets('music sort at a larger text size', (tester) async {
+    await walkMusicSort(tester, scale: 1.3);
   });
 
   testWidgets('music search', (tester) async {

@@ -125,6 +125,7 @@ class ArtistScreen extends ConsumerWidget {
                           );
                           final sort = SortButton(
                             current: prefs.artistSort,
+                            options: LibrarySort.general,
                             onChanged: (sort) => ref
                                 .read(displayPreferencesProvider.notifier)
                                 .setArtistSort(sort),

@@ -6,6 +6,8 @@ import 'package:library_app/dev/long_lists.dart';
 import 'package:library_app/features/library/cover_grid_tile.dart';
 import 'package:library_app/features/library/entry_list_body.dart';
 import 'package:library_app/features/library/library_home_screen.dart';
+import 'package:library_app/features/library/library_sort.dart';
+import 'package:library_app/features/music/artist_index.dart';
 import 'package:library_app/features/music/artist_screen.dart';
 import 'package:library_app/features/music/artist_tiles.dart';
 import 'package:library_app/features/music/music_tab.dart';
@@ -49,20 +51,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Music shows the artist tabs, one count line and no sort', (
+  testWidgets('Music shows the artist tabs, the tab\'s count and its sort', (
     tester,
   ) async {
     await pumpApp(tester, const LibraryHomeScreen());
     await pickMusic(tester);
     expect(find.byType(StatusChips), findsNothing);
     expect(find.byType(ChoiceChips<MusicTab>), findsOneWidget);
-    expect(
-      find.text(
-        '$artists artists, ${albums.length} albums, ${songs.length} songs',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Newest added'), findsNothing);
+    expect(find.text('$artists artists'), findsOneWidget);
+    expect(find.text('Name, A to Z'), findsOneWidget);
     expect(find.byTooltip('Change view'), findsOneWidget);
     // Lazily built, so only the rows on screen exist.
     expect(find.byType(ArtistRow), findsWidgets);
@@ -175,5 +172,107 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('VARIOUS ARTISTS'), findsOneWidget);
     expect(find.widgetWithText(ArtistRow, 'Various Artists'), findsOneWidget);
+  });
+
+  testWidgets('the count line counts the tab shown', (tester) async {
+    await pumpApp(tester, const LibraryHomeScreen());
+    await pickMusic(tester);
+    await pickTab(tester, 'Albums');
+    expect(find.text('${albums.length} albums'), findsOneWidget);
+    expect(find.text('$artists artists'), findsNothing);
+    await pickTab(tester, 'Songs');
+    // Song entries only: the tracks rated on Dirt are not counted.
+    expect(find.text('${songs.length} songs'), findsOneWidget);
+  });
+
+  testWidgets('each tab offers its own sorts and keeps its own choice', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester, const LibraryHomeScreen());
+    DisplayPreferences prefs() => container.read(displayPreferencesProvider);
+    await pickMusic(tester);
+
+    await tester.tap(find.text('Name, A to Z'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sort by'), findsOneWidget);
+    expect(find.text('Most songs'), findsOneWidget);
+    expect(find.text('Artist, A to Z'), findsNothing);
+    await tester.tap(find.text('Most albums'));
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(prefs().musicArtistsSort, ArtistsSort.mostAlbums);
+    expect(find.text('Most albums'), findsOneWidget);
+
+    await pickTab(tester, 'Albums');
+    await tester.tap(find.text('Title, A to Z'));
+    await tester.pumpAndSettle();
+    expect(find.text('Name, A to Z'), findsNothing);
+    expect(find.text('Rating, highest first'), findsOneWidget);
+    await tester.tap(find.text('Artist, A to Z'));
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(prefs().sortForMusic(MusicTab.albums), LibrarySort.artistAz);
+    final rows = tester
+        .widgetList<EntryRow>(find.byType(EntryRow))
+        .map((r) => r.title)
+        .toList();
+    expect(
+      rows,
+      sortEntries(
+        albums,
+        LibrarySort.artistAz,
+      ).take(rows.length).map((e) => e.title),
+    );
+
+    // Songs and Artists are as they were.
+    expect(prefs().sortForMusic(MusicTab.songs), LibrarySort.titleAz);
+    await pickTab(tester, 'Songs');
+    expect(find.text('Title, A to Z'), findsOneWidget);
+    await tester.tap(find.text('Title, A to Z'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Year, newest first'));
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(prefs().sortForMusic(MusicTab.songs), LibrarySort.yearNewest);
+    expect(prefs().sortForMusic(MusicTab.albums), LibrarySort.artistAz);
+    expect(prefs().musicArtistsSort, ArtistsSort.mostAlbums);
+  });
+
+  testWidgets('artists by anything but name are one list with no rail', (
+    tester,
+  ) async {
+    final container = await pumpApp(
+      tester,
+      const LibraryHomeScreen(),
+      library: padForLongLists(fixture),
+    );
+    container
+        .read(displayPreferencesProvider.notifier)
+        .setMusicArtistsSort(ArtistsSort.mostAlbums);
+    await pickMusic(tester);
+    expect(find.byKey(EntryListBody.railKey), findsNothing);
+    expect(find.text('A'), findsNothing);
+    final counts = tester
+        .widgetList<ArtistRow>(find.byType(ArtistRow))
+        .map((r) => r.artist.albums.length)
+        .toList();
+    expect(counts, [...counts]..sort((a, b) => b.compareTo(a)));
+  });
+
+  testWidgets('long albums by artist get the artists\' letters on the rail', (
+    tester,
+  ) async {
+    final container = await pumpApp(
+      tester,
+      const LibraryHomeScreen(),
+      library: padForLongLists(fixture),
+    );
+    container
+        .read(displayPreferencesProvider.notifier)
+        .setMusicSort(MusicTab.albums, LibrarySort.artistAz);
+    await pickMusic(tester);
+    await pickTab(tester, 'Albums');
+    expect(find.byKey(EntryListBody.railKey), findsOneWidget);
+    expect(find.text('VA'), findsOneWidget);
   });
 }

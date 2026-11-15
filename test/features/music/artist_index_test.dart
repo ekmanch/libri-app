@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
+import 'package:library_app/features/library/library_sort.dart';
 import 'package:library_app/features/music/artist_index.dart';
 
 import '../../helpers/pump_app.dart';
@@ -67,5 +69,86 @@ void main() {
     expect(sections.map((s) => s.label), contains('B'));
     final b = sections.firstWhere((s) => s.label == 'B');
     expect(b.items.map((a) => a.name), ['The Beatles']);
+  });
+
+  group('the orders of the Artists tab', () {
+    Entry album(String artist, String title, DateTime added) => dirt.copyWith(
+      id: 'music/$title',
+      title: title,
+      creator: artist,
+      added: added,
+      tracks: null,
+    );
+    Entry song(String artist, String title, DateTime added) =>
+        album(artist, title, added).copyWith(kind: EntryKind.song);
+    final day1 = DateTime(2026, 1, 1), day2 = DateTime(2026, 1, 2);
+    // In the library's order.
+    final entries = [
+      album('Zebra', 'z1', day1),
+      album('The Beatles', 'b1', day1),
+      album('The Beatles', 'b2', day1),
+      song('Abba', 'a1', day2),
+      song('Abba', 'a2', day1),
+      song('Abba', 'a3', day1),
+      album('Various Artists', 'v1', day1),
+      song('Cher', 'c1', day1),
+    ];
+    List<String> names(ArtistsSort sort) => [
+      for (final a in artistIndex(entries, sort: sort)) a.name,
+    ];
+
+    test('the menu, in order', () {
+      expect(ArtistsSort.values.map((s) => s.label), [
+        'Name, A to Z',
+        'Newest added',
+        'Most albums',
+        'Most songs',
+      ]);
+    });
+
+    test('by name is the default', () {
+      expect(artistIndex(entries).map((a) => a.name), [
+        'Abba',
+        'The Beatles',
+        'Cher',
+        'Zebra',
+        'Various Artists',
+      ]);
+    });
+
+    test('newest added: the newest album or song, later in the library '
+        'first on the same day', () {
+      expect(names(ArtistsSort.newestAdded), [
+        'Abba',
+        'Cher',
+        'Various Artists',
+        'The Beatles',
+        'Zebra',
+      ]);
+    });
+
+    test('most albums, ties by name with Various Artists last', () {
+      expect(names(ArtistsSort.mostAlbums), [
+        'The Beatles',
+        'Zebra',
+        'Various Artists',
+        'Abba',
+        'Cher',
+      ]);
+    });
+
+    test('most songs counts song entries, never tracks rated on an album', () {
+      // Dirt has rated tracks and no song entry.
+      expect(dirt.tracks, isNotEmpty);
+      final list = artistIndex([...entries, dirt], sort: ArtistsSort.mostSongs);
+      expect(list.map((a) => a.name), [
+        'Abba',
+        'Cher',
+        'Alice in Chains',
+        'The Beatles',
+        'Zebra',
+        'Various Artists',
+      ]);
+    });
   });
 }

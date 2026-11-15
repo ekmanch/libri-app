@@ -73,6 +73,9 @@ Everything here was decided during the design phase. Screen names ("Library › 
 | Library › View menu open | View menu | Text, List with covers, Grid with covers for media types and music albums; Text, List with photos, Grid with photos for music artists and songs. The screen behind is dimmed; the chosen view is highlighted and checked. |
 | Library › Music: artists, list with photos | Music, list with photos | |
 | Library › Music: artists, grid with photos | Music, grid | |
+| Library › Music: sort menu, artists | The Artists tab's Sort by sheet | Canvas revision of 2026-11-15; see section 5, Count and sorting |
+| Library › Music: albums, sorted by artist | Albums by "Artist, A to Z", list with covers | |
+| Library › Music: sort menu, albums and songs | The Albums and Songs tabs' Sort by sheet | |
 | Music › Artist, with photos | One artist, with photos | |
 | Library › Movies, list with covers | Type picked, list with covers | |
 | Library › Movies, grid with covers | Type picked, grid with covers | Title on up to two lines, then the year only, never the status ("Not released yet" without a year); music grids show the artist instead. The check badge on the cover's upper-right corner means Done. Library › Long grid: fast-scroll thumb follows the same rule. |
@@ -157,7 +160,7 @@ Plan rules:
 
 | Mockup | What it is |
 |---|---|
-| Library › Sort menu | Sort menu: Newest added, Title A to Z, Year newest first, Year oldest first, Rating highest first (10 down to 1, unrated last, ties by title; albums and songs by their own rating). |
+| Library › Sort menu | Sort menu: Newest added, Title A to Z, Year newest first, Year oldest first, Rating highest first (10 down to 1, unrated last, ties by title; albums and songs by their own rating). The music list has its own choices per tab (section 5, Count and sorting). |
 | Plans › When: a day or a period | When: a day or a period |
 | Plans › Plan menu | Plan menu |
 | Plans › Remove from plan, or everywhere | Remove from plan, or everywhere |
@@ -190,8 +193,12 @@ The First run screen has these states: Splash, Welcome ("Welcome to Libri"), Con
 
 - Music is tracked at album level. A single song can also be an entry (`kind: "song"`).
 - **Library › Music: artists, text view** has three tabs: Artists (default), Albums, Songs. Albums and Songs are flat lists.
+- Count and sorting (canvas revision of 2026-11-15, the n_musicsort note; Library › Music: sort menu, artists; Music: albums, sorted by artist; Music: sort menu, albums and songs). The count line counts the tab shown and nothing else: "348 artists", "560 albums" or "83 songs" (one line for all three, "17 artists, 13 albums, 5 songs", until then). Songs counts saved song entries only, never tracks rated on an album. Next to the view button sits the sort link with the "Sort by" sheet the other types have. Artists, Albums and Songs each keep their own sort, remembered separately on the device; changing one never changes another.
+  - Artists: "Name, A to Z" (the default, with the letter headings and the A–Z rail of the bullets below), "Newest added" (by the artist's most recently added album or song; on the same day the one later in the library first, as in the entry lists), "Most albums" and "Most songs" (by how many are saved, ties by name; songs are saved song entries). The last three are one list with no headings, no rail and no fast-scroll thumb.
+  - Albums and Songs: "Newest added", "Title, A to Z" (the default), "Artist, A to Z", "Year, newest first", "Year, oldest first", "Rating, highest first". The headings and the rail of a long list follow the sort as in every type list.
+  - "Artist, A to Z" exists for these two tabs only. It orders by artist (leading "The" ignored, Various Artists last, no artist under "Unknown artist"), then by year within an artist, oldest first with no year last, then by title. With it the rail and the letter headings follow the artist's name, and Various Artists is its own last section ("VA" on the rail).
 - Every artist with at least one album or song appears in the same list. The row says what is saved: "7 albums", "2 albums, 3 songs", "1 song".
-- Sorting ignores a leading "The" but displays the full name. Names starting with a digit go under "#".
+- Sorting by name ignores a leading "The" but displays the full name. Names starting with a digit go under "#".
 - "Various Artists" (today's "Compilations") is pinned at the very end, after Z.
 - An alphabet rail on the right jumps to a letter, under the same rule as every long list (the Library › Long list, Long grid and Filtered results states: three screens tall, two sections or more). The text and list views get letter headers; the grid has none and uses the fast-scroll thumb with its letter bubble instead.
 - **One artist** shows an Albums section, then a Songs section.
@@ -226,6 +233,7 @@ Ported from the desktop app (libri-kde `docs/DESIGN.md`, "Album tracks, by hand"
 ## 6. Views and covers
 
 - Each list can be shown as Text, List with photos, or Grid. The view button sits next to sort/search and opens the menu (Library › View menu open).
+- The sort of the music list is remembered per tab too (`music_artists_sort` and `music_sort` in `preferences.json`; section 5, Count and sorting).
 - The choice is remembered per type, for music per tab, for Library › Coming soon on its own (Text or List with covers, no grid; Coming soon: list with covers; canvas revision of 2026-11-04), and for Library › Home on its own (List with covers, the default, or Text, no grid; `home_view` in `preferences.json`; Home: view menu; canvas revision of 2026-11-05). It is stored on the device. So is the tab of Library › Coming soon last picked (`coming_soon_tab` in `preferences.json`: `library`, the default, `discover` or `all`; canvas revision of 2026-11-05). So are the parts of a series the owner hid (Library › Series page: choose what to show), when each entry last changed as this phone saw it (`changes.json`, for the home's In progress order, Library › Home), the parts still to come of the series the owner follows, as the daily series check found them (`upcoming_parts.json` under the cache folder, for Library › Coming soon: Discover tab; section 10c), and, with Settings › Upcoming releases (built 2026-10-30), the Only on Wi-Fi switch (`upcoming_wifi_only` in `preferences.json`), and under the cache folder what the creator check knows (`creator_status.json`: each creator's provider id and whether they are no longer active), the releases it found (`found_releases.json`), its day (`creator_check.json`) and the scheduler's last run (`check_schedule.json`: the last completed day, when it last checked, how many releases were new). What is about the library rather than this phone moves to `settings.json` in the library repo, synced like `library.json` (section 8): the timeline and seasonal touches defaults, whether releases are checked, which kinds are followed, the creators unfollowed and the rows marked Not interested.
 - Artist photos are round. Covers are poster-shaped for movies, shows, books and anime, and square for albums. The games shape is open.
 - With the text view chosen, detail screens stay text-only (Music › Artist, text view). With a photo view chosen, they show images (Music › Artist, with photos).

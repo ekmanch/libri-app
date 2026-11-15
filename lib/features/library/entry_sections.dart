@@ -42,8 +42,9 @@ const _months = [
 /// Groups an already sorted list into sections that follow the sort: decades
 /// for the year orders (with "Older" before 1960 and a last section for
 /// entries without a date), months of the current year and then whole years
-/// for newest added, first letters for title order with "#" for digits, and
-/// the ratings that exist (10 down to 1, then Unrated) for the rating order.
+/// for newest added, first letters for title order with "#" for digits, the
+/// artist's letter for artist order, and the ratings that exist (10 down to
+/// 1, then Unrated) for the rating order.
 List<EntrySection> sectionEntries(
   List<Entry> sorted,
   LibrarySort sort, {
@@ -111,6 +112,25 @@ EntrySection _keyOf(Entry entry, LibrarySort sort, DateTime now) {
       );
     case LibrarySort.titleAz:
       final letter = titleLetter(entry.title);
+      return EntrySection(
+        label: letter,
+        railLabel: letter,
+        bubbleLabel: letter,
+        entries: const [],
+      );
+    case LibrarySort.artistAz:
+      // The artist's letter, as the Artists tab has it; "Various Artists"
+      // is its own last section.
+      final name = artistNameOf(entry);
+      if (isVariousArtists(name)) {
+        return const EntrySection(
+          label: variousArtistsName,
+          railLabel: 'VA',
+          bubbleLabel: variousArtistsName,
+          entries: [],
+        );
+      }
+      final letter = titleLetter(artistSortKey(name));
       return EntrySection(
         label: letter,
         railLabel: letter,
