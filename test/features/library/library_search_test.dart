@@ -71,6 +71,28 @@ void main() {
     expect(counts, [...counts]..sort((a, b) => b.compareTo(a)));
   });
 
+  test('picked tags lead the row, filled, whatever is typed', () {
+    final music = fixture.entriesOfType(MediaType.music);
+    const picked = LibraryFilter(tags: {'classic'});
+    // Nothing typed: the picked tag alone.
+    final alone = matchingTags(fixture, music, '', picked: picked);
+    expect(alone.map((t) => (t.name, t.picked)), [('classic', true)]);
+    expect(
+      alone.single.count,
+      music.where((e) => e.tags.contains('classic')).length,
+    );
+    // A query that does not match it: it stays, first.
+    final typed = matchingTags(fixture, music, 'ro', picked: picked);
+    expect(typed.first.name, 'classic');
+    expect(typed.first.picked, isTrue);
+    expect(
+      typed.skip(1).map((t) => t.name),
+      containsAll(['rock', 'electronic']),
+    );
+    expect(typed.skip(1).every((t) => !t.picked), isTrue);
+    expect(matchingTags(fixture, music, ''), isEmpty);
+  });
+
   test('a tag in several categories is one match per category', () {
     final tags = matchingTags(fixture, fixture.entries, 'clint');
     expect(tags.map((t) => t.label), [

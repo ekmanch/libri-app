@@ -16,7 +16,7 @@ import '../library/entry_list_body.dart';
 import '../library/entry_list_views.dart';
 import '../library/entry_sections.dart';
 import '../library/home_type_provider.dart';
-import '../library/library_search.dart';
+import '../library/library_filter.dart';
 import '../library/library_sort.dart';
 import '../library/search_results.dart';
 import '../library/sectioned_list_body.dart';
@@ -45,17 +45,25 @@ class MusicTypeBody extends ConsumerStatefulWidget {
     this.controller,
     this.leadingSlivers = const [],
     this.search,
+    this.narrowed,
+    this.narrowing,
   });
 
-  /// Set while the list is searched (Library › Search: Music › Artists;
-  /// Search: the query follows you to Albums): each tab is narrowed to its
-  /// matches and says how many it has, the count reads "1 of 348 artists",
-  /// and the lists are flat, with the matching tags above and the other
-  /// types' results under them.
+  /// Set while the list is searched or narrowed to a tag (Library › Search:
+  /// Music › Artists; Search: the query follows you to Albums; Search: a
+  /// tag finds artists): each tab is narrowed to its matches and says how
+  /// many it has, the count reads "1 of 348 artists", and the lists are
+  /// flat, with the matching tags above and the other types' results under
+  /// them.
   final ListSearch? search;
 
   /// The visible music entries.
   final List<Entry> entries;
+
+  /// What a filter that narrows the list in place ([narrowing]) leaves of
+  /// it, before the picked tags, which are [search]'s; null without one.
+  final List<Entry>? narrowed;
+  final LibraryFilter? narrowing;
   final void Function(Entry entry) onOpenEntry;
   final void Function(ArtistSummary artist) onOpenArtist;
 
@@ -82,18 +90,31 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
     final view = prefs.viewForMusic(tab);
     final artistsSort = prefs.musicArtistsSort;
     final search = widget.search;
-    final q = search?.q;
+    // Null when nothing is typed: a tag alone can be what is searched.
+    final q = search == null || search.q.isEmpty ? null : search.q;
+    final narrowing = widget.narrowing;
     final allArtists = artistIndex(widget.entries, sort: artistsSort);
-    // An artist is found by name; albums and songs as every entry is.
-    final artists = q == null
-        ? allArtists
-        : [
-            for (final artist in allArtists)
-              if (artist.name.toLowerCase().contains(q)) artist,
-          ];
-    final matching = q == null
-        ? widget.entries
-        : searchEntries(widget.entries, q);
+    final inList = widget.narrowed ?? widget.entries;
+    final matching = search == null ? inList : search.apply(inList);
+    // An artist is listed when their name matches, or when any of their
+    // albums or songs is a result, by title or by tag, as on the desktop:
+    // "classic" lists the artists who have something tagged that way. With
+    // a tag picked or a filter on, only through such an album or song.
+    final List<ArtistSummary> artists;
+    if (search == null && narrowing == null) {
+      artists = allArtists;
+    } else {
+      final found = {for (final entry in matching) entry.id};
+      final byName =
+          q != null && narrowing == null && search!.picked.tags.isEmpty;
+      artists = [
+        for (final artist in allArtists)
+          if ((byName && artist.name.toLowerCase().contains(q)) ||
+              artist.albums.any((e) => found.contains(e.id)) ||
+              artist.songs.any((e) => found.contains(e.id)))
+            artist,
+      ];
+    }
     bool isSong(Entry e) => e.kind == EntryKind.song;
     final albums = matching.where((e) => !isSong(e)).toList();
     final songs = matching.where(isSong).toList();
@@ -143,7 +164,9 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
               // While searching each tab says how many it found.
               ChoiceChipOption(
                 t,
-                search == null ? t.label : '${t.label} ${shownOf(t)}',
+                search == null && narrowing == null
+                    ? t.label
+                    : '${t.label} ${shownOf(t)}',
               ),
           ],
           selected: tab,
@@ -163,7 +186,7 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         child: Row(
           children: [
             Text(
-              search == null
+              search == null && narrowing == null
                   ? musicCountLabel(tab, total)
                   // Album tracks are not among the saved songs the total
                   // counts, so with them the line is the number found.
@@ -207,7 +230,7 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: SearchTagRow(tags: search.tags, onTap: search.onOpenTag),
+            child: SearchTagRow(tags: search.tags, onTap: search.onPickTag),
           ),
         ),
     ];
@@ -223,7 +246,7 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
         ),
     ];
 
-    if (search != null && shownOf(tab) == 0) {
+    if (q != null && shownOf(tab) == 0) {
       return CustomScrollView(
         key: ValueKey((tab, 'empty')),
         controller: widget.controller,
@@ -231,12 +254,31 @@ class _MusicTypeBodyState extends ConsumerState<MusicTypeBody> {
           ...leading,
           SliverToBoxAdapter(
             child: SearchEmpty(
-              title: noMatchTitle(tab.label.toLowerCase(), search.query),
+              title: noMatchTitle(tab.label.toLowerCase(), search!.what),
               search: search,
+              // Where the matches are: "There are matches under Albums."
+              tabs: [
+                for (final t in MusicTab.values)
+                  if (t != tab && shownOf(t) > 0) t.label,
+              ],
             ),
           ),
           const SliverPadding(
             padding: EdgeInsets.only(bottom: AppShell.contentBottomPadding),
+          ),
+        ],
+      );
+    }
+    if (narrowing != null && shownOf(tab) == 0) {
+      // The filter leaves nothing of this tab (Library › Empty states).
+      return CustomScrollView(
+        key: ValueKey((tab, 'filtered')),
+        controller: widget.controller,
+        slivers: [
+          ...leading,
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: FilterEmpty(filter: narrowing.copyWith(kinds: {?tab.kind})),
           ),
         ],
       );

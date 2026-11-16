@@ -171,19 +171,92 @@ void main() {
       expect(filter.toggleType(MediaType.movies).kinds, {EntryKind.album});
     });
 
-    test('one kind is a music tab; a status or both kinds are results', () {
+    test('one kind is a music tab; a status narrows the music view', () {
       const music = LibraryFilter(types: {MediaType.music});
       expect(music.typeView, (type: MediaType.music, status: null, kind: null));
+      expect(music.narrowing, LibraryFilter.none);
       expect(
         music.copyWith(kinds: {EntryKind.song}).typeView?.kind,
         EntryKind.song,
       );
       expect(
-        music.copyWith(kinds: {EntryKind.song, EntryKind.album}).typeView,
-        isNull,
+        music.copyWith(kinds: {EntryKind.song}).narrowing,
+        LibraryFilter.none,
       );
-      expect(music.copyWith(statuses: {EntryStatus.done}).typeView, isNull);
+      final both = music.copyWith(kinds: {EntryKind.song, EntryKind.album});
+      expect(both.typeView?.kind, isNull);
+      expect(both.narrowing, LibraryFilter.none);
+      final done = music.copyWith(statuses: {EntryStatus.done});
+      expect(done.typeView?.status, isNull);
+      expect(done.narrowing, done);
     });
+  });
+
+  group('a filter that names one type is that type\'s own view', () {
+    const movies = LibraryFilter(types: {MediaType.movies});
+
+    test('only several types or none are a results screen', () {
+      expect(LibraryFilter.none.showsResults, isFalse);
+      expect(movies.showsResults, isFalse);
+      expect(movies.copyWith(tags: {'horror'}).showsResults, isFalse);
+      expect(const LibraryFilter(tags: {'horror'}).showsResults, isTrue);
+      expect(
+        movies
+            .copyWith(types: {MediaType.movies, MediaType.shows})
+            .showsResults,
+        isTrue,
+      );
+    });
+
+    test('one status is the status chip; the rest narrows the list', () {
+      final done = movies.copyWith(statuses: {EntryStatus.done});
+      expect(done.typeView?.status, EntryStatus.done);
+      expect(done.narrowing, LibraryFilter.none);
+      final tagged = done.copyWith(tags: {'horror'});
+      expect(tagged.typeView?.status, EntryStatus.done);
+      expect(tagged.narrowing, movies.copyWith(tags: {'horror'}));
+      final two = movies.copyWith(
+        statuses: {EntryStatus.done, EntryStatus.want},
+      );
+      expect(two.typeView?.status, isNull);
+      expect(two.narrowing, two);
+      final decade = movies.copyWith(decades: {const Decade(1980)});
+      expect(decade.narrowing, decade);
+    });
+
+    test('the badge leaves out the type its tab shows', () {
+      expect(movies.copyWith(tags: {'horror'}).badge, 1);
+      expect(const LibraryFilter(tags: {'horror'}).badge, 1);
+      expect(
+        const LibraryFilter(
+          types: {MediaType.movies, MediaType.shows},
+          tags: {'horror'},
+        ).badge,
+        3,
+      );
+    });
+
+    test(
+      'a tag picked takes the place of the others; picked again it lifts',
+      () {
+        final horror = movies.withTagPicked('horror');
+        expect(horror.tags, {'horror'});
+        expect(horror.withTagPicked('classic').tags, {'classic'});
+        expect(horror.withTagPicked('horror'), movies);
+        final director = movies.withTagPicked(
+          'clint-eastwood',
+          TagCategory.directors,
+        );
+        expect(director.tagCategories, {
+          'clint-eastwood': {TagCategory.directors},
+        });
+        expect(director.hasTag('clint-eastwood', TagCategory.actors), isFalse);
+        expect(
+          director.withTagPicked('clint-eastwood', TagCategory.directors),
+          movies,
+        );
+      },
+    );
   });
 
   group('tag groups', () {

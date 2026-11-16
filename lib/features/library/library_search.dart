@@ -8,6 +8,7 @@ import '../../data/models/tag_category.dart';
 import '../../widgets/labels.dart';
 import '../music/music_tab.dart';
 import 'home_type_provider.dart';
+import 'library_filter.dart';
 import 'library_filter_provider.dart';
 
 /// A tag whose name matches the query, with how many entries use it. A tag
@@ -15,10 +16,14 @@ import 'library_filter_provider.dart';
 /// Director", "#clint-eastwood · Actor"), each counting the entries that
 /// carry it as that; [category] is null for a tag in one category.
 class TagMatch {
-  const TagMatch(this.name, this.count, {this.category});
+  const TagMatch(this.name, this.count, {this.category, this.picked = false});
   final String name;
   final int count;
   final TagCategory? category;
+
+  /// Whether the list is narrowed to this tag: its chip is filled, with a
+  /// cross, and a tap lifts it.
+  final bool picked;
 
   /// "#horror", or "#clint-eastwood · Director".
   String get label => tagLabel(name, [?category]);
@@ -28,13 +33,14 @@ class TagMatch {
       other is TagMatch &&
       other.name == name &&
       other.count == count &&
-      other.category == category;
+      other.category == category &&
+      other.picked == picked;
 
   @override
-  int get hashCode => Object.hash(name, count, category);
+  int get hashCode => Object.hash(name, count, category, picked);
 
   @override
-  String toString() => 'TagMatch($label, $count)';
+  String toString() => 'TagMatch($label, $count${picked ? ', picked' : ''})';
 }
 
 /// The query as it is matched: trimmed, in lower case, without a leading
@@ -66,19 +72,25 @@ List<Entry> searchEntries(Iterable<Entry> entries, String q) => [
     if (matchesQuery(entry, q)) entry,
 ];
 
-/// The tags whose name contains [q] and that an entry of [entries] carries,
-/// the most used first (Library › Search: a tag matches). The count is of
-/// [entries], the list being searched.
+/// The chips of a list's Tags row (Library › Search: a tag matches; Search:
+/// a tag finds artists): the tags the list is narrowed to ([picked], a
+/// filter's tags), filled and first, then the tags whose name contains [q]
+/// and that an entry of [entries] carries, each group the most used first.
+/// The count is of [entries], the list being searched, before a tag is
+/// picked. An empty [q] matches no tag.
 List<TagMatch> matchingTags(
   Library library,
   Iterable<Entry> entries,
-  String q,
-) {
+  String q, {
+  LibraryFilter picked = LibraryFilter.none,
+}) {
   final pool = entries.toList();
   final names = <String>{
-    for (final entry in pool)
-      for (final tag in entry.tags)
-        if (tag.toLowerCase().contains(q)) tag,
+    ...picked.tags,
+    if (q.isNotEmpty)
+      for (final entry in pool)
+        for (final tag in entry.tags)
+          if (tag.toLowerCase().contains(q)) tag,
   };
   final tags = <TagMatch>[];
   for (final name in names) {
@@ -87,10 +99,15 @@ List<TagMatch> matchingTags(
       final count = category == null
           ? pool.where((e) => e.tags.contains(name)).length
           : pool.where((e) => e.hasTagAs(name, category)).length;
-      if (count > 0) tags.add(TagMatch(name, count, category: category));
+      final on = picked.hasTag(name, category);
+      // A picked tag stays in the row whatever is typed.
+      if (on || (count > 0 && q.isNotEmpty && name.toLowerCase().contains(q))) {
+        tags.add(TagMatch(name, count, category: category, picked: on));
+      }
     }
   }
   tags.sort((a, b) {
+    if (a.picked != b.picked) return a.picked ? -1 : 1;
     final c = b.count.compareTo(a.count);
     if (c != 0) return c;
     final n = a.name.compareTo(b.name);
@@ -137,7 +154,8 @@ String searchHint(MediaType? type) => type == null
 /// swipe to one, or a filter's results opened or left clears it; the status
 /// chips and the music tabs keep it. [openType] is the one way to another
 /// type that keeps it ("3 results in Music", a heading of the home's
-/// results).
+/// results). A filter that narrows the type shown in place keeps it too;
+/// the results screen of a filter, opened or left, clears it.
 class LibrarySearchNotifier extends Notifier<String> {
   MediaType? _kept;
 
@@ -151,7 +169,7 @@ class LibrarySearchNotifier extends Notifier<String> {
       state = '';
     });
     ref.listen(libraryFilterProvider, (previous, next) {
-      if (previous?.isActive != next.isActive) state = '';
+      if (previous?.showsResults != next.showsResults) state = '';
     });
     return '';
   }
@@ -164,8 +182,13 @@ class LibrarySearchNotifier extends Notifier<String> {
   void clear() => set('');
 
   /// Opens [type] with the query kept, on All of its status chips, or for
-  /// music on the tab [music] names.
-  void openType(MediaType type, {MusicTab? music}) {
+  /// music on the tab [music] names. The tags picked in the Tags row
+  /// ([tags]) come along and narrow that type's list.
+  void openType(
+    MediaType type, {
+    MusicTab? music,
+    LibraryFilter tags = LibraryFilter.none,
+  }) {
     if (type == MediaType.music) {
       ref.read(homeMusicTabProvider.notifier).set(music ?? MusicTab.artists);
     } else {
@@ -174,6 +197,11 @@ class LibrarySearchNotifier extends Notifier<String> {
     if (ref.read(homeTypeProvider) == type) return;
     _kept = type;
     ref.read(homeTypeProvider.notifier).set(type);
+    if (tags.tags.isNotEmpty) {
+      ref
+          .read(libraryFilterProvider.notifier)
+          .narrow(tags.tagsOnly.copyWith(types: {type}));
+    }
   }
 }
 
@@ -187,6 +215,52 @@ final librarySearchProvider = NotifierProvider<LibrarySearchNotifier, String>(
 /// belongs to those.
 final pageQueryProvider = Provider.family<String, MediaType?>((ref, type) {
   if (ref.watch(homeTypeProvider) != type) return '';
-  if (ref.watch(libraryFilterProvider.select((f) => f.isActive))) return '';
+  if (ref.watch(libraryFilterProvider.select((f) => f.showsResults))) {
+    return '';
+  }
   return normalizeQuery(ref.watch(librarySearchProvider));
+});
+
+/// The tag picked in the Tags row of Home's results (Library › Search: a tag
+/// matches), as a filter of tags alone; [LibraryFilter.none] when none is.
+/// It stays when the query is cleared. A type opened, a filter's results
+/// and a return to the home let go of it. On a type's page the picked tags
+/// are that type's filter instead ([LibraryFilterNotifier.narrow]).
+class HomeTagsNotifier extends Notifier<LibraryFilter> {
+  @override
+  LibraryFilter build() {
+    ref.listen(homeTypeProvider, (_, _) => state = LibraryFilter.none);
+    ref.listen(libraryFilterProvider, (previous, next) {
+      if (previous?.showsResults != next.showsResults) {
+        state = LibraryFilter.none;
+      }
+    });
+    return LibraryFilter.none;
+  }
+
+  void pick(TagMatch tag) =>
+      state = state.withTagPicked(tag.name, tag.category);
+
+  void clear() => state = LibraryFilter.none;
+}
+
+final homeTagsProvider = NotifierProvider<HomeTagsNotifier, LibraryFilter>(
+  HomeTagsNotifier.new,
+);
+
+/// The tags the page of [type] (null: Home) is narrowed to, as a filter of
+/// tags alone: Home's own pick, or the tags of the filter that narrows a
+/// type's list in place.
+final pageTagsProvider = Provider.family<LibraryFilter, MediaType?>((
+  ref,
+  type,
+) {
+  if (ref.watch(homeTypeProvider) != type) return LibraryFilter.none;
+  if (type == null) {
+    return ref.watch(libraryFilterProvider.select((f) => f.showsResults))
+        ? LibraryFilter.none
+        : ref.watch(homeTagsProvider);
+  }
+  final filter = ref.watch(libraryFilterProvider);
+  return filter.typeView?.type == type ? filter.tagsOnly : LibraryFilter.none;
 });

@@ -1010,30 +1010,69 @@ void main() {
     expect(find.byType(StatusChips), findsNothing);
   });
 
-  testWidgets('an active filter shows removable chips, a count and results', (
+  testWidgets('a filter with several types shows removable chips, a count and '
+      'results; with one type left it is that type\'s own view', (
     tester,
   ) async {
     final container = await pumpApp(tester, const LibraryHomeScreen());
     container
         .read(libraryFilterProvider.notifier)
-        .set(const LibraryFilter(types: {MediaType.shows}, tags: {'horror'}));
+        .set(
+          const LibraryFilter(
+            types: {MediaType.movies, MediaType.books},
+            tags: {'horror'},
+          ),
+        );
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('Remove Shows'), findsOneWidget);
+    expect(find.bySemanticsLabel('Remove Movies'), findsOneWidget);
+    expect(find.bySemanticsLabel('Remove Books'), findsOneWidget);
     expect(find.bySemanticsLabel('Remove #horror'), findsOneWidget);
     expect(find.text('Clear all'), findsOneWidget);
     expect(find.text('ACTIVE PLAN'), findsNothing);
     expect(find.byType(ScrollingTab), findsNothing);
     expect(find.textContaining(RegExp(r'^\d+ entr')), findsOneWidget);
-    expect(find.text('SHOWS'), findsOneWidget);
-    expect(find.text('MOVIES'), findsNothing);
-    expect(find.text('2'), findsOneWidget); // The badge on the filter button.
-
-    await tester.tap(find.bySemanticsLabel('Remove Shows'));
-    await tester.pumpAndSettle();
-    expect(container.read(libraryFilterProvider).types, isEmpty);
     expect(find.text('MOVIES'), findsOneWidget);
+    expect(find.text('SHOWS'), findsNothing);
+    expect(find.text('3'), findsOneWidget); // The badge on the filter button.
 
+    // One type left: the movies' own view, narrowed in place, the tag a
+    // filled chip in the Tags row.
+    await tester.tap(find.bySemanticsLabel('Remove Books'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(libraryFilterProvider),
+      const LibraryFilter(types: {MediaType.movies}, tags: {'horror'}),
+    );
+    expect(container.read(homeTypeProvider), MediaType.movies);
+    expect(find.text('Clear all'), findsNothing);
+    expect(find.byType(StatusChips), findsOneWidget);
+    expect(find.byType(SearchTagRow), findsOneWidget);
+    final horror = fixture
+        .entriesOfType(MediaType.movies)
+        .where((e) => !e.seasonalOnly && e.tags.contains('horror'))
+        .length;
+    expect(
+      find.text('$horror of ${visibleOf(MediaType.movies).length} movies'),
+      findsOneWidget,
+    );
+    expect(find.text('1'), findsOneWidget); // The badge: the tag alone.
+
+    // The filled chip lifts the tag, and the list is whole again.
+    await tester.tap(find.bySemanticsLabel('Remove #horror'));
+    await tester.pumpAndSettle();
+    expect(container.read(libraryFilterProvider), LibraryFilter.none);
+    expect(container.read(homeTypeProvider), MediaType.movies);
+    expect(find.byType(SearchTagRow), findsNothing);
+  });
+
+  testWidgets('Clear all leaves a filter\'s results for Home', (tester) async {
+    final container = await pumpApp(tester, const LibraryHomeScreen());
+    container
+        .read(libraryFilterProvider.notifier)
+        .set(const LibraryFilter(tags: {'horror'}));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Remove #horror'), findsOneWidget);
     await tester.tap(find.text('Clear all'));
     await tester.pumpAndSettle();
     expect(container.read(libraryFilterProvider), LibraryFilter.none);
@@ -1155,8 +1194,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // One type: the games' own view, narrowed to the two statuses.
     expect(container.read(libraryFilterProvider).types, {MediaType.games});
-    expect(find.text('GAMES'), findsOneWidget);
+    expect(container.read(libraryFilterProvider).statuses, {
+      EntryStatus.want,
+      EntryStatus.done,
+    });
+    expect(container.read(homeTypeProvider), MediaType.games);
+    expect(find.byType(StatusChips), findsOneWidget);
+    expect(find.text('GAMES'), findsNothing);
   });
 
   testWidgets('a lone type filter opens that type instead of results', (
@@ -1249,7 +1295,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(inGroup('Directors', '#clint-eastwood'));
       await tester.pumpAndSettle();
-      expect(find.text('Show 1 entry'), findsOneWidget); // Not a type view.
+      expect(find.text('Show 1 movie'), findsOneWidget);
       // Ticked as the director only: the Actors group does not show it.
       await tester.ensureVisible(find.text('Actors'));
       await tester.pumpAndSettle();
@@ -1309,34 +1355,55 @@ void main() {
       );
     });
 
-    testWidgets('removing the extra filter returns to the type view', (
-      tester,
-    ) async {
-      final container = await pumpApp(tester, const LibraryHomeScreen());
-      await pickChip(tester, 'Books');
-      // Five segments scroll sideways at 360 dp.
-      await tester.ensureVisible(inSegments('Done'));
-      await tester.tap(inSegments('Done'));
-      await tester.pumpAndSettle();
-      await openSheet(tester);
-      await tester.tap(sheetChip('Want'));
-      await tester.pumpAndSettle();
-      await show(tester);
-      expect(container.read(libraryFilterProvider).statuses, {
-        EntryStatus.want,
-        EntryStatus.done,
-      });
+    testWidgets(
+      'several statuses narrow the type view until a chip is picked',
+      (tester) async {
+        final container = await pumpApp(tester, const LibraryHomeScreen());
+        await pickChip(tester, 'Books');
+        // Five segments scroll sideways at 360 dp.
+        await tester.ensureVisible(inSegments('Done'));
+        await tester.tap(inSegments('Done'));
+        await tester.pumpAndSettle();
+        await openSheet(tester);
+        await tester.tap(sheetChip('Want'));
+        await tester.pumpAndSettle();
+        await show(tester);
+        // The books view, on All, narrowed to the two statuses.
+        expect(container.read(homeTypeProvider), MediaType.books);
+        expect(container.read(homeStatusProvider)[MediaType.books], isNull);
+        expect(container.read(libraryFilterProvider).statuses, {
+          EntryStatus.want,
+          EntryStatus.done,
+        });
+        final books = fixture
+            .entriesOfType(MediaType.books)
+            .where((e) => !e.seasonalOnly);
+        final narrowed = books.where(
+          (e) => e.status == EntryStatus.want || e.status == EntryStatus.done,
+        );
+        expect(
+          find.text('${narrowed.length} of ${books.length} books'),
+          findsOneWidget,
+        );
+        // The sheet opens with what narrows the list.
+        await openSheet(tester);
+        expect(selected(tester, 'Books'), isTrue);
+        expect(selected(tester, 'Want'), isTrue);
+        expect(selected(tester, 'Done'), isTrue);
+        await tester.tapAt(const Offset(20, 20)); // Dismiss.
+        await tester.pumpAndSettle();
 
-      // Removing Want leaves Books + Done: the books view, Done picked.
-      await tester.tap(find.bySemanticsLabel('Remove Want'));
-      await tester.pumpAndSettle();
-      expect(container.read(libraryFilterProvider).isActive, isFalse);
-      expect(container.read(homeTypeProvider), MediaType.books);
-      expect(
-        container.read(homeStatusProvider)[MediaType.books],
-        EntryStatus.done,
-      );
-    });
+        // A status chip picked takes the place of the filter's statuses.
+        await tester.ensureVisible(inSegments('Done'));
+        await tester.tap(inSegments('Done'));
+        await tester.pumpAndSettle();
+        expect(container.read(libraryFilterProvider).isActive, isFalse);
+        expect(
+          container.read(homeStatusProvider)[MediaType.books],
+          EntryStatus.done,
+        );
+      },
+    );
 
     Future<void> pickMusicTab(WidgetTester tester, String label) async {
       await tester.tap(
@@ -1402,7 +1469,7 @@ void main() {
       expect(container.read(homeMusicTabProvider), MusicTab.artists);
     });
 
-    testWidgets('Music with both kinds is results', (tester) async {
+    testWidgets('Music with both kinds is the Artists tab', (tester) async {
       final container = await pumpApp(tester, const LibraryHomeScreen());
       container
           .read(libraryFilterProvider.notifier)
@@ -1413,11 +1480,12 @@ void main() {
             ),
           );
       await tester.pumpAndSettle();
-      expect(container.read(libraryFilterProvider).isActive, isTrue);
-      expect(find.text('Albums'), findsOneWidget); // Its removable chip.
+      expect(container.read(libraryFilterProvider).isActive, isFalse);
+      expect(container.read(homeTypeProvider), MediaType.music);
+      expect(container.read(homeMusicTabProvider), MusicTab.artists);
     });
 
-    testWidgets('music with a status is results: music has no segments', (
+    testWidgets('music with a status narrows the music view in place', (
       tester,
     ) async {
       final container = await pumpApp(tester, const LibraryHomeScreen());
@@ -1426,12 +1494,24 @@ void main() {
           .set(
             const LibraryFilter(
               types: {MediaType.music},
-              statuses: {EntryStatus.done},
+              statuses: {EntryStatus.want},
+              kinds: {EntryKind.album},
             ),
           );
       await tester.pumpAndSettle();
       expect(container.read(libraryFilterProvider).isActive, isTrue);
       expect(container.read(homeTypeProvider), MediaType.music);
+      expect(container.read(homeMusicTabProvider), MusicTab.albums);
+      final music = fixture
+          .entriesOfType(MediaType.music)
+          .where((e) => !e.seasonalOnly && e.kind != EntryKind.song);
+      final wanted = music.where((e) => e.status == EntryStatus.want);
+      expect(
+        find.text('${wanted.length} of ${music.length} albums'),
+        findsOneWidget,
+      );
+      expect(find.text(wanted.first.title), findsOneWidget);
+      expect(find.text('Abbey Road'), findsNothing);
     });
 
     testWidgets('dropping the type in the sheet takes the home to All', (
@@ -1450,7 +1530,7 @@ void main() {
       expect(find.text('Search titles and tags'), findsOneWidget);
     });
 
-    testWidgets('Clear all clears the type and the status too', (tester) async {
+    testWidgets('Clear all clears the types too', (tester) async {
       final container = await pumpApp(tester, const LibraryHomeScreen());
       await pickChip(tester, 'Shows');
       // Five segments scroll sideways at 360 dp.
@@ -1458,14 +1538,13 @@ void main() {
       await tester.tap(inSegments('Done'));
       await tester.pumpAndSettle();
       await openSheet(tester);
-      await tester.tap(sheetChip('Want'));
+      await tester.tap(sheetChip('Movies'));
       await tester.pumpAndSettle();
       await show(tester);
       await tester.tap(find.text('Clear all'));
       await tester.pumpAndSettle();
       expect(container.read(libraryFilterProvider).isActive, isFalse);
       expect(container.read(homeTypeProvider), isNull);
-      expect(container.read(homeStatusProvider), isEmpty);
     });
   });
 
@@ -1628,7 +1707,7 @@ void main() {
       await type(tester, 'King');
       expect(find.text('No games match “King”'), findsOneWidget);
       expect(
-        find.text('It is in your library under another type.'),
+        find.text('There are matches under another type.'),
         findsOneWidget,
       );
       expect(find.text('1 result in Movies'), findsOneWidget);
@@ -1652,7 +1731,8 @@ void main() {
       );
     });
 
-    testWidgets('a matching tag is a chip above its entries', (tester) async {
+    testWidgets('a matching tag is a chip above its entries; a tap narrows the '
+        'list to that tag in place', (tester) async {
       final container = await pumpApp(tester, const LibraryHomeScreen());
       await pickChip(tester, 'Movies');
       await type(tester, 'hallow');
@@ -1660,6 +1740,7 @@ void main() {
           .entriesOfType(MediaType.movies)
           .where((e) => !e.seasonalOnly && e.tags.contains('halloween'))
           .toList();
+      final movies = visibleOf(MediaType.movies).length;
       expect(find.byType(SearchTagRow), findsOneWidget);
       expect(
         find.descendant(
@@ -1671,11 +1752,145 @@ void main() {
       expect(find.text(tagged.first.title), findsOneWidget);
       await tester.tap(find.textContaining('#halloween  '));
       await tester.pumpAndSettle();
+      // No results screen: the same list, the chip filled, the query kept.
       expect(
         container.read(libraryFilterProvider),
         const LibraryFilter(types: {MediaType.movies}, tags: {'halloween'}),
       );
+      expect(container.read(librarySearchProvider), 'hallow');
+      expect(find.byType(StatusChips), findsOneWidget);
+      expect(find.text('Clear all'), findsNothing);
+      expect(find.bySemanticsLabel('Remove #halloween'), findsOneWidget);
+      expect(find.text('${tagged.length} of $movies movies'), findsOneWidget);
+
+      // The tag stays picked when the query is cleared.
+      await type(tester, '');
+      expect(find.bySemanticsLabel('Remove #halloween'), findsOneWidget);
+      expect(find.text('${tagged.length} of $movies movies'), findsOneWidget);
+      expect(find.text(tagged.first.title), findsOneWidget);
+
+      // A second tap lifts it.
+      await tester.tap(find.bySemanticsLabel('Remove #halloween'));
+      await tester.pumpAndSettle();
+      expect(container.read(libraryFilterProvider), LibraryFilter.none);
+      expect(find.byType(SearchTagRow), findsNothing);
+      expect(find.text('$movies movies'), findsOneWidget);
+    });
+
+    testWidgets('a picked tag leaves only its entries of what the query found, '
+        'and another type clears it', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Music');
+      // "ro" finds #rock and #electronic, and "Abbey Road" by its title.
+      await type(tester, 'ro');
+      final albums = fixture
+          .entriesOfType(MediaType.music)
+          .where((e) => !e.seasonalOnly && e.kind != EntryKind.song);
+      final found = searchEntries(albums, 'ro');
+      final rock = found.where((e) => e.tags.contains('rock')).length;
+      expect(rock, inExclusiveRange(0, found.length));
+      await tester.tap(inTabs('Albums ${found.length}'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Discovery'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.textContaining('#rock  '));
+      await tester.pumpAndSettle();
+      expect(inTabs('Albums $rock'), findsOneWidget);
+      expect(find.text('Discovery'), findsNothing);
+      expect(find.text('Abbey Road'), findsOneWidget);
+      // The other matching tag is still offered, and takes its place.
+      await tester.tap(find.textContaining('#electronic  '));
+      await tester.pumpAndSettle();
+      expect(container.read(libraryFilterProvider).tags, {'electronic'});
+      expect(inTabs('Albums 1'), findsOneWidget);
+      expect(find.text('Discovery'), findsOneWidget);
+
+      // The tabs have scrolled away with the list; a swipe does the same.
+      container.read(homeTypeProvider.notifier).set(MediaType.movies);
+      await tester.pumpAndSettle();
+      expect(container.read(libraryFilterProvider), LibraryFilter.none);
       expect(container.read(librarySearchProvider), '');
+    });
+
+    testWidgets('music: a tag finds the artists who have something tagged so, '
+        'and stays picked across the tabs', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Music');
+      final total = tester
+          .widget<Text>(find.textContaining(RegExp(r'^\d+ artists$')))
+          .data!
+          .split(' ')
+          .first;
+      await type(tester, 'classic');
+      // Metallica, Pink Floyd, The Beatles, 2Pac, Miles Davis by an album;
+      // Creedence Clearwater Revival by a song.
+      expect(inTabs('Artists 6'), findsOneWidget);
+      expect(inTabs('Albums 5'), findsOneWidget);
+      expect(inTabs('Songs 1'), findsOneWidget);
+      expect(find.text('6 of $total artists'), findsOneWidget);
+      expect(find.text('Metallica'), findsOneWidget);
+      expect(find.text('Creedence Clearwater Revival'), findsOneWidget);
+      expect(find.text('Radiohead'), findsNothing);
+
+      await tester.tap(find.textContaining('#classic  '));
+      await tester.pumpAndSettle();
+      expect(container.read(homeMusicTabProvider), MusicTab.artists);
+      expect(find.bySemanticsLabel('Remove #classic'), findsOneWidget);
+      await type(tester, '');
+      expect(inTabs('Artists 6'), findsOneWidget);
+      expect(find.text('Radiohead'), findsNothing);
+      await tester.tap(inTabs('Songs 1'));
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Remove #classic'), findsOneWidget);
+      expect(find.text('Bad Moon Rising'), findsOneWidget);
+      expect(find.text('Human Fly'), findsNothing);
+    });
+
+    testWidgets('music: an empty tab says which tabs have the matches', (
+      tester,
+    ) async {
+      await pumpApp(tester, const LibraryHomeScreen());
+      await pickChip(tester, 'Music');
+      await type(tester, 'human fly');
+      // The Cramps are listed for their song.
+      expect(inTabs('Artists 1'), findsOneWidget);
+      expect(find.text('The Cramps'), findsOneWidget);
+      await tester.tap(inTabs('Albums 0'));
+      await tester.pumpAndSettle();
+      expect(find.text('No albums match “human fly”'), findsOneWidget);
+      expect(
+        find.text('There are matches under Artists and Songs.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Home: a tag narrows the results in place and comes along to '
+        'a type', (tester) async {
+      final container = await pumpApp(tester, const LibraryHomeScreen());
+      await type(tester, 'hallow');
+      await tester.tap(find.textContaining('#halloween  '));
+      await tester.pumpAndSettle();
+      // Home's own pick, not a filter: no results screen.
+      expect(container.read(libraryFilterProvider), LibraryFilter.none);
+      expect(find.bySemanticsLabel('Remove #halloween'), findsOneWidget);
+      expect(find.byType(ScrollingTabs<MediaType?>), findsOneWidget);
+      await type(tester, '');
+      expect(find.bySemanticsLabel('Remove #halloween'), findsOneWidget);
+      expect(find.text('ACTIVE PLAN'), findsNothing);
+      final movies = fixture
+          .entriesOfType(MediaType.movies)
+          .where((e) => !e.seasonalOnly && e.tags.contains('halloween'))
+          .length;
+      await tester.tap(find.text('MOVIES · $movies'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(libraryFilterProvider),
+        const LibraryFilter(types: {MediaType.movies}, tags: {'halloween'}),
+      );
+      expect(find.bySemanticsLabel('Remove #halloween'), findsOneWidget);
     });
 
     testWidgets('music: the query follows the tabs, each with its count', (
@@ -1823,11 +2038,10 @@ void main() {
           ),
         );
     await tester.pumpAndSettle();
+    // The shows' own view, with them in it; the badge says a filter is on.
+    expect(find.byType(StatusChips), findsOneWidget);
     expect(find.text('Over the Garden Wall'), findsOneWidget);
-    expect(
-      find.bySemanticsLabel('Remove Seasonal-only included'),
-      findsOneWidget,
-    );
+    expect(find.text('1'), findsOneWidget);
   });
 
   group('long filtered results', () {
@@ -1860,20 +2074,23 @@ void main() {
     testWidgets('one type: sections follow the sort, rail of labels', (
       tester,
     ) async {
+      // A filter that names a type is that type's own view, so the results
+      // are of one type only when the filter names none and one type matches.
       final container = await pumpApp(
         tester,
         const LibraryHomeScreen(),
-        library: long,
+        library: long.copyWith(
+          entries: [
+            for (final e in long.entries)
+              e.type == MediaType.movies
+                  ? e.copyWith(tags: [...e.tags, 'on-film'])
+                  : e,
+          ],
+        ),
       );
       container
           .read(libraryFilterProvider.notifier)
-          .set(
-            // A lone type filter would be the type view, so add one more.
-            const LibraryFilter(
-              types: {MediaType.movies},
-              includeSeasonalOnly: true,
-            ),
-          );
+          .set(const LibraryFilter(tags: {'on-film'}));
       container
           .read(displayPreferencesProvider.notifier)
           .setFilteredSort(LibrarySort.yearNewest);
@@ -1894,13 +2111,7 @@ void main() {
       final container = await pumpApp(tester, const LibraryHomeScreen());
       container
           .read(libraryFilterProvider.notifier)
-          .set(
-            // A lone type filter would be the type view, so add one more.
-            const LibraryFilter(
-              types: {MediaType.movies},
-              includeSeasonalOnly: true,
-            ),
-          );
+          .set(const LibraryFilter(tags: {'clint-eastwood'}));
       await tester.pumpAndSettle();
       expect(find.text('MOVIES'), findsOneWidget);
       expect(find.byKey(EntryListBody.railKey), findsNothing);

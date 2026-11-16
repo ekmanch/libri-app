@@ -7,6 +7,7 @@ import '../../data/models/media_type.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/row_ink_well.dart';
@@ -21,7 +22,8 @@ import 'library_search.dart';
 /// What a list being searched shows around its results (Library › Search:
 /// Music › Artists and its sibling states): the matching tags above them,
 /// the other types that have results under them, and how to add the query
-/// as a new entry when nothing matches.
+/// as a new entry when nothing matches. A list narrowed to a tag is
+/// searched too, with or without a query.
 @immutable
 class ListSearch {
   const ListSearch({
@@ -30,76 +32,112 @@ class ListSearch {
     required this.type,
     required this.tags,
     required this.others,
-    required this.onOpenTag,
+    required this.onPickTag,
     required this.onOpenType,
     required this.onAdd,
+    this.picked = LibraryFilter.none,
   });
 
   /// As typed, trimmed: what the empty state quotes and Add starts with.
   final String query;
 
-  /// As matched ([normalizeQuery]).
+  /// As matched ([normalizeQuery]); empty when only a tag is picked.
   final String q;
 
   /// The type whose list is searched; null on Home.
   final MediaType? type;
 
-  /// The tags that match, counted over the list searched.
+  /// The Tags row: the picked tags, then those that match, counted over the
+  /// list searched.
   final List<TagMatch> tags;
+
+  /// The tags the list is narrowed to, as a filter of tags alone.
+  final LibraryFilter picked;
 
   /// The other types that have results, in type order, with how many.
   final Map<MediaType, int> others;
-  final void Function(TagMatch tag) onOpenTag;
+
+  /// A chip of the Tags row tapped: the list is narrowed to that tag, or
+  /// the tag is lifted. It never opens the results screen.
+  final void Function(TagMatch tag) onPickTag;
   final void Function(MediaType type) onOpenType;
   final VoidCallback onAdd;
 
-  /// The search of the page of [type] for [q] (not empty), over [visible],
-  /// every entry the library's lists show.
+  /// What nothing matched, as the empty state quotes it: “adele”.
+  String get what => '“$query”';
+
+  /// Whether [entry] is a result: it matches the query and carries the
+  /// picked tags.
+  bool matches(Entry entry) =>
+      picked.hasTagsOf(entry) && (q.isEmpty || matchesQuery(entry, q));
+
+  /// The entries of [entries] that are results, in their order.
+  List<Entry> apply(Iterable<Entry> entries) => [
+    for (final entry in entries)
+      if (matches(entry)) entry,
+  ];
+
+  /// The search of the page of [type] for [q] and the [picked] tags (one of
+  /// them not empty), over [visible], every entry the library's lists show.
+  /// [pool] is the list searched, which the tags are counted over: [visible]
+  /// on Home, the type's own list otherwise.
   factory ListSearch.of(
     WidgetRef ref, {
     required Library library,
     required List<Entry> visible,
     required MediaType? type,
     required String q,
+    LibraryFilter picked = LibraryFilter.none,
+    Iterable<Entry>? pool,
     void Function({MediaType? type, String? title})? onAddEntry,
   }) {
-    final query = ref.read(librarySearchProvider).trim();
-    final counts = matchCounts(visible, q);
+    final query = q.isEmpty ? '' : ref.read(librarySearchProvider).trim();
+    final tagged = visible.where(picked.hasTagsOf).toList();
+    final counts = q.isEmpty
+        ? {
+            for (final t in MediaType.values)
+              if (tagged.any((e) => e.type == t))
+                t: tagged.where((e) => e.type == t).length,
+          }
+        : matchCounts(tagged, q);
     return ListSearch(
       query: query,
       q: q,
       type: type,
+      picked: picked,
       tags: matchingTags(
         library,
-        type == null ? visible : visible.where((e) => e.type == type),
+        pool ?? (type == null ? visible : visible.where((e) => e.type == type)),
         q,
+        picked: picked,
       ),
       others: {
         for (final t in MediaType.values)
           if (t != type && counts[t] != null) t: counts[t]!,
       },
-      // The tag's results, within the type searched: the query has done
-      // its work and is cleared with the list (see [LibrarySearchNotifier]).
-      onOpenTag: (tag) => ref
-          .read(libraryFilterProvider.notifier)
-          .set(
-            LibraryFilter(
-              types: {?type},
-              tags: {tag.name},
-              tagCategories: {
-                if (tag.category case final category?) tag.name: {category},
-              },
-            ),
-          ),
+      // The same list, narrowed to the tag: on a type's page the tag joins
+      // that type's filter, on Home it is Home's own pick. The query stays.
+      onPickTag: (tag) => type == null
+          ? ref.read(homeTagsProvider.notifier).pick(tag)
+          : ref
+                .read(libraryFilterProvider.notifier)
+                .narrow(
+                  ref
+                      .read(libraryFilterProvider)
+                      .copyWith(types: {type})
+                      .withTagPicked(tag.name, tag.category),
+                ),
       onOpenType: (t) => ref
           .read(librarySearchProvider.notifier)
           .openType(
             t,
             music: t == MediaType.music
-                ? musicTabForQuery(visible.where((e) => e.type == t), q)
+                ? musicTabForQuery(tagged.where((e) => e.type == t), q)
                 : null,
+            tags: picked,
           ),
-      onAdd: () => onAddEntry?.call(type: type, title: query),
+      onAdd: () =>
+          onAddEntry?.call(type: type, title: query.isEmpty ? null : query),
     );
   }
 }
@@ -109,8 +147,10 @@ String resultsInLabel(MediaType type, int count) =>
     '$count ${count == 1 ? 'result' : 'results'} in ${type.label}';
 
 /// The matching tags of a search, one row that scrolls sideways under the
-/// word "Tags": "#classic 79" (Library › Search: a tag matches). A chip
-/// opens that tag's results.
+/// word "Tags": "#classic 79" (Library › Search: a tag matches; Search: a
+/// tag finds artists). A chip narrows the list to that tag; the picked one
+/// is filled, with a cross, and a tap lifts it. The tags of a filter that
+/// narrows a type's list in place show here the same way.
 class SearchTagRow extends StatelessWidget {
   const SearchTagRow({super.key, required this.tags, required this.onTap});
 
@@ -141,10 +181,15 @@ class SearchTagRow extends StatelessWidget {
               TouchTarget(
                 child: Semantics(
                   button: true,
-                  label: '${tag.label}, ${tag.count}',
+                  selected: tag.picked,
+                  label: tag.picked
+                      ? 'Remove ${tag.label}'
+                      : '${tag.label}, ${tag.count}',
                   excludeSemantics: true,
                   child: Material(
-                    color: colors.surfaceHigh,
+                    color: tag.picked
+                        ? colors.selectedFill
+                        : colors.surfaceHigh,
                     shape: const StadiumBorder(),
                     child: InkWell(
                       onTap: () => onTap(tag),
@@ -153,18 +198,36 @@ class SearchTagRow extends StatelessWidget {
                         height: chipHeight,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         alignment: Alignment.center,
-                        child: Text.rich(
-                          TextSpan(
-                            text: tag.label,
-                            children: [
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text.rich(
                               TextSpan(
-                                text: '  ${tag.count}',
-                                style: TextStyle(color: colors.muted),
+                                text: tag.label,
+                                children: [
+                                  TextSpan(
+                                    text: '  ${tag.count}',
+                                    style: TextStyle(
+                                      color: colors.muted,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              maxLines: 1,
+                              style: tag.picked
+                                  ? style.copyWith(fontWeight: FontWeight.w600)
+                                  : style,
+                            ),
+                            if (tag.picked) ...[
+                              const SizedBox(width: 6),
+                              StrokeIcon(
+                                AppIcons.closeBold,
+                                size: 14,
+                                color: theme.colorScheme.onSurface,
                               ),
                             ],
-                          ),
-                          maxLines: 1,
-                          style: style,
+                          ],
                         ),
                       ),
                     ),
@@ -255,14 +318,34 @@ class _Dot extends StatelessWidget {
 
 /// A search with no results (Library › Search: nothing here, results in
 /// another type; Search: no results anywhere): the magnifier, [title], a
-/// line of help, a button per other type that has matches, and Add
-/// “query”, which starts a new entry with the query as its title.
+/// line that says where the matches are, a button per other type that has
+/// some, and Add “query”, which starts a new entry with the query as its
+/// title.
 class SearchEmpty extends StatelessWidget {
-  const SearchEmpty({super.key, required this.title, required this.search});
+  const SearchEmpty({
+    super.key,
+    required this.title,
+    required this.search,
+    this.tabs = const [],
+  });
 
   /// "No movies match “adele”", "No results for “zelda”".
   final String title;
   final ListSearch search;
+
+  /// The other tabs of this list that have matches, as they are labeled
+  /// ("Albums", "Songs"): music's, when the tab shown has none.
+  final List<String> tabs;
+
+  /// "There are matches under Albums.", "… under Albums and Songs.", "…
+  /// under another type.", or the hint to check the spelling when there are
+  /// none anywhere.
+  static String whereText(List<String> tabs, {required bool otherTypes}) =>
+      tabs.isNotEmpty
+      ? 'There are matches under ${tabs.join(' and ')}.'
+      : otherTypes
+      ? 'There are matches under another type.'
+      : 'Check the spelling, or add it to your library as a new entry.';
 
   @override
   Widget build(BuildContext context) {
@@ -291,9 +374,7 @@ class SearchEmpty extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            search.others.isEmpty
-                ? 'Check the spelling, or add it to your library as a new entry.'
-                : 'It is in your library under another type.',
+            whereText(tabs, otherTypes: search.others.isNotEmpty),
             style: theme.textTheme.bodyMedium!.copyWith(color: colors.muted),
             textAlign: TextAlign.center,
           ),
@@ -321,10 +402,28 @@ class SearchEmpty extends StatelessWidget {
 }
 
 /// "No movies match “adele”": [noun] is what the list holds, in the plural
-/// ("movies", "artists").
-String noMatchTitle(String noun, String query) => 'No $noun match “$query”';
+/// ("movies", "artists"), [what] the query in its quotes.
+String noMatchTitle(String noun, String what) => 'No $noun match $what';
 
-/// Home while it is searched (Library › Search: Home, results by type): the
+/// A filter that leaves nothing of the list it narrows (Library › Empty
+/// states): the reason spelled out and a button that clears it.
+class FilterEmpty extends ConsumerWidget {
+  const FilterEmpty({super.key, required this.filter});
+
+  final LibraryFilter filter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => EmptyState(
+    icon: AppIcons.filters,
+    title: 'Nothing matches these filters',
+    body: filter.noMatchesText,
+    actionLabel: 'Clear filters',
+    onAction: () => ref.read(libraryFilterProvider.notifier).clear(),
+  );
+}
+
+/// Home while it is searched or narrowed to a tag (Library › Search: Home,
+/// results by type): the
 /// number of results, the matching tags, then one section per type that has
 /// results ("Music · 3"), in type order, as Home's rows with or without
 /// covers. A heading opens its type with the query kept. Music lists its
@@ -365,7 +464,7 @@ class HomeSearchResults extends StatelessWidget {
         : SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: SearchTagRow(tags: search.tags, onTap: search.onOpenTag),
+              child: SearchTagRow(tags: search.tags, onTap: search.onPickTag),
             ),
           );
     if (results.isEmpty) {
@@ -376,7 +475,7 @@ class HomeSearchResults extends StatelessWidget {
           ?tagRow,
           SliverToBoxAdapter(
             child: SearchEmpty(
-              title: 'No results for “${search.query}”',
+              title: 'No results for ${search.what}',
               search: search,
             ),
           ),

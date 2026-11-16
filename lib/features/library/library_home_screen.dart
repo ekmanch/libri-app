@@ -16,7 +16,6 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/underline_tabs.dart';
-import '../../widgets/empty_state.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/pinned_sliver.dart';
@@ -262,7 +261,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   void _onReturn() {
     final paged =
         ref.read(libraryProvider).hasValue &&
-        !ref.read(libraryFilterProvider).isActive;
+        !ref.read(libraryFilterProvider).showsResults;
     final position = _positionOf(paged ? _scrolls[_page.round()] : _scroll);
     if (position != null && position.pixels > 0) {
       position.animateTo(0, duration: AppMotion.slide, curve: Curves.easeOut);
@@ -270,6 +269,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     }
     ref.read(libraryFilterProvider.notifier).clear();
     ref.read(librarySearchProvider.notifier).clear();
+    ref.read(homeTagsProvider.notifier).clear();
     ref.read(homeTypeProvider.notifier).set(null);
     ref.read(homeStatusProvider.notifier).clear();
     ref.read(homeMusicTabProvider.notifier).set(MusicTab.artists);
@@ -289,24 +289,31 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     _showPage(type);
   }
 
-  /// Opens the filter sheet. With no filter active it starts with what the home
-  /// shows: the picked type and its status segment or music tab (Library ›
-  /// Filter sheet from Movies (Done picked)).
+  /// Opens the filter sheet. Over a filter's results it starts with that
+  /// filter; otherwise with what the home shows: the picked type, its
+  /// status chip or music tab (Library › Filter sheet from Movies (Done
+  /// picked)) and whatever narrows that type's list in place.
   Future<void> _openFilters(Library library) async {
     final filter = ref.read(libraryFilterProvider);
     final type = ref.read(homeTypeProvider);
+    final shown = LibraryFilter.ofTypeView(
+      type,
+      status: ref.read(homeStatusProvider)[type],
+      kind: type == MediaType.music
+          ? ref.read(homeMusicTabProvider).kind
+          : null,
+    );
     final result = await showFilterSheet(
       context,
       library: library,
-      initial: filter.isActive
+      initial: filter.showsResults
           ? filter
-          : LibraryFilter.ofTypeView(
-              type,
-              status: ref.read(homeStatusProvider)[type],
-              kind: type == MediaType.music
-                  ? ref.read(homeMusicTabProvider).kind
-                  : null,
-            ),
+          : filter.isActive
+          ? filter.copyWith(
+              statuses: filter.statuses.isEmpty ? shown.statuses : null,
+              kinds: shown.kinds,
+            )
+          : shown,
     );
     if (result != null) ref.read(libraryFilterProvider.notifier).set(result);
   }
@@ -318,7 +325,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
   /// from its top (Library › Search: Music › Artists).
   void _onQuery(String query) {
     ref.read(librarySearchProvider.notifier).set(query);
-    final paged = !ref.read(libraryFilterProvider).isActive;
+    final paged = !ref.read(libraryFilterProvider).showsResults;
     final position = _positionOf(paged ? _scrolls[_page.round()] : _scroll);
     if (position != null && position.pixels > 0) position.jumpTo(0);
   }
@@ -368,7 +375,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
     final Widget? instead;
     if (library == null) {
       instead = _loadFailed(libraryAsync.error);
-    } else if (filter.isActive) {
+    } else if (filter.showsResults) {
       instead = _filtered(library, filter, prefs, colors, query);
     } else {
       instead = null;
@@ -432,7 +439,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
           child: _SearchRow(
             controller: _search,
             hint: searchHint(chips ? type : null),
-            filterCount: filter.count,
+            filterCount: filter.badge,
             onQuery: _onQuery,
             onFilters: library == null ? null : () => _openFilters(library),
           ),
@@ -673,14 +680,14 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         chips,
         SliverToBoxAdapter(
           child: SearchEmpty(
-            title: noMatchTitle('entries', typed),
+            title: noMatchTitle('entries', '“$typed”'),
             search: ListSearch(
               query: typed,
               q: q,
               type: null,
               tags: const [],
               others: const {},
-              onOpenTag: (_) {},
+              onPickTag: (_) {},
               onOpenType: (_) {},
               onAdd: () => widget.onAddEntry?.call(
                 type: filter.types.length == 1 ? filter.types.single : null,
@@ -697,13 +704,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
         chips,
         SliverFillRemaining(
           hasScrollBody: false,
-          child: EmptyState(
-            icon: AppIcons.filters,
-            title: 'Nothing matches these filters',
-            body: filter.noMatchesText,
-            actionLabel: 'Clear filters',
-            onAction: () => ref.read(libraryFilterProvider.notifier).clear(),
-          ),
+          child: FilterEmpty(filter: filter),
         ),
       ]);
     }

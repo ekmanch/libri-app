@@ -1367,6 +1367,14 @@ Future<void> walkLibrarySearch(WidgetTester tester, {double scale = 1}) async {
   await search('zelda', 'home-none');
   await pickChip(tester, 'Movies');
   await search('hallow', 'tag');
+  // Library › Search: a tag matches: the chip tapped narrows the same list
+  // to that tag, and it stays when the query is cleared.
+  await tester.tap(find.textContaining('#halloween  '));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a55-search-tag-picked');
+  await search('', 'tag-picked-no-query');
+  await tester.tap(find.textContaining('#halloween  '));
+  await tester.pumpAndSettle();
   await search('king', 'in-other-types');
   await pickChip(tester, 'Games');
   await search('king', 'elsewhere');
@@ -1383,6 +1391,22 @@ Future<void> walkLibrarySearch(WidgetTester tester, {double scale = 1}) async {
   await pickView(tester, 'List with photos');
   await waitForImages(tester);
   await capture(tester, '${prefix}a55-search-music-songs-list');
+  await pickView(tester, 'Text');
+  // Library › Search: a tag finds artists: the artists who have something
+  // tagged so, then the list narrowed to the one tag, and a tab without
+  // matches saying where they are.
+  await tester.tap(find.text('Artists 1'));
+  await tester.pumpAndSettle();
+  await search('class', 'music-artists-by-tag');
+  await tester.tap(find.textContaining('#classic  '));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a55-search-music-artists-tag-picked');
+  await tester.tap(find.textContaining('#classic  '));
+  await tester.pumpAndSettle();
+  await search('human fly', 'music-artists-by-song');
+  await tester.tap(find.text('Albums 0'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a55-search-music-empty-tab');
 }
 
 /// Library › Music: sort menu, artists; Music: albums, sorted by artist;
@@ -1885,8 +1909,9 @@ void main() {
     await tester.pumpAndSettle();
     await pickChip(tester, 'Home');
 
-    // Library › Filter sheet and Filtered results, one type: filter to shows
-    // tagged horror.
+    // Library › Filter sheet, and a filter that names one type: shows tagged
+    // horror are the shows' own view, narrowed in place, the tag a filled
+    // chip in the Tags row.
     await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
     await tester.tap(
@@ -1904,8 +1929,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await capture(tester, 'l5-filtered-short');
-    await tester.tap(find.text('Clear all'));
+    await capture(tester, 'a3-filter-one-type-in-place');
+    // The filled chip lifts the tag.
+    await tester.tap(find.textContaining('#horror  '));
     await tester.pumpAndSettle();
 
     // Library › Search: Home, results by type and its sibling states have
@@ -3581,11 +3607,21 @@ void main() {
   });
 
   testWidgets('long lists with the rail and the grid thumb', (tester) async {
-    // Enough entries for three screens, spread over the decades.
-    final long = padForLongLists(
+    // Enough entries for three screens, spread over the decades. Every
+    // movie carries #adventure, a tag no other type has, so a filter on it
+    // alone gives Library › Filtered results, one type.
+    final padded = padForLongLists(
       decodeLibrary(
         await File(FixtureLibraryRepository.assetPath).readAsString(),
       ),
+    );
+    final long = padded.copyWith(
+      entries: [
+        for (final e in padded.entries)
+          e.type == MediaType.movies && !e.tags.contains('adventure')
+              ? e.copyWith(tags: [...e.tags, 'adventure'])
+              : e,
+      ],
     );
     await tester.pumpWidget(
       ProviderScope(
@@ -3684,14 +3720,10 @@ void main() {
     );
     container
         .read(libraryFilterProvider.notifier)
-        .set(
-          // A lone type filter is the type view; one more filter makes Library
-          // › Filtered results, one type.
-          const LibraryFilter(
-            types: {MediaType.movies},
-            includeSeasonalOnly: true,
-          ),
-        );
+        // A filter that names a type is that type's own view; one that
+        // names none and matches one type is Library › Filtered results, one
+        // type.
+        .set(const LibraryFilter(tags: {'adventure'}));
     container
         .read(displayPreferencesProvider.notifier)
         .setFilteredSort(LibrarySort.yearNewest);

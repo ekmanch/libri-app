@@ -98,20 +98,24 @@ class HomeSectionsPage extends ConsumerWidget {
     final plan = activePlan(library);
     final visible = LibraryFilter.none.apply(library.entries);
     final q = ref.watch(pageQueryProvider(null));
-    if (q.isNotEmpty) {
-      // Searched: the plan and the sections give way to the results.
+    final picked = ref.watch(pageTagsProvider(null));
+    if (q.isNotEmpty || picked.tags.isNotEmpty) {
+      // Searched, or narrowed to a tag picked from a search: the plan and
+      // the sections give way to the results.
+      final search = ListSearch.of(
+        ref,
+        library: library,
+        visible: visible,
+        type: null,
+        q: q,
+        picked: picked,
+        onAddEntry: onAddEntry,
+      );
       return HomeSearchResults(
         controller: controller,
         top: top,
-        results: sortEntries(searchEntries(visible, q), LibrarySort.titleAz),
-        search: ListSearch.of(
-          ref,
-          library: library,
-          visible: visible,
-          type: null,
-          q: q,
-          onAddEntry: onAddEntry,
-        ),
+        results: sortEntries(search.apply(visible), LibrarySort.titleAz),
+        search: search,
         covers: covers,
         onOpenEntry: onOpenEntry,
       );
@@ -268,7 +272,19 @@ class HomeTypePage extends ConsumerWidget {
       );
     }
     final q = ref.watch(pageQueryProvider(type));
-    final search = q.isEmpty
+    // The filter that narrows this type's list in place: a filter that
+    // names one type is shown here, never as a results screen.
+    final filter = ref.watch(libraryFilterProvider);
+    final narrowing = filter.typeView?.type == type ? filter : null;
+    final picked = ref.watch(pageTagsProvider(type));
+    // What the filter leaves of the list before its tags, which the Tags
+    // row counts over.
+    final untagged = narrowing == null
+        ? visible
+        : narrowing
+              .copyWith(tags: const {}, tagCategories: const {})
+              .apply(library.entriesOfType(type));
+    final search = q.isEmpty && picked.tags.isEmpty
         ? null
         : ListSearch.of(
             ref,
@@ -276,11 +292,15 @@ class HomeTypePage extends ConsumerWidget {
             visible: LibraryFilter.none.apply(library.entries),
             type: type,
             q: q,
+            picked: picked,
+            pool: untagged,
             onAddEntry: onAddEntry,
           );
     if (type == MediaType.music) {
       return MusicTypeBody(
         entries: visible,
+        narrowed: narrowing == null ? null : untagged,
+        narrowing: narrowing,
         search: search,
         controller: controller,
         leadingSlivers: [top],
@@ -291,10 +311,11 @@ class HomeTypePage extends ConsumerWidget {
     }
     final prefs = ref.watch(displayPreferencesProvider);
     final status = ref.watch(homeStatusProvider.select((s) => s[type]));
-    final ofStatus = visible.where((e) => status == null || e.status == status);
-    final total = ofStatus.length;
+    bool ofStatus(Entry e) => status == null || e.status == status;
+    final total = visible.where(ofStatus).length;
+    final inList = untagged.where(ofStatus);
     final shown = sortEntries(
-      search == null ? ofStatus : searchEntries(ofStatus, q),
+      search == null ? inList : search.apply(inList),
       prefs.sortFor(type),
     );
     final view = prefs.viewFor(type);
@@ -308,8 +329,16 @@ class HomeTypePage extends ConsumerWidget {
           selected: status,
           type: type,
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          onChanged: (status) =>
-              ref.read(homeStatusProvider.notifier).set(type, status),
+          onChanged: (status) {
+            ref.read(homeStatusProvider.notifier).set(type, status);
+            // A filter's several statuses give way to the chip picked, so
+            // the chips say what the list shows.
+            if (narrowing != null && narrowing.statuses.isNotEmpty) {
+              ref
+                  .read(libraryFilterProvider.notifier)
+                  .narrow(narrowing.copyWith(statuses: const {}));
+            }
+          },
         ),
       ),
     );
@@ -325,8 +354,8 @@ class HomeTypePage extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                // Searched: "2 of 120 movies".
-                search == null
+                // Searched or narrowed by a filter: "2 of 120 movies".
+                search == null && narrowing == null
                     ? countLabel(type, total)
                     : '${shown.length} of ${countLabel(type, total)}',
                 style: theme.textTheme.bodySmall!.copyWith(fontSize: 14),
@@ -355,10 +384,10 @@ class HomeTypePage extends ConsumerWidget {
         : SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: SearchTagRow(tags: search.tags, onTap: search.onOpenTag),
+              child: SearchTagRow(tags: search.tags, onTap: search.onPickTag),
             ),
           );
-    if (search != null && shown.isEmpty) {
+    if (search != null && q.isNotEmpty && shown.isEmpty) {
       // Library › Search: nothing here, results in another type; Search:
       // no results anywhere.
       return CustomScrollView(
@@ -370,12 +399,33 @@ class HomeTypePage extends ConsumerWidget {
           ?tagRow,
           SliverToBoxAdapter(
             child: SearchEmpty(
-              title: noMatchTitle(countNoun(type, 2), search.query),
+              title: noMatchTitle(countNoun(type, 2), search.what),
               search: search,
             ),
           ),
           const SliverPadding(
             padding: EdgeInsets.only(bottom: AppShell.contentBottomPadding),
+          ),
+        ],
+      );
+    }
+    if (shown.isEmpty && narrowing != null) {
+      // The filter leaves nothing of this list (Library › Empty states);
+      // its tags stay in the row, to be lifted.
+      return CustomScrollView(
+        controller: controller,
+        slivers: [
+          top,
+          segments,
+          count,
+          ?tagRow,
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: FilterEmpty(
+              filter: narrowing.statuses.isEmpty
+                  ? narrowing.copyWith(statuses: {?status})
+                  : narrowing,
+            ),
           ),
         ],
       );

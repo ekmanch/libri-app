@@ -164,27 +164,69 @@ class LibraryFilter {
     return 'No $subject are $what. $tail';
   }
 
-  /// The type view that shows this filter, when the home's chips can: one type
-  /// and at most one status, nothing else (Library › Movies + Done (filter
-  /// result)). For music the kind plays the status segment's part: at most one
-  /// kind and no status, so Music + Songs is the Songs tab (Library › Music:
-  /// songs (filter result)) and Music + Albums the Albums tab (Library › Music:
-  /// albums (filter result)). That is not a results screen.
+  /// The type view that shows this filter: a filter that names one type is
+  /// always shown in that type's own view, narrowed in place, never as a
+  /// results screen (the "Filter sheet and home stay in sync" note; Library ›
+  /// Movies + Done (filter result)). A single status picks the status chip;
+  /// for music the kind plays that part, so Music + Songs is the Songs tab
+  /// (Library › Music: songs (filter result)). The rest of the filter
+  /// narrows the list ([narrowing]). Null with several types or none: only
+  /// such a filter is a results screen ([showsResults]).
   TypeView? get typeView {
-    if (types.length != 1 ||
-        decades.isNotEmpty ||
-        tags.isNotEmpty ||
-        includeSeasonalOnly) {
-      return null;
-    }
+    if (types.length != 1) return null;
     final type = types.single;
-    if (type == MediaType.music) {
-      if (statuses.isNotEmpty || kinds.length > 1) return null;
-      return (type: type, status: null, kind: kinds.firstOrNull);
-    }
-    if (statuses.length > 1) return null;
-    return (type: type, status: statuses.firstOrNull, kind: null);
+    return type == MediaType.music
+        ? (
+            type: type,
+            status: null,
+            kind: kinds.length == 1 ? kinds.single : null,
+          )
+        : (
+            type: type,
+            status: statuses.length == 1 ? statuses.single : null,
+            kind: null,
+          );
   }
+
+  /// What a one-type filter narrows its type's list by beyond what the
+  /// status chip or the music tab shows ([typeView]): the tags, the decades,
+  /// several statuses (for music any status, its view having no status
+  /// chips) and seasonal-only entries. [none] when the chips show it all.
+  LibraryFilter get narrowing {
+    final view = typeView;
+    if (view == null) return this;
+    final rest = copyWith(
+      statuses: view.status == null ? null : const {},
+      kinds: const {},
+    );
+    return rest.statuses.isEmpty &&
+            rest.decades.isEmpty &&
+            rest.tags.isEmpty &&
+            !rest.includeSeasonalOnly
+        ? none
+        : rest;
+  }
+
+  /// Whether this is a results screen (Library › Filtered results): a
+  /// filter with several types, or with none.
+  bool get showsResults => isActive && types.length != 1;
+
+  /// The picked tags alone, as a filter of their own.
+  LibraryFilter get tagsOnly =>
+      LibraryFilter(tags: tags, tagCategories: tagCategories);
+
+  /// A chip of a Tags row tapped (Library › Search: a tag matches): a picked
+  /// tag is lifted, any other becomes the one tag picked, as [category]
+  /// for a tag in several categories.
+  LibraryFilter withTagPicked(String tag, [TagCategory? category]) =>
+      hasTag(tag, category)
+      ? toggleTag(tag, category: tagCategories[tag] == null ? null : category)
+      : copyWith(
+          tags: {tag},
+          tagCategories: {
+            if (category != null) tag: {category},
+          },
+        );
 
   /// What the home's type view shows, as a filter: the sheet opens with it.
   static LibraryFilter ofTypeView(
@@ -272,7 +314,11 @@ class LibraryFilter {
     ];
   }
 
-  /// Number shown on the filter button badge.
+  /// Number shown on the filter button badge: every choice of a results
+  /// screen; in a type's own view what the type tab does not show.
+  int get badge => showsResults ? count : count - types.length;
+
+  /// How many choices are made.
   int get count =>
       types.length +
       statuses.length +
@@ -293,6 +339,11 @@ class LibraryFilter {
     if (decades.isNotEmpty && !decades.contains(Decade.of(entry.year))) {
       return false;
     }
+    return hasTagsOf(entry);
+  }
+
+  /// Whether [entry] carries every chosen tag, each as its chosen categories.
+  bool hasTagsOf(Entry entry) {
     for (final tag in tags) {
       if (!entry.tags.contains(tag)) return false;
       for (final category in tagCategories[tag] ?? const <TagCategory>{}) {
