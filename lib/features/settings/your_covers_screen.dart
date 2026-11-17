@@ -29,27 +29,38 @@ String uploadedCoversSummary(List<CoverFile> files, Library library) {
   ].join(' · ');
 }
 
-/// The read-only Artist photos row of Settings › Library connection (and
-/// its state "artist photos not ready yet"; DESIGN.md section 10e): the
-/// phone never runs the first full run, so until the desktop has finished
-/// it the row says it is waiting; after that, how many of the artists that
-/// can have a photo have one. Null when the library has no artists. With
-/// the library kept on this phone ([local]) there is no desktop run to
-/// wait for, and nothing is looked up.
-String? artistPhotosSummary(
+/// The Artist photos row of Settings › Library connection (and its state
+/// "artist photos not ready yet"; DESIGN.md section 10e): what it says,
+/// and whether it has a Review button, which opens Settings › Artists
+/// without a photo. The phone never runs the first full run, so until the
+/// desktop has finished it the row says it is waiting and has no button;
+/// after that "317 of 380 artists have one · 63 without" with Review, or
+/// "All 380 artists have one" and no button, counting the artists that can
+/// have a photo. Null when the library has no artists. With the library
+/// kept on this phone ([local]) there is no desktop run to wait for.
+({String text, bool review})? artistPhotosSummary(
   Library library,
   CoverStore covers, {
   bool local = false,
 }) {
   final (:have, :total) = artistPhotoCounts(library, covers);
   if (total == 0) return null;
-  final count =
-      '$have of $total ${total == 1 ? 'artist has' : 'artists have'} one.';
-  if (local) return count;
-  if (covers.backfilled == null) {
-    return 'Waiting for the first run on the desktop.';
+  if (!local && covers.backfilled == null) {
+    return (text: 'Waiting for the first run on the desktop.', review: false);
   }
-  return '$count New artists are looked up as you add them.';
+  final artists = total == 1 ? 'artist has' : 'artists have';
+  if (have == total) {
+    return (
+      text: total == 1
+          ? '1 of 1 artist has one'
+          : 'All $total artists have one',
+      review: false,
+    );
+  }
+  return (
+    text: '$have of $total $artists one · ${total - have} without',
+    review: true,
+  );
 }
 
 void openYourCoversScreen(BuildContext context) {

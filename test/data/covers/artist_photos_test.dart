@@ -42,6 +42,23 @@ void main() {
     }
   });
 
+  test('title_core and same_title', () {
+    for (final c in cases('title_core')) {
+      expect(titleCore(c['title']! as String), c['core'], reason: '$c');
+    }
+    for (final c in cases('same_title')) {
+      final (a, b) = (c['a']! as String, c['b']! as String);
+      expect(sameTitle(a, b), c['same'], reason: '$c');
+      expect(sameTitle(b, a), c['same'], reason: '$c');
+    }
+  });
+
+  test('songs_asked', () {
+    for (final c in cases('songs_asked')) {
+      expect(songsAsked(strings(c['songs'])), c['asked'], reason: '$c');
+    }
+  });
+
   test('file_path', () {
     for (final c in cases('file_path')) {
       expect(artistPhotoPath(c['name']! as String), c['path'], reason: '$c');
@@ -75,12 +92,34 @@ void main() {
 
   test('choose', () {
     for (final c in cases('choose')) {
-      final chosen = chooseArtist(c['name']! as String, strings(c['owned']), [
-        for (final candidate in c['candidates']! as List)
-          ArtistCandidate.fromJson(candidate)!,
-      ]);
+      // `songs` are the artist's saved songs, and a candidate's `songs`
+      // what the searches for them found under its id.
+      final chosen = chooseArtist(
+        c['name']! as String,
+        strings(c['owned']),
+        strings(c['songs'] ?? const <String>[]),
+        [
+          for (final candidate in c['candidates']! as List)
+            ArtistCandidate.fromJson(candidate)!,
+        ],
+      );
       expect(chosen?.id, c['chosen'], reason: '${c['about']}');
     }
+  });
+
+  test('a candidate survives the cache file with the songs found', () {
+    const candidate = ArtistCandidate(
+      id: '1',
+      name: 'Adele',
+      albums: ['21'],
+      songs: ['Hello'],
+      page: 'https://music.apple.com/us/artist/1',
+    );
+    final read = ArtistCandidate.fromJson(
+      jsonDecode(jsonEncode(candidate.toJson())),
+    )!;
+    expect(read.toJson(), candidate.toJson());
+    expect(read.songs, ['Hello']);
   });
 
   test('missing: read, and written back to the same bytes', () {
@@ -120,10 +159,16 @@ void main() {
   test('missing_merge', () {
     for (final c in cases('missing_merge')) {
       final files = strings(c['files']).toSet();
+      // `library` lists the slugs of the library's artists; a case
+      // without it has everyone in the library.
+      final library = c['library'] == null
+          ? null
+          : strings(c['library']).toSet();
       String? merge() => mergedMissing(
         c['theirs'] as String?,
         edits(c['edits']),
         files.contains,
+        inLibrary: library?.contains,
       );
       if (c['refused'] == true) {
         expect(

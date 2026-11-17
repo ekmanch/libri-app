@@ -444,8 +444,9 @@ class CoverStore extends ChangeNotifier {
 
   /// The artists tried with nothing found and the day the desktop's first
   /// run finished: GitHub's record with the edits queued here on top, and
-  /// without the artists that have a file. Empty when the repo has no
-  /// record, or one this build cannot read.
+  /// without the artists that have a file. An artist who left the library
+  /// stays here until a sync writes the record; nothing counts one. Empty
+  /// when the repo has no record, or one this build cannot read.
   MissingArtists get missing => (_missingBase ?? MissingArtists()).merged([
     for (final change in _queue)
       if (change is MissingChange) change.edit,
@@ -1132,10 +1133,13 @@ class CoverStore extends ChangeNotifier {
   /// file is made when GitHub holds what this phone saw there, else it is
   /// dropped and GitHub's file stands; then the queued edits are merged
   /// into GitHub's `_missing.json`, which also loses every artist that has
-  /// a file by now.
+  /// a file by now and every artist not among [artists] (the slugs of the
+  /// artists in the library as this sync leaves it); without them nobody
+  /// leaves for that.
   Future<void> _pushArtists(
     CoverRemote remote,
     Map<String, CoverFile> tree,
+    Set<String>? artists,
   ) async {
     final last = <String, CoverChange>{};
     for (final change in _queue) {
@@ -1208,9 +1212,12 @@ class CoverStore extends ChangeNotifier {
             allowMalformed: true,
           );
     try {
-      final text = mergedMissing(theirs, [
-        for (final change in edits) change.edit,
-      ], (slug) => tree.containsKey('$artistsFolder/$slug.jpg'));
+      final text = mergedMissing(
+        theirs,
+        [for (final change in edits) change.edit],
+        (slug) => tree.containsKey('$artistsFolder/$slug.jpg'),
+        inLibrary: artists?.contains,
+      );
       if (text != null) {
         final bytes = Uint8List.fromList(utf8.encode(text));
         await remote.put(
@@ -1248,9 +1255,11 @@ class CoverStore extends ChangeNotifier {
   Map<String, CoverFile>? _tree;
 
   /// Before the library file is saved: every queued upload, and the new
-  /// place of every moved file. Throws [GitHubException]; what was sent
-  /// before the failure stays sent.
-  Future<void> pushFiles() async {
+  /// place of every moved file. [artists] are the slugs of the artists in
+  /// the library as this sync leaves it (`artistSlugsOf`): one no longer
+  /// among them leaves `_missing.json` when the record is written. Throws
+  /// [GitHubException]; what was sent before the failure stays sent.
+  Future<void> pushFiles({Set<String>? artists}) async {
     await load();
     final remote = this.remote;
     _tree = null;
@@ -1311,7 +1320,7 @@ class CoverStore extends ChangeNotifier {
           break;
       }
     }
-    await _pushArtists(remote, tree);
+    await _pushArtists(remote, tree, artists);
     _remote = tree.values.toList();
     _rebuild();
     await _saveList();

@@ -17,6 +17,7 @@ import '../sync/conflict_dialog.dart';
 import '../sync/relative_time.dart';
 import '../sync/sync_state.dart';
 import '../sync/token_expiry.dart';
+import 'artists_without_photo_screen.dart';
 import 'your_covers_screen.dart';
 
 /// Opens Settings › Library connection above everything, like Settings.
@@ -328,7 +329,9 @@ class ConnectionScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                    // Read-only: the first full run is the desktop's.
+                    // No Pause, Resume or Check again: the first full run
+                    // is the desktop's. Review lists the artists without
+                    // a photo.
                     if (artistPhotos != null)
                       Container(
                         constraints: const BoxConstraints(minHeight: 64),
@@ -339,23 +342,40 @@ class ConnectionScreen extends ConsumerWidget {
                           ),
                         ),
                         alignment: AlignmentDirectional.centerStart,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(
-                              'Artist photos',
-                              style: theme.textTheme.bodyLarge,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              artistPhotos,
-                              style: theme.textTheme.bodySmall!.copyWith(
-                                fontSize: 14,
-                                height: 1.4,
-                                fontStyle: FontStyle.normal,
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Artist photos',
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    artistPhotos.text,
+                                    style: theme.textTheme.bodySmall!.copyWith(
+                                      fontSize: 14,
+                                      height: 1.4,
+                                      fontStyle: FontStyle.normal,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            if (artistPhotos.review) ...[
+                              const SizedBox(width: 12),
+                              AppButton(
+                                label: 'Review',
+                                kind: AppButtonKind.outline,
+                                compact: true,
+                                horizontalPadding: 14,
+                                onPressed: () =>
+                                    openArtistsWithoutPhotoScreen(context),
+                              ),
+                            ],
                           ],
                         ),
                       ),

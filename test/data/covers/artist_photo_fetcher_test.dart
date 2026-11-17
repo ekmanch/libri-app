@@ -40,14 +40,22 @@ class _Apple extends FakeAppleArtists {
 
   LookupFailure? failure;
   final failFor = <String>{};
+
+  /// The saved songs each artist was asked about with.
+  final songsAsked = <String, List<String>>{};
   bool refused = false;
 
   @override
   bool get stopped => refused;
 
   @override
-  Future<ArtistFound> find(String name, Iterable<String> owned) async {
+  Future<ArtistFound> find(
+    String name,
+    Iterable<String> owned, [
+    Iterable<String> songs = const [],
+  ]) async {
     calls.add('find:$name:${owned.join('|')}');
+    songsAsked[name] = songs.toList();
     if (failure case final failure?) {
       if (failure == LookupFailure.rateLimited) refused = true;
       throw LookupException(failure);
@@ -55,7 +63,7 @@ class _Apple extends FakeAppleArtists {
     if (failFor.contains(name)) {
       throw const LookupException(LookupFailure.other, status: 500);
     }
-    return super.find(name, owned).whenComplete(calls.removeLast);
+    return super.find(name, owned, songs).whenComplete(calls.removeLast);
   }
 }
 
@@ -112,6 +120,13 @@ void main() {
     expect(artists.first.owned, ['Mezzanine', 'Blue Lines', 'Mezzanine']);
     expect(artists.last.owned, ['Arrival']);
     expect(ownedTitlesOf(library, 'burial'), ['Untrue', 'Untrue']);
+    // The saved songs, in the library's order, a title once.
+    expect(artists.first.songs, ['Teardrop']);
+    expect(artists.last.songs, ['Dancing Queen']);
+    expect(savedSongsOf(library, 'massive attack'), ['Teardrop']);
+    expect(savedSongsOf(library, 'Various Artists'), isEmpty);
+    // The record's merge knows the same artists by their slugs.
+    expect(artistSlugsOf(library), {'massive-attack', 'burial', 'abba'});
   });
 
   test('nothing is fetched until the desktop\'s first run is seen', () async {

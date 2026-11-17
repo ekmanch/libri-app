@@ -565,7 +565,11 @@ void main() {
           );
         }
         github.requests.clear();
-        await covers.pushFiles();
+        // `library` lists the slugs of the library's artists; a case
+        // without it has everyone in the library.
+        await covers.pushFiles(
+          artists: (c['library'] as List?)?.cast<String>().toSet(),
+        );
         // With nothing to record the store never reads the record, so a
         // file in another layout is only rewritten along with an edit.
         final written = (c['edits']! as List).isEmpty

@@ -29,11 +29,17 @@ class ArtistPhoto extends ConsumerStatefulWidget {
     required this.size,
     this.initialsSize,
     this.borderRadius,
+    this.onCover,
   });
 
   final String name;
   final String initials;
   final double size;
+
+  /// Told whether a cover from the library stands in for the photo, once
+  /// that is known and when it changes (Music › Artist photo, larger says
+  /// so). Never called during a build.
+  final ValueChanged<bool>? onCover;
 
   /// Defaults to a third of the disc; the grid (Library › Music: artists, grid
   /// with photos) uses a fixed 22.
@@ -115,10 +121,12 @@ class _ArtistPhotoState extends ConsumerState<ArtistPhoto> {
       }
       if (url != null) {
         if (url != _coverUrl) setState(() => _coverUrl = url);
+        widget.onCover?.call(true);
         return;
       }
     }
     if (_coverUrl != null) setState(() => _coverUrl = null);
+    widget.onCover?.call(false);
   }
 
   @override

@@ -14,12 +14,15 @@ import 'cover_store.dart';
 
 /// One artist of the library as the photo rules see them: the name as the
 /// library spells it, its slug, the album titles saved for them (their
-/// albums, and the albums their saved songs name) and the latest day one of
-/// their entries was added.
+/// albums, and the albums their saved songs name), the titles of their
+/// saved songs in the library's order (asked about only when no album
+/// tells who the artist is) and the latest day one of their entries was
+/// added.
 typedef LibraryArtist = ({
   String name,
   String slug,
   List<String> owned,
+  List<String> songs,
   DateTime added,
 });
 
@@ -29,6 +32,7 @@ typedef LibraryArtist = ({
 List<LibraryArtist> photoArtists(Library library) {
   final names = <String, String>{};
   final owned = <String, List<String>>{};
+  final songs = <String, List<String>>{};
   final added = <String, DateTime>{};
   for (final entry in library.entries) {
     if (entry.type != MediaType.music) continue;
@@ -40,6 +44,10 @@ List<LibraryArtist> photoArtists(Library library) {
     if (title != null && title.trim().isNotEmpty) {
       owned.putIfAbsent(key, () => []).add(title);
     }
+    if (entry.kind == EntryKind.song) {
+      final saved = songs.putIfAbsent(key, () => []);
+      if (!saved.contains(entry.title)) saved.add(entry.title);
+    }
     final best = added[key];
     if (best == null || entry.added.isAfter(best)) added[key] = entry.added;
   }
@@ -50,6 +58,7 @@ List<LibraryArtist> photoArtists(Library library) {
           name: name,
           slug: slug,
           owned: owned[key] ?? const <String>[],
+          songs: songs[key] ?? const <String>[],
           added: added[key]!,
         ),
   ];
@@ -115,9 +124,7 @@ class ArtistPhotoFetcher {
     bool sameDay(DateTime a, DateTime b) => artistDayOf(a) == artistDayOf(b);
     final out = [
       for (final artist in photoArtists(library))
-        if (!files.containsKey(artist.slug) &&
-            !_passed.contains(artist.slug) &&
-            artist.owned.isNotEmpty)
+        if (!files.containsKey(artist.slug) && !_passed.contains(artist.slug))
           if (missing.isDue(artist.slug, today, artist.added) ||
               // Recorded today with an entry added today: the device
               // that adds the entry asks once more.
@@ -142,7 +149,7 @@ class ArtistPhotoFetcher {
         _asked.add(artist.slug);
         final ArtistFound found;
         try {
-          found = await apple.find(artist.name, artist.owned);
+          found = await apple.find(artist.name, artist.owned, artist.songs);
         } on LookupException catch (e) {
           if (e.failure == LookupFailure.rateLimited) {
             _log('Apple stopped answering: no more artist photos for now.');
@@ -199,3 +206,25 @@ List<String> ownedTitlesOf(Library library, String name) {
           title,
   ];
 }
+
+/// The titles of the songs saved by the artist called [name], in the
+/// library's order, as [photoArtists] has them.
+List<String> savedSongsOf(Library library, String name) {
+  final key = name.trim().toLowerCase();
+  final songs = <String>[];
+  for (final Entry entry in library.entries) {
+    if (entry.type == MediaType.music &&
+        entry.kind == EntryKind.song &&
+        (entry.creator ?? '').trim().toLowerCase() == key &&
+        !songs.contains(entry.title)) {
+      songs.add(entry.title);
+    }
+  }
+  return songs;
+}
+
+/// The slugs of [library]'s artists, for the record's merge: an artist no
+/// entry names any more leaves `_missing.json`.
+Set<String> artistSlugsOf(Library library) => {
+  for (final artist in photoArtists(library)) artist.slug,
+};

@@ -221,10 +221,11 @@ Future<void> waitForImages(WidgetTester tester, {int count = 1}) async {
 /// Apple Music on the phone at [scale] (DESIGN.md 10c "Apple Music on
 /// demand" and 10e): Add / edit entry › Music search: match not shown and
 /// the two Extended search states, Pick a cover: more covers found; Music ›
-/// Artist, text view with its photo, Artist photo, larger, Pick a photo and
-/// its states, Artist photo: your pick wasn't saved; Settings › Library
-/// connection: artist photos not ready yet, and ready. Captures are
-/// prefixed "large-text-" above 1.
+/// Artist, text view with its photo, Artist photo, larger and its "no photo
+/// yet" state, Pick a photo and its states, Artist photo: your pick wasn't
+/// saved; Settings › Library connection: artist photos not ready yet, and
+/// ready; Settings › Artists without a photo. Captures are prefixed
+/// "large-text-" above 1.
 Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
   final prefix = scale == 1 ? '' : 'large-text-';
   const dirtId = 'music/dirt-alice-in-chains';
@@ -369,8 +370,9 @@ Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(photo);
   await tester.pumpAndSettle();
   await settle();
-  await capture(tester, '${prefix}a56-artist-photo-larger');
-  await tester.tap(find.text('Change photo'));
+  // No file of their own yet: the larger view says so.
+  await capture(tester, '${prefix}a56-artist-photo-larger-none');
+  await tester.tap(find.text('Add a photo'));
   await tester.pumpAndSettle();
   await settle(images: 4);
   await capture(tester, '${prefix}a56-artist-pick-photo');
@@ -385,6 +387,12 @@ Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await settle();
   await capture(tester, '${prefix}a56-artist-with-own-photo');
+  await tester.tap(photo);
+  await tester.pumpAndSettle();
+  await settle();
+  await capture(tester, '${prefix}a56-artist-photo-larger');
+  await tester.tap(find.byTooltip('Close'));
+  await tester.pumpAndSettle();
   await back();
 
   // Several artists of the name: the others, loaded on demand.
@@ -460,6 +468,12 @@ Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await showArtistRow();
   await capture(tester, '${prefix}a56-connection-artist-photos');
+  // Review: every artist with no file of their own.
+  await tester.tap(find.text('Review').last);
+  await tester.pumpAndSettle();
+  await settle(images: 4);
+  await capture(tester, '${prefix}a56-artists-without-photo');
+  await back();
   await back();
 }
 

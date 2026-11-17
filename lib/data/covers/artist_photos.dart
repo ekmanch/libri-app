@@ -34,7 +34,7 @@ const artistRetryDays = 90;
 /// The `_missing.json` format.
 const artistsMissingVersion = 1;
 
-/// A name as names and album titles are compared: case, accents and
+/// A name as names and titles are compared: case, accents and
 /// punctuation aside, "&" as "and", a leading "The" ignored. It is the slug
 /// of the name with " and " for each "&", without a leading "the-" (kept
 /// when nothing else is left: "The The" is "the"). Empty for a name with no
@@ -44,10 +44,66 @@ String artistNameKey(String name) {
   return key.startsWith('the-') && key.length > 4 ? key.substring(4) : key;
 }
 
-/// Whether two names or two album titles are the same by [artistNameKey].
+/// Whether two artist names are the same by [artistNameKey].
 bool sameArtistName(String a, String b) {
   final key = artistNameKey(a);
   return key.isNotEmpty && key == artistNameKey(b);
+}
+
+/// A title without the notes at its end: a trailing " - Single" or " - EP"
+/// (whatever the case) and a trailing part in round or square brackets,
+/// from its last opening bracket, taken off one after another until none
+/// is left. A title that would end up empty keeps what it had: "(What's
+/// the Story) Morning Glory?" and "(I)" stay whole.
+String titleCore(String title) {
+  var core = title.trim();
+  while (true) {
+    final shorter =
+        (_withoutSuffix(core, ' - single') ??
+                _withoutSuffix(core, ' - ep') ??
+                _withoutBracket(core, '(', ')') ??
+                _withoutBracket(core, '[', ']'))
+            ?.trimRight();
+    if (shorter == null || shorter.isEmpty) return core;
+    core = shorter;
+  }
+}
+
+/// [title] without [suffix] (lower case, ASCII) at its end, compared
+/// whatever the case of the ASCII letters; null when it does not end so.
+String? _withoutSuffix(String title, String suffix) {
+  final at = title.length - suffix.length;
+  if (at < 0) return null;
+  for (var i = 0; i < suffix.length; i++) {
+    var unit = title.codeUnitAt(at + i);
+    if (unit >= 0x41 && unit <= 0x5A) unit += 0x20;
+    if (unit != suffix.codeUnitAt(i)) return null;
+  }
+  return title.substring(0, at);
+}
+
+String? _withoutBracket(String title, String open, String close) {
+  if (!title.endsWith(close)) return null;
+  final at = title.lastIndexOf(open);
+  return at < 0 ? null : title.substring(0, at);
+}
+
+/// The keys a title is compared by: the title's own and its core's
+/// ([titleCore]), the empty ones left out. The core's comes last.
+List<String> _titleKeys(String title) {
+  final own = artistNameKey(title);
+  final core = artistNameKey(titleCore(title));
+  return [if (own.isNotEmpty) own, if (core.isNotEmpty && core != own) core];
+}
+
+/// Whether two album titles, or two song titles, are the same: by
+/// [artistNameKey], each as it is written or without the notes at its end,
+/// so "Texas Moon" is "Texas Moon - EP", "Abbey Road" is "Abbey Road
+/// (Remastered)" and "Another Green World (2004 Remaster)" is "Another
+/// Green World". Words outside the brackets still have to agree.
+bool sameTitle(String a, String b) {
+  final other = _titleKeys(b);
+  return _titleKeys(a).any(other.contains);
 }
 
 /// The artist's slug, the entry ids' slug of the name; null for a name with
@@ -157,27 +213,43 @@ String? artistPhotoUrl(String ogImage) {
   return '${ogImage.substring(0, slash)}/$artistPhotoSize';
 }
 
-/// An Apple artist a name search found, with the titles of their albums.
+/// How many of an artist's saved songs Apple is asked about, at most.
+const artistSongsAsked = 3;
+
+/// An Apple artist a name search found, with the titles of their albums
+/// and, when their songs were searched for ([chooseArtist]), the names of
+/// the tracks those searches found under this artist's id.
 class ArtistCandidate {
   const ArtistCandidate({
     required this.id,
     required this.name,
     this.albums = const [],
+    this.songs = const [],
     this.page,
   });
 
   final String id;
   final String name;
   final List<String> albums;
+  final List<String> songs;
 
   /// The artist's `music.apple.com` page, when the search gave one.
   final String? page;
+
+  ArtistCandidate withSongs(List<String> songs) => ArtistCandidate(
+    id: id,
+    name: name,
+    albums: albums,
+    songs: songs,
+    page: page,
+  );
 
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
     'page': ?page,
     'albums': albums,
+    if (songs.isNotEmpty) 'songs': songs,
   };
 
   static ArtistCandidate? fromJson(Object? json) {
@@ -185,39 +257,49 @@ class ArtistCandidate {
     final id = json['id'];
     final name = json['name'];
     if (id is! String || name is! String) return null;
+    List<String> strings(String key) => [
+      for (final item in json[key] as List<Object?>? ?? const [])
+        if (item is String) item,
+    ];
     return ArtistCandidate(
       id: id,
       name: name,
-      albums: [
-        for (final album in json['albums'] as List<Object?>? ?? const [])
-          if (album is String) album,
-      ],
+      albums: strings('albums'),
+      songs: strings('songs'),
       page: json['page'] as String?,
     );
   }
 }
 
-/// How many of [owned] (the album titles saved for the artist) the
-/// candidate lists, each owned title counted once.
-int ownedAlbumCount(ArtistCandidate candidate, Iterable<String> owned) {
-  final listed = {for (final album in candidate.albums) artistNameKey(album)};
-  final keys = {for (final title in owned) artistNameKey(title)};
-  return keys.where((key) => key.isNotEmpty && listed.contains(key)).length;
+/// How many of [saved] (titles saved for the artist) are among [listed] by
+/// [sameTitle]. Saved titles that differ only in the notes at their end
+/// ("Birthdays" and "Birthdays (Deluxe)") count once.
+int _listedCount(Iterable<String> listed, Iterable<String> saved) {
+  final keys = {for (final title in listed) ..._titleKeys(title)};
+  final counted = <String>{};
+  for (final title in saved) {
+    final own = _titleKeys(title);
+    // The core's key comes last and names the title.
+    if (own.isNotEmpty && own.any(keys.contains)) counted.add(own.last);
+  }
+  return counted.length;
 }
 
-/// The Apple artist that is the library's [name]: among the candidates of
-/// the same name, the one listing the most owned albums. One that lists
-/// none is no match, even as the only namesake, and a tie for the most is
-/// no match either.
-ArtistCandidate? chooseArtist(
+/// How many of [owned] (the album titles saved for the artist) the
+/// candidate lists, each owned title counted once.
+int ownedAlbumCount(ArtistCandidate candidate, Iterable<String> owned) =>
+    _listedCount(candidate.albums, owned);
+
+/// The one with the highest count above zero among the candidates named
+/// [name]; none when nobody counts or two tie for the most.
+ArtistCandidate? _most(
   String name,
-  Iterable<String> owned,
   List<ArtistCandidate> candidates,
+  int Function(ArtistCandidate candidate) count,
 ) {
   final counted = [
     for (final candidate in candidates)
-      if (sameArtistName(candidate.name, name))
-        (ownedAlbumCount(candidate, owned), candidate),
+      if (sameArtistName(candidate.name, name)) (count(candidate), candidate),
   ].where((c) => c.$1 > 0).toList();
   if (counted.isEmpty) return null;
   var best = counted.first;
@@ -233,9 +315,71 @@ ArtistCandidate? chooseArtist(
   return tied ? null : best.$2;
 }
 
+/// The Apple artist that is the library's [name], by albums: among the
+/// candidates of the same name, the one listing the most owned albums. One
+/// that lists none is no match, even as the only namesake, and a tie for
+/// the most is no match either.
+ArtistCandidate? chooseByAlbums(
+  String name,
+  Iterable<String> owned,
+  List<ArtistCandidate> candidates,
+) => _most(name, candidates, (c) => ownedAlbumCount(c, owned));
+
+/// Whether some candidate of the name lists an owned album. When none
+/// does, the artist's saved songs are searched for instead.
+bool listsOwned(
+  String name,
+  Iterable<String> owned,
+  List<ArtistCandidate> candidates,
+) => candidates.any(
+  (c) => sameArtistName(c.name, name) && ownedAlbumCount(c, owned) > 0,
+);
+
+/// The saved songs Apple is asked about: the first [artistSongsAsked] of
+/// [songs] (the artist's saved song titles in the library's order), a
+/// title counted once by [sameTitle] and one with no key left out.
+List<String> songsAsked(Iterable<String> songs) {
+  final asked = <String>[];
+  for (final song in songs) {
+    if (asked.length == artistSongsAsked) break;
+    if (artistNameKey(song).isNotEmpty &&
+        !asked.any((other) => sameTitle(other, song))) {
+      asked.add(song);
+    }
+  }
+  return asked;
+}
+
+/// The Apple artist that is the library's [name], by songs: among the
+/// candidates of the same name, the one under whose id the searches found
+/// the most of the songs asked about ([songsAsked]); none found is no
+/// match, and so is a tie for the most.
+ArtistCandidate? chooseBySongs(
+  String name,
+  Iterable<String> songs,
+  List<ArtistCandidate> candidates,
+) {
+  final asked = songsAsked(songs);
+  return _most(name, candidates, (c) => _listedCount(c.songs, asked));
+}
+
+/// The Apple artist that is the library's [name]: by albums
+/// ([chooseByAlbums]); by songs ([chooseBySongs]) only when no candidate of
+/// the name lists an owned album, so a tie between albums is never broken
+/// by a song.
+ArtistCandidate? chooseArtist(
+  String name,
+  Iterable<String> owned,
+  Iterable<String> songs,
+  List<ArtistCandidate> candidates,
+) => listsOwned(name, owned, candidates)
+    ? chooseByAlbums(name, owned, candidates)
+    : chooseBySongs(name, songs, candidates);
+
 /// Why an artist has no photo.
 enum MissingReason {
-  /// No Apple artist of the name lists an owned album, or two tie.
+  /// No Apple artist of the name lists an owned album or was found with
+  /// a saved song, or two tie.
   noMatch('no-match'),
 
   /// The matched artist's page shows no photo of the artist.
@@ -487,15 +631,20 @@ class MissingArtists {
   }
 
   /// This record with [edits] applied in order and without the artists
-  /// that have a file ([hasFile], by slug): an entry is removed when a file
-  /// for the artist appears, whoever put it there.
+  /// that have a file ([hasFile], by slug) or are no longer in the library
+  /// ([inLibrary], by slug; everyone when left out): an entry leaves when a
+  /// file for the artist appears, whoever put it there, or when no entry
+  /// names the artist any more, and for no other reason.
   MissingArtists merged(
     Iterable<MissingEdit> edits,
-    bool Function(String slug) hasFile,
-  ) {
+    bool Function(String slug) hasFile, {
+    bool Function(String slug)? inLibrary,
+  }) {
     final out = MissingArtists(backfilled: backfilled, artists: {...artists});
     edits.forEach(out.apply);
-    out.artists.removeWhere((slug, _) => hasFile(slug));
+    out.artists.removeWhere(
+      (slug, _) => hasFile(slug) || !(inLibrary?.call(slug) ?? true),
+    );
     return out;
   }
 
@@ -504,18 +653,21 @@ class MissingArtists {
 
 /// `_missing.json` as a sync writes it: the repo's copy ([theirs], null
 /// when there is no file yet) with this device's [edits] on top, per
-/// artist. Null when that changes nothing, and no file is made for an empty
-/// record. A copy that cannot be read throws [MissingFormatException] and
-/// is left as it is; the edits are then dropped.
+/// artist, without the artists that have a file or have left the library
+/// ([MissingArtists.merged]). Null when that changes nothing, and no file
+/// is made for an empty record. A copy that cannot be read throws
+/// [MissingFormatException] and is left as it is; the edits are then
+/// dropped.
 String? mergedMissing(
   String? theirs,
   Iterable<MissingEdit> edits,
-  bool Function(String slug) hasFile,
-) {
+  bool Function(String slug) hasFile, {
+  bool Function(String slug)? inLibrary,
+}) {
   final base = theirs == null
       ? MissingArtists()
       : MissingArtists.decode(theirs);
-  final merged = base.merged(edits, hasFile);
+  final merged = base.merged(edits, hasFile, inLibrary: inLibrary);
   if (theirs == null && merged.isEmpty) return null;
   final text = merged.encode();
   return text == theirs ? null : text;

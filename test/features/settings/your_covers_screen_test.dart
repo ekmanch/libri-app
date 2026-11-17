@@ -7,9 +7,11 @@ import 'package:library_app/data/covers/cover_files.dart';
 import 'package:library_app/data/covers/cover_store.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/data/models/entry.dart';
+import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/library.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_covers.dart';
+import 'package:library_app/features/settings/artists_without_photo_screen.dart';
 import 'package:library_app/features/settings/connection_screen.dart';
 import 'package:library_app/features/settings/your_covers_screen.dart';
 
@@ -130,7 +132,9 @@ void main() {
       expect(find.text('Review'), findsNothing);
     });
 
-    testWidgets('after it, how many artists have one', (tester) async {
+    testWidgets('after it, with every artist covered: the count alone', (
+      tester,
+    ) async {
       await pump(
         tester,
         const ConnectionScreen(),
@@ -144,14 +148,164 @@ void main() {
           'artists/gone.jpg': text('photo'),
         },
       );
+      expect(find.text('1 of 1 artist has one'), findsOneWidget);
+      // Nobody to review, and the review of uploaded covers leaves the
+      // artists' folder alone.
+      expect(find.text('Review'), findsNothing);
+      expect(find.text('Uploaded covers'), findsNothing);
+    });
+
+    final ghost = dirt.copyWith(
+      id: 'music/impera-ghost',
+      title: 'Impera',
+      creator: 'Ghost',
+    );
+    final rats = dirt.copyWith(
+      id: 'music/rats-ghost',
+      title: 'Rats',
+      creator: 'Ghost',
+      kind: EntryKind.song,
+    );
+    final abba = dirt.copyWith(
+      id: 'music/arrival-abba',
+      title: 'Arrival',
+      creator: 'ABBA',
+    );
+    final various = dirt.copyWith(
+      id: 'music/now-42',
+      title: 'Now 42',
+      creator: 'Various Artists',
+    );
+    const backfilled =
+        '{\n  "version": 1,\n  "backfilled": "2026-11-15",\n'
+        '  "artists": {}\n}\n';
+
+    test('the row: waiting, then the count with those without, then '
+        'all', () async {
+      Future<({String text, bool review})?> row(
+        int have,
+        int total, {
+        bool ready = true,
+        bool local = false,
+      }) async {
+        final store = fakeCoverStore(
+          files: {
+            if (ready) record: text(backfilled),
+            for (var i = 0; i < have; i++) 'artists/artist-$i.jpg': text('p'),
+          },
+        );
+        await store.refresh();
+        return artistPhotosSummary(
+          Library(
+            entries: [
+              for (var i = 0; i < total; i++)
+                dirt.copyWith(id: 'music/a-$i', creator: 'Artist $i'),
+            ],
+          ),
+          store,
+          local: local,
+        );
+      }
+
+      expect(await row(0, 0), isNull);
+      expect(await row(2, 3, ready: false), (
+        text: 'Waiting for the first run on the desktop.',
+        review: false,
+      ));
+      expect(await row(2, 3), (
+        text: '2 of 3 artists have one · 1 without',
+        review: true,
+      ));
+      expect(await row(0, 1), (
+        text: '0 of 1 artist has one · 1 without',
+        review: true,
+      ));
+      expect(await row(3, 3), (text: 'All 3 artists have one', review: false));
+      // Kept on this phone there is no desktop run to wait for.
+      expect(await row(1, 3, ready: false, local: true), (
+        text: '1 of 3 artists have one · 2 without',
+        review: true,
+      ));
+    });
+
+    testWidgets('with artists without one: the count, those without and '
+        'Review, which opens Without a photo', (tester) async {
+      await pump(
+        tester,
+        const ConnectionScreen(),
+        withFiles: {
+          record: text(backfilled),
+          'artists/alice-in-chains.jpg': text('photo'),
+        },
+        withEntries: [dirt, ghost, rats, abba, various],
+      );
+      expect(find.text('1 of 3 artists have one · 2 without'), findsOneWidget);
+      await tester.ensureVisible(find.text('Review'));
+      await tester.tap(find.text('Review'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ArtistsWithoutPhotoScreen), findsOneWidget);
+      expect(find.text('Without a photo'), findsOneWidget);
+    });
+
+    testWidgets('Without a photo lists every artist with no file, A to Z, '
+        'with what is saved by them; a tap opens Pick a photo, and an '
+        'artist who gets a photo leaves the list', (tester) async {
+      final container = await pump(
+        tester,
+        const ArtistsWithoutPhotoScreen(),
+        withFiles: {
+          record: text(backfilled),
+          'artists/alice-in-chains.jpg': text('photo'),
+        },
+        withEntries: [dirt, ghost, rats, abba, various],
+      );
       expect(
         find.text(
-          '1 of 1 artist has one. New artists are looked up as you add them.',
+          '2 artists. No photo was found for these; pick or upload one.',
         ),
         findsOneWidget,
       );
-      // The review of uploaded covers leaves the artists' folder alone.
-      expect(find.text('Uploaded covers'), findsNothing);
+      // Not the artist with a file, nor Various Artists.
+      expect(find.text('Alice in Chains'), findsNothing);
+      expect(find.text('Various Artists'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('ABBA')).dy,
+        lessThan(tester.getTopLeft(find.text('Ghost')).dy),
+      );
+      expect(find.text('1 album'), findsOneWidget);
+      expect(find.text('1 album, 1 song'), findsOneWidget);
+      expect(find.text('Add photo'), findsNWidgets(2));
+      expect(
+        find.bySemanticsLabel('Ghost, 1 album, 1 song, add a photo'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Ghost'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pick a photo'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      await tester.runAsync(
+        () => container
+            .read(coverStoreProvider)
+            .putArtistPhoto(
+              'Ghost',
+              text('picked'),
+              picked: true,
+              summary: 'Set the photo of Ghost',
+            ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Ghost'), findsNothing);
+      expect(find.text('ABBA'), findsOneWidget);
+      expect(
+        find.text(
+          '1 artist. No photo was found for this one; pick or upload one.',
+        ),
+        findsOneWidget,
+      );
+      expect(artistsWithoutPhotoIntro(0), 'Every artist has a photo.');
     });
 
     test(
@@ -178,10 +332,10 @@ void main() {
           uploadedCoversSummary(store.files, library),
           startsWith('4 covers · 2 unused'),
         );
-        expect(
-          artistPhotosSummary(library, store, local: true),
-          '1 of 1 artist has one.',
-        );
+        expect(artistPhotosSummary(library, store, local: true), (
+          text: '1 of 1 artist has one',
+          review: false,
+        ));
       },
     );
   });

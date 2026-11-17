@@ -267,8 +267,12 @@ void main() {
   });
 
   group('the ways in', () {
-    Future<void> pumpScreen(WidgetTester tester, Widget home) async {
-      store = fakeCoverStore();
+    Future<void> pumpScreen(
+      WidgetTester tester,
+      Widget home, {
+      Map<String, Uint8List> files = const {},
+    }) async {
+      store = fakeCoverStore(files: files);
       await store.refresh();
       await pumpApp(
         tester,
@@ -281,7 +285,13 @@ void main() {
     testWidgets('the artist page has the round photo in the text view too: '
         'a tap shows it larger with Change photo, a long press on it or on '
         'the name opens the picker', (tester) async {
-      await pumpScreen(tester, const ArtistScreen(name: 'Alice in Chains'));
+      await pumpScreen(
+        tester,
+        const ArtistScreen(name: 'Alice in Chains'),
+        files: {
+          'artists/alice-in-chains.jpg': fakeCoverPng('aic', square: true),
+        },
+      );
       final photo = find.bySemanticsLabel(
         'Alice in Chains. Tap to see the photo, long-press to change it',
       );
@@ -289,6 +299,8 @@ void main() {
       await tester.tap(photo);
       await tester.pumpAndSettle();
       expect(find.text('Change photo'), findsOneWidget);
+      expect(find.text('Add a photo'), findsNothing);
+      expect(find.textContaining('No photo yet.'), findsNothing);
       expect(find.byTooltip('Close'), findsOneWidget);
       await tester.tap(find.text('Change photo'));
       await tester.pumpAndSettle();
@@ -306,6 +318,29 @@ void main() {
       await tester.longPress(find.text('Alice in Chains'));
       await tester.pumpAndSettle();
       expect(find.text('Pick a photo'), findsOneWidget);
+    });
+
+    testWidgets('an artist with no file of their own: the larger view says '
+        'so and its button reads Add a photo, which opens the picker '
+        '(Music › Artist photo, larger: no photo yet)', (tester) async {
+      await pumpScreen(tester, const ArtistScreen(name: 'Alice in Chains'));
+      await tester.tap(
+        find.bySemanticsLabel(
+          'Alice in Chains. Tap to see the photo, long-press to change it',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('No photo yet.'), findsOneWidget);
+      expect(find.text('Change photo'), findsNothing);
+      await tester.tap(find.text('Add a photo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pick a photo'), findsOneWidget);
+      // With one of the library's covers standing in, or initials alone.
+      expect(
+        noArtistPhotoNote(cover: true),
+        'No photo yet. One of your album covers is shown.',
+      );
+      expect(noArtistPhotoNote(cover: false), 'No photo yet.');
     });
 
     testWidgets('a long press on an artist\'s row or tile opens the picker, '
@@ -363,8 +398,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.text(
-        'Your photo for Alice in Chains wasn’t saved. It was changed on '
-        'another device first.',
+        'Another device chose a photo for Alice in Chains first, so your '
+        'pick was dropped.',
       ),
       findsOneWidget,
     );

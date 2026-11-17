@@ -33,7 +33,9 @@ Future<void> showArtistPhotoPicker(
 }) => showAppSheet<void>(context, builder: (_) => ArtistPhotoSheet(name: name));
 
 /// Opens Music › Artist photo, larger: what the artist shows at 320 dp,
-/// the name, and Change photo, which opens Pick a photo.
+/// the name, and Change photo, which opens Pick a photo. For an artist
+/// with no file of their own (Artist photo, larger: no photo yet) it says
+/// so and the button reads "Add a photo".
 Future<void> showArtistPhotoViewer(
   BuildContext context, {
   required String name,
@@ -50,14 +52,35 @@ Future<void> showArtistPhotoViewer(
   }
 }
 
-class _ArtistPhotoViewer extends StatelessWidget {
+/// What the larger view says under the name of an artist with no file of
+/// their own, showing one of the library's covers ([cover]) or initials.
+String noArtistPhotoNote({required bool cover}) => cover
+    ? 'No photo yet. One of your album covers is shown.'
+    : 'No photo yet.';
+
+class _ArtistPhotoViewer extends ConsumerStatefulWidget {
   const _ArtistPhotoViewer({required this.name});
 
   final String name;
 
   @override
+  ConsumerState<_ArtistPhotoViewer> createState() => _ArtistPhotoViewerState();
+}
+
+class _ArtistPhotoViewerState extends ConsumerState<_ArtistPhotoViewer> {
+  /// A cover from the library stands in for the photo.
+  bool _cover = false;
+
+  String get name => widget.name;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasFile = ref.watch(
+      artistPhotoFilesProvider.select(
+        (files) => files.containsKey(artistSlug(name)),
+      ),
+    );
     final width = MediaQuery.sizeOf(context).width;
     final size = (width - 40).clamp(120.0, 320.0);
     return Material(
@@ -79,6 +102,11 @@ class _ArtistPhotoViewer extends StatelessWidget {
                       initials: artistInitials(name),
                       size: size,
                       initialsSize: size * 0.3,
+                      onCover: (cover) {
+                        if (mounted && cover != _cover) {
+                          setState(() => _cover = cover);
+                        }
+                      },
                     ),
                     const SizedBox(height: 22),
                     Padding(
@@ -89,9 +117,26 @@ class _ArtistPhotoViewer extends StatelessWidget {
                         style: theme.textTheme.titleLarge,
                       ),
                     ),
+                    if (!hasFile)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 300),
+                          child: Text(
+                            noArtistPhotoNote(cover: _cover),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall!.copyWith(
+                              fontStyle: FontStyle.normal,
+                              fontSize: 14,
+                              height: 1.45,
+                              color: LibraryColors.of(context).muted,
+                            ),
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 22),
                     AppButton(
-                      label: 'Change photo',
+                      label: hasFile ? 'Change photo' : 'Add a photo',
                       compact: true,
                       horizontalPadding: 22,
                       onPressed: () => Navigator.pop(context, true),
@@ -127,8 +172,8 @@ class _ArtistPhotoViewer extends StatelessWidget {
 /// What Music › Artist photo: your pick wasn't saved says for [name]. A
 /// refused "Use automatic" is reported the same way.
 String droppedPhotoMessage(String name) =>
-    'Your photo for $name wasn’t saved. It was changed on another device '
-    'first.';
+    'Another device chose a photo for $name first, so your pick was '
+    'dropped.';
 
 /// Tells the owner that a sync dropped their photo for an artist (GitHub
 /// already had one this phone never saw), with Pick again, which opens
@@ -285,7 +330,11 @@ class _ArtistPhotoSheetState extends ConsumerState<ArtistPhotoSheet> {
         if (!mounted) return;
         choices = await ref
             .read(appleArtistsProvider)
-            .choices(_name, ownedTitlesOf(library, _name));
+            .choices(
+              _name,
+              ownedTitlesOf(library, _name),
+              savedSongsOf(library, _name),
+            );
       } on LookupException {
         // Not an answer: no Suggested tile, and nothing is said.
         choices = null;

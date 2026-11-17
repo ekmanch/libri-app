@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../covers/artist_photo_fetcher.dart';
 import '../covers/cover_store.dart';
 import '../github/git_blob.dart';
 import '../github/github_api.dart';
@@ -671,7 +672,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
     final covers = this.covers;
     if (covers != null && covers.pendingCount > 0) {
       _setStatus(_status.copyWith(phase: SyncPhase.saving));
-      await covers.pushFiles();
+      await covers.pushFiles(artists: _artistSlugs);
     }
     if (await _pushLibrary()) return true;
     if (covers != null && covers.pendingCount > 0) {
@@ -681,6 +682,14 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
     }
     return _pushSettings();
   }
+
+  /// The slugs of the artists in the phone's copy, which is the library as
+  /// a push leaves it: an artist no entry names any more leaves the record
+  /// of artists without a photo. Null with no copy, which drops nobody.
+  Set<String>? get _artistSlugs => switch (_cache.current) {
+    final library? => artistSlugsOf(library),
+    null => null,
+  };
 
   /// The library: the queued operations with their summaries, or, with
   /// nothing queued (edits made while the library was kept on the phone),
@@ -797,7 +806,7 @@ class GitHubLibraryRepository implements LibraryRepository, LibrarySync {
         return;
       }
       _setStatus(_status.copyWith(phase: SyncPhase.saving));
-      await covers?.pushFiles();
+      await covers?.pushFiles(artists: _artistSlugs);
       await _keepMineLibrary(now);
       await covers?.pushRemovals(_cache.current!);
       await _keepMineSettings(now);

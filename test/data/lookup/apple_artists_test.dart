@@ -26,6 +26,9 @@ void main() {
   late List<Map<String, Object?>> artists;
   late Map<String, List<String>> albums;
   late Map<String, String?> pages;
+
+  /// What a song search answers, by its term.
+  late Map<String, List<Map<String, Object?>>> tracks;
   int? refuse;
 
   setUp(() {
@@ -51,6 +54,7 @@ void main() {
     pages = {
       _page: '<meta property="og:image" content="$_photo/1200x630cw.png">',
     };
+    tracks = {};
     refuse = null;
   });
   tearDown(() => dir.deleteSync(recursive: true));
@@ -67,6 +71,10 @@ void main() {
         sent.add(request);
         if (refuse case final status?) return http.Response('', status);
         final url = request.url;
+        if (url.host == 'itunes.apple.com' &&
+            url.queryParameters['entity'] == 'song') {
+          return json({'results': tracks[url.queryParameters['term']] ?? []});
+        }
         if (url.host == 'itunes.apple.com' && url.path == '/search') {
           return json({'results': artists});
         }
@@ -256,5 +264,108 @@ void main() {
       isNull,
     );
     expect(sent.length, 1);
+  });
+
+  group('saved songs', () {
+    Map<String, Object?> track(int artist, String name) => {
+      'wrapperType': 'track',
+      'artistId': artist,
+      'trackName': name,
+    };
+
+    test('a song search gives each track with its artist\'s id', () {
+      expect(
+        AppleArtists.songsIn([
+          track(171366, 'Jingle Bells (with The Ken Lane Singers)'),
+          track(799597, 'Jingle Bells'),
+          {'wrapperType': 'track', 'trackName': 'No artist id'},
+          {
+            'wrapperType': 'collection',
+            'artistId': 1,
+            'collectionName': 'Christmas',
+          },
+        ]),
+        [
+          (id: '171366', track: 'Jingle Bells (with The Ken Lane Singers)'),
+          (id: '799597', track: 'Jingle Bells'),
+        ],
+      );
+    });
+
+    test('with no owned album listed by a namesake, up to three saved songs '
+        'are searched for, one request each, and the namesake they were '
+        'found under is the artist', () async {
+      tracks['Massive Attack Teardrop'] = [
+        track(1, 'Teardrop (Remastered)'),
+        track(99, 'Teardrop'),
+      ];
+      final found = await apple().find('Massive Attack', const [], [
+        'Teardrop',
+        'Teardrop (Live)',
+        'Angel',
+        'Risingson',
+        'Inertia Creeps',
+      ]);
+      expect(found, isA<ArtistPhotoFound>());
+      expect(asked(), [
+        '/search Massive Attack',
+        '/lookup 1',
+        '/search Massive Attack Teardrop',
+        '/search Massive Attack Angel',
+        '/search Massive Attack Risingson',
+        _page,
+        '$_photo/640x640cc.jpg',
+      ]);
+      expect(sent[2].url.queryParameters, {
+        'term': 'Massive Attack Teardrop',
+        'media': 'music',
+        'entity': 'song',
+        'limit': '50',
+      });
+    });
+
+    test(
+      'a namesake that lists an owned album: no song is searched for',
+      () async {
+        await apple().find('Massive Attack', ['Mezzanine'], ['Teardrop']);
+        expect(asked(), isNot(contains('/search Massive Attack Teardrop')));
+      },
+    );
+
+    test('the songs found under no namesake are no match', () async {
+      tracks['Massive Attack Teardrop'] = [track(99, 'Teardrop')];
+      final found = await apple().find('Massive Attack', const [], [
+        'Teardrop',
+      ]);
+      expect((found as ArtistNotFound).reason, MissingReason.noMatch);
+    });
+
+    test('Pick a photo searches for a song once, also by the next session, '
+        'and a new song is one more search', () async {
+      tracks['Massive Attack Teardrop'] = [track(1, 'Teardrop')];
+      final service = apple(kept: true);
+      final choices = await service.choices('Massive Attack', const [], [
+        'Teardrop',
+      ]);
+      expect(choices.suggested, '$_photo/640x640cc.jpg');
+      expect(asked(), [
+        '/search Massive Attack',
+        '/lookup 1',
+        '/search Massive Attack Teardrop',
+        _page,
+      ]);
+
+      sent = [];
+      final next = apple(kept: true);
+      expect(
+        (await next.choices('Massive Attack', const [], [
+          'Teardrop',
+        ])).suggested,
+        '$_photo/640x640cc.jpg',
+      );
+      expect(sent, isEmpty);
+      await next.choices('Massive Attack', const [], ['Teardrop', 'Angel']);
+      expect(asked(), ['/search Massive Attack Angel']);
+    });
   });
 }

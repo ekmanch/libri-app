@@ -39,7 +39,11 @@ class FakeAppleArtists extends AppleArtists {
   static String photoUrl(String key) => 'fake://cover/square/artist:$key';
 
   @override
-  Future<ArtistChoices> choices(String name, Iterable<String> owned) async {
+  Future<ArtistChoices> choices(
+    String name,
+    Iterable<String> owned, [
+    Iterable<String> songs = const [],
+  ]) async {
     calls.add('choices:$name');
     final slug = slugify(name);
     return (
@@ -59,7 +63,11 @@ class FakeAppleArtists extends AppleArtists {
   }
 
   @override
-  Future<ArtistFound> find(String name, Iterable<String> owned) async {
+  Future<ArtistFound> find(
+    String name,
+    Iterable<String> owned, [
+    Iterable<String> songs = const [],
+  ]) async {
     calls.add('find:$name');
     final slug = slugify(name);
     return noPhoto.contains(slug)

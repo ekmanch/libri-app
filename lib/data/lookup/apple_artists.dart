@@ -46,7 +46,9 @@ typedef ArtistChoices = ({String? suggested, List<OtherArtist> others});
 /// the iTunes Search API on the books lookup's client and limiter ([api];
 /// the same host and the same limit of about twenty requests a minute): one
 /// search for the artists of the name in the US store, then each
-/// namesake's album list, at most [namesakeLimit]. The photo is read from
+/// namesake's album list, at most [namesakeLimit], and, when none of them
+/// lists an owned album, one song search for each of up to three saved
+/// songs. The photo is read from
 /// the matched artist's `music.apple.com` page, the one exception to "no
 /// scraping": one page every two to four seconds with random spacing. The
 /// image itself comes from Apple's image host.
@@ -84,6 +86,10 @@ class AppleArtists {
   bool _stopped = false;
 
   final _names = <String, List<ArtistCandidate>>{};
+
+  /// The songs searched for, by the artist's name key, each as its
+  /// title's key: a song is searched for once per list of namesakes.
+  final _songs = <String, List<String>>{};
   final _photos = <String, String?>{};
   Future<void>? _loading;
   DateTime? _nextPage;
@@ -98,6 +104,14 @@ class AppleArtists {
         _names[key] = [
           for (final item in value as List<Object?>? ?? const [])
             ?ArtistCandidate.fromJson(item),
+        ];
+      }
+    }
+    if (json['songs'] case final Map<String, Object?> songs) {
+      for (final MapEntry(:key, :value) in songs.entries) {
+        _songs[key] = [
+          for (final title in value as List<Object?>? ?? const [])
+            if (title is String) title,
         ];
       }
     }
@@ -116,6 +130,7 @@ class AppleArtists {
           for (final MapEntry(:key, :value) in _names.entries)
             key: [for (final candidate in value) candidate.toJson()],
         },
+        'songs': _songs,
         'photos': _photos,
       });
     } on Exception {
@@ -190,8 +205,71 @@ class AppleArtists {
     ];
   });
 
+  /// The tracks a search for the artist's song [title] finds, each as its
+  /// artist's id and its name. One request, on the same client and limiter
+  /// as the other searches, and refused like them.
+  Future<List<({String id, String track})>> songRows(
+    String name,
+    String title,
+  ) => _guard(() async {
+    final items = await api.objects('/search', {
+      'term': '$name $title',
+      'media': 'music',
+      'entity': 'song',
+      'limit': '50',
+    }, once: true);
+    return songsIn(items);
+  });
+
+  /// The tracks of a song search's answer, each as its artist's id and
+  /// its name.
+  static List<({String id, String track})> songsIn(
+    List<Map<String, Object?>> items,
+  ) => [
+    for (final item in items)
+      if (item['wrapperType'] == 'track')
+        if (item['artistId'] case final num id)
+          if (stringAt(item, 'trackName') case final track?)
+            (id: '${id.toInt()}', track: track),
+  ];
+
+  /// [listed] with the artist's saved songs searched for, when the albums
+  /// tell nothing: no namesake lists an owned album and there are songs to
+  /// ask about (`songsAsked`, three at most). A song is searched for once;
+  /// what the searches found is kept with the namesakes.
+  Future<List<ArtistCandidate>> _withSongs(
+    String name,
+    Iterable<String> owned,
+    Iterable<String> songs,
+    List<ArtistCandidate> listed,
+  ) async {
+    if (listed.isEmpty || listsOwned(name, owned, listed)) return listed;
+    final key = artistNameKey(name);
+    final asked = [...?_songs[key]];
+    final out = [...listed];
+    var changed = false;
+    for (final title in songsAsked(songs)) {
+      final titleKey = artistNameKey(title);
+      if (asked.contains(titleKey)) continue;
+      for (final (:id, :track) in await songRows(name, title)) {
+        final at = out.indexWhere((candidate) => candidate.id == id);
+        if (at >= 0 && !out[at].songs.contains(track)) {
+          out[at] = out[at].withSongs([...out[at].songs, track]);
+        }
+      }
+      asked.add(titleKey);
+      changed = true;
+    }
+    if (changed) {
+      _names[key] = out;
+      _songs[key] = asked;
+      await _keep();
+    }
+    return out;
+  }
+
   /// The namesakes with their album lists, for `chooseArtist`; asked anew
-  /// and kept.
+  /// and kept. The songs searched for before go with the old list.
   Future<List<ArtistCandidate>> candidates(String name) async {
     await _load();
     final out = <ArtistCandidate>[];
@@ -205,7 +283,9 @@ class AppleArtists {
         ),
       );
     }
-    _names[artistNameKey(name)] = out;
+    final key = artistNameKey(name);
+    _songs.remove(key);
+    _names[key] = out;
     await _keep();
     return out;
   }
@@ -302,11 +382,16 @@ class AppleArtists {
   });
 
   /// Asks Apple about the library's artist [name], whose saved album
-  /// titles are [owned]: the match, its page, the photo. Throws
-  /// [LookupException] when Apple could not be asked, which is no answer.
-  Future<ArtistFound> find(String name, Iterable<String> owned) async {
-    final listed = await candidates(name);
-    final chosen = chooseArtist(name, owned, listed);
+  /// titles are [owned] and whose saved songs are [songs]: the match, its
+  /// page, the photo. Throws [LookupException] when Apple could not be
+  /// asked, which is no answer.
+  Future<ArtistFound> find(
+    String name,
+    Iterable<String> owned, [
+    Iterable<String> songs = const [],
+  ]) async {
+    final listed = await _withSongs(name, owned, songs, await candidates(name));
+    final chosen = chooseArtist(name, owned, songs, listed);
     if (chosen == null) return const ArtistNotFound(MissingReason.noMatch);
     final photo = await photoOn(chosen.page ?? '');
     _photos[chosen.id] = photo;
@@ -318,9 +403,18 @@ class AppleArtists {
   /// What Pick a photo offers from Apple: the matched artist's photo, and
   /// the other artists of the name with one album each, their pages
   /// unread.
-  Future<ArtistChoices> choices(String name, Iterable<String> owned) async {
-    final listed = await _candidatesKept(name);
-    final chosen = chooseArtist(name, owned, listed)?.id;
+  Future<ArtistChoices> choices(
+    String name,
+    Iterable<String> owned, [
+    Iterable<String> songs = const [],
+  ]) async {
+    final listed = await _withSongs(
+      name,
+      owned,
+      songs,
+      await _candidatesKept(name),
+    );
+    final chosen = chooseArtist(name, owned, songs, listed)?.id;
     String? suggested;
     final others = <OtherArtist>[];
     for (final candidate in listed) {
