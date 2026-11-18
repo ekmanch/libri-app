@@ -408,4 +408,35 @@ void main() {
     expect(find.text('Pick a photo'), findsOneWidget);
     expect(find.text('Upload'), findsOneWidget);
   });
+
+  testWidgets('the dropped pick message leaves after ten seconds', (
+    tester,
+  ) async {
+    store = fakeCoverStore();
+    await store.refresh();
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showDroppedPhotos(context, const [
+              DroppedPhoto(
+                path: 'artists/alice-in-chains.jpg',
+                name: 'Alice in Chains',
+              ),
+            ]),
+            child: const Text('Sync'),
+          ),
+        ),
+      ),
+      library: library,
+      overrides: [coverStoreProvider.overrideWithValue(store)],
+    );
+    await tester.tap(find.text('Sync'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pick again'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 11));
+    await tester.pumpAndSettle();
+    expect(find.text('Pick again'), findsNothing);
+  });
 }

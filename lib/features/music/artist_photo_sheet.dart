@@ -202,6 +202,9 @@ void showDroppedPhotos(
           ),
         ),
         behavior: SnackBarBehavior.floating,
+        // A snackbar with an action stays until it is used unless told
+        // otherwise.
+        persist: false,
         duration: const Duration(seconds: 10),
         margin: margin,
         // The raised card of the mockup, not the inverse bar.

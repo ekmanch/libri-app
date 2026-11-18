@@ -140,6 +140,10 @@ Future<void> togglePlanItemDoneWithUndo(
       SnackBar(
         content: Text('${planTitle(plan)} finished'),
         behavior: SnackBarBehavior.floating,
+        // A snackbar with an action stays until it is used unless told
+        // otherwise.
+        persist: false,
+        duration: const Duration(seconds: 6),
         margin: const EdgeInsets.fromLTRB(
           20,
           0,

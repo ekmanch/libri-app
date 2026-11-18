@@ -326,6 +326,8 @@ Features found missing and bugs found while using the app day to day, in the ord
 - [ ] The canvas's "Filter sheet and home stay in sync" note still ends "Music + a status goes to results", which its new rule (one type is always the type's own view) contradicts; built by the new rule, Music + a status narrows the music view. Correct the note or the build
 - [ ] `homeOrder` (`library_sort.dart`) was the old Search screen's order and now has only its test; remove both, or keep it for a later use
 - [x] A search on the Songs tab lists album tracks, as the desktop does (owner's bug report, 2026-11-15: "adele" gave Artists 1, Albums 3, Songs 0; DESIGN.md section 5 "A search on the Songs tab"). Done 2026-11-15: `songsMatching` and `tracksOf` (`lib/features/music/song_search.dart`), `SongSearchList`, the track lists watched six at a time in `MusicTypeBody`, and `matchesQuery` finds an album by a rated track's title; tests in `song_search_test.dart` and `library_home_screen_test.dart`; captures `a55-search-music-songs` and `-songs-list`
+- [x] Messages at the bottom go away again (owner's report, 2026-11-18): a snackbar with an action stays until it is used by Flutter's default (`persist`), so "Halloween 2026 finished" with Undo and the dropped photo pick card never left; both now time out (six and ten seconds) and every snackbar is swiped away sideways (`snackBarTheme`); tests for the timeout and the swipe
+- [ ] `test/features/plans/plan_screen_test.dart` "the rail is one continuous line through the gaps" fails (two rail paints found, three expected), with or without the snackbar fix; it reads today's date through `timelineGroups`, so probably the fixture's dates have passed. Seen 2026-11-18
 
 ## Later
 

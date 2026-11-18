@@ -536,6 +536,10 @@ ThemeData buildTheme({
       },
     ),
     dividerTheme: DividerThemeData(color: ext.divider, thickness: 1, space: 1),
+    // Messages at the bottom are swiped away sideways, as on Android.
+    snackBarTheme: const SnackBarThemeData(
+      dismissDirection: DismissDirection.horizontal,
+    ),
     appBarTheme: AppBarTheme(
       backgroundColor: background,
       foregroundColor: text,

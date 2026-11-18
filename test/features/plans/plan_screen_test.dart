@@ -284,6 +284,35 @@ void main() {
     },
   );
 
+  testWidgets('the finished message leaves on its own, or on a swipe', (
+    tester,
+  ) async {
+    seasonClock = () => DateTime(2026, 10, 29);
+    addTearDown(() => seasonClock = DateTime.now);
+    final (container, title) = await openMovieNight(tester);
+    await tester.tap(check(title));
+    await tester.pumpAndSettle();
+    expect(find.text('Movie night finished'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    expect(find.text('Movie night finished'), findsNothing);
+    // Left alone, the plan stays finished.
+    expect(
+      planState(repo(container).current!.planById('one')!),
+      PlanState.finished,
+    );
+
+    // Untick and tick again for a second message, and swipe it away.
+    await tester.tap(check(title));
+    await tester.pumpAndSettle();
+    await tester.tap(check(title));
+    await tester.pumpAndSettle();
+    expect(find.text('Movie night finished'), findsOneWidget);
+    await tester.drag(find.text('Movie night finished'), const Offset(400, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Movie night finished'), findsNothing);
+  });
+
   testWidgets(
     'ticking the last entry before the end date keeps the plan active',
     (tester) async {
