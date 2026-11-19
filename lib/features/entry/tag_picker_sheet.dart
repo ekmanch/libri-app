@@ -11,6 +11,7 @@ import '../../widgets/labels.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/tag_group.dart';
+import '../../widgets/type_kicker.dart';
 import '../library/tag_list_screen.dart';
 import '../library/tag_sort.dart';
 import 'similar_tags.dart';
@@ -545,8 +546,8 @@ class _AddToRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '#${row.tag}',
+                      Text.rich(
+                        tagLabelSpan(context, '#${row.tag}'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge,

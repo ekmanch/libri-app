@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_theme.dart';
+
 import '../../data/models/entry.dart';
 import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
@@ -102,7 +104,7 @@ class _FilterSheetState extends State<FilterSheet> {
       action: TextButton(
         onPressed: () => setState(() => _draft = LibraryFilter.none),
         style: TextButton.styleFrom(
-          foregroundColor: theme.colorScheme.primary,
+          foregroundColor: AccentColors.of(context).link,
           padding: const EdgeInsets.symmetric(horizontal: 4),
         ),
         child: const Text('Reset'),

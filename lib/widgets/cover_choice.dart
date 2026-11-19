@@ -47,6 +47,7 @@ class CoverChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
+    final accent = AccentColors.of(context);
     return Semantics(
       button: true,
       selected: picked,
@@ -91,7 +92,7 @@ class CoverChoice extends StatelessWidget {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: badgeAccent
-                                    ? theme.colorScheme.primary
+                                    ? accent.tick
                                     : colors.coverBadge,
                               ),
                               child: Text(
@@ -103,7 +104,7 @@ class CoverChoice extends StatelessWidget {
                                   letterSpacing: 0,
                                   fontWeight: FontWeight.w700,
                                   color: badgeAccent
-                                      ? theme.colorScheme.onPrimary
+                                      ? accent.onTick
                                       : theme.colorScheme.onSurface,
                                 ),
                               ),

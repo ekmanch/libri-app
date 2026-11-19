@@ -11,7 +11,6 @@ import '../../data/models/follow_kind.dart';
 import '../../data/models/release_dates.dart';
 import '../../data/operations/settings_operations.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/app_icons.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/section_heading.dart';
@@ -25,6 +24,7 @@ import 'display_preferences.dart';
 import 'follow_list_screen.dart';
 import 'language_picker_sheet.dart';
 import 'upcoming_releases_screen.dart';
+import '../../widgets/check_box_mark.dart';
 
 /// Opens Settings above everything, so the floating navigation is covered.
 Future<void> openSettingsScreen(BuildContext context) {
@@ -337,21 +337,7 @@ class _PreviewCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: StrokeIcon(
-                      AppIcons.check,
-                      size: 14,
-                      color: scheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
+                const CheckBoxMark(checked: true, round: true),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -409,8 +395,10 @@ class _PreviewCard extends StatelessWidget {
   }
 }
 
-/// Five swatches per row: a colored disc over the accent's name, the
-/// chosen one ringed in its own ink.
+/// Five swatches per row: a colored disc over the accent's name, in the
+/// value the current theme uses (Settings, "Accent colors in the light
+/// theme"). The chosen one is ringed: in its own color on dark, in dark
+/// gray on light.
 class _SwatchGrid extends StatelessWidget {
   const _SwatchGrid({
     required this.options,
@@ -445,7 +433,8 @@ class _SwatchGrid extends StatelessWidget {
                   child: _Swatch(
                     option: option,
                     selected: option == selected,
-                    ring: isDark ? option.fill : option.ink,
+                    color: option.of(theme.brightness),
+                    ring: isDark ? option.fill : AccentColors.of(context).link,
                     edge: isDark
                         ? Colors.transparent
                         : theme.colorScheme.outline,
@@ -469,6 +458,7 @@ class _SwatchGrid extends StatelessWidget {
 class _Swatch extends StatelessWidget {
   const _Swatch({
     required this.option,
+    required this.color,
     required this.selected,
     required this.ring,
     required this.edge,
@@ -476,6 +466,9 @@ class _Swatch extends StatelessWidget {
   });
 
   final AccentOption option;
+
+  /// The disc: the accent as the current theme shows it.
+  final Color color;
   final bool selected;
   final Color ring;
   final Color edge;
@@ -508,7 +501,7 @@ class _Swatch extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: option.fill,
+                    color: color,
                     shape: BoxShape.circle,
                     border: Border.all(color: edge),
                   ),

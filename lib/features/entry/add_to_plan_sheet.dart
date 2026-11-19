@@ -105,7 +105,7 @@ class AddToPlanSheet extends ConsumerWidget {
             style: TextButton.styleFrom(
               minimumSize: const Size.fromHeight(56),
               alignment: Alignment.centerLeft,
-              foregroundColor: theme.colorScheme.primary,
+              foregroundColor: AccentColors.of(context).link,
               padding: EdgeInsets.zero,
             ),
             child: Row(
@@ -114,7 +114,7 @@ class AddToPlanSheet extends ConsumerWidget {
                 StrokeIcon(
                   AppIcons.plus,
                   size: 18,
-                  color: theme.colorScheme.primary,
+                  color: AccentColors.of(context).link,
                 ),
                 const SizedBox(width: 8),
                 const Text('New plan'),

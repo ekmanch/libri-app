@@ -29,6 +29,7 @@ import 'entry_form_screen.dart';
 import 'music_lookup_controller.dart';
 import 'music_results.dart';
 import 'platform_picker_sheet.dart';
+import '../../widgets/type_kicker.dart';
 
 /// Starts a new entry (Add / edit entry › New entry: pick a match, then the
 /// form), full screen above the floating navigation. Resolves with the saved
@@ -706,12 +707,12 @@ class _MatchRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  TypeKicker(
                     [kind, if (year != null) '$year'].join(' · ').toUpperCase(),
+                    type: match.type,
                     style: theme.textTheme.labelSmall!.copyWith(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: colors.forType(match.type),
                     ),
                   ),
                   const SizedBox(height: 2),

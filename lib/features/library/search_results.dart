@@ -13,6 +13,7 @@ import '../../widgets/labels.dart';
 import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/touch_target.dart';
+import '../../widgets/type_kicker.dart';
 import '../shell/app_shell.dart';
 import 'home_sections.dart';
 import 'library_filter.dart';
@@ -188,7 +189,7 @@ class SearchTagRow extends StatelessWidget {
                   excludeSemantics: true,
                   child: Material(
                     color: tag.picked
-                        ? colors.selectedFill
+                        ? AccentColors.of(context).selection
                         : colors.surfaceHigh,
                     shape: const StadiumBorder(),
                     child: InkWell(
@@ -203,8 +204,8 @@ class SearchTagRow extends StatelessWidget {
                           children: [
                             Text.rich(
                               TextSpan(
-                                text: tag.label,
                                 children: [
+                                  tagLabelSpan(context, tag.label),
                                   TextSpan(
                                     text: '  ${tag.count}',
                                     style: TextStyle(

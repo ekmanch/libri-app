@@ -103,7 +103,7 @@ class ViewMenuButton extends StatelessWidget {
                     StrokeIcon(
                       AppIcons.check,
                       size: 20,
-                      color: theme.colorScheme.primary,
+                      color: AccentColors.of(context).link,
                       semanticLabel: 'Selected',
                     ),
                 ],

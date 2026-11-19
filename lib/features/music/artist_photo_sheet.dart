@@ -215,7 +215,7 @@ void showDroppedPhotos(
         ),
         action: SnackBarAction(
           label: 'Pick again',
-          textColor: theme.colorScheme.primary,
+          textColor: AccentColors.of(context).link,
           onPressed: () {
             final context = navigator?.context;
             if (context != null && context.mounted) {
@@ -689,7 +689,7 @@ class _Link extends StatelessWidget {
       child: TextButton(
         onPressed: onTap,
         style: TextButton.styleFrom(
-          foregroundColor: theme.colorScheme.primary,
+          foregroundColor: AccentColors.of(context).link,
           disabledForegroundColor: LibraryColors.of(context).muted,
           minimumSize: const Size(48, 48),
           padding: EdgeInsets.zero,

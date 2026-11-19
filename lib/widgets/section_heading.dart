@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../data/models/media_type.dart';
 import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'row_ink_well.dart';
+import 'type_kicker.dart';
 
-/// Uppercase section label, in the type color on the library home, muted
-/// elsewhere. Optional [trailing] text on the right, such as a count, or an
+/// Uppercase section label, muted. With a [type] it heads that type's
+/// group (a plan's Movies, Shows…): in the type's color on dark; on light,
+/// where a type color is only a fill, the type's dot and the name in the
+/// text color. Optional [trailing] text on the right, such as a count, or an
 /// [action] link there in the accent with a chevron ("See all 7" on Library ›
 /// Home), a 44 px button of its own. With [onTap] the heading is a 44 px
 /// button with a chevron after the label.
@@ -14,6 +18,7 @@ class SectionHeading extends StatelessWidget {
     this.label, {
     super.key,
     this.color,
+    this.type,
     this.trailing,
     this.action,
     this.onAction,
@@ -26,6 +31,9 @@ class SectionHeading extends StatelessWidget {
 
   /// Defaults to the muted label color.
   final Color? color;
+
+  /// The type this heading groups by.
+  final MediaType? type;
   final String? trailing;
 
   /// A link at the end of the row, in the accent, with a chevron after it.
@@ -41,13 +49,30 @@ class SectionHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
+    final type = this.type;
+    final dotted = type != null && colors.typeColorsAreFills;
+    final color = dotted
+        ? theme.colorScheme.onSurface
+        : type != null
+        ? colors.forType(type)
+        : this.color;
     final style = theme.textTheme.labelSmall!.copyWith(color: color);
-    final text = Text(
+    final words = Text(
       label.toUpperCase(),
       style: style,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
+    final Widget text = !dotted
+        ? words
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TypeDot(colors.forType(type)),
+              const SizedBox(width: 7),
+              Flexible(child: words),
+            ],
+          );
     final row = Row(
       children: [
         Expanded(
@@ -75,7 +100,7 @@ class SectionHeading extends StatelessWidget {
           TextButton(
             onPressed: onAction,
             style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.primary,
+              foregroundColor: AccentColors.of(context).link,
               minimumSize: const Size(48, 48),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               textStyle: theme.textTheme.labelMedium,

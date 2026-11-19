@@ -350,7 +350,7 @@ class _EntryDetailsSheetState extends ConsumerState<EntryDetailsSheet> {
             trailing: Text(
               'Add to plan',
               style: theme.textTheme.labelMedium!.copyWith(
-                color: theme.colorScheme.primary,
+                color: AccentColors.of(context).link,
               ),
             ),
           ),
@@ -472,7 +472,7 @@ class _TrackListState extends State<_TrackList> {
       color: colors.muted,
     );
     final link = TextButton.styleFrom(
-      foregroundColor: theme.colorScheme.primary,
+      foregroundColor: AccentColors.of(context).link,
       textStyle: theme.textTheme.labelMedium,
       padding: EdgeInsets.zero,
       minimumSize: const Size(48, 48),

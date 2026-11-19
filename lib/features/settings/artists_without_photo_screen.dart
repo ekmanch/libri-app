@@ -109,7 +109,7 @@ class _ArtistRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final accent = theme.colorScheme.primary;
+    final accent = AccentColors.of(context).link;
     return Semantics(
       button: true,
       label: '${artist.name}, ${artist.countLabel}, add a photo',

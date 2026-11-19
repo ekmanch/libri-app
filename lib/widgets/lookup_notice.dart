@@ -45,7 +45,7 @@ class LookupNotice extends StatelessWidget {
             TextButton(
               onPressed: onRetry,
               style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.primary,
+                foregroundColor: AccentColors.of(context).link,
                 textStyle: theme.textTheme.labelMedium,
                 minimumSize: const Size(48, 48),
               ),

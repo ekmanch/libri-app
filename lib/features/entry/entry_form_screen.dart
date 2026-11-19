@@ -2120,7 +2120,7 @@ class _FormCover extends StatelessWidget {
                           'Use the match’s cover',
                           style: hint.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.primary,
+                            color: AccentColors.of(context).link,
                           ),
                         ),
                       ),

@@ -565,7 +565,7 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
                   TextButton(
                     onPressed: () => _choose(_picked, _picked, keepMine: true),
                     style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.primary,
+                      foregroundColor: AccentColors.of(context).link,
                       minimumSize: const Size(48, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       textStyle: theme.textTheme.labelMedium,
@@ -651,7 +651,7 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
                 child: TextButton(
                   onPressed: _moreLoading ? null : _searchMore,
                   style: TextButton.styleFrom(
-                    foregroundColor: theme.colorScheme.primary,
+                    foregroundColor: AccentColors.of(context).link,
                     disabledForegroundColor: colors.muted,
                     minimumSize: const Size(48, 48),
                     padding: EdgeInsets.zero,

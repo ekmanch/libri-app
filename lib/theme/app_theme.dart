@@ -4,13 +4,22 @@
 // docs/DESIGN.md. Widgets read colors from Theme.of(context) or from
 // LibraryColors.of(context), never from literals.
 //
-// Accent mapping, from Settings and Library › Home, light theme: the accent
-// *fill* (the pastel color) is the same on both themes and is used for filled
-// surfaces: the "+" button, primary buttons, progress bars. Accent *text, icons
-// and outlines* use the fill on the dark theme and the darker "ink" on the
-// light theme, where the pastel would be too faint. In Material terms:
-//   colorScheme.primary          = accent ink on light, accent fill on dark
-//   colorScheme.primaryContainer = accent fill, always
+// Accent mapping. The stored accent is one of [Accents]; each has a value
+// for the dark themes ([AccentOption.fill]) and one for the light theme
+// ([AccentOption.light]).
+//
+// Dark: the accent is a fill, a text color and an icon color alike.
+//
+// Light (the Library "Light theme, the rule" note): colors are fills, text
+// is neutral. The light accent is used at three strengths, all worked out
+// from that one color in [AccentColors]: full for thin fills, half on white
+// for a ticked box, a fifth on white (the tint) for selections and main
+// buttons. Links and icons that wear the accent on dark are dark gray.
+// In Material terms:
+//   colorScheme.primary          = the accent at full strength
+//   colorScheme.primaryContainer = the accent on dark, its tint on light
+// Text and icons never read colorScheme.primary; they read
+// AccentColors.of(context).link.
 //
 // One font is bundled: Figtree (Regular, Italic, Medium, SemiBold, Bold,
 // ExtraBold) in assets/fonts/, declared in pubspec.yaml. Titles are the
@@ -22,16 +31,20 @@ import '../data/models/media_type.dart';
 
 enum AccentGroup { vivid, pastel }
 
-/// One selectable accent color. [fill] is used for filled surfaces on both
-/// themes. [ink] is the darker variant used for text, icons and outlines on
-/// the light theme.
+/// One selectable accent color: [fill] in the dark themes, [light] in the
+/// light theme (Settings, "Accent colors in the light theme"). The stored
+/// setting is the same on both.
 class AccentOption {
-  const AccentOption(this.group, this.name, this.fill, this.ink);
+  const AccentOption(this.group, this.name, this.fill, this.light);
 
   final AccentGroup group;
   final String name;
   final Color fill;
-  final Color ink;
+  final Color light;
+
+  /// The accent as the theme with [brightness] shows it.
+  Color of(Brightness brightness) =>
+      brightness == Brightness.dark ? fill : light;
 
   /// Stable id for device preferences, e.g. `vivid/Hot pink`. Names repeat
   /// across groups (Blue, Green), so the group is part of it.
@@ -43,7 +56,7 @@ class Accents {
     AccentGroup.vivid,
     'Hot pink',
     Color(0xFFFF7AB6),
-    Color(0xFFD6337F),
+    Color(0xFFF74F9E),
   );
 
   static const vivid = <AccentOption>[
@@ -51,26 +64,26 @@ class Accents {
       AccentGroup.vivid,
       'Violet',
       Color(0xFFA78BFA),
-      Color(0xFF7C5CE0),
+      Color(0xFF8B5CF6),
     ),
     hotPink,
     AccentOption(
       AccentGroup.vivid,
       'Amber',
       Color(0xFFF2B544),
-      Color(0xFFA36706),
+      Color(0xFFFFB300),
     ),
     AccentOption(
       AccentGroup.vivid,
       'Green',
       Color(0xFF5EE08A),
-      Color(0xFF15803D),
+      Color(0xFF34C759),
     ),
     AccentOption(
       AccentGroup.vivid,
       'Blue',
       Color(0xFF5AA9FF),
-      Color(0xFF1D6FE0),
+      Color(0xFF0A84FF),
     ),
   ];
 
@@ -79,25 +92,25 @@ class Accents {
       AccentGroup.pastel,
       'Beige',
       Color(0xFFF9E2AF),
-      Color(0xFFA66706),
+      Color(0xFFDF8E1D),
     ),
     AccentOption(
       AccentGroup.pastel,
       'Rosewater',
       Color(0xFFF5E0DC),
-      Color(0xFFAD604F),
+      Color(0xFFDC8A78),
     ),
     AccentOption(
       AccentGroup.pastel,
       'Flamingo',
       Color(0xFFF2CDCD),
-      Color(0xFFB85759),
+      Color(0xFFDD7878),
     ),
     AccentOption(
       AccentGroup.pastel,
       'Pink',
       Color(0xFFF5C2E7),
-      Color(0xFFBA4A9E),
+      Color(0xFFEA76CB),
     ),
     AccentOption(
       AccentGroup.pastel,
@@ -115,7 +128,7 @@ class Accents {
       AccentGroup.pastel,
       'Lavender',
       Color(0xFFB4BEFE),
-      Color(0xFF596ADD),
+      Color(0xFF7287FD),
     ),
     AccentOption(
       AccentGroup.pastel,
@@ -127,13 +140,13 @@ class Accents {
       AccentGroup.pastel,
       'Sky',
       Color(0xFF89DCEB),
-      Color(0xFF017DAF),
+      Color(0xFF04A5E5),
     ),
     AccentOption(
       AccentGroup.pastel,
       'Green',
       Color(0xFFA6E3A1),
-      Color(0xFF238700),
+      Color(0xFF40A02B),
     ),
   ];
 
@@ -237,6 +250,15 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     required this.skeleton,
     required this.buttonOutline,
     required this.caution,
+    required this.track,
+    required this.rail,
+    required this.typeColorsAreFills,
+    required this.dotRing,
+    required this.tagHash,
+    required this.coverShadow,
+    required this.smallCoverShadow,
+    required this.doneDisc,
+    required this.doneDiscShadow,
   });
 
   /// Raised fill: tag chips, the floating navigation pill, sheet buttons.
@@ -313,6 +335,53 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   /// Its field is this at 14% alpha.
   final Color caution;
 
+  /// The track of a progress bar.
+  final Color track;
+
+  /// A line that is not a divider: a switch that is off, the part of a
+  /// plan's timeline still ahead.
+  final Color rail;
+
+  /// True on light, where a type color is too bright to read as text
+  /// (yellow is 1.6:1 on white) and is only ever a fill: a dot, the line
+  /// under a tab, a bar. What dark writes in the type color, light writes
+  /// in neutral text beside a dot ([TypeKicker]) or in the heading gray
+  /// ([typeHeading]).
+  final bool typeColorsAreFills;
+
+  /// Hairline around a type dot that stands alone with no label (the index
+  /// rail in results with several types), so yellow does not vanish on
+  /// white. Transparent on dark.
+  final Color dotRing;
+
+  /// The "#" of a tag: mid gray on light, the text's own color (null) on
+  /// dark.
+  final Color? tagHash;
+
+  /// Lifts a cover, an artist photo or an album tile off a white page: a
+  /// hairline and a soft shadow. Empty on dark.
+  final List<BoxShadow> coverShadow;
+
+  /// The same for the small covers in lists.
+  final List<BoxShadow> smallCoverShadow;
+
+  /// The disc behind the Done check on a cover: white with a ring and a
+  /// small shadow on light, so it reads on a white cover too.
+  final Color doneDisc;
+  final List<BoxShadow> doneDiscShadow;
+
+  /// The shadow for a cover [width] dp wide: the small one for the covers
+  /// in lists, the large one for tiles, headers and grids.
+  List<BoxShadow> coverShadowFor(double width) =>
+      width < smallCoverBelow ? smallCoverShadow : coverShadow;
+
+  /// Covers narrower than this are the small ones in lists (40 to 56 dp).
+  static const smallCoverBelow = 64.0;
+
+  /// The color of a section heading that names a type or is in a type's
+  /// list: the type's color on dark, the heading gray on light.
+  Color typeHeading(MediaType t) => typeColorsAreFills ? muted : forType(t);
+
   Color forType(MediaType t) => switch (t) {
     MediaType.movies => movies,
     MediaType.shows => shows,
@@ -358,34 +427,44 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     skeleton: Color(0xFF1D1F22),
     buttonOutline: Color(0xFF4A4F57),
     caution: Color(0xFFF2B544),
+    track: Color(0x24FFFFFF),
+    rail: Color(0xFF3A3E44),
+    typeColorsAreFills: false,
+    dotRing: Color(0x00000000),
+    tagHash: null,
+    coverShadow: [],
+    smallCoverShadow: [],
+    doneDisc: Color(0xD9131416),
+    doneDiscShadow: [],
   );
 
-  // Values from the light mockups Library › Home, light theme and Settings. The
-  // type colors follow the Library › Home, light theme note: as colorful as
-  // they can be while readable, 4.5:1 (AA) on white, except Movies (3.8:1, kept
-  // on purpose so gold stays gold).
+  // Values from the Library "Type colors" and "Light theme, the rule" notes
+  // (canvas revision of 2026-11-19). The type colors are bright fills, never
+  // text. Grays: dividers and tracks #E1E4E8, raised surfaces #EEF0F2, a gray
+  // selection #ECEEF0; the outline of a control stays #D5D9DE (the color
+  // scheme's outline), since #E1E4E8 is too faint for an edge outdoors.
   static const light = LibraryColors(
-    surfaceHigh: Color(0xFFE9EBEE),
+    surfaceHigh: Color(0xFFEEF0F2),
     dialog: Color(0xFFFFFFFF),
-    divider: Color(0xFFE3E5E9),
+    divider: Color(0xFFE1E4E8),
     muted: Color(0xFF5B616B),
     soft: Color(0xFF3C424A),
     // 4.6:1 on white.
     placeholder: Color(0xFF6F757E),
     dangerText: Color(0xFFC62828),
-    neutralFill: Color(0xFFE9EBEE),
-    selectedFill: Color(0xFFE9EBEE),
+    neutralFill: Color(0xFFEEF0F2),
+    selectedFill: Color(0xFFECEEF0),
     navFill: Color(0xFFFFFFFF),
     navBorder: Color(0x00000000),
     tray: Color(0xFFE9EBEE),
     trayBorder: Color(0xFFD5D9DE),
     scrim: Color(0x99000000),
-    movies: Color(0xFFA87C00),
-    shows: Color(0xFF0074DC),
-    books: Color(0xFF01872C),
-    games: Color(0xFFD63A1F),
-    music: Color(0xFF7C3AED),
-    anime: Color(0xFFC8157E),
+    movies: Color(0xFFFFC400),
+    shows: Color(0xFF0A84FF),
+    books: Color(0xFF34C759),
+    games: Color(0xFFFF5A4F),
+    music: Color(0xFFAF52DE),
+    anime: Color(0xFFF74F9E),
     cardShadow: [
       BoxShadow(color: Color(0x1A14161C), blurRadius: 2, offset: Offset(0, 1)),
       BoxShadow(color: Color(0x1A14161C), blurRadius: 18, offset: Offset(0, 6)),
@@ -402,10 +481,35 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     coverBadge: Color(0xD9FFFFFF),
     dangerFill: Color(0xFFFBE9E7),
     success: Color(0xFF1E7B34),
-    skeleton: Color(0xFFE9EBEE),
+    skeleton: Color(0xFFEEF0F2),
     buttonOutline: Color(0xFFC9CED4),
     // The amber of the dark theme darkened for white: 4.5:1.
     caution: Color(0xFF8A5A00),
+    track: Color(0xFFE1E4E8),
+    rail: Color(0xFFE1E4E8),
+    typeColorsAreFills: true,
+    dotRing: Color(0x1A14161C),
+    tagHash: Color(0xFF9AA0A8),
+    // 0 0 0 1px rgba(20,22,28,0.06), 0 1px 3px rgba(20,22,28,0.11),
+    // 0 6px 14px rgba(20,22,28,0.13).
+    coverShadow: [
+      BoxShadow(color: Color(0x0F14161C), spreadRadius: 1),
+      BoxShadow(color: Color(0x1C14161C), blurRadius: 3, offset: Offset(0, 1)),
+      BoxShadow(color: Color(0x2114161C), blurRadius: 14, offset: Offset(0, 6)),
+    ],
+    // 0 0 0 1px rgba(20,22,28,0.06), 0 1px 2px rgba(20,22,28,0.10),
+    // 0 3px 8px rgba(20,22,28,0.12).
+    smallCoverShadow: [
+      BoxShadow(color: Color(0x0F14161C), spreadRadius: 1),
+      BoxShadow(color: Color(0x1A14161C), blurRadius: 2, offset: Offset(0, 1)),
+      BoxShadow(color: Color(0x1F14161C), blurRadius: 8, offset: Offset(0, 3)),
+    ],
+    doneDisc: Color(0xFFFFFFFF),
+    // A hairline ring, rgba(20,22,28,0.12), and a small shadow.
+    doneDiscShadow: [
+      BoxShadow(color: Color(0x1F14161C), spreadRadius: 1),
+      BoxShadow(color: Color(0x4014161C), blurRadius: 3, offset: Offset(0, 1)),
+    ],
   );
 
   static const _coverPlaceholders = [
@@ -421,6 +525,123 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   @override
   LibraryColors lerp(ThemeExtension<LibraryColors>? other, double t) =>
       t < 0.5 || other is! LibraryColors ? this : other;
+}
+
+/// The accent at the strengths a theme uses it. Built per theme by
+/// [buildTheme], since every value follows the chosen accent.
+///
+/// Dark: one color for everything. Light: [full] for thin fills (progress
+/// bars, switches that are on, the outline of a focused search box, the
+/// line under Home), [tick] (half on white) for a ticked box, [tint] (a
+/// fifth on white) under normal dark text for selections and main buttons,
+/// and no accent-colored text at all: [link] is dark gray. Inside a plan
+/// with a seasonal look every strength is the seasonal color, as before
+/// the light theme was reworked (its light look is not decided yet).
+@immutable
+class AccentColors extends ThemeExtension<AccentColors> {
+  const AccentColors({
+    required this.full,
+    required this.tint,
+    required this.onTint,
+    required this.selection,
+    required this.tick,
+    required this.onTick,
+    required this.tickShadow,
+    required this.boxFill,
+    required this.boxBorder,
+    required this.link,
+  });
+
+  /// Thin fills. The same as `colorScheme.primary`.
+  final Color full;
+
+  /// Main buttons, the "+" button, chosen chips, the picked rating. The
+  /// same as `colorScheme.primaryContainer`.
+  final Color tint;
+  final Color onTint;
+
+  /// A selection that is neutral gray on dark and the tint on light: the
+  /// Library / Plans pill, a status chip, an active filter or tag chip, the
+  /// index rail's current label. Other selections stay gray
+  /// ([LibraryColors.selectedFill]).
+  final Color selection;
+
+  /// A ticked box (plan items, checkboxes) and the check on it.
+  final Color tick;
+  final Color onTick;
+
+  /// Raises a tick box, ticked or empty, on light. Empty on dark.
+  final List<BoxShadow> tickShadow;
+
+  /// An empty tick box: a white disc with a hairline on light, an outline
+  /// on dark.
+  final Color boxFill;
+  final BorderSide boxBorder;
+
+  /// Links and icons that wear the accent on dark ("See all", "Clear all",
+  /// "Rate", "Try again", "Edit tracks", the Done check in a list, an
+  /// outlined badge): dark gray on light, drawn semibold, not underlined.
+  final Color link;
+
+  /// [strength] of [color] on white: `mix(#F74F9E, 0.2)` is the hot pink
+  /// tint.
+  static Color mix(Color color, double strength) =>
+      Color.lerp(const Color(0xFFFFFFFF), color, strength)!;
+
+  static const tintStrength = 0.2;
+  static const tickStrength = 0.5;
+
+  /// One color at every strength: the dark themes, and a seasonal plan.
+  factory AccentColors.solid(
+    Color accent, {
+    required Color onAccent,
+    required LibraryColors colors,
+  }) => AccentColors(
+    full: accent,
+    tint: accent,
+    onTint: onAccent,
+    selection: colors.selectedFill,
+    tick: accent,
+    onTick: onAccent,
+    tickShadow: const [],
+    boxFill: const Color(0x00000000),
+    boxBorder: BorderSide(color: colors.placeholder, width: 2),
+    link: accent,
+  );
+
+  /// The light theme's three strengths of [accent].
+  factory AccentColors.light(Color accent) {
+    final tint = mix(accent, tintStrength);
+    return AccentColors(
+      full: accent,
+      tint: tint,
+      onTint: const Color(0xFF17181B),
+      selection: tint,
+      tick: mix(accent, tickStrength),
+      onTick: const Color(0xFF17181B),
+      // 0 1px 3px rgba(20,22,28,0.20).
+      tickShadow: const [
+        BoxShadow(
+          color: Color(0x3314161C),
+          blurRadius: 3,
+          offset: Offset(0, 1),
+        ),
+      ],
+      boxFill: const Color(0xFFFFFFFF),
+      boxBorder: const BorderSide(color: Color(0x1F14161C)),
+      link: const Color(0xFF2F343B),
+    );
+  }
+
+  static AccentColors of(BuildContext context) =>
+      Theme.of(context).extension<AccentColors>()!;
+
+  @override
+  AccentColors copyWith() => this;
+
+  @override
+  AccentColors lerp(ThemeExtension<AccentColors>? other, double t) =>
+      t < 0.5 || other is! AccentColors ? this : other;
 }
 
 /// Builds the app theme.
@@ -439,21 +660,25 @@ ThemeData buildTheme({
   final surface = isDark ? const Color(0xFF1D1F22) : const Color(0xFFFFFFFF);
   final outline = isDark ? const Color(0xFF3A3E44) : const Color(0xFFD5D9DE);
   final text = isDark ? const Color(0xFFEEF0F2) : const Color(0xFF17181B);
-  final accentFill = seasonal ?? accent.fill;
-  final accentInk = seasonal ?? (isDark ? accent.fill : accent.ink);
   final onFill = isDark ? const Color(0xFF131416) : const Color(0xFF17181B);
-  final onInk = isDark ? const Color(0xFF131416) : const Color(0xFFFFFFFF);
+  final accents = isDark || seasonal != null
+      ? AccentColors.solid(
+          seasonal ?? accent.fill,
+          onAccent: onFill,
+          colors: ext,
+        )
+      : AccentColors.light(accent.light);
 
   final scheme = ColorScheme(
     brightness: brightness,
-    primary: accentInk,
-    onPrimary: onInk,
-    primaryContainer: accentFill,
-    onPrimaryContainer: onFill,
-    secondary: accentInk,
-    onSecondary: onInk,
+    primary: accents.full,
+    onPrimary: onFill,
+    primaryContainer: accents.tint,
+    onPrimaryContainer: accents.onTint,
+    secondary: accents.full,
+    onSecondary: onFill,
     error: ext.dangerText,
-    onError: onInk,
+    onError: isDark ? const Color(0xFF131416) : const Color(0xFFFFFFFF),
     surface: surface,
     onSurface: text,
     onSurfaceVariant: ext.muted,
@@ -527,7 +752,7 @@ ThemeData buildTheme({
     colorScheme: scheme,
     scaffoldBackgroundColor: background,
     textTheme: textTheme,
-    extensions: [ext],
+    extensions: [ext, accents],
     splashFactory: InkSparkle.splashFactory,
     pageTransitionsTheme: PageTransitionsTheme(
       builders: {
@@ -562,8 +787,8 @@ ThemeData buildTheme({
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: accentFill,
-        foregroundColor: onFill,
+        backgroundColor: accents.tint,
+        foregroundColor: accents.onTint,
         disabledBackgroundColor: ext.surfaceHigh,
         disabledForegroundColor: ext.muted,
         minimumSize: const Size.fromHeight(48),
@@ -594,13 +819,13 @@ ThemeData buildTheme({
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: accentFill,
-      foregroundColor: onFill,
+      backgroundColor: accents.tint,
+      foregroundColor: accents.onTint,
       shape: const CircleBorder(),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(
-      color: accentFill,
-      linearTrackColor: ext.selectedFill,
+      color: accents.full,
+      linearTrackColor: ext.track,
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: isDark ? ext.surfaceHigh : ext.dialog,
@@ -617,9 +842,8 @@ ThemeData buildTheme({
         (states) => states.contains(WidgetState.selected) ? onFill : ext.muted,
       ),
       trackColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected)
-            ? accentFill
-            : ext.neutralFill,
+        (states) =>
+            states.contains(WidgetState.selected) ? accents.full : ext.rail,
       ),
       trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       // An (empty) thumb icon keeps the thumb 24 px when off too, as in
@@ -627,8 +851,8 @@ ThemeData buildTheme({
       thumbIcon: const WidgetStatePropertyAll(Icon(null)),
     ),
     badgeTheme: BadgeThemeData(
-      backgroundColor: accentFill,
-      textColor: onFill,
+      backgroundColor: accents.tint,
+      textColor: accents.onTint,
       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -645,7 +869,7 @@ ThemeData buildTheme({
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: accentInk),
+        borderSide: BorderSide(color: accents.full),
       ),
     ),
   );

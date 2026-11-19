@@ -497,7 +497,7 @@ class HomeRow extends StatelessWidget {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: row.actionEmphasized
-                            ? theme.colorScheme.primary
+                            ? AccentColors.of(context).link
                             : null,
                       ),
                     ),

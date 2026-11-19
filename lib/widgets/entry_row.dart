@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'labels.dart';
 import 'row_ink_well.dart';
+import 'type_kicker.dart';
 
 /// The years a show ran, from its first season out to its last one out:
 /// "2025–2026", or "2025" when they are the same. Null when no season is
@@ -238,12 +239,26 @@ class EntryRow extends StatelessWidget {
                             ),
                             const TextSpan(text: ' '),
                           ],
+                          // The type word in its color; on light, where a
+                          // type color is only a fill, a dot and the word
+                          // in the subtitle's gray.
+                          if (typeLabel != null &&
+                              typeColor != null &&
+                              colors.typeColorsAreFills) ...[
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: TypeDot(typeColor!),
+                            ),
+                            const TextSpan(text: ' '),
+                          ],
                           if (typeLabel != null)
                             TextSpan(
                               text: typeLabel,
                               style: theme.textTheme.bodySmall!.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: typeColor,
+                                color: colors.typeColorsAreFills
+                                    ? null
+                                    : typeColor,
                               ),
                             ),
                           if (typeLabel != null && subtitle.isNotEmpty)
@@ -265,7 +280,8 @@ class EntryRow extends StatelessWidget {
   }
 }
 
-/// A small outlined label in the accent ink: "New season", "New". [large]
+/// A small outlined label in the accent (dark gray on light): "New season",
+/// "New". [large]
 /// is the details header's, a step bigger.
 class OutlineBadge extends StatelessWidget {
   const OutlineBadge(this.label, {super.key, this.large = false});
@@ -280,7 +296,7 @@ class OutlineBadge extends StatelessWidget {
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
       height: 1.4,
-      color: theme.colorScheme.primary,
+      color: AccentColors.of(context).link,
     );
   }
 
@@ -305,7 +321,7 @@ class OutlineBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = Theme.of(context).colorScheme.primary;
+    final ink = AccentColors.of(context).link;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: _padding(large),
@@ -320,8 +336,8 @@ class OutlineBadge extends StatelessWidget {
   }
 }
 
-/// A check in the accent color for Done; a small pill with the status word
-/// otherwise. In progress is filled, Want and DNF are outlined. [type]
+/// A check in the accent color (dark gray on light) for Done; a small pill
+/// with the status word otherwise. In progress is filled, Want and DNF are outlined. [type]
 /// words it: "Reading" for a book.
 class StatusMark extends StatelessWidget {
   const StatusMark(this.status, {super.key, this.type});
@@ -331,12 +347,11 @@ class StatusMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     if (status == EntryStatus.done) {
       return StrokeIcon(
         AppIcons.check,
         size: 20,
-        color: theme.colorScheme.primary,
+        color: AccentColors.of(context).link,
         semanticLabel: 'Done',
       );
     }

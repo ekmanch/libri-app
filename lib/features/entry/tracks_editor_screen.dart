@@ -233,7 +233,7 @@ class _TracksEditorScreenState extends ConsumerState<TracksEditorScreen> {
       color: colors.muted,
     );
     final link = TextButton.styleFrom(
-      foregroundColor: theme.colorScheme.primary,
+      foregroundColor: AccentColors.of(context).link,
       textStyle: theme.textTheme.labelMedium,
       padding: EdgeInsets.zero,
       minimumSize: const Size(48, 48),

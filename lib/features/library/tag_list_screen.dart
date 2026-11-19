@@ -4,7 +4,6 @@ import '../../data/models/library.dart';
 import '../../data/models/tag_category.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
-import '../../widgets/app_icons.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/row_ink_well.dart';
@@ -13,6 +12,7 @@ import 'entry_list_views.dart';
 import 'entry_sections.dart';
 import 'sectioned_list_body.dart';
 import 'tag_sort.dart';
+import '../../widgets/check_box_mark.dart';
 
 /// Opens the full-screen list of one long tag group (Library › Filter: all
 /// Authors) above the sheet that asked for it: a search box, the tags A to Z
@@ -210,7 +210,6 @@ class _TagRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final colors = LibraryColors.of(context);
     return Semantics(
       button: true,
@@ -248,27 +247,7 @@ class _TagRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? scheme.primaryContainer : null,
-                  border: Border.all(
-                    color: selected
-                        ? scheme.primaryContainer
-                        : colors.placeholder,
-                    width: 2,
-                  ),
-                ),
-                child: selected
-                    ? StrokeIcon(
-                        AppIcons.check,
-                        size: 14,
-                        color: scheme.onPrimaryContainer,
-                      )
-                    : null,
-              ),
+              CheckBoxMark(checked: selected, round: true),
             ],
           ),
         ),

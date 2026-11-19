@@ -86,14 +86,15 @@ class CoverGridTile extends StatelessWidget {
                       width: 26,
                       height: 26,
                       decoration: BoxDecoration(
-                        color: colors.coverBadge,
+                        color: colors.doneDisc,
                         shape: BoxShape.circle,
+                        boxShadow: colors.doneDiscShadow,
                       ),
                       child: Center(
                         child: StrokeIcon(
                           AppIcons.check,
                           size: 14,
-                          color: theme.colorScheme.primary,
+                          color: AccentColors.of(context).link,
                           semanticLabel: 'Done',
                         ),
                       ),

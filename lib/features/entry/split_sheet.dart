@@ -232,7 +232,7 @@ class _SplitSheetState extends State<SplitSheet> {
                   StrokeIcon(
                     AppIcons.checkBold,
                     size: 20,
-                    color: theme.colorScheme.primary,
+                    color: AccentColors.of(context).link,
                   ),
                 ],
               ],

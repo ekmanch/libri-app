@@ -38,6 +38,8 @@ import 'plan_season.dart';
 import 'plan_timeline.dart';
 import 'seasonal_art.dart';
 import 'seasonal_art_data.dart';
+import '../../widgets/check_box_mark.dart';
+import '../../widgets/type_kicker.dart';
 
 /// Opens a plan inside the current tab, so the floating navigation stays.
 Future<void> openPlanScreen(
@@ -218,7 +220,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
           child: Text(
             'New year…',
             style: theme.textTheme.labelLarge!.copyWith(
-              color: theme.colorScheme.primary,
+              color: AccentColors.of(context).link,
             ),
           ),
         ),
@@ -557,8 +559,6 @@ class PlanCheck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final colors = LibraryColors.of(context);
     return Semantics(
       container: true,
       button: true,
@@ -571,27 +571,7 @@ class PlanCheck extends StatelessWidget {
         child: SizedBox(
           width: 48,
           height: 48,
-          child: Center(
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: done ? scheme.primaryContainer : Colors.transparent,
-                border: Border.all(
-                  color: done ? scheme.primaryContainer : colors.placeholder,
-                  width: 2,
-                ),
-              ),
-              child: done
-                  ? StrokeIcon(
-                      AppIcons.check,
-                      size: 14,
-                      color: scheme.onPrimaryContainer,
-                    )
-                  : null,
-            ),
-          ),
+          child: Center(child: CheckBoxMark(checked: done, round: true)),
         ),
       ),
     );
@@ -618,7 +598,6 @@ class _Checklist extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
     final rows = _resolved(plan, library);
     if (rows.isEmpty) {
       return EmptyState(
@@ -641,7 +620,7 @@ class _Checklist extends StatelessWidget {
           if (rows.any((r) => r.$2.type == type)) ...[
             SectionHeading(
               type.label,
-              color: colors.forType(type),
+              type: type,
               padding: const EdgeInsets.fromLTRB(0, 9, 0, 2),
             ),
             for (final (item, entry) in rows)
@@ -793,7 +772,9 @@ class _Timeline extends StatelessWidget {
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: switch (group.state) {
-                              TimelineState.current => scheme.primary,
+                              TimelineState.current => AccentColors.of(
+                                context,
+                              ).link,
                               TimelineState.undated => colors.muted,
                               _ => scheme.onSurface,
                             },
@@ -866,11 +847,11 @@ class _Rail extends StatelessWidget {
       key: fraction == null ? null : const Key('timeline-today'),
       painter: _RailPainter(
         line: switch (group.state) {
-          TimelineState.past => scheme.primaryContainer,
+          TimelineState.past => scheme.primary,
           TimelineState.undated => Colors.transparent,
-          _ => colors.neutralFill,
+          _ => colors.rail,
         },
-        fill: scheme.primaryContainer,
+        fill: scheme.primary,
         fraction: fraction,
       ),
     );
@@ -960,12 +941,12 @@ class _TimelineCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     );
-                    final kind = Text(
+                    final kind = TypeKicker(
                       entryKindLabel(entry).toUpperCase(),
+                      type: entry.type,
                       style: theme.textTheme.labelSmall!.copyWith(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: colors.forType(entry.type),
                       ),
                     );
                     final subtitle = Text(
@@ -1102,7 +1083,7 @@ class _Pool extends ConsumerWidget {
           if (entries.any((e) => e.type == type)) ...[
             SectionHeading(
               type.label,
-              color: colors.forType(type),
+              type: type,
               padding: const EdgeInsets.fromLTRB(0, 9, 0, 2),
             ),
             for (final entry in entries)

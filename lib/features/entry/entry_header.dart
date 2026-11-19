@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/labels.dart';
+import '../../widgets/type_kicker.dart';
 
 /// The top of a details sheet (Library › Entry details; Music › Album with
 /// track ratings; Plans › Entry details (timeline on)): the cover spot when a
@@ -70,12 +71,12 @@ class EntryHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                TypeKicker(
                   kindLine(entry),
+                  type: entry.type,
                   style: theme.textTheme.labelSmall!.copyWith(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: colors.forType(entry.type),
                   ),
                 ),
                 const SizedBox(height: 6),

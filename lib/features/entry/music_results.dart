@@ -11,6 +11,7 @@ import '../../widgets/lookup_notice.dart';
 import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
 import 'music_lookup_controller.dart';
+import '../../widgets/type_kicker.dart';
 
 /// 9800 as "9,800".
 String groupedCount(int n) {
@@ -334,7 +335,7 @@ class _BackToResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
+    final accent = AccentColors.of(context).link;
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Semantics(
@@ -386,7 +387,7 @@ class _ArtistRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final accent = theme.colorScheme.primary;
+    final accent = AccentColors.of(context).link;
     final albums = artist.albums;
     return Semantics(
       button: true,
@@ -515,15 +516,15 @@ class MusicRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  TypeKicker(
                     [
                       musicRowKind(match),
                       if (year != null) '$year',
                     ].join(' · ').toUpperCase(),
+                    type: MediaType.music,
                     style: theme.textTheme.labelSmall!.copyWith(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: colors.forType(MediaType.music),
                     ),
                   ),
                   const SizedBox(height: 2),

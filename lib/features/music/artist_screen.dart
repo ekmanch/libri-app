@@ -80,14 +80,18 @@ class ArtistScreen extends ConsumerWidget {
             PageHeader(
               title: artist?.name ?? name,
               onBack: () => Navigator.pop(context),
-              leading: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: colors.music,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              // On light a page heading gets no dot (the Library "Type
+              // colors" note).
+              leading: colors.typeColorsAreFills
+                  ? null
+                  : Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: colors.music,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
               // A long press on the name, like one on the photo, opens
               // Music › Pick a photo.
               onTitleLongPress: artist == null

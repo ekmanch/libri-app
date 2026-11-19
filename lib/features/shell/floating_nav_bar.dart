@@ -65,7 +65,6 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
     final foreground = selected
         ? theme.colorScheme.onSurface
         : theme.colorScheme.onSurfaceVariant;
@@ -73,7 +72,10 @@ class _NavItem extends StatelessWidget {
       button: true,
       selected: selected,
       child: Material(
-        color: selected ? colors.selectedFill : Colors.transparent,
+        // Neutral gray on dark, the accent's tint on light.
+        color: selected
+            ? AccentColors.of(context).selection
+            : Colors.transparent,
         shape: const StadiumBorder(),
         child: InkWell(
           onTap: onTap,
@@ -101,7 +103,8 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-/// The round accent "+" button to the right of the navigation pill.
+/// The round accent "+" button to the right of the navigation pill: the
+/// accent on dark, its tint under a dark plus on light, with the same shadow.
 class AddButton extends StatelessWidget {
   const AddButton({super.key, required this.label, required this.onPressed});
 

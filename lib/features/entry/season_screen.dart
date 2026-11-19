@@ -16,6 +16,7 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/section_heading.dart';
 import 'seasons.dart';
+import '../../widgets/type_kicker.dart';
 
 /// Opens a season's episodes (Show & seasons › Season episodes (all out) and
 /// Season episodes (airing weekly)).
@@ -228,12 +229,12 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (show != null)
-                              Text(
+                              TypeKicker(
                                 show.title.toUpperCase(),
+                                type: show.type,
                                 style: theme.textTheme.labelSmall!.copyWith(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: colors.forType(show.type),
                                 ),
                               ),
                             const SizedBox(height: 2),

@@ -4,11 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/images/artwork_providers.dart';
+import '../theme/app_theme.dart';
 
 /// An image from the device cache, downloaded first when needed, with
 /// [placeholder] until it is on the device and decoded. The file is
 /// decoded at the shown width, and a fresh download fades in. A null
 /// [url] is the placeholder for good.
+///
+/// Every cover, artist photo and album tile is one of these, so this is
+/// where the light theme lifts them off the page: the theme's cover shadow
+/// behind the image or its placeholder, the small one for the covers in
+/// lists ([LibraryColors.coverShadowFor]). [lifted] false leaves it out.
 class CachedImage extends ConsumerStatefulWidget {
   const CachedImage({
     super.key,
@@ -19,7 +25,11 @@ class CachedImage extends ConsumerStatefulWidget {
     this.borderRadius,
     this.shape = BoxShape.rectangle,
     this.semanticLabel,
+    this.lifted = true,
   });
+
+  /// Whether the theme's cover shadow is drawn behind it.
+  final bool lifted;
 
   final String? url;
   final double width;
@@ -84,6 +94,23 @@ class _CachedImageState extends ConsumerState<CachedImage> {
 
   @override
   Widget build(BuildContext context) {
+    final shadow = widget.lifted
+        ? LibraryColors.of(context).coverShadowFor(widget.width)
+        : const <BoxShadow>[];
+    if (shadow.isEmpty) return _picture(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        shape: widget.shape,
+        borderRadius: widget.shape == BoxShape.circle
+            ? null
+            : widget.borderRadius,
+        boxShadow: shadow,
+      ),
+      child: _picture(context),
+    );
+  }
+
+  Widget _picture(BuildContext context) {
     final file = _file;
     final placeholder = SizedBox(
       width: widget.width,

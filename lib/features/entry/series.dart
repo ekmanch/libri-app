@@ -441,7 +441,7 @@ class SeriesPartRow extends StatelessWidget {
             'This one',
             style: theme.textTheme.labelMedium!.copyWith(
               fontSize: 12.5,
-              color: theme.colorScheme.primary,
+              color: AccentColors.of(context).link,
             ),
           )
         else if (entry != null) ...[
@@ -828,7 +828,7 @@ class _SeriesNoteRow extends StatelessWidget {
           TextButton(
             onPressed: onPressed,
             style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.primary,
+              foregroundColor: AccentColors.of(context).link,
             ),
             child: Text(action),
           ),

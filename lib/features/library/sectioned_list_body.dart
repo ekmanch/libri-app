@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../widgets/type_kicker.dart';
 import '../shell/app_shell.dart';
 import 'entry_sections.dart';
 
@@ -379,6 +380,7 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
           child: _SectionHeader(
             section.headerText,
             color: section.color ?? widget.color,
+            dotColor: section.dotColor,
           ),
         ),
         SliverFixedExtentList.builder(
@@ -449,7 +451,7 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
   }
 
   Widget _rail(List<ListSection<T>> sections) {
-    final colors = LibraryColors.of(context);
+    final selection = AccentColors.of(context).selection;
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
@@ -482,7 +484,7 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: i == _current
-                                ? colors.selectedFill
+                                ? selection
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(11),
                           ),
@@ -507,11 +509,12 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
     final dot = section.dotColor;
     if (dot != null) {
       final size = current ? 12.0 : 10.0;
-      return Container(
+      // The dot stands alone, so it gets the theme's hairline ring.
+      return TypeDot(
+        dot,
         key: ValueKey('rail-dot-${section.label}'),
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+        size: size,
+        ringed: true,
       );
     }
     // A label wider than the rail ("31–50", "None" at a large text size)
@@ -640,30 +643,47 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
 }
 
 /// "2020s", "OCTOBER 2026", "A": 40 px tall, text at the bottom, in the
-/// list's color. The caller decides the case.
+/// list's color. The caller decides the case. On light, where a type color
+/// is only a fill, the text is the gray of other section headings; a
+/// section that stands for a type ([dotColor], Library › Filtered results,
+/// several types) is the type's dot and its name in the text color.
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.text, {required this.color});
+  const _SectionHeader(this.text, {required this.color, this.dotColor});
 
   final String text;
   final Color color;
+  final Color? dotColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = LibraryColors.of(context);
+    final neutral = colors.typeColorsAreFills;
+    final dot = neutral ? dotColor : null;
+    final label = Text(
+      text,
+      style: theme.textTheme.labelSmall!.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.78,
+        color: !neutral
+            ? color
+            : dot != null
+            ? theme.colorScheme.onSurface
+            : colors.muted,
+      ),
+    );
     return SizedBox(
       height: SectionedListBody.headerHeight,
       child: Align(
         alignment: Alignment.bottomLeft,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 6),
-          child: Text(
-            text,
-            style: theme.textTheme.labelSmall!.copyWith(
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.78,
-              color: color,
-            ),
-          ),
+          child: dot == null
+              ? label
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [TypeDot(dot), const SizedBox(width: 7), label],
+                ),
         ),
       ),
     );

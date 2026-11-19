@@ -37,6 +37,7 @@ import 'home_sections.dart';
 import 'library_filter_provider.dart';
 import 'upcoming.dart';
 import 'view_menu.dart';
+import '../../widgets/type_kicker.dart';
 
 /// Opens the Coming soon screen (Library › Coming soon: Library tab), from
 /// "See all" on the home's Coming soon heading, on the tab last picked.
@@ -566,13 +567,13 @@ class UpcomingAddSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      TypeKicker(
                         '${item.type.singular} · ${item.rightLabel(today)}'
                             .toUpperCase(),
+                        type: item.type,
                         style: theme.textTheme.labelSmall!.copyWith(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: colors.forType(item.type),
                         ),
                       ),
                       const SizedBox(height: 6),

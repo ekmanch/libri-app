@@ -7,14 +7,17 @@ import '../theme/app_theme.dart';
 import 'app_icons.dart';
 import 'labels.dart';
 import 'touch_target.dart';
+import 'type_kicker.dart';
 
 /// How a selected [PillChip] is shown.
 enum PillChipStyle {
-  /// Neutral fill, muted and outlined when unselected: the status chips on
-  /// the library home.
+  /// Muted and outlined when unselected, filled with the theme's
+  /// selection when selected (neutral gray on dark, the accent's tint on
+  /// light): the status chips on the library home.
   neutral,
 
-  /// Accent fill: choices in the filter sheet and the tag picker.
+  /// Accent fill (its tint on light): choices in the filter sheet and the
+  /// tag picker.
   accent,
 }
 
@@ -68,10 +71,10 @@ class PillChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final colors = LibraryColors.of(context);
+    final selection = AccentColors.of(context).selection;
     final accent = style == PillChipStyle.accent;
     final background = selected
-        ? (accent ? scheme.primaryContainer : colors.selectedFill)
+        ? (accent ? scheme.primaryContainer : selection)
         : Colors.transparent;
     final foreground = selected
         ? (accent ? scheme.onPrimaryContainer : scheme.onSurface)
@@ -105,20 +108,13 @@ class PillChip extends StatelessWidget {
                     StrokeIcon(AppIcons.check, size: 14, color: foreground),
                     const SizedBox(width: 6),
                   ],
-                  if (dotColor != null) ...[
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                  if (dotColor case final dot?) ...[
+                    TypeDot(dot),
                     const SizedBox(width: 8),
                   ],
                   Flexible(
-                    child: Text(
-                      label,
+                    child: Text.rich(
+                      tagLabelSpan(context, label),
                       maxLines: 1,
                       softWrap: false,
                       overflow: TextOverflow.ellipsis,
@@ -295,8 +291,8 @@ class TagChip extends StatelessWidget {
           Flexible(
             child: Text.rich(
               TextSpan(
-                text: '#$name',
                 children: [
+                  tagLabelSpan(context, '#$name'),
                   if (detail != null)
                     TextSpan(
                       text: ' · $detail',
@@ -370,8 +366,8 @@ class DashedChip extends StatelessWidget {
                     // A long suggestion ("#post-apocalyptic" with its "new"
                     // badge) is cut off rather than overflowing a 360 dp row.
                     Flexible(
-                      child: Text(
-                        label,
+                      child: Text.rich(
+                        tagLabelSpan(context, label),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelMedium!.copyWith(
@@ -436,7 +432,8 @@ class DashedStadiumPainter extends CustomPainter {
 /// no [onRemove] it is just the chip, without the cross: the last language
 /// of Settings › Books › Languages you read, which cannot be removed. The
 /// [accent] style fills it with the accent (the languages read); the
-/// default is the neutral fill of the filter chips.
+/// default is the theme's selection, as on a chosen status chip: neutral
+/// gray on dark, the accent's tint on light.
 class RemovableChip extends StatelessWidget {
   const RemovableChip({
     super.key,
@@ -463,7 +460,7 @@ class RemovableChip extends StatelessWidget {
       child: Material(
         color: accent
             ? scheme.primaryContainer
-            : LibraryColors.of(context).selectedFill,
+            : AccentColors.of(context).selection,
         shape: const StadiumBorder(),
         child: InkWell(
           onTap: onRemove,
@@ -475,8 +472,8 @@ class RemovableChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
-                  child: Text(
-                    label,
+                  child: Text.rich(
+                    tagLabelSpan(context, label),
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.ellipsis,
@@ -499,7 +496,8 @@ class RemovableChip extends StatelessWidget {
 }
 
 /// A creator's tag in Library › Entry details with its follow state after
-/// the name: "#stephen-king · Following" in the accent, "· Follow" muted
+/// the name: "#stephen-king · Following" in the accent (dark gray on
+/// light), "· Follow" muted
 /// when not followed, "· Died 1973" for a creator no longer active (still
 /// tappable, to follow anyway). A tap on the chip toggles the follow
 /// (Settings › Upcoming releases; DESIGN.md 10c).
@@ -527,7 +525,7 @@ class FollowTagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
-    final accent = theme.colorScheme.primary;
+    final accent = AccentColors.of(context).link;
     final label = detail == null ? '#$tag' : '#$tag · $detail';
     return Semantics(
       button: true,
@@ -551,8 +549,8 @@ class FollowTagChip extends StatelessWidget {
                   Flexible(
                     child: Text.rich(
                       TextSpan(
-                        text: '#$tag',
                         children: [
+                          tagLabelSpan(context, '#$tag'),
                           if (detail != null)
                             TextSpan(
                               text: ' · $detail',

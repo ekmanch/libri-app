@@ -662,7 +662,7 @@ class _LibraryHomeScreenState extends ConsumerState<LibraryHomeScreen> {
                 onPressed: () =>
                     ref.read(libraryFilterProvider.notifier).clear(),
                 style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.primary,
+                  foregroundColor: AccentColors.of(context).link,
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   textStyle: theme.textTheme.labelMedium,
                 ),

@@ -55,8 +55,12 @@ void main() {
         .setThemeMode(ThemeMode.light);
     await tester.pumpAndSettle();
     expect(theme().brightness, Brightness.light);
-    expect(theme().colorScheme.primary, violet.ink);
-    expect(theme().colorScheme.primaryContainer, violet.fill);
+    // Light uses the accent's light value, and its tint for main buttons.
+    expect(theme().colorScheme.primary, violet.light);
+    expect(
+      theme().colorScheme.primaryContainer,
+      AccentColors.mix(violet.light, AccentColors.tintStrength),
+    );
 
     // Any other preference leaves the themes as they are: the app is not
     // built again, and nothing that reads the theme is.
