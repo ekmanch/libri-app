@@ -10,7 +10,6 @@ import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/lookup_service.dart';
 import '../../data/models/entry.dart';
-import '../../data/models/entry_status.dart';
 import '../../data/models/media_type.dart';
 import '../../data/operations/entry_operations.dart';
 import '../../theme/app_theme.dart';
@@ -438,24 +437,22 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
       height: 1.4,
       color: colors.muted,
     );
-    // A placeholder for a cover not found yet, drawn like the library's.
-    final placeholderEntry = Entry(
-      id: '',
-      type: subject.type,
-      title: subject.title,
-      status: EntryStatus.want,
-      added: DateTime(2000),
-    );
     final ratio = CoverPlaceholder.aspectRatio(subject.type);
     Widget cover(String? url, double width, {double radius = 8}) {
       return CachedImage(
         url: url,
         width: width,
         height: width / ratio,
+        // A cover not found yet, drawn like the library's; the small one
+        // in the file menu has no room for the title.
         placeholder: CoverPlaceholder(
-          entry: placeholderEntry,
+          id: subject.id,
+          type: subject.type,
           width: width,
-          fontSize: 11,
+          title: subject.title,
+          text: width < 64
+              ? CoverPlaceholderText.none
+              : CoverPlaceholderText.title,
         ),
         borderRadius: BorderRadius.circular(radius),
       );

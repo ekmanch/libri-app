@@ -242,8 +242,9 @@ void main() {
     for (final row in rows) {
       final cover = row.leading! as CoverImage;
       expect(cover.entry.id, row.row.id);
-      // Without art: the plain tile in the title's color, not the type's.
-      expect((cover.placeholder! as CoverTile).title, cover.entry.title);
+      // Without art: the placeholder with no text, the title being beside
+      // it.
+      expect(cover.text, CoverPlaceholderText.none);
       expect(row.padding, HomeRow.homeCoverPadding);
     }
     final first = find.byType(CoverImage).first;
@@ -281,7 +282,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(prefs().homeView, EntryView.text);
     expect(find.byType(CoverImage), findsNothing);
-    expect(find.byType(CoverTile), findsNothing);
+    expect(find.byType(CoverPlaceholder), findsNothing);
     expect(tester.getSize(find.byType(HomeRow).first).height, 56);
     // On its own: the types and the Coming soon page keep their views.
     expect(prefs().viewByType, isEmpty);

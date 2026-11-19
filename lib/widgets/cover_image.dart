@@ -14,24 +14,31 @@ import 'cover_placeholder.dart';
 /// covers; Entry details and the rest): the placeholder until the cover has
 /// been found and fetched, then the image. Only built in the photo views, so a
 /// text view fetches nothing. [labeled] gives the image the title as its screen
-/// reader name, for the details header. [placeholder] replaces the lettered
-/// [CoverPlaceholder] (a [CoverTile] on Library › Home and Library › Coming
-/// soon: list with covers).
+/// reader name, for the details header.
 class CoverImage extends ConsumerStatefulWidget {
   const CoverImage({
     super.key,
     required this.entry,
     required this.width,
-    this.fontSize = 7,
     this.labeled = false,
-    this.placeholder,
+    this.text = CoverPlaceholderText.none,
+    this.placeholderTitle,
+    this.badgeBelow = false,
   });
 
   final Entry entry;
   final double width;
-  final double fontSize;
   final bool labeled;
-  final Widget? placeholder;
+
+  /// What the placeholder writes on itself: nothing for a small cover.
+  final CoverPlaceholderText text;
+
+  /// The title on the placeholder when it is not the entry's own (a
+  /// series tile).
+  final String? placeholderTitle;
+
+  /// Whether a series badge sits on the cover's bottom-left corner.
+  final bool badgeBelow;
 
   @override
   ConsumerState<CoverImage> createState() => _CoverImageState();
@@ -116,13 +123,13 @@ class _CoverImageState extends ConsumerState<CoverImage> {
         },
       );
     }
-    final placeholder =
-        widget.placeholder ??
-        CoverPlaceholder(
-          entry: entry,
-          width: widget.width,
-          fontSize: widget.fontSize,
-        );
+    final placeholder = CoverPlaceholder.of(
+      entry,
+      width: widget.width,
+      title: widget.placeholderTitle,
+      text: widget.text,
+      badgeBelow: widget.badgeBelow,
+    );
     return CachedImage(
       url: _url,
       width: widget.width,

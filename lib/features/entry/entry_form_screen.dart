@@ -1522,6 +1522,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                     const SizedBox(height: 14),
                   ],
                   _FormCover(
+                    id: widget.entry?.id ?? '',
                     type: _type,
                     title: _title.text.trim(),
                     url:
@@ -1994,6 +1995,7 @@ enum _FormCoverSource { none, match, otherMatch, yours }
 
 class _FormCover extends StatelessWidget {
   const _FormCover({
+    required this.id,
     required this.type,
     required this.title,
     required this.url,
@@ -2003,6 +2005,9 @@ class _FormCover extends StatelessWidget {
     required this.onReset,
   });
 
+  /// The entry's id, which picks the placeholder's color; empty for an
+  /// entry not saved yet.
+  final String id;
   final MediaType type;
   final String title;
   final String? url;
@@ -2022,13 +2027,6 @@ class _FormCover extends StatelessWidget {
       fontSize: 13,
       height: 1.4,
       color: colors.muted,
-    );
-    final draft = Entry(
-      id: '',
-      type: type,
-      title: title,
-      status: EntryStatus.want,
-      added: DateTime(2000),
     );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -2051,15 +2049,12 @@ class _FormCover extends StatelessWidget {
                     url: url,
                     width: width,
                     height: width / CoverPlaceholder.aspectRatio(type),
-                    // No cover yet: an empty tile, not the lettered
-                    // placeholder that stands for a cover on its way.
+                    // No cover yet: an empty tile, not the placeholder
+                    // that stands for a cover on its way. A small cover,
+                    // so no title on it.
                     placeholder: source == _FormCoverSource.none
                         ? ColoredBox(color: theme.colorScheme.surface)
-                        : CoverPlaceholder(
-                            entry: draft,
-                            width: width,
-                            fontSize: 9.5,
-                          ),
+                        : CoverPlaceholder(id: id, type: type, width: width),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   Positioned(

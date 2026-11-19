@@ -11,7 +11,6 @@ import '../../data/models/released.dart';
 import '../../data/models/season.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/cover_image.dart';
-import '../../widgets/cover_placeholder.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/row_ink_well.dart';
@@ -413,13 +412,10 @@ class HomeRow extends StatelessWidget {
   static const homeCoverPadding = EdgeInsets.symmetric(vertical: 8);
 
   /// [entry]'s cover, [width] wide, for [leading]: fetched and cached when
-  /// the row comes on screen; without art, a plain tile in the color
-  /// picked from the title, since the title is right next to it.
-  static Widget cover(Entry entry, {required double width}) => CoverImage(
-    entry: entry,
-    width: width,
-    placeholder: CoverTile(title: entry.title, type: entry.type, width: width),
-  );
+  /// the row comes on screen; without art, the placeholder with no text,
+  /// since the title is right next to it.
+  static Widget cover(Entry entry, {required double width}) =>
+      CoverImage(entry: entry, width: width);
 
   @override
   Widget build(BuildContext context) {

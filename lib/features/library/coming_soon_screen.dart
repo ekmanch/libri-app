@@ -8,7 +8,6 @@ import '../../data/lookup/lookup_failure.dart';
 import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/models/app_settings.dart';
-import '../../data/models/entry.dart';
 import '../../data/models/entry_status.dart';
 import '../../data/models/release_dates.dart';
 import '../../data/models/season.dart';
@@ -418,8 +417,8 @@ class _UpcomingPageState extends State<_UpcomingPage>
       width: _UpcomingPage.coverWidth,
       height:
           _UpcomingPage.coverWidth / CoverPlaceholder.aspectRatio(item.type),
-      placeholder: CoverTile(
-        title: item.title,
+      placeholder: CoverPlaceholder(
+        id: item.id,
         type: item.type,
         width: _UpcomingPage.coverWidth,
       ),
@@ -546,16 +545,24 @@ class UpcomingAddSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (entry != null)
-                CoverImage(entry: entry, width: 72, fontSize: 9, labeled: true)
+                CoverImage(
+                  entry: entry,
+                  width: 72,
+                  labeled: true,
+                  text: CoverPlaceholderText.titleAndCreator,
+                )
               else
                 CachedImage(
                   url: item.coverUrl,
                   width: 72,
                   height: 72 / CoverPlaceholder.aspectRatio(item.type),
                   placeholder: CoverPlaceholder(
-                    entry: _standIn(item),
+                    id: item.id,
+                    type: item.type,
                     width: 72,
-                    fontSize: 9,
+                    title: item.title,
+                    creator: item.creator,
+                    text: CoverPlaceholderText.titleAndCreator,
                   ),
                   borderRadius: BorderRadius.circular(8),
                   semanticLabel: item.sheetTitle,
@@ -639,13 +646,4 @@ class UpcomingAddSheet extends StatelessWidget {
       ),
     );
   }
-
-  /// A part has no entry yet; the placeholder only needs a title and type.
-  static Entry _standIn(UpcomingItem item) => Entry(
-    id: item.id,
-    type: item.type,
-    title: item.title,
-    status: EntryStatus.want,
-    added: DateTime(2000),
-  );
 }

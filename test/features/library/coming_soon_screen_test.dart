@@ -28,7 +28,6 @@ import 'package:library_app/features/library/coming_soon_tab.dart';
 import 'package:library_app/features/library/home_sections.dart';
 import 'package:library_app/features/settings/display_preferences.dart';
 import 'package:library_app/features/settings/entry_view.dart';
-import 'package:library_app/theme/app_theme.dart';
 import 'package:library_app/widgets/cached_image.dart';
 import 'package:library_app/widgets/cover_image.dart';
 import 'package:library_app/widgets/cover_placeholder.dart';
@@ -373,7 +372,8 @@ void main() {
       expect(find.byType(UpcomingAddSheet), findsOneWidget);
       expect(find.text('SHOW · NOV 26'), findsOneWidget);
       expect(find.text('Stranger Things, Season 5'), findsOneWidget);
-      expect(find.text('The Duffer Brothers'), findsOneWidget);
+      // The creator's line, and under the title on the placeholder cover.
+      expect(find.text('The Duffer Brothers'), findsNWidgets(2));
       expect(
         find.text('A missing boy, a girl with powers, a town upside down.'),
         findsOneWidget,
@@ -647,7 +647,7 @@ void main() {
     (tester) async {
       final container = await pump(tester, tab: ComingSoonTab.all);
       final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
-      expect(find.byType(CoverTile), findsNothing);
+      expect(find.byType(CoverPlaceholder), findsNothing);
       await tester.tap(find.byTooltip('Change view'));
       await tester.pumpAndSettle();
       expect(find.text('Text'), findsOneWidget);
@@ -662,28 +662,22 @@ void main() {
       );
       // A wanted row has the entry's cover, an Add row the one the check
       // recorded, both fetched now that they are on screen; a title without
-      // art yet shows the plain tile, never letters, in the color picked from
-      // its title and not the type's.
+      // art yet shows the placeholder with no text on it, in the color
+      // picked from its id and not the type's.
       expect(find.byType(CoverImage), findsNWidgets(3));
       expect(cover(gollumCover), findsOneWidget);
-      expect(find.byType(CoverTile), findsWidgets);
-      expect(find.byType(CoverPlaceholder), findsNothing);
-      final tile = tester.widget<CoverTile>(find.byType(CoverTile).first);
-      final box = tester.widget<Container>(
-        find.descendant(
-          of: find.byType(CoverTile).first,
-          matching: find.byType(Container),
-        ),
-      );
-      final colors = LibraryColors.of(
-        tester.element(find.byType(CoverTile).first),
-      );
+      expect(find.byType(CoverPlaceholder), findsWidgets);
+      for (final tile in tester.widgetList<CoverPlaceholder>(
+        find.byType(CoverPlaceholder),
+      )) {
+        expect(tile.text, CoverPlaceholderText.none);
+      }
       expect(
-        (box.decoration! as BoxDecoration).color,
-        colors.coverPlaceholders[CoverPlaceholder.paletteIndex(
-          tile.title,
-          colors.coverPlaceholders.length,
-        )],
+        find.descendant(
+          of: find.byType(CoverPlaceholder),
+          matching: find.byType(Text),
+        ),
+        findsNothing,
       );
       for (var i = 0; i < 40 && !fetcher.fetched.contains(gollumCover); i++) {
         await tester.runAsync(
@@ -706,7 +700,7 @@ void main() {
       await tester.tap(find.text('Text'));
       await tester.pumpAndSettle();
       expect(find.byType(CoverImage), findsNothing);
-      expect(find.byType(CoverTile), findsNothing);
+      expect(find.byType(CoverPlaceholder), findsNothing);
       expect(fetcher.fetched.length, fetched);
       expect(
         container.read(displayPreferencesProvider).comingSoonView,
@@ -721,7 +715,9 @@ void main() {
       prefs: const DisplayPreferences(comingSoonView: EntryView.listWithPhotos),
     );
     expect(find.byType(CoverImage), findsNWidgets(2));
-    final tile = tester.widget<CoverTile>(find.byType(CoverTile).first);
+    final tile = tester.widget<CoverPlaceholder>(
+      find.byType(CoverPlaceholder).first,
+    );
     expect(tile.width, 44);
   });
 

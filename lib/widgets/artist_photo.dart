@@ -10,7 +10,6 @@ import '../data/models/entry.dart';
 import '../data/models/entry_kind.dart';
 import '../theme/app_theme.dart';
 import 'cached_image.dart';
-import 'cover_placeholder.dart';
 
 /// An artist's round photo (Library › Music: artists, list with photos; Music:
 /// artists, grid with photos; Music › Artist, text view and with photos): the
@@ -220,10 +219,14 @@ class ArtistInitials extends StatelessWidget {
   final double? initialsSize;
   final BorderRadius? borderRadius;
 
+  /// Same name, same color, on every run and platform.
+  static int paletteIndex(String name, int paletteLength) =>
+      name.codeUnits.fold(0, (sum, c) => sum + c) % paletteLength;
+
   @override
   Widget build(BuildContext context) {
-    final palette = LibraryColors.of(context).coverPlaceholders;
-    final color = palette[CoverPlaceholder.paletteIndex(name, palette.length)];
+    final palette = LibraryColors.of(context).artistPlaceholders;
+    final color = palette[paletteIndex(name, palette.length)];
     return Semantics(
       excludeSemantics: true,
       child: Container(

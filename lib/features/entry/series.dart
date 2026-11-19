@@ -17,6 +17,7 @@ import '../../widgets/check_box_mark.dart';
 import '../../widgets/chips.dart';
 import '../../widgets/cover_choice.dart';
 import '../../widgets/cover_image.dart';
+import '../../widgets/cover_placeholder.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
@@ -1115,7 +1116,7 @@ class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
                 cover: CoverImage(
                   entry: part,
                   width: CoverChoice.imageWidth(width),
-                  fontSize: 11,
+                  text: CoverPlaceholderText.title,
                 ),
                 title: part.title,
                 width: width,

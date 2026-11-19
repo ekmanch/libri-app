@@ -7,6 +7,7 @@ import '../../data/models/release_dates.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/cover_image.dart';
+import '../../widgets/cover_placeholder.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/type_kicker.dart';
 
@@ -62,7 +63,12 @@ class EntryHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showCover) ...[
-          CoverImage(entry: entry, width: 84, fontSize: 10, labeled: true),
+          CoverImage(
+            entry: entry,
+            width: 84,
+            labeled: true,
+            text: CoverPlaceholderText.titleAndCreator,
+          ),
           const SizedBox(width: 14),
         ],
         Expanded(

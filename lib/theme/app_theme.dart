@@ -244,6 +244,11 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     required this.cardShadow,
     required this.navShadow,
     required this.coverPlaceholders,
+    this.coverHighlight = const Color(0x29FFFFFF),
+    this.coverShade = const Color(0x6B000000),
+    this.onCover = const Color(0xFFFFFFFF),
+    this.onCoverMuted = const Color(0xCCFFFFFF),
+    this.artistPlaceholders = _artistPlaceholders,
     required this.coverBadge,
     required this.dangerFill,
     required this.success,
@@ -310,8 +315,26 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   /// Shadow under the floating navigation and the "+" button.
   final List<BoxShadow> navShadow;
 
-  /// Fills for cover placeholders until real images arrive (phase 5).
+  /// Base colors of a cover placeholder (the Library "Placeholder covers"
+  /// note), in the desktop app's order: the entry's id picks one, so the
+  /// order is part of the contract. The same in every theme.
   final List<Color> coverPlaceholders;
+
+  /// The placeholder's highlight at its top-left corner, white at 16%,
+  /// fading out.
+  final Color coverHighlight;
+
+  /// The placeholder's bottom edge, black at 42%, fading in from the
+  /// middle.
+  final Color coverShade;
+
+  /// The title written on a placeholder, and the creator under it.
+  final Color onCover;
+  final Color onCoverMuted;
+
+  /// Fills for an artist's disc with initials, picked from the name. Not
+  /// covers: they keep the four colors and the pick they always had.
+  final List<Color> artistPlaceholders;
 
   /// Round badge over a cover, e.g. behind the Done check in the grid.
   final Color coverBadge;
@@ -513,6 +536,17 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   );
 
   static const _coverPlaceholders = [
+    Color(0xFF4B5F8A),
+    Color(0xFF8A6E3F),
+    Color(0xFF3F6B8A),
+    Color(0xFF6B4B8A),
+    Color(0xFF8A553F),
+    Color(0xFF3F8A6E),
+    Color(0xFF8A3F5F),
+    Color(0xFF5F6B3F),
+  ];
+
+  static const _artistPlaceholders = [
     Color(0xFF4B5F8A),
     Color(0xFF8A6E3F),
     Color(0xFF3F6B8A),

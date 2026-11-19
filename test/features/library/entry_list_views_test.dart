@@ -26,10 +26,6 @@ void main() {
       ),
       '',
     );
-    expect(
-      CoverPlaceholder.paletteIndex('The Mummy', 4),
-      CoverPlaceholder.paletteIndex('The Mummy', 4),
-    );
     expect(CoverPlaceholder.aspectRatio(MediaType.music), 1);
     expect(
       CoverPlaceholder.aspectRatio(MediaType.movies),

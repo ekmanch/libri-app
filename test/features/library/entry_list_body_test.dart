@@ -15,6 +15,7 @@ import 'package:library_app/features/settings/entry_view.dart';
 import 'package:library_app/theme/app_theme.dart';
 import 'package:library_app/widgets/app_icons.dart';
 import 'package:library_app/widgets/cover_image.dart';
+import 'package:library_app/widgets/cover_placeholder.dart';
 
 import '../../helpers/sample_library.dart';
 
@@ -342,7 +343,16 @@ void main() {
         onTapSeries: (g) => tapped = g,
       );
       expect(find.byType(SeriesGridTile), findsOneWidget);
-      expect(find.text('The Lord of the Rings'), findsOneWidget);
+      // Under the tile, and on its placeholder cover above the badge.
+      expect(find.text('The Lord of the Rings'), findsNWidgets(2));
+      final onCover = tester.widget<CoverPlaceholder>(
+        find.descendant(
+          of: find.byType(SeriesGridTile),
+          matching: find.byType(CoverPlaceholder),
+        ),
+      );
+      expect(onCover.title, 'The Lord of the Rings');
+      expect(onCover.badgeBelow, isTrue);
       expect(find.text('2 movies'), findsOneWidget);
       expect(
         find.bySemanticsLabel(
@@ -353,7 +363,7 @@ void main() {
       // The cover is part 1's: the tile wraps the Fellowship's cover.
       final tile = tester.widget<SeriesGridTile>(find.byType(SeriesGridTile));
       expect(tile.group.coverEntry.id, 'movies/fellowship');
-      await tester.tap(find.text('The Lord of the Rings'));
+      await tester.tap(find.text('The Lord of the Rings').last);
       expect(tapped?.name, 'The Lord of the Rings');
     });
 

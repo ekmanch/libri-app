@@ -5,6 +5,7 @@ import '../../data/models/entry_status.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/cover_image.dart';
+import '../../widgets/cover_placeholder.dart';
 
 /// One cell of the grid with covers (Library › Movies, grid with covers; Long
 /// grid: fast-scroll thumb): the cover, a title of up to two lines and the
@@ -76,7 +77,9 @@ class CoverGridTile extends StatelessWidget {
                 CoverImage(
                   entry: entry,
                   width: constraints.maxWidth,
-                  fontSize: 13,
+                  text: CoverPlaceholderText.title,
+                  placeholderTitle: title,
+                  badgeBelow: seriesCount != null,
                 ),
                 if (done)
                   Positioned(
