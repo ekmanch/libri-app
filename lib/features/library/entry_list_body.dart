@@ -4,6 +4,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/media_type.dart';
 import '../settings/entry_view.dart';
 import '../shell/app_shell.dart';
+import 'cover_grid.dart';
 import 'entry_list_views.dart';
 import 'entry_sections.dart';
 import 'library_sort.dart';
@@ -97,22 +98,16 @@ class EntryListBody extends StatelessWidget {
     required double width,
     required double viewportHeight,
     required TextScaler scaler,
+    CoverGridSpec? gridSpec,
     DateTime? today,
   }) {
-    final grid = view == EntryView.grid;
-    final type = entries.isEmpty ? MediaType.movies : entries.first.type;
-    final height = SectionedListBody.contentHeightOf(
-      itemCount: entries.length,
-      sectionCount: grid
-          ? 0
-          : sectionEntries(entries, sort, today: today).length,
-      grid: grid,
-      rowExtent: grid
-          ? EntryListMetrics.gridRowExtent(width, type)
-          : EntryListMetrics.rowHeight(view, scaler),
-      gridColumns: EntryListMetrics.gridColumns,
-      gridTopPadding: EntryListMetrics.gridTopPadding,
-    );
+    final height = view == EntryView.grid
+        ? EntryListMetrics.gridTopPadding + gridSpec!.layoutFor(width).height
+        : SectionedListBody.contentHeightOf(
+            itemCount: entries.length,
+            sectionCount: sectionEntries(entries, sort, today: today).length,
+            rowExtent: EntryListMetrics.rowHeight(view, scaler),
+          );
     return isLongList(contentHeight: height, viewportHeight: viewportHeight);
   }
 
@@ -121,6 +116,12 @@ class EntryListBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final scaler = MediaQuery.textScalerOf(context);
+        final grid = view == EntryView.grid;
+        // One type per list, so one cover shape; mixed lists use the poster.
+        final type = entries.isEmpty ? MediaType.movies : entries.first.type;
+        CoverGridSpec? specFor(List<String> titles) => grid
+            ? EntryListMetrics.gridSpec(context, titles: titles, type: type)
+            : null;
         final grouped =
             groupSeries &&
             groupsAt(
@@ -130,6 +131,9 @@ class EntryListBody extends StatelessWidget {
               width: constraints.maxWidth - 40,
               viewportHeight: constraints.maxHeight,
               scaler: scaler,
+              gridSpec: groupSeries
+                  ? specFor([for (final e in entries) e.title])
+                  : null,
               today: today,
             );
         final rows = grouped
@@ -139,8 +143,7 @@ class EntryListBody extends StatelessWidget {
             ? null
             : sectionRowsByType(rows, typeColors!);
         final types = {for (final e in entries) e.type};
-        // One type per list, so one cover shape; mixed lists use the poster.
-        final type = entries.isEmpty ? MediaType.movies : entries.first.type;
+        final gridSpec = specFor([for (final row in rows) gridTitleOf(row)]);
         return SectionedListBody<LibraryRow>(
           itemCount: rows.length,
           sections: flat
@@ -149,9 +152,9 @@ class EntryListBody extends StatelessWidget {
               ? byType
               : sectionRows(rows, sort, today: today),
           plainSections: flat ? null : byType,
-          grid: view == EntryView.grid,
+          grid: grid,
           rowExtent: EntryListMetrics.rowHeight(view, scaler),
-          gridRowExtent: (width) => EntryListMetrics.gridRowExtent(width, type),
+          gridSpec: gridSpec,
           gridTopPadding: EntryListMetrics.gridTopPadding,
           gridColumns: EntryListMetrics.gridColumns,
           color: color,
@@ -175,6 +178,7 @@ class EntryListBody extends StatelessWidget {
               onTapSeries: onTapSeries,
               today: today,
               caption: caption,
+              gridSpec: gridSpec,
             ),
             if (flat) ...trailingSlivers,
           ],

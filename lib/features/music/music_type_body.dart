@@ -5,11 +5,13 @@ import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/track_info.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/entry_kind.dart';
+import '../../data/models/media_type.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/entry_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/pinned_sliver.dart';
 import '../../widgets/chips.dart';
+import '../library/cover_grid.dart';
 import '../library/cover_grid_tile.dart';
 import '../../widgets/cover_image.dart';
 import '../library/entry_list_body.dart';
@@ -394,9 +396,7 @@ class ArtistList extends StatelessWidget {
         photo: photo,
         scaler: MediaQuery.textScalerOf(context),
       ),
-      gridRowExtent: (width) =>
-          ArtistGridTile.extent(EntryListMetrics.gridTileWidth(width)) +
-          EntryListMetrics.gridMainSpacing,
+      gridSpec: grid ? ArtistGridTile.spec(context, artists) : null,
       gridTopPadding: EntryListMetrics.gridTopPadding,
       gridColumns: EntryListMetrics.gridColumns,
       color: color,
@@ -408,28 +408,12 @@ class ArtistList extends StatelessWidget {
       flatSlivers:
           (grid
               ? <Widget>[
-                  SliverPadding(
-                    padding: const EdgeInsets.only(
-                      top: EntryListMetrics.gridTopPadding,
-                    ),
-                    sliver: SliverLayoutBuilder(
-                      builder: (context, constraints) => SliverGrid.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: EntryListMetrics.gridColumns,
-                          crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
-                          mainAxisSpacing: EntryListMetrics.gridMainSpacing,
-                          mainAxisExtent: ArtistGridTile.extent(
-                            EntryListMetrics.gridTileWidth(
-                              constraints.crossAxisExtent,
-                            ),
-                          ),
-                        ),
-                        itemCount: artists.length,
-                        itemBuilder: (context, i) => ArtistGridTile(
-                          artist: artists[i],
-                          onTap: () => onTap(artists[i]),
-                        ),
-                      ),
+                  CoverGridSliver(
+                    spec: ArtistGridTile.spec(context, artists),
+                    topPadding: EntryListMetrics.gridTopPadding,
+                    itemBuilder: (context, i) => ArtistGridTile(
+                      artist: artists[i],
+                      onTap: () => onTap(artists[i]),
                     ),
                   ),
                 ]
@@ -479,6 +463,13 @@ class SongList extends StatelessWidget {
   Widget build(BuildContext context) {
     final grid = view == EntryView.grid;
     final photo = view == EntryView.listWithPhotos;
+    final gridSpec = grid
+        ? EntryListMetrics.gridSpec(
+            context,
+            titles: [for (final song in songs) song.title],
+            type: songs.isEmpty ? MediaType.music : songs.first.type,
+          )
+        : null;
     Widget row(Entry song) => EntryRow.forEntry(
       song,
       leading: photo ? CoverImage(entry: song, width: 40) : null,
@@ -494,8 +485,7 @@ class SongList extends StatelessWidget {
         view,
         MediaQuery.textScalerOf(context),
       ),
-      gridRowExtent: (width) =>
-          EntryListMetrics.gridRowExtent(width, songs.first.type),
+      gridSpec: gridSpec,
       gridTopPadding: EntryListMetrics.gridTopPadding,
       gridColumns: EntryListMetrics.gridColumns,
       color: color,
@@ -507,28 +497,13 @@ class SongList extends StatelessWidget {
       flatSlivers:
           (grid
               ? <Widget>[
-                  SliverPadding(
-                    padding: const EdgeInsets.only(
-                      top: EntryListMetrics.gridTopPadding,
-                    ),
-                    sliver: SliverLayoutBuilder(
-                      builder: (context, constraints) => SliverGrid.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: EntryListMetrics.gridColumns,
-                          crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
-                          mainAxisSpacing: EntryListMetrics.gridMainSpacing,
-                          mainAxisExtent: EntryListMetrics.gridTileExtent(
-                            constraints.crossAxisExtent,
-                            songs.first.type,
-                          ),
-                        ),
-                        itemCount: songs.length,
-                        itemBuilder: (context, i) => CoverGridTile(
-                          entry: songs[i],
-                          caption: songs[i].creator ?? '',
-                          onTap: () => onTap(songs[i]),
-                        ),
-                      ),
+                  CoverGridSliver(
+                    spec: gridSpec!,
+                    topPadding: EntryListMetrics.gridTopPadding,
+                    itemBuilder: (context, i) => CoverGridTile(
+                      entry: songs[i],
+                      caption: songs[i].creator ?? '',
+                      onTap: () => onTap(songs[i]),
                     ),
                   ),
                 ]
@@ -577,6 +552,14 @@ class SongSearchList extends StatelessWidget {
     final theme = Theme.of(context);
     final grid = view == EntryView.grid;
     final photo = view == EntryView.listWithPhotos;
+    // Songs is not empty, so the first one's type gives the cover's shape.
+    final gridSpec = grid
+        ? EntryListMetrics.gridSpec(
+            context,
+            titles: [for (final song in songs) song.title],
+            type: songs.first.entry.type,
+          )
+        : null;
     Widget row(SongItem song) {
       final entry = song.entry;
       final leading = photo ? CoverImage(entry: entry, width: 40) : null;
@@ -612,8 +595,7 @@ class SongSearchList extends StatelessWidget {
         view,
         MediaQuery.textScalerOf(context),
       ),
-      gridRowExtent: (width) =>
-          EntryListMetrics.gridRowExtent(width, songs.first.entry.type),
+      gridSpec: gridSpec,
       gridTopPadding: EntryListMetrics.gridTopPadding,
       gridColumns: EntryListMetrics.gridColumns,
       color: color,
@@ -624,35 +606,20 @@ class SongSearchList extends StatelessWidget {
       rowBuilder: (context, item) => row(item),
       flatSlivers: [
         if (grid)
-          SliverPadding(
-            padding: const EdgeInsets.only(
-              top: EntryListMetrics.gridTopPadding,
-            ),
-            sliver: SliverLayoutBuilder(
-              builder: (context, constraints) => SliverGrid.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: EntryListMetrics.gridColumns,
-                  crossAxisSpacing: EntryListMetrics.gridCrossSpacing,
-                  mainAxisSpacing: EntryListMetrics.gridMainSpacing,
-                  mainAxisExtent: EntryListMetrics.gridTileExtent(
-                    constraints.crossAxisExtent,
-                    songs.first.entry.type,
-                  ),
-                ),
-                itemCount: songs.length,
-                itemBuilder: (context, i) {
-                  final song = songs[i];
-                  return CoverGridTile(
-                    entry: song.entry,
-                    title: song.title,
-                    caption: song.entry.creator ?? '',
-                    // A track has no status of its own.
-                    done: song.isTrack ? false : null,
-                    onTap: () => onTap(song.entry),
-                  );
-                },
-              ),
-            ),
+          CoverGridSliver(
+            spec: gridSpec!,
+            topPadding: EntryListMetrics.gridTopPadding,
+            itemBuilder: (context, i) {
+              final song = songs[i];
+              return CoverGridTile(
+                entry: song.entry,
+                title: song.title,
+                caption: song.entry.creator ?? '',
+                // A track has no status of its own.
+                done: song.isTrack ? false : null,
+                onTap: () => onTap(song.entry),
+              );
+            },
           )
         else
           SliverList.builder(

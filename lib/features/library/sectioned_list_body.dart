@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/type_kicker.dart';
 import '../shell/app_shell.dart';
+import 'cover_grid.dart';
 import 'entry_sections.dart';
 
 /// A run of consecutive items in a sorted list that share a heading: a decade,
@@ -53,8 +54,9 @@ class ListSection<T> {
 /// three screens tall with two sections or more gets section headers and a jump
 /// rail on the right (Library › Long list: rail by release year to Long list:
 /// music artists A–Z), or, in the grid, a draggable thumb with a label bubble
-/// (Library › Long grid: fast-scroll thumb). Rows have a fixed height so
-/// section offsets can be computed without measuring.
+/// (Library › Long grid: fast-scroll thumb). Rows have a fixed height, and
+/// a grid's rows are measured up front ([CoverGridSpec]), so section offsets
+/// are known without laying anything out.
 ///
 /// [leadingSlivers] scroll away above the list, like the home's header
 /// (Library › Home), except the [pinnedExtent] of them that stays: the rail
@@ -68,7 +70,7 @@ class SectionedListBody<T> extends StatefulWidget {
     this.plainSections,
     required this.grid,
     required this.rowExtent,
-    required this.gridRowExtent,
+    this.gridSpec,
     this.gridTopPadding = 0,
     this.gridColumns = 3,
     required this.rowBuilder,
@@ -109,8 +111,9 @@ class SectionedListBody<T> extends StatefulWidget {
   /// Row height in the text and list views.
   final double rowExtent;
 
-  /// Height of one grid row, tile plus spacing, for a list of that width.
-  final double Function(double width) gridRowExtent;
+  /// The grid's cells, for the heights of its rows at the list's width.
+  /// Needed when [grid] is true.
+  final CoverGridSpec? gridSpec;
   final double gridTopPadding;
   final int gridColumns;
 
@@ -136,19 +139,14 @@ class SectionedListBody<T> extends StatefulWidget {
   static const thumbHeight = 44.0;
   static const headerHeight = 40.0;
 
-  /// How tall [itemCount] items in [sectionCount] sections are laid out:
-  /// rows and headers in the text and list views, rows of tiles in the
-  /// grid. [rowExtent] is one row's, or one grid row's, height.
+  /// How tall [itemCount] rows in [sectionCount] sections are laid out in
+  /// the text and list views. A grid's height is its measured layout's
+  /// ([GridRowLayout.height]) under its top padding.
   static double contentHeightOf({
     required int itemCount,
     required int sectionCount,
-    required bool grid,
     required double rowExtent,
-    int gridColumns = 3,
-    double gridTopPadding = 0,
-  }) => grid
-      ? gridTopPadding + (itemCount / gridColumns).ceil() * rowExtent
-      : itemCount * rowExtent + sectionCount * headerHeight;
+  }) => itemCount * rowExtent + sectionCount * headerHeight;
 
   @override
   State<SectionedListBody<T>> createState() => _SectionedListBodyState<T>();
@@ -290,17 +288,15 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
         final sections = widget.sections;
         final isGrid = widget.grid;
         final count = widget.itemCount;
-        final rowExtent = isGrid
-            ? widget.gridRowExtent(width)
-            : widget.rowExtent;
-        final contentHeight = SectionedListBody.contentHeightOf(
-          itemCount: count,
-          sectionCount: sections.length,
-          grid: isGrid,
-          rowExtent: rowExtent,
-          gridColumns: widget.gridColumns,
-          gridTopPadding: widget.gridTopPadding,
-        );
+        final rowExtent = widget.rowExtent;
+        final gridLayout = isGrid ? widget.gridSpec!.layoutFor(width) : null;
+        final contentHeight = gridLayout != null
+            ? widget.gridTopPadding + gridLayout.height
+            : SectionedListBody.contentHeightOf(
+                itemCount: count,
+                sectionCount: sections.length,
+                rowExtent: rowExtent,
+              );
         final rail = showJumpRail(
           sectionCount: sections.length,
           contentHeight: contentHeight,
@@ -318,7 +314,7 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
           );
         }
 
-        _sectionTops = _tops(sections, isGrid, rowExtent);
+        _sectionTops = _tops(sections, gridLayout, rowExtent);
         final current = sections[_current.clamp(0, sections.length - 1)];
         if (isGrid) {
           return Stack(
@@ -395,16 +391,17 @@ class _SectionedListBodyState<T> extends State<SectionedListBody<T>> {
 
   List<double> _tops(
     List<ListSection<T>> sections,
-    bool isGrid,
+    GridRowLayout? gridLayout,
     double rowExtent,
   ) {
     final tops = <double>[];
     var y = 0.0;
     var index = 0;
     for (final section in sections) {
-      if (isGrid) {
+      if (gridLayout != null) {
+        // A section starts at the row its first cell is in.
         final row = index ~/ widget.gridColumns;
-        tops.add(widget.gridTopPadding + row * rowExtent);
+        tops.add(widget.gridTopPadding + gridLayout.topOf(row));
         index += section.items.length;
       } else {
         tops.add(y);

@@ -7,11 +7,13 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/cover_mark.dart';
 import '../../widgets/cover_placeholder.dart';
+import 'cover_grid.dart';
 
 /// One cell of the grid with covers (Library › Movies, grid with covers; Long
 /// grid: fast-scroll thumb): the cover, a title of up to two lines and the
-/// year. A check badge on the cover means Done; the caption never shows a
-/// status. A series grouped as one tile shows one part's cover with a stack
+/// year right under it, however many lines the title takes (the Library
+/// "Grid cells" note). A check badge on the cover means Done; the caption
+/// never shows a status. A series grouped as one tile shows one part's cover with a stack
 /// badge and the count ([seriesCount]), and the check when every part is
 /// done ([done]).
 class CoverGridTile extends StatelessWidget {
@@ -43,14 +45,6 @@ class CoverGridTile extends StatelessWidget {
   /// Whether to draw the check; the entry's status decides when null.
   final bool? done;
 
-  /// Fixed line boxes, so the grid can size its rows exactly whatever the
-  /// platform's font metrics or text scale.
-  static const titleFontSize = 13.5;
-  static const titleLineHeight = 17.0;
-  static const titleLines = 2;
-  static const captionFontSize = 12.0;
-  static const captionLineHeight = 16.0;
-
   /// The year, or "Not released yet" (the Library › Movies, grid with covers
   /// note). Never the status.
   static String yearCaption(Entry entry, {DateTime? today}) {
@@ -64,6 +58,7 @@ class CoverGridTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final text = GridTileText.of(context);
     final done = this.done ?? entry.status == EntryStatus.done;
     final badgeInk = CoverMark.inkOf(
       context,
@@ -75,6 +70,7 @@ class CoverGridTile extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Stack(
               children: [
@@ -141,34 +137,24 @@ class CoverGridTile extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 6),
-            SizedBox(
-              height: titleLineHeight * titleLines,
-              child: Text(
-                title ?? entry.title,
-                maxLines: titleLines,
-                overflow: TextOverflow.ellipsis,
-                textScaler: TextScaler.noScaling,
-                style: theme.textTheme.labelMedium!.copyWith(
-                  fontSize: titleFontSize,
-                  height: titleLineHeight / titleFontSize,
-                ),
-              ),
+            const SizedBox(height: GridTileText.coverGap),
+            // No room is kept for a second title line: the second line
+            // sits right under the title, and the grid measured the row
+            // with this same style and width (CoverGridSpec).
+            Text(
+              title ?? entry.title,
+              maxLines: text.titleLines,
+              overflow: TextOverflow.ellipsis,
+              textScaler: text.scaler,
+              style: text.title,
             ),
-            const SizedBox(height: 1),
-            SizedBox(
-              height: captionLineHeight,
-              child: Text(
-                caption ?? yearCaption(entry, today: today),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textScaler: TextScaler.noScaling,
-                style: theme.textTheme.bodySmall!.copyWith(
-                  fontSize: captionFontSize,
-                  fontStyle: FontStyle.normal,
-                  height: captionLineHeight / captionFontSize,
-                ),
-              ),
+            const SizedBox(height: GridTileText.captionGap),
+            Text(
+              caption ?? yearCaption(entry, today: today),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textScaler: text.scaler,
+              style: text.caption,
             ),
           ],
         ),

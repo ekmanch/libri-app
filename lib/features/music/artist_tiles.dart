@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../library/cover_grid_tile.dart';
+import '../library/cover_grid.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/artist_photo.dart';
 import '../../widgets/row_ink_well.dart';
@@ -107,24 +107,30 @@ class ArtistRow extends StatelessWidget {
 }
 
 /// One cell of the artist grid (Library › Music: artists, grid with photos):
-/// round photo, name, count.
+/// round photo, the name on up to two lines, and the count right under it.
+/// The grid measures its rows from the same text ([ArtistGridTile.spec]).
 class ArtistGridTile extends StatelessWidget {
   const ArtistGridTile({super.key, required this.artist, required this.onTap});
 
   final ArtistSummary artist;
   final VoidCallback onTap;
 
-  /// Exact height of a tile of [width]: the disc plus two fixed text lines.
-  static double extent(double width) =>
-      width +
-      6 +
-      CoverGridTile.titleLineHeight +
-      1 +
-      CoverGridTile.captionLineHeight;
+  /// What the row heights of a grid of [artists] follow from.
+  static CoverGridSpec spec(
+    BuildContext context,
+    List<ArtistSummary> artists,
+  ) => CoverGridSpec(
+    titles: [for (final artist in artists) artist.name],
+    text: GridTileText.of(context),
+    coverAspectRatio: 1,
+    columns: EntryListMetrics.gridColumns,
+    crossSpacing: EntryListMetrics.gridCrossSpacing,
+    mainSpacing: EntryListMetrics.gridMainSpacing,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final text = GridTileText.of(context);
     return Semantics(
       button: true,
       label: '${artist.name}, ${artist.countLabel}',
@@ -136,6 +142,8 @@ class ArtistGridTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: LayoutBuilder(
           builder: (context, constraints) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
               ArtistPhoto(
                 name: artist.name,
@@ -143,39 +151,23 @@ class ArtistGridTile extends StatelessWidget {
                 size: constraints.maxWidth,
                 initialsSize: 22,
               ),
-              const SizedBox(height: 6),
-              SizedBox(
-                height: CoverGridTile.titleLineHeight,
-                child: Text(
-                  artist.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  textScaler: TextScaler.noScaling,
-                  style: theme.textTheme.labelMedium!.copyWith(
-                    fontSize: CoverGridTile.titleFontSize,
-                    height:
-                        CoverGridTile.titleLineHeight /
-                        CoverGridTile.titleFontSize,
-                  ),
-                ),
+              const SizedBox(height: GridTileText.coverGap),
+              Text(
+                artist.name,
+                maxLines: text.titleLines,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                textScaler: text.scaler,
+                style: text.title,
               ),
-              const SizedBox(height: 1),
-              SizedBox(
-                height: CoverGridTile.captionLineHeight,
-                child: Text(
-                  artist.countLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  textScaler: TextScaler.noScaling,
-                  style: theme.textTheme.bodySmall!.copyWith(
-                    fontSize: CoverGridTile.captionFontSize,
-                    height:
-                        CoverGridTile.captionLineHeight /
-                        CoverGridTile.captionFontSize,
-                  ),
-                ),
+              const SizedBox(height: GridTileText.captionGap),
+              Text(
+                artist.countLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                textScaler: text.scaler,
+                style: text.caption,
               ),
             ],
           ),

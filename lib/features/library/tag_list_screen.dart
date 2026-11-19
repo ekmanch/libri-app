@@ -165,7 +165,6 @@ class _TagListScreenState extends State<TagListScreen> {
                           EntryListMetrics.textGrowth(
                             MediaQuery.textScalerOf(context),
                           ),
-                      gridRowExtent: (_) => 0,
                       color: colors.muted,
                       bottomPadding: 16,
                       layoutKey: (q, shown.length),
