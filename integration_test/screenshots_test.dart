@@ -809,6 +809,16 @@ Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
   await tester.pumpAndSettle();
   await waitForImages(tester, count: 3);
   await capture(tester, '${prefix}l4-series-row-grid');
+  // The same rows on light: the series badge and the Done disc are the
+  // same solid white mark (the Library "Light theme, the rule" note).
+  final preferences = ProviderScope.containerOf(
+    tester.element(find.text('Library').first),
+  ).read(displayPreferencesProvider.notifier);
+  preferences.setThemeMode(ThemeMode.light);
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}light-l4-series-row-grid');
+  preferences.setThemeMode(ThemeMode.dark);
+  await tester.pumpAndSettle();
 
   // Library › Series page (from a series row), then its cover sheet.
   await tester.tap(row);

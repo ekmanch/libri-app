@@ -262,8 +262,9 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     required this.tagHash,
     required this.coverShadow,
     required this.smallCoverShadow,
-    required this.doneDisc,
-    required this.doneDiscShadow,
+    required this.coverMark,
+    required this.coverMarkShadow,
+    required this.coverMarkInk,
   });
 
   /// Raised fill: tag chips, the floating navigation pill, sheet buttons.
@@ -336,7 +337,7 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   /// covers: they keep the four colors and the pick they always had.
   final List<Color> artistPlaceholders;
 
-  /// Round badge over a cover, e.g. behind the Done check in the grid.
+  /// The label over a tile in the cover and photo pickers ("Yours").
   final Color coverBadge;
 
   /// Fill of an error banner (Library › Sync and errors); the text on it stays
@@ -388,10 +389,14 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
   /// The same for the small covers in lists.
   final List<BoxShadow> smallCoverShadow;
 
-  /// The disc behind the Done check on a cover: white with a ring and a
-  /// small shadow on light, so it reads on a white cover too.
-  final Color doneDisc;
-  final List<BoxShadow> doneDiscShadow;
+  /// The marks on a cover, the Done disc and the series badge (`CoverMark`
+  /// in `lib/widgets/`): solid white with a ring and a small shadow on
+  /// light, so they read on a white cover too. [coverMarkInk] is the color
+  /// of the check, the stack icon and the count; null where each keeps its
+  /// own.
+  final Color coverMark;
+  final List<BoxShadow> coverMarkShadow;
+  final Color? coverMarkInk;
 
   /// The shadow for a cover [width] dp wide: the small one for the covers
   /// in lists, the large one for tiles, headers and grids.
@@ -457,8 +462,9 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
     tagHash: null,
     coverShadow: [],
     smallCoverShadow: [],
-    doneDisc: Color(0xD9131416),
-    doneDiscShadow: [],
+    coverMark: Color(0xD9131416),
+    coverMarkShadow: [],
+    coverMarkInk: null,
   );
 
   // Values from the Library "Type colors" and "Light theme, the rule" notes
@@ -527,12 +533,14 @@ class LibraryColors extends ThemeExtension<LibraryColors> {
       BoxShadow(color: Color(0x1A14161C), blurRadius: 2, offset: Offset(0, 1)),
       BoxShadow(color: Color(0x1F14161C), blurRadius: 8, offset: Offset(0, 3)),
     ],
-    doneDisc: Color(0xFFFFFFFF),
-    // A hairline ring, rgba(20,22,28,0.12), and a small shadow.
-    doneDiscShadow: [
+    coverMark: Color(0xFFFFFFFF),
+    // A hairline ring, rgba(20,22,28,0.12), and a small shadow,
+    // 0 1px 3px rgba(20,22,28,0.25).
+    coverMarkShadow: [
       BoxShadow(color: Color(0x1F14161C), spreadRadius: 1),
       BoxShadow(color: Color(0x4014161C), blurRadius: 3, offset: Offset(0, 1)),
     ],
+    coverMarkInk: Color(0xFF2F343B),
   );
 
   static const _coverPlaceholders = [

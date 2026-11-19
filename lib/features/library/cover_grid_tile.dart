@@ -5,6 +5,7 @@ import '../../data/models/entry_status.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/cover_image.dart';
+import '../../widgets/cover_mark.dart';
 import '../../widgets/cover_placeholder.dart';
 
 /// One cell of the grid with covers (Library › Movies, grid with covers; Long
@@ -63,8 +64,11 @@ class CoverGridTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = LibraryColors.of(context);
     final done = this.done ?? entry.status == EntryStatus.done;
+    final badgeInk = CoverMark.inkOf(
+      context,
+      otherwise: theme.colorScheme.onSurface,
+    );
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -85,19 +89,17 @@ class CoverGridTile extends StatelessWidget {
                   Positioned(
                     top: 6,
                     right: 6,
-                    child: Container(
+                    child: CoverMark(
                       width: 26,
                       height: 26,
-                      decoration: BoxDecoration(
-                        color: colors.doneDisc,
-                        shape: BoxShape.circle,
-                        boxShadow: colors.doneDiscShadow,
-                      ),
                       child: Center(
                         child: StrokeIcon(
                           AppIcons.check,
                           size: 14,
-                          color: AccentColors.of(context).link,
+                          color: CoverMark.inkOf(
+                            context,
+                            otherwise: AccentColors.of(context).link,
+                          ),
                           semanticLabel: 'Done',
                         ),
                       ),
@@ -110,20 +112,16 @@ class CoverGridTile extends StatelessWidget {
                     child: Semantics(
                       label: 'Series, $count',
                       excludeSemantics: true,
-                      child: Container(
+                      child: CoverMark(
                         height: 22,
                         padding: const EdgeInsets.symmetric(horizontal: 7),
-                        decoration: BoxDecoration(
-                          color: colors.coverBadge,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             StrokeIcon(
                               AppIcons.stack,
                               size: 13,
-                              color: theme.colorScheme.onSurface,
+                              color: badgeInk,
                             ),
                             const SizedBox(width: 3),
                             Text(
@@ -133,6 +131,7 @@ class CoverGridTile extends StatelessWidget {
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0,
+                                color: badgeInk,
                               ),
                             ),
                           ],
