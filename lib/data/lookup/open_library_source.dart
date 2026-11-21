@@ -1,6 +1,7 @@
 import '../models/follow_kind.dart';
 import '../models/media_type.dart';
 import '../upcoming/creator_lookup.dart';
+import '../upcoming/creator_status.dart';
 import '../models/released.dart';
 import '../models/season.dart';
 import '../models/series.dart';
@@ -969,7 +970,11 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
   InactiveLookup? get inactiveLookup => wikidata;
 
   /// The author named exactly [name] among the author search's hits, else
-  /// the first (the search ranks by how many works they have).
+  /// the first (the search ranks by how many works they have), with the
+  /// death Open Library records for them: "9 June 1870" is died 1870, a
+  /// date with no year it can read is died with no year, and "?" says
+  /// nothing. It is the record the new works are then asked of, so a
+  /// namesake says nothing here.
   @override
   Future<CreatorMatch?> findCreator(FollowKind kind, String name) async {
     final json = await _get('/search/authors.json', {'q': name, 'limit': '5'});
@@ -977,12 +982,16 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
     final exact = hits.where(
       (a) => (stringAt(a, 'name') ?? '').toLowerCase() == name.toLowerCase(),
     );
-    final key = stringAt(
-      exact.firstOrNull ?? hits.firstOrNull ?? const {},
-      'key',
-    );
+    final hit = exact.firstOrNull ?? hits.firstOrNull ?? const {};
+    final key = stringAt(hit, 'key')?.split('/').last;
     if (key == null) return null;
-    return (providerId: 'openlibrary:author:$key', inactive: null);
+    final death = stringAt(hit, 'death_date');
+    return (
+      providerId: 'openlibrary:author:$key',
+      inactive: death == null || !death.contains(RegExp(r'\d'))
+          ? null
+          : Inactive(InactiveReason.died, year: parsePublishDate(death)?.year),
+    );
   }
 
   /// The author's newest works (the search sorted newest first), those
@@ -1038,7 +1047,8 @@ class OpenLibrarySource extends HttpLookupSource implements CreatorLookup {
   Future<bool> isNewWorkOf(LookupMatch match, DateTime today) async {
     final released = match.released;
     if (released == null) return true;
-    final core = WikidataSeries.coreTitle(match.title);
+    // "The Green Mile 30 Year Anniversary" is asked as "The Green Mile".
+    final core = withoutEditionNote(WikidataSeries.coreTitle(match.title));
     final author = match.creator;
     try {
       final hits = await _search({'title': core, 'author': ?author}, 10);

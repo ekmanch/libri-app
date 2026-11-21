@@ -517,10 +517,12 @@ void main() {
       String cls = 'Q5',
       String? death,
       String? dissolved,
+      int? links,
     }) => {
       'name': cell(name),
       'item': item(id),
       'class': item(cls),
+      if (links != null) 'links': cell('$links'),
       if (death != null) 'death': cell(death),
       if (dissolved != null) 'dissolved': cell(dissolved),
     };
@@ -562,7 +564,56 @@ void main() {
       expect(query, contains('wd:Q5'));
       expect(query, contains('wdt:P570'));
       expect(query, contains('wdt:P576'));
+      expect(query, contains('wikibase:sitelinks'));
     });
+
+    test(
+      'the best known of a name says whether the creator is active',
+      () async {
+        final wikidata = WikidataSeries(
+          MockClient(
+            (request) async => json(200, {
+              'results': {
+                'bindings': [
+                  // The novelist, and a living researcher of the same name.
+                  who(
+                    'Charles Dickens',
+                    'Q5686',
+                    links: 250,
+                    death: '1870-06-09T00:00:00Z',
+                  ),
+                  who('Charles Dickens', 'Q130950046', links: 0),
+                  // The living writer, and a namesake who died.
+                  who('Stephen King', 'Q39829', links: 148),
+                  who(
+                    'Stephen King',
+                    'Q1',
+                    links: 2,
+                    death: '1990-01-01T00:00:00Z',
+                  ),
+                  // Two as well known as each other: both must have a date.
+                  who(
+                    'John Smith',
+                    'Q2',
+                    links: 3,
+                    death: '1950-01-01T00:00:00Z',
+                  ),
+                  who('John Smith', 'Q3', links: 3),
+                ],
+              },
+            }),
+          ),
+        );
+        expect(
+          await wikidata.inactiveOf(FollowKind.authors, [
+            'Charles Dickens',
+            'Stephen King',
+            'John Smith',
+          ]),
+          {'Charles Dickens': const Inactive(InactiveReason.died, year: 1870)},
+        );
+      },
+    );
 
     test('a band disbanded, a studio dissolved', () async {
       final rows = [

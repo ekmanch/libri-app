@@ -29,6 +29,25 @@ void main() {
     expect(sameTitle('Dune', 'Dune: Part Two'), isFalse);
   });
 
+  test('withoutEditionNote cuts an edition note at the end of a title', () {
+    const cases = {
+      'The Green Mile 30 Year Anniversary': 'The Green Mile',
+      'Carrie - Deluxe Edition': 'Carrie',
+      'It, The 25th Anniversary Edition': 'It',
+      'Dracula Collector’s Edition': 'Dracula',
+      'The Illustrated Man Anniversary Edition': 'The Illustrated Man',
+      // No note, or nothing but one.
+      'The Illustrated Man': 'The Illustrated Man',
+      'Brave New World': 'Brave New World',
+      'The Special Edition': 'The Special Edition',
+      '1984': '1984',
+      'Dune Messiah': 'Dune Messiah',
+    };
+    for (final MapEntry(key: title, value: without) in cases.entries) {
+      expect(withoutEditionNote(title), without, reason: title);
+    }
+  });
+
   test('scriptOf names the script most letters are in', () {
     expect(scriptOf('Berserk 43'), 'latin');
     expect(scriptOf('Shōgun'), 'latin');

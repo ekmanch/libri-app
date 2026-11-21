@@ -132,22 +132,40 @@ abstract class CreatorStatusStore {
   Future<void> write(Map<String, CreatorStatus> statuses);
 }
 
-/// `creator_status.json` under the cache folder: `{"creators": [...]}`. A
-/// cleared cache means the creators are looked up again.
+/// `creator_status.json` under the cache folder: `{"version": 2,
+/// "creators": [...]}`. A cleared cache means the creators are looked up
+/// again. A file from before [version] 2 (it had no version) loses its
+/// records of authors, artists and studios with no reason recorded, so
+/// they are asked again: Wikidata's answer for them let any living
+/// namesake stand for the creator (DESIGN.md 10c). TMDB says who died
+/// itself, so directors and actors stay.
 class FileCreatorStatusStore implements CreatorStatusStore {
   FileCreatorStatusStore(this._file);
+
+  static const version = 2;
 
   final JsonFile _file;
 
   @override
   Future<Map<String, CreatorStatus>> read() async {
-    final creators = (await _file.read())?['creators'];
+    final json = await _file.read();
+    final creators = json?['creators'];
     if (creators is! List) return const {};
+    final old = switch (json?['version']) {
+      final int v => v < version,
+      _ => true,
+    };
     final result = <String, CreatorStatus>{};
     for (final item in creators) {
       if (item is! Map<String, Object?>) continue;
       try {
         final status = CreatorStatus.fromJson(item);
+        if (old &&
+            status.inactive == null &&
+            status.kind != FollowKind.directors &&
+            status.kind != FollowKind.actors) {
+          continue;
+        }
         result[status.key] = status;
       } on Object {
         // An unreadable record is left out; the next check writes it again.
@@ -158,6 +176,7 @@ class FileCreatorStatusStore implements CreatorStatusStore {
 
   @override
   Future<void> write(Map<String, CreatorStatus> statuses) => _file.write({
+    'version': version,
     'creators': [
       for (final key in statuses.keys.toList()..sort()) statuses[key]!.toJson(),
     ],

@@ -64,6 +64,78 @@ String looseTitle(String title) => title.replaceAll(_editionNote, '').trim();
 bool sameLooseTitle(String a, String b) =>
     sameTitle(looseTitle(a), looseTitle(b));
 
+/// The words an edition note written straight into a book's title is made
+/// of, beside numbers: "30 Year Anniversary", "Deluxe Illustrated Edition",
+/// "The 25th Anniversary Edition".
+const _bookNoteWords = {
+  'anniversary',
+  'edition',
+  'deluxe',
+  'illustrated',
+  "collector's",
+  'collectors',
+  'special',
+  'limited',
+  'annotated',
+  'unabridged',
+  'uncut',
+  'commemorative',
+  'revised',
+  'expanded',
+  'complete',
+  'gift',
+  'movie',
+  'film',
+  'tie-in',
+  'new',
+  'the',
+  'year',
+  'years',
+  'tenth',
+  'twentieth',
+  'twenty-fifth',
+  'thirtieth',
+  'fortieth',
+  'fiftieth',
+  'sixtieth',
+  'seventy-fifth',
+  'hundredth',
+  'centenary',
+  'centennial',
+};
+
+final _wordEdge = RegExp(r'^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$', unicode: true);
+final _ordinal = RegExp(r'^\d+(st|nd|rd|th)?$');
+final _noteLead = RegExp(r'[^\p{L}\p{N}]+$', unicode: true);
+
+/// A book's title without an edition note at its end that no bracket or
+/// colon sets apart: "The Green Mile 30 Year Anniversary" gives "The Green
+/// Mile" and "Carrie - Deluxe Edition" gives "Carrie" (DESIGN.md 10c, only
+/// new works; the desktop's `without_edition_note`). The note is the run of
+/// note words and numbers the title ends with, and only one that says
+/// "anniversary" or "edition"; "The Illustrated Man" and a title that is
+/// nothing but such words stay as they are.
+String withoutEditionNote(String title) {
+  int? start;
+  var says = false;
+  for (final word in RegExp(r'\S+').allMatches(title).toList().reversed) {
+    final key = word[0]!
+        .replaceAll(_wordEdge, '')
+        .toLowerCase()
+        .replaceAll('’', "'");
+    if (key.isNotEmpty &&
+        !_ordinal.hasMatch(key) &&
+        !_bookNoteWords.contains(key)) {
+      break;
+    }
+    says = says || key == 'anniversary' || key == 'edition';
+    start = word.start;
+  }
+  if (start == null || !says) return title;
+  final head = title.substring(0, start).replaceAll(_noteLead, '');
+  return head.isEmpty ? title : head;
+}
+
 /// The key a stored track rating is matched to a listed track by, when
 /// their ids differ: the title without case, punctuation or an edition
 /// note.

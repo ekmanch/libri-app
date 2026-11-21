@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:library_app/data/upcoming/creator_status.dart';
 import 'package:library_app/data/lookup/google_books.dart';
 import 'package:library_app/data/lookup/itunes_books.dart';
 import 'package:library_app/data/lookup/lookup_failure.dart';
@@ -1565,6 +1566,88 @@ void main() {
         'Never Flinch Stephen King',
         'This Year Stephen King',
       ]);
+    });
+
+    test('an author is the one of that name, with the death Open Library '
+        'records', () async {
+      final ol = source((request) async {
+        expect(request.url.path, '/search/authors.json');
+        return json(200, {
+          'docs': [
+            {
+              'key': 'OL1A',
+              'name': 'Charles Dickens, LL.D.',
+              'death_date': '1793',
+            },
+            {
+              'key': 'OL24638A',
+              'name': 'Charles Dickens',
+              'death_date': '9 June 1870',
+            },
+            {'key': 'OL2A', 'name': 'Homer', 'death_date': '8th century BC'},
+            {'key': 'OL3A', 'name': 'Someone', 'death_date': '?'},
+          ],
+        });
+      });
+      expect(await ol.findCreator(FollowKind.authors, 'charles dickens'), (
+        providerId: 'openlibrary:author:OL24638A',
+        inactive: const Inactive(InactiveReason.died, year: 1870),
+      ));
+      expect(await ol.findCreator(FollowKind.authors, 'Homer'), (
+        providerId: 'openlibrary:author:OL2A',
+        inactive: const Inactive(InactiveReason.died),
+      ));
+      expect(await ol.findCreator(FollowKind.authors, 'Someone'), (
+        providerId: 'openlibrary:author:OL3A',
+        inactive: null,
+      ));
+    });
+
+    test('only new works: an anniversary edition named in the title is '
+        'checked under the title itself', () async {
+      final asked = <String>[];
+      final ol = source((request) async {
+        if (isApple(request)) return json(200, {'results': []});
+        expect(request.url.path, '/search.json');
+        final q = request.url.queryParameters;
+        if (q['title'] case final title?) {
+          asked.add(title);
+          return json(200, {
+            'docs': [
+              if (title == 'The Green Mile')
+                {
+                  'key': '/works/OL81629W',
+                  'title': 'The Green Mile',
+                  'author_name': ['Stephen King'],
+                  'first_publish_year': 1996,
+                },
+            ],
+          });
+        }
+        return json(200, {
+          'docs': [
+            {
+              'key': '/works/OL46026429W',
+              'title': 'The Green Mile 30 Year Anniversary',
+              'author_name': ['Stephen King'],
+              'first_publish_year': 2026,
+            },
+            {
+              'key': '/works/OL1W',
+              'title': 'Never Flinch',
+              'author_name': ['Stephen King'],
+              'first_publish_year': 2027,
+            },
+          ],
+        });
+      });
+      final works = await ol.creatorReleases(
+        'openlibrary:author:OL19981A',
+        FollowKind.authors,
+        today: DateTime(2026, 11, 21),
+      );
+      expect(works.map((m) => m.title), ['Never Flinch']);
+      expect(asked, ['The Green Mile', 'Never Flinch']);
     });
 
     test(

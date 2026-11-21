@@ -370,20 +370,26 @@ LIMIT 500''';
   /// kind's classes, with its date of death (P570) or dissolution (P576).
   static String inactiveQuery(FollowKind kind, List<String> names) =>
       '''
-SELECT ?name ?item ?class ?death ?dissolved WHERE {
+SELECT ?name ?item ?class ?links ?death ?dissolved WHERE {
   VALUES ?name { ${names.map((n) => '"${n.replaceAll(r'\\', r'\\\\').replaceAll('"', r'\\"')}"@en').join(' ')} }
   ?item rdfs:label ?name .
   ?item wdt:P31 ?class .
   VALUES ?class { ${inactiveClasses(kind).map((c) => 'wd:$c').join(' ')} }
+  ?item wikibase:sitelinks ?links .
   OPTIONAL { ?item wdt:P570 ?death }
   OPTIONAL { ?item wdt:P576 ?dissolved }
 }
 LIMIT 1000''';
 
   /// For each of [names] that Wikidata knows as one of the kind's classes,
-  /// why they are no longer active: only when every item of that name has
-  /// a date of death or dissolution, so a living namesake keeps a creator
-  /// active rather than the other way round. The year is the latest date's.
+  /// why they are no longer active. A name is often several items, and the
+  /// one meant is taken to be the one with the most pages about it on the
+  /// Wikimedia sites (`?links`): the novelist Charles Dickens has 250, the
+  /// living researcher of that name none, so the name reads died 1870, and
+  /// the many living Stephen Kings do not matter either way beside the
+  /// writer. Items that tie for the most must all have a date of death or
+  /// dissolution, so a namesake as well known still keeps a creator active.
+  /// The year is the latest date's.
   @override
   Future<Map<String, Inactive>> inactiveOf(
     FollowKind kind,
@@ -391,7 +397,7 @@ LIMIT 1000''';
   ) async {
     if (names.isEmpty || inactiveClasses(kind).isEmpty) return const {};
     final rows = await _sparql(inactiveQuery(kind, names));
-    final byName = <String, Map<String, Inactive?>>{};
+    final byName = <String, Map<String, ({int links, Inactive? inactive})>>{};
     for (final row in rows) {
       final name = _value(row, 'name');
       final item = _item(row, 'item');
@@ -411,15 +417,22 @@ LIMIT 1000''';
           : null;
       final items = byName.putIfAbsent(name, () => {});
       // An item seen with and without a date (two class rows) keeps its date.
-      items[item] = inactive ?? items[item];
+      items[item] = (
+        links: int.tryParse(_value(row, 'links') ?? '') ?? 0,
+        inactive: inactive ?? items[item]?.inactive,
+      );
     }
     final result = <String, Inactive>{};
     for (final MapEntry(key: name, value: items) in byName.entries) {
-      if (items.values.any((i) => i == null)) continue;
-      final latest = items.values.whereType<Inactive>().reduce(
+      final most = items.values.fold(0, (m, i) => i.links > m ? i.links : m);
+      final meant = [
+        for (final i in items.values)
+          if (i.links == most) i.inactive,
+      ];
+      if (meant.any((i) => i == null)) continue;
+      result[name] = meant.whereType<Inactive>().reduce(
         (a, b) => (b.year ?? 0) > (a.year ?? 0) ? b : a,
       );
-      result[name] = latest;
     }
     return result;
   }
