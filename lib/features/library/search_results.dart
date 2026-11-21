@@ -16,6 +16,7 @@ import '../../widgets/touch_target.dart';
 import '../../widgets/type_kicker.dart';
 import '../shell/app_shell.dart';
 import 'home_sections.dart';
+import 'larger_cover.dart';
 import 'library_filter.dart';
 import 'library_filter_provider.dart';
 import 'library_search.dart';
@@ -528,6 +529,7 @@ class HomeSearchResults extends StatelessWidget {
                           ? HomeRow.homeCoverPadding
                           : EdgeInsets.zero,
                       onTap: () => onOpenEntry?.call(entry),
+                      onLongPress: () => showLargerCover(context, entry),
                     );
                   },
                 ),

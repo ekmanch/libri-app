@@ -24,6 +24,8 @@ class CoverImage extends ConsumerStatefulWidget {
     this.text = CoverPlaceholderText.none,
     this.placeholderTitle,
     this.badgeBelow = false,
+    this.radius = 8,
+    this.onCover,
   });
 
   final Entry entry;
@@ -39,6 +41,14 @@ class CoverImage extends ConsumerStatefulWidget {
 
   /// Whether a series badge sits on the cover's bottom-left corner.
   final bool badgeBelow;
+
+  /// The corners: 8, and 16 on the larger cover.
+  final double radius;
+
+  /// Told whether the entry has a cover, once that is known and when it
+  /// changes (the larger cover says "No cover yet."). Never called during
+  /// a build.
+  final ValueChanged<bool>? onCover;
 
   @override
   ConsumerState<CoverImage> createState() => _CoverImageState();
@@ -96,11 +106,17 @@ class _CoverImageState extends ConsumerState<CoverImage> {
     final cached = resolver.cachedCoverUrl(entry);
     if (cached != null) {
       _url = cached;
+      if (widget.onCover != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onCover?.call(true);
+        });
+      }
       return;
     }
     resolver.coverUrl(entry).then((url) {
-      if (!mounted || url == null || _shown.id != entry.id) return;
-      setState(() => _url = url);
+      if (!mounted || _shown.id != entry.id) return;
+      widget.onCover?.call(url != null);
+      if (url != null) setState(() => _url = url);
     });
   }
 
@@ -135,7 +151,7 @@ class _CoverImageState extends ConsumerState<CoverImage> {
       width: widget.width,
       height: widget.width / CoverPlaceholder.aspectRatio(entry.type),
       placeholder: placeholder,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(widget.radius),
       semanticLabel: widget.labeled ? entry.title : null,
     );
   }

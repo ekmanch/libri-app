@@ -10,11 +10,12 @@ import '../../widgets/cover_image.dart';
 import '../../widgets/cover_placeholder.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/type_kicker.dart';
+import '../library/larger_cover.dart';
 
 /// The top of a details sheet (Library › Entry details; Music › Album with
 /// track ratings; Plans › Entry details (timeline on)): the cover spot when a
-/// photo view is chosen, the kind and year in the type color, the title, the
-/// creator, a book's page count, and for a movie whose dates by kind are
+/// photo view is chosen (a tap on it opens the cover larger), the kind and
+/// year in the type color, the title, the creator, a book's page count, and for a movie whose dates by kind are
 /// known, with Settings › Movies › Release dates set to Both, "In cinemas
 /// Dec 18 · Digital Feb 2027" ([movieDates], [releaseDates]).
 class EntryHeader extends StatelessWidget {
@@ -63,11 +64,21 @@ class EntryHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showCover) ...[
-          CoverImage(
-            entry: entry,
-            width: 84,
-            labeled: true,
-            text: CoverPlaceholderText.titleAndCreator,
+          // A tap opens the cover larger (Library › Cover, larger), with
+          // Change cover: the way in that a long press in a list shortcuts.
+          Semantics(
+            button: true,
+            label: '${entry.title}, cover. Tap to see it larger and change it',
+            excludeSemantics: true,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showLargerCover(context, entry),
+              child: CoverImage(
+                entry: entry,
+                width: 84,
+                text: CoverPlaceholderText.titleAndCreator,
+              ),
+            ),
           ),
           const SizedBox(width: 14),
         ],

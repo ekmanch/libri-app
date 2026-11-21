@@ -30,6 +30,7 @@ import 'coming_soon_screen.dart';
 import 'entry_list_body.dart';
 import 'entry_list_views.dart';
 import 'home_sections.dart';
+import 'larger_cover.dart';
 import 'home_type_provider.dart';
 import 'library_filter.dart';
 import 'library_filter_provider.dart';
@@ -173,6 +174,7 @@ class HomeSectionsPage extends ConsumerWidget {
                 : null,
             padding: covers ? HomeRow.homeCoverPadding : EdgeInsets.zero,
             onTap: () => onOpenEntry?.call(row.entry!),
+            onLongPress: () => showLargerCover(context, row.entry!),
           ),
         );
       }

@@ -1038,17 +1038,27 @@ class _SeriesPartsSheetState extends ConsumerState<SeriesPartsSheet> {
 Entry seriesCoverEntry(List<Entry> parts) =>
     parts.firstWhere((p) => p.series?.cover == true, orElse: () => parts.first);
 
-/// Picks the part whose cover stands for the series in the library list
-/// (Library › Series page (from a series row): Series cover): the covers of
-/// [parts], the parts in the library in series order, with the current one
-/// ringed; Done applies [SetSeriesCover] when another was picked.
-Future<void> showSeriesCoverSheet(
+/// Picks the part whose cover stands for the series in the library list:
+/// the covers of [parts], the parts in the library in series order, with
+/// the current one ringed. From the series page (Library › Series page
+/// (from a series row): Series cover) Done applies [SetSeriesCover] when
+/// another was picked. With [pickAtOnce], from the larger cover (Library ›
+/// Cover, larger: choose the series cover), a tap on one applies it and
+/// closes the sheet, which keeps the opener's theme. The part picked comes
+/// back, null when the sheet was closed without a pick.
+Future<String?> showSeriesCoverSheet(
   BuildContext context, {
   required String seriesName,
   required List<Entry> parts,
-}) => showAppSheet<void>(
+  bool pickAtOnce = false,
+}) => showAppSheet<String>(
   context,
-  builder: (context) => SeriesCoverSheet(seriesName: seriesName, parts: parts),
+  inheritTheme: pickAtOnce,
+  builder: (context) => SeriesCoverSheet(
+    seriesName: seriesName,
+    parts: parts,
+    pickAtOnce: pickAtOnce,
+  ),
 );
 
 class SeriesCoverSheet extends ConsumerStatefulWidget {
@@ -1056,10 +1066,14 @@ class SeriesCoverSheet extends ConsumerStatefulWidget {
     super.key,
     required this.seriesName,
     required this.parts,
+    this.pickAtOnce = false,
   });
 
   final String seriesName;
   final List<Entry> parts;
+
+  /// A tap is the choice: saved at once, and the sheet closes.
+  final bool pickAtOnce;
 
   @override
   ConsumerState<SeriesCoverSheet> createState() => _SeriesCoverSheetState();
@@ -1070,10 +1084,16 @@ class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
 
   Future<void> _done() async {
     final navigator = Navigator.of(context);
-    if (_picked != seriesCoverEntry(widget.parts).id) {
+    final changed = _picked != seriesCoverEntry(widget.parts).id;
+    if (changed) {
       await ref.read(libraryRepositoryProvider).apply(SetSeriesCover(_picked));
     }
-    navigator.pop();
+    navigator.pop(changed ? _picked : null);
+  }
+
+  void _tap(Entry part) {
+    setState(() => _picked = part.id);
+    if (widget.pickAtOnce) _done();
   }
 
   @override
@@ -1092,7 +1112,10 @@ class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
                 Text('Series cover', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 2),
                 Text(
-                  'Shown for ${widget.seriesName} in your library',
+                  widget.pickAtOnce
+                      ? 'The cover that stands for ${widget.seriesName} in '
+                            'lists.'
+                      : 'Shown for ${widget.seriesName} in your library',
                   style: theme.textTheme.bodySmall!.copyWith(
                     fontStyle: FontStyle.normal,
                     color: colors.muted,
@@ -1101,8 +1124,10 @@ class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          AppButton(label: 'Done', compact: true, onPressed: _done),
+          if (!widget.pickAtOnce) ...[
+            const SizedBox(width: 12),
+            AppButton(label: 'Done', compact: true, onPressed: _done),
+          ],
         ],
       ),
       child: Column(
@@ -1125,7 +1150,7 @@ class _SeriesCoverSheetState extends ConsumerState<SeriesCoverSheet> {
                   if (part.id == _picked)
                     i == 0 ? 'First in the series' : 'Your pick',
                 ],
-                onTap: () => setState(() => _picked = part.id),
+                onTap: () => _tap(part),
               );
             },
           ),

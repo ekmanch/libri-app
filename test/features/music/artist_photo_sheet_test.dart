@@ -283,8 +283,8 @@ void main() {
     }
 
     testWidgets('the artist page has the round photo in the text view too: '
-        'a tap shows it larger with Change photo, a long press on it or on '
-        'the name opens the picker', (tester) async {
+        'a tap shows it larger with Change photo, and so does a long press '
+        'on it or on the name, never the picker', (tester) async {
       await pumpScreen(
         tester,
         const ArtistScreen(name: 'Alice in Chains'),
@@ -293,7 +293,7 @@ void main() {
         },
       );
       final photo = find.bySemanticsLabel(
-        'Alice in Chains. Tap to see the photo, long-press to change it',
+        'Alice in Chains. Tap to see the photo larger and change it',
       );
       expect(photo, findsOneWidget);
       await tester.tap(photo);
@@ -311,13 +311,21 @@ void main() {
 
       await tester.longPress(photo);
       await tester.pumpAndSettle();
-      expect(find.text('Pick a photo'), findsOneWidget);
-      await tester.tap(find.text('Done'));
+      expect(find.text('Pick a photo'), findsNothing);
+      expect(find.text('Change photo'), findsOneWidget);
+      // The second line: what is saved by the artist.
+      expect(
+        find.text(artistIndex(library.entries).first.countLabel),
+        findsWidgets,
+      );
+      await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
+      expect(find.text('Change photo'), findsNothing);
 
       await tester.longPress(find.text('Alice in Chains'));
       await tester.pumpAndSettle();
-      expect(find.text('Pick a photo'), findsOneWidget);
+      expect(find.text('Pick a photo'), findsNothing);
+      expect(find.text('Change photo'), findsOneWidget);
     });
 
     testWidgets('an artist with no file of their own: the larger view says '
@@ -326,7 +334,7 @@ void main() {
       await pumpScreen(tester, const ArtistScreen(name: 'Alice in Chains'));
       await tester.tap(
         find.bySemanticsLabel(
-          'Alice in Chains. Tap to see the photo, long-press to change it',
+          'Alice in Chains. Tap to see the photo larger and change it',
         ),
       );
       await tester.pumpAndSettle();
@@ -343,8 +351,10 @@ void main() {
       expect(noArtistPhotoNote(cover: false), 'No photo yet.');
     });
 
-    testWidgets('a long press on an artist\'s row or tile opens the picker, '
-        'in every view', (tester) async {
+    testWidgets('a long press on an artist\'s row or tile shows the photo '
+        'larger, in every view, and Add a photo there opens the picker', (
+      tester,
+    ) async {
       final artist = artistIndex(library.entries).first;
       for (final view in [
         ArtistRow(artist: artist, onTap: () {}),
@@ -356,6 +366,10 @@ void main() {
       ]) {
         await pumpScreen(tester, Scaffold(body: Center(child: view)));
         await tester.longPress(find.text(artist.name));
+        await tester.pumpAndSettle();
+        expect(find.text('Pick a photo'), findsNothing);
+        expect(find.bySemanticsLabel('Artist photo'), findsOneWidget);
+        await tester.tap(find.text('Add a photo'));
         await tester.pumpAndSettle();
         expect(find.text('Pick a photo'), findsOneWidget);
         await tester.tap(find.text('Done'));

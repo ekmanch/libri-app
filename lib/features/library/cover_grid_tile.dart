@@ -22,6 +22,7 @@ class CoverGridTile extends StatelessWidget {
     super.key,
     required this.entry,
     this.onTap,
+    this.onLongPress,
     this.today,
     this.title,
     this.caption,
@@ -32,6 +33,9 @@ class CoverGridTile extends StatelessWidget {
   /// The entry, or the part whose cover stands for a series.
   final Entry entry;
   final VoidCallback? onTap;
+
+  /// A long press: the cover, larger (Library › Cover, larger).
+  final VoidCallback? onLongPress;
   final DateTime? today;
 
   /// Shown instead of the entry's title, e.g. a rated track on its album.
@@ -62,6 +66,7 @@ class CoverGridTile extends StatelessWidget {
     );
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(8),
       child: LayoutBuilder(
         builder: (context, constraints) => Column(

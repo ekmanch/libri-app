@@ -18,7 +18,7 @@ import '../settings/display_preferences.dart';
 import '../settings/entry_view.dart';
 import '../shell/app_shell.dart';
 import 'artist_index.dart';
-import 'artist_photo_sheet.dart';
+import '../library/larger_cover.dart';
 import 'music_tab.dart';
 
 /// Opens one artist (Music › Artist, text view; Artist, with photos) inside the
@@ -69,6 +69,7 @@ class ArtistScreen extends ConsumerWidget {
       status: entry.status,
       leading: photo ? CoverImage(entry: entry, width: 44) : null,
       onTap: () => onOpenEntry?.call(entry),
+      onLongPress: () => showLargerCover(context, entry),
     );
 
     return Scaffold(
@@ -92,11 +93,11 @@ class ArtistScreen extends ConsumerWidget {
                         shape: BoxShape.circle,
                       ),
                     ),
-              // A long press on the name, like one on the photo, opens
-              // Music › Pick a photo.
+              // A long press on the name, like one on the photo, shows
+              // the photo larger; Change photo is there.
               onTitleLongPress: artist == null
                   ? null
-                  : () => showArtistPhotoPicker(context, name: artist.name),
+                  : () => showLargerArtist(context, artist),
             ),
             if (artist == null)
               Padding(
@@ -115,21 +116,19 @@ class ArtistScreen extends ConsumerWidget {
                   children: [
                     // The artist's round photo leads the count line, in the
                     // text view too (Music › Artist, text view; Artist,
-                    // with photos). A tap shows it larger
-                    // (Music › Artist photo, larger); a long press opens
-                    // Music › Pick a photo.
+                    // with photos). A tap shows it larger (Library ›
+                    // Cover, larger: an artist), and so does a long press,
+                    // which means the same everywhere.
                     Semantics(
                       button: true,
                       label:
-                          '${artist.name}. Tap to see the photo, long-press '
-                          'to change it',
+                          '${artist.name}. Tap to see the photo larger and '
+                          'change it',
                       excludeSemantics: true,
                       child: InkWell(
                         customBorder: const CircleBorder(),
-                        onTap: () =>
-                            showArtistPhotoViewer(context, name: artist.name),
-                        onLongPress: () =>
-                            showArtistPhotoPicker(context, name: artist.name),
+                        onTap: () => showLargerArtist(context, artist),
+                        onLongPress: () => showLargerArtist(context, artist),
                         child: ArtistPhoto(
                           name: artist.name,
                           initials: artist.initials,

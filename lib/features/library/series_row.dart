@@ -7,6 +7,9 @@ import '../../widgets/entry_row.dart';
 import 'cover_grid_tile.dart';
 import 'series_groups.dart';
 
+/// What a screen reader says a long press on a row or a tile does.
+const seeCoverHint = 'See the cover larger';
+
 /// A series as one row of a type's list (Library › Movies, text view and
 /// list with covers, with the Library › Series page (from a series row)
 /// note): the series name, a stack icon with "4 movies · 2008–2024", and
@@ -17,11 +20,16 @@ class SeriesGroupRow extends StatelessWidget {
     super.key,
     required this.group,
     required this.onTap,
+    this.onLongPress,
     this.withCover = false,
   });
 
   final SeriesGroup group;
   final VoidCallback onTap;
+
+  /// A long press: the series cover, larger (Library › Cover, larger: a
+  /// series).
+  final VoidCallback? onLongPress;
   final bool withCover;
 
   @override
@@ -29,12 +37,14 @@ class SeriesGroupRow extends StatelessWidget {
     return Semantics(
       label: '${group.title}, series, ${group.subtitle}, ${group.doneLabel}',
       button: true,
+      onLongPressHint: onLongPress == null ? null : seeCoverHint,
       excludeSemantics: true,
       child: EntryRow(
         title: group.title,
         subtitle: group.subtitle,
         subtitleIcon: AppIcons.stack,
         onTap: onTap,
+        onLongPress: onLongPress,
         leading: withCover
             ? CoverImage(entry: group.coverEntry, width: 40)
             : null,
@@ -50,16 +60,23 @@ class SeriesGroupRow extends StatelessWidget {
 /// the cover of the part that stands for it with a stack badge and the
 /// count, the series name, and "4 movies" under it.
 class SeriesGridTile extends StatelessWidget {
-  const SeriesGridTile({super.key, required this.group, required this.onTap});
+  const SeriesGridTile({
+    super.key,
+    required this.group,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   final SeriesGroup group;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       label: '${group.title}, series, ${group.subtitle}, ${group.doneLabel}',
       button: true,
+      onLongPressHint: onLongPress == null ? null : seeCoverHint,
       excludeSemantics: true,
       child: CoverGridTile(
         entry: group.coverEntry,
@@ -68,6 +85,7 @@ class SeriesGridTile extends StatelessWidget {
         seriesCount: group.count,
         done: group.allDone,
         onTap: onTap,
+        onLongPress: onLongPress,
       ),
     );
   }

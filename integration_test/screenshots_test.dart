@@ -63,6 +63,7 @@ import 'package:library_app/features/sync/sync_state.dart';
 import 'package:library_app/main.dart';
 import 'package:library_app/widgets/app_dialog.dart';
 import 'package:library_app/widgets/chips.dart';
+import 'package:library_app/widgets/cover_choice.dart';
 import 'package:library_app/widgets/search_field.dart';
 import 'package:library_app/widgets/underline_tabs.dart';
 import 'package:library_app/widgets/entry_row.dart';
@@ -365,7 +366,7 @@ Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
   await settle();
   await capture(tester, '${prefix}a56-artist-text-view');
   final photo = find.bySemanticsLabel(
-    'Alice in Chains. Tap to see the photo, long-press to change it',
+    'Alice in Chains. Tap to see the photo larger and change it',
   );
   await tester.tap(photo);
   await tester.pumpAndSettle();
@@ -398,7 +399,10 @@ Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
   // Several artists of the name: the others, loaded on demand.
   await push(const ArtistScreen(name: 'Ghost'));
   await settle();
+  // A long press shows the photo larger; the picker is its button.
   await tester.longPress(find.text('Ghost').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.textContaining(' photo').last);
   await tester.pumpAndSettle();
   await settle(images: 3);
   await tester.tap(find.textContaining('Not the right artist?'));
@@ -413,6 +417,8 @@ Future<void> walkArtistPhotos(WidgetTester tester, {double scale = 1}) async {
   await push(const ArtistScreen(name: 'Pink Floyd'));
   await settle();
   await tester.longPress(find.text('Pink Floyd').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.textContaining(' photo').last);
   await tester.pumpAndSettle();
   await settle(images: 2);
   await capture(tester, '${prefix}a56-artist-pick-none');
@@ -875,6 +881,155 @@ Future<void> walkSeriesRows(WidgetTester tester, {double scale = 1}) async {
   await tester.tap(find.text('Newest added'));
   await tester.tap(find.widgetWithText(FilledButton, 'Done'));
   await tester.pumpAndSettle();
+}
+
+/// Library › Cover, larger and its states at [scale]: a title from the
+/// grid, a series with Choose series cover and its sheet, a title with no
+/// cover yet, an artist, and a title on light, where the view stays dark;
+/// and the Movies and Shows grids, whose rows are spaced alike now that a
+/// show has its years as a second line (the Library "Grid cells" note).
+/// The movies are padded to three screens, so The Lord of the Rings'
+/// parts group. Captures are prefixed "large-text-" above 1.
+Future<void> walkLargerCover(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  final fixture = decodeLibrary(
+    await File(FixtureLibraryRepository.assetPath).readAsString(),
+  );
+  final long = padForLongLists(fixture);
+  final mummy = fixture.entries.firstWhere((e) => e.title == 'The Mummy');
+  // A title the lookup finds nothing for.
+  final library = long.copyWith(
+    entries: [
+      ...long.entries,
+      Entry(
+        id: 'movies/werwulf-2027',
+        type: MediaType.movies,
+        title: 'Werwulf',
+        released: const Released(2027),
+        status: EntryStatus.want,
+        added: mummy.added,
+      ),
+    ],
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(
+          source: FakeLookupSource(noMatches: const {'werwulf'}),
+        ),
+        libraryRepositoryProvider.overrideWithValue(
+          FixtureLibraryRepository(
+            loadJson: () async => encodeLibrary(library),
+          ),
+        ),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  Future<void> press(String title) async {
+    // A placeholder cover writes the title too, so there may be two.
+    for (var i = 0; i < 200 && find.text(title).evaluate().isEmpty; i++) {
+      await tester.drag(homeList(), const Offset(0, -300));
+      await tester.pump();
+    }
+    await tester.ensureVisible(find.text(title).last);
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text(title).last);
+    await tester.pumpAndSettle();
+    await waitForImages(tester);
+  }
+
+  Future<void> close() async {
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    await revealHeader(tester);
+  }
+
+  await pickChip(tester, 'Movies');
+  await tester.tap(find.text('Newest added'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Title, A to Z'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+  await pickView(tester, 'Grid with covers');
+  await waitForImages(tester, count: 6);
+  await capture(tester, '${prefix}peek-grid-movies');
+
+  // A title, from the grid.
+  await press('The Mummy');
+  await capture(tester, '${prefix}peek-cover-larger');
+  await close();
+
+  // A series: its cover, then the covers of its parts; a tap picks.
+  await press('The Lord of the Rings');
+  await capture(tester, '${prefix}peek-cover-larger-series');
+  await tester.tap(find.text('Choose series cover'));
+  await tester.pumpAndSettle();
+  await waitForImages(tester, count: 3);
+  await capture(tester, '${prefix}peek-cover-larger-series-pick');
+  await tester.tap(find.byType(CoverChoice).last);
+  await tester.pumpAndSettle();
+  await waitForImages(tester);
+  await capture(tester, '${prefix}peek-cover-larger-series-picked');
+  await close();
+
+  // No cover yet.
+  await press('Werwulf');
+  await capture(tester, '${prefix}peek-cover-larger-none');
+  await close();
+
+  // On light the view is dark all the same.
+  final preferences = ProviderScope.containerOf(
+    tester.element(find.text('Library').first),
+  ).read(displayPreferencesProvider.notifier);
+  preferences.setThemeMode(ThemeMode.light);
+  await tester.pumpAndSettle();
+  await press('The Mummy');
+  await capture(tester, '${prefix}light-peek-cover-larger');
+  await close();
+  preferences.setThemeMode(ThemeMode.dark);
+  await tester.pumpAndSettle();
+
+  // From the text view, where it is the way to see a cover.
+  await pickView(tester, 'Text');
+  await press('The Mummy');
+  await capture(tester, '${prefix}peek-cover-larger-from-text');
+  await close();
+  await tester.tap(find.text('Title, A to Z'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Newest added'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+  await tester.pumpAndSettle();
+
+  // The Shows grid: the years under every title, rows spaced as on Movies.
+  await pickChip(tester, 'Shows');
+  await pickView(tester, 'Grid with covers');
+  await waitForImages(tester, count: 6);
+  await capture(tester, '${prefix}peek-grid-shows');
+  await pickView(tester, 'Text');
+  await pickChip(tester, 'Anime');
+  await pickView(tester, 'Grid with covers');
+  await waitForImages(tester, count: 6);
+  await capture(tester, '${prefix}peek-grid-anime');
+  await pickView(tester, 'Text');
+
+  // An artist, from the grid with photos.
+  await pickChip(tester, 'Music');
+  await pickView(tester, 'Grid with photos');
+  await waitForImages(tester, count: 6);
+  await press('Alice in Chains');
+  await capture(tester, '${prefix}peek-cover-larger-artist');
+  await close();
+  await pickView(tester, 'Text');
 }
 
 /// Library › Movie in a series (The Lord of the Rings), Book in a long series
@@ -1781,6 +1936,14 @@ void main() {
 
   testWidgets('series rows at a larger text size', (tester) async {
     await walkSeriesRows(tester, scale: 1.3);
+  });
+
+  testWidgets('larger cover', (tester) async {
+    await walkLargerCover(tester);
+  });
+
+  testWidgets('larger cover at a larger text size', (tester) async {
+    await walkLargerCover(tester, scale: 1.3);
   });
 
   testWidgets('library screens in dark and light', (tester) async {

@@ -385,6 +385,7 @@ class HomeRow extends StatelessWidget {
     this.row, {
     super.key,
     this.onTap,
+    this.onLongPress,
     this.minHeight = 56,
     this.leading,
     this.padding = EdgeInsets.zero,
@@ -392,6 +393,9 @@ class HomeRow extends StatelessWidget {
 
   final HomeRowData row;
   final VoidCallback? onTap;
+
+  /// A long press: the entry's cover, larger (Library › Cover, larger).
+  final VoidCallback? onLongPress;
 
   /// 56 on the home, 60 on the Coming soon screen, as the canvas draws them.
   final double minHeight;
@@ -424,6 +428,7 @@ class HomeRow extends StatelessWidget {
     final subtitleStyle = theme.textTheme.bodySmall!.copyWith(fontSize: 13.5);
     return RowInkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         constraints: BoxConstraints(minHeight: minHeight),
         padding: padding,

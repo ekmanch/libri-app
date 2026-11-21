@@ -164,6 +164,7 @@ class EntryListBody extends StatelessWidget {
           pinnedExtent: pinnedExtent,
           layoutKey: (sort, view, entries, grouped, flat),
           rowBuilder: (context, row) => entryListRow(
+            context,
             row,
             view: view,
             onTap: onTap,

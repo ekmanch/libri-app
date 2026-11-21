@@ -10,6 +10,7 @@ import '../../data/lookup/lookup_match.dart';
 import '../../data/lookup/lookup_providers.dart';
 import '../../data/lookup/lookup_service.dart';
 import '../../data/models/entry.dart';
+import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
 import '../../data/operations/entry_operations.dart';
 import '../../theme/app_theme.dart';
@@ -32,7 +33,8 @@ typedef CoverPick = ({String? coverFrom, bool keepMine, String? url});
 
 /// What Pick a cover works on: the entry the form is making or editing,
 /// whose pick waits in the form for Save; or ([stored]) an entry of the
-/// library, a song's album, whose pick is saved at once.
+/// library, whose pick is saved at once: a song's album, or the title whose
+/// larger cover the picker was opened from.
 class CoverSubject {
   const CoverSubject({
     required this.id,
@@ -58,6 +60,30 @@ class CoverSubject {
       coverFrom = album.coverFrom,
       keepMine = album.coverKeepMine ?? false,
       stored = true;
+
+  /// [entry] as it is in the library, outside the form: a pick is saved
+  /// at once (the larger cover's Change cover).
+  CoverSubject.saved(Entry entry)
+    : id = entry.id,
+      type = entry.type,
+      title = entry.title,
+      year = entry.year,
+      creator = entry.creator,
+      source = entry.source,
+      coverFrom = entry.coverFrom,
+      keepMine = entry.coverKeepMine ?? false,
+      stored = true,
+      song = null;
+
+  /// What Pick a cover works on for [entry] of [library]: a song's album
+  /// while the album is in the library, since the song shows its cover;
+  /// else the entry itself.
+  factory CoverSubject.of(Library library, Entry entry) {
+    final owner = coverOwner(library, entry);
+    return owner.id == entry.id
+        ? CoverSubject.saved(entry)
+        : CoverSubject.album(owner, song: entry.title);
+  }
 
   /// The entry's id, or the id a new entry would get now: its slug names
   /// the files.

@@ -6,13 +6,17 @@ import '../../widgets/artist_photo.dart';
 import '../../widgets/row_ink_well.dart';
 import '../library/entry_list_views.dart';
 import 'artist_index.dart';
-import 'artist_photo_sheet.dart';
+import '../library/larger_cover.dart';
+
+/// What a screen reader says a long press on an artist does.
+const seePhotoHint = 'See the photo larger';
 
 /// One artist in the text or list view (Library › Music: artists, text view;
 /// Music: artists, list with photos): name and what is saved, "7 albums, 2
 /// songs". A text row is 48 dp with the count on the right; with [photo] the
 /// row is 64 dp, a 48 dp photo, and the count under the name. A long press
-/// opens Music › Pick a photo, in every view.
+/// shows the photo larger (Library › Cover, larger: an artist), in every
+/// view; nothing opens Pick a photo directly.
 class ArtistRow extends StatelessWidget {
   const ArtistRow({
     super.key,
@@ -39,11 +43,11 @@ class ArtistRow extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${artist.name}, ${artist.countLabel}',
-      onLongPressHint: 'Change photo',
+      onLongPressHint: seePhotoHint,
       excludeSemantics: true,
       child: RowInkWell(
         onTap: onTap,
-        onLongPress: () => showArtistPhotoPicker(context, name: artist.name),
+        onLongPress: () => showLargerArtist(context, artist),
         child: Container(
           constraints: BoxConstraints(
             minHeight: photo ? photoHeight : textHeight,
@@ -134,11 +138,11 @@ class ArtistGridTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${artist.name}, ${artist.countLabel}',
-      onLongPressHint: 'Change photo',
+      onLongPressHint: seePhotoHint,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        onLongPress: () => showArtistPhotoPicker(context, name: artist.name),
+        onLongPress: () => showLargerArtist(context, artist),
         borderRadius: BorderRadius.circular(12),
         child: LayoutBuilder(
           builder: (context, constraints) => Column(

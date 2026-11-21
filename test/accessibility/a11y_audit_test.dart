@@ -459,6 +459,10 @@ Future<void> _walk(_Audit a, ProviderContainer container) async {
     await a.check('Library › Music: artists, text view');
     await a.pickView('List with photos');
     await a.check('Library › Music: artists, list with photos');
+    await tester.longPress(find.text('Alice in Chains'));
+    await tester.pumpAndSettle();
+    await a.check('Library › Cover, larger: an artist');
+    await a.tap(find.byTooltip('Close'));
     await a.pickView('Text');
     await a.tapText('Alice in Chains');
     await a.check('Music › Artist, text view');
@@ -767,6 +771,14 @@ void main() {
       );
       await tester.pumpAndSettle();
       await audit.check('Library › Movies, text view with a series row');
+      await tester.longPress(row);
+      await tester.pumpAndSettle();
+      await audit.check('Library › Cover, larger: a series');
+      await audit.tapText('Choose series cover');
+      await audit.check('Library › Cover, larger: choose the series cover');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await audit.tap(find.byTooltip('Close'));
       await audit.tap(row);
       await audit.check('Library › Series page (from a series row)');
       await audit.tap(find.byTooltip('Series options'));

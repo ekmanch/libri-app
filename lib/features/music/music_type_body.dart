@@ -13,6 +13,7 @@ import '../../widgets/pinned_sliver.dart';
 import '../../widgets/chips.dart';
 import '../library/cover_grid.dart';
 import '../library/cover_grid_tile.dart';
+import '../library/larger_cover.dart';
 import '../../widgets/cover_image.dart';
 import '../library/entry_list_body.dart';
 import '../library/entry_list_views.dart';
@@ -475,6 +476,7 @@ class SongList extends StatelessWidget {
       leading: photo ? CoverImage(entry: song, width: 40) : null,
       subtitle: songSubtitle(song),
       onTap: () => onTap(song),
+      onLongPress: () => showLargerCover(context, song),
     );
 
     return SectionedListBody<Entry>(
@@ -504,6 +506,7 @@ class SongList extends StatelessWidget {
                       entry: songs[i],
                       caption: songs[i].creator ?? '',
                       onTap: () => onTap(songs[i]),
+                      onLongPress: () => showLargerCover(context, songs[i]),
                     ),
                   ),
                 ]
@@ -569,6 +572,7 @@ class SongSearchList extends StatelessWidget {
           leading: leading,
           subtitle: songSubtitle(entry),
           onTap: () => onTap(entry),
+          onLongPress: () => showLargerCover(context, entry),
         );
       }
       return EntryRow(
@@ -584,6 +588,8 @@ class SongSearchList extends StatelessWidget {
                 ),
               ),
         onTap: () => onTap(entry),
+        // A rated track shows its album's cover.
+        onLongPress: () => showLargerCover(context, entry, title: song.title),
       );
     }
 
@@ -618,6 +624,11 @@ class SongSearchList extends StatelessWidget {
                 // A track has no status of its own.
                 done: song.isTrack ? false : null,
                 onTap: () => onTap(song.entry),
+                onLongPress: () => showLargerCover(
+                  context,
+                  song.entry,
+                  title: song.isTrack ? song.title : null,
+                ),
               );
             },
           )

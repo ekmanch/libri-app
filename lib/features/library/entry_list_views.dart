@@ -8,6 +8,7 @@ import '../../widgets/entry_row.dart';
 import '../settings/entry_view.dart';
 import 'cover_grid.dart';
 import 'cover_grid_tile.dart';
+import 'larger_cover.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/cover_placeholder.dart';
 import 'sectioned_list_body.dart';
@@ -66,7 +67,8 @@ double countRowExtent(TextScaler scaler, {double top = 8}) =>
 /// covers (Library › Movies, list with covers) or a three-column grid
 /// (Library › Movies, grid with covers), which needs its [gridSpec]. A
 /// series grouped as one row gets [SeriesGroupRow] or [SeriesGridTile], and
-/// [onTapSeries].
+/// [onTapSeries]. A long press on any of them opens its cover larger
+/// (Library › Cover, larger).
 List<Widget> entryListSlivers({
   required List<LibraryRow> rows,
   required EntryView view,
@@ -76,7 +78,8 @@ List<Widget> entryListSlivers({
   String Function(Entry entry)? caption,
   CoverGridSpec? gridSpec,
 }) {
-  Widget row(LibraryRow item) => entryListRow(
+  Widget row(BuildContext context, LibraryRow item) => entryListRow(
+    context,
     item,
     view: view,
     onTap: onTap,
@@ -89,7 +92,7 @@ List<Widget> entryListSlivers({
       return [
         SliverList.builder(
           itemCount: rows.length,
-          itemBuilder: (context, i) => row(rows[i]),
+          itemBuilder: (context, i) => row(context, rows[i]),
         ),
       ];
     case EntryView.grid:
@@ -103,10 +106,12 @@ List<Widget> entryListSlivers({
               today: today,
               caption: caption?.call(entry),
               onTap: () => onTap(entry),
+              onLongPress: () => showLargerCover(context, entry),
             ),
             final SeriesGroup group => SeriesGridTile(
               group: group,
               onTap: () => onTapSeries?.call(group),
+              onLongPress: () => showLargerSeriesCover(context, group),
             ),
           },
         ),
@@ -121,8 +126,10 @@ String gridTitleOf(LibraryRow item) => switch (item) {
 };
 
 /// One row of the text or list view for [item]: an [EntryRow], or a
-/// [SeriesGroupRow] for a grouped series.
+/// [SeriesGroupRow] for a grouped series. A long press opens its cover
+/// larger.
 Widget entryListRow(
+  BuildContext context,
   LibraryRow item, {
   required EntryView view,
   required void Function(Entry entry) onTap,
@@ -135,12 +142,14 @@ Widget entryListRow(
       entry,
       today: today,
       onTap: () => onTap(entry),
+      onLongPress: () => showLargerCover(context, entry),
       leading: withCover ? CoverImage(entry: entry, width: 40) : null,
     ),
     final SeriesGroup group => SeriesGroupRow(
       group: group,
       withCover: withCover,
       onTap: () => onTapSeries?.call(group),
+      onLongPress: () => showLargerSeriesCover(context, group),
     ),
   };
 }

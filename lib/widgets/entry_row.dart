@@ -116,6 +116,7 @@ class EntryRow extends StatelessWidget {
     this.status,
     this.type,
     this.onTap,
+    this.onLongPress,
     this.leading,
     this.typeLabel,
     this.typeColor,
@@ -130,6 +131,7 @@ class EntryRow extends StatelessWidget {
     Entry entry, {
     super.key,
     this.onTap,
+    this.onLongPress,
     this.leading,
     DateTime? today,
     bool showType = false,
@@ -158,6 +160,9 @@ class EntryRow extends StatelessWidget {
   /// Words the status mark: "Reading" for a book.
   final MediaType? type;
   final VoidCallback? onTap;
+
+  /// A long press: the row's cover, larger (Library › Cover, larger).
+  final VoidCallback? onLongPress;
 
   /// A small icon before the subtitle: the stack of a series row.
   final StrokeIconData? subtitleIcon;
@@ -220,6 +225,7 @@ class EntryRow extends StatelessWidget {
     );
     return RowInkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         constraints: BoxConstraints(minHeight: leading == null ? 56 : 76),
         decoration: BoxDecoration(
