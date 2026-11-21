@@ -222,4 +222,79 @@ void main() {
       expect(artistCoverOrder(saved), c['order'], reason: '${c['about']}');
     }
   });
+
+  group('keys this build does not know', () {
+    // As the desktop will write it: `photo_size` and `picked`, the list
+    // in a layout of its own.
+    const theirs =
+        '{\n'
+        '  "version": 1,\n'
+        '  "backfilled": "2026-11-15",\n'
+        '  "photo_size": 1200,\n'
+        '  "picked": [\n'
+        '    "adele",\n'
+        '    "cat-stevens-yusuf"\n'
+        '  ],\n'
+        '  "artists": {\n'
+        '    "abba": {"name": "ABBA", "tried": "2026-11-16", "reason": "no-photo"}\n'
+        '  },\n'
+        '  "later": {"a": [1, "}, ]"], "b": null}\n'
+        '}\n';
+
+    test('are read past and written back verbatim, in their places', () {
+      final record = MissingArtists.decode(theirs);
+      expect(record.photoSize, 1200);
+      expect(record.artists.keys, ['abba']);
+      expect(record.encode(), theirs);
+    });
+
+    test('survive an edit merged into the file', () {
+      final text = mergedMissing(theirs, [
+        MissingSet(
+          'zz-top',
+          TriedArtist(
+            name: 'ZZ Top',
+            tried: DateTime(2026, 11, 21),
+            reason: MissingReason.noMatch,
+          ),
+        ),
+      ], (slug) => slug == 'abba')!;
+      expect(
+        text,
+        theirs.replaceFirst(
+          '"abba": {"name": "ABBA", "tried": "2026-11-16", "reason": "no-photo"}',
+          '"zz-top": {"name": "ZZ Top", "tried": "2026-11-21", "reason": "no-match"}',
+        ),
+      );
+      // The last artist leaving keeps them too.
+      final empty = mergedMissing(theirs, const [], (slug) => true)!;
+      expect(empty, contains('"photo_size": 1200'));
+      expect(empty, contains('"picked": [\n    "adele",'));
+      expect(empty, contains('"artists": {}'));
+    });
+
+    test('a record without photo_size means 640', () {
+      final record = MissingArtists.decode(
+        '{\n  "version": 1,\n  "artists": {}\n}\n',
+      );
+      expect(record.photoSize, isNull);
+      expect(record.encode(), '{\n  "version": 1,\n  "artists": {}\n}\n');
+    });
+  });
+
+  test('a photo is fetched at the side asked for', () {
+    const url =
+        'https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages/'
+        'v4/aa/bb/cc/photo.jpg/640x640cc.jpg';
+    expect(artistPhotoAt(url, 640), url);
+    expect(
+      artistPhotoAt(url, 1200),
+      'https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages/'
+      'v4/aa/bb/cc/photo.jpg/1200x1200cc.jpg',
+    );
+    expect(
+      artistPhotoAt('repo:artists/abba.jpg', 1200),
+      'repo:artists/abba.jpg',
+    );
+  });
 }

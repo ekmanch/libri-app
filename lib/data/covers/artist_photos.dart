@@ -21,12 +21,26 @@ const artistsFolder = 'artists';
 /// The record of artists tried with nothing found, in that folder.
 const artistsMissingFile = '_missing.json';
 
-/// The last segment of a photo's URL as it is fetched and stored: Apple's
-/// 640 × 640 square JPEG.
+/// The last segment of a photo's URL as it is read from Apple's page and
+/// kept: the 640 × 640 square JPEG. [artistPhotoAt] makes it the size
+/// that is fetched.
 const artistPhotoSize = '640x640cc.jpg';
 
-/// The side of an artist's photo, in pixels.
+/// The side of an artist's photo, in pixels, until the record says
+/// otherwise ([MissingArtists.photoSize]).
 const artistPhotoSide = 640;
+
+/// The side once the desktop has re-fetched the existing photos and
+/// written `"photo_size": 1200` into the record.
+const artistPhotoLargeSide = 1200;
+
+/// The photo at [url] ([artistPhotoUrl]) as a [side] × [side] JPEG. Any
+/// other URL is left as it is.
+String artistPhotoAt(String url, int side) =>
+    side != artistPhotoSide && url.endsWith('/$artistPhotoSize')
+    ? '${url.substring(0, url.length - artistPhotoSize.length)}'
+          '${side}x${side}cc.jpg'
+    : url;
 
 /// How long "nothing found" stands before the artist is tried again.
 const artistRetryDays = 90;
@@ -537,13 +551,34 @@ class MissingFormatException implements Exception {
 /// `_missing.json`: the artists tried with nothing found, by slug, and the
 /// day the desktop's backfill finished.
 class MissingArtists {
-  MissingArtists({this.backfilled, Map<String, TriedArtist>? artists})
-    : artists = artists ?? {};
+  MissingArtists({
+    this.backfilled,
+    Map<String, TriedArtist>? artists,
+    Map<String, String>? extra,
+    List<String>? order,
+    this.photoSize,
+  }) : artists = artists ?? {},
+       extra = extra ?? const {},
+       _order = order ?? const [];
 
   /// Written by the backfill's last batch; the phone fetches nothing until
   /// it is there.
   DateTime? backfilled;
   final Map<String, TriedArtist> artists;
+
+  /// The top-level keys this build does not know (`photo_size`, `picked`,
+  /// whatever comes later), each with its value's text exactly as the
+  /// file had it. They are written back untouched.
+  final Map<String, String> extra;
+
+  /// The file's top-level keys in the order it had them; empty for a
+  /// record made here.
+  final List<String> _order;
+
+  /// `photo_size`: the side new artists' photos are fetched at, written
+  /// by the desktop once it has re-fetched the existing ones. Null until
+  /// then, which means [artistPhotoSide]. Only read here, never written.
+  final int? photoSize;
 
   /// Reads the file. Anything but version 1 in the shape below throws
   /// [MissingFormatException], and such a file is left as it is.
@@ -583,34 +618,117 @@ class MissingArtists {
           (throw const MissingFormatException('tried is not a date'));
       artists[slug] = TriedArtist(name: name, tried: tried, reason: reason);
     }
-    return MissingArtists(backfilled: backfilled, artists: artists);
+    final raw = _topLevelText(text);
+    final size = json['photo_size'];
+    return MissingArtists(
+      backfilled: backfilled,
+      artists: artists,
+      extra: {
+        for (final MapEntry(:key, :value) in raw.entries)
+          if (!_known.contains(key)) key: value,
+      },
+      order: raw.keys.toList(),
+      photoSize: size is int && size > 0 ? size : null,
+    );
+  }
+
+  static const _known = {'version', 'backfilled', 'artists'};
+
+  /// The top-level keys of the JSON object [text] (valid JSON, an object),
+  /// each with the text of its value as written.
+  static Map<String, String> _topLevelText(String text) {
+    const space = ' \n\r\t';
+    int past(int i) {
+      while (i < text.length && space.contains(text[i])) {
+        i++;
+      }
+      return i;
+    }
+
+    // [i] is at a string's opening quote; the index after its closing one.
+    int afterString(int i) {
+      i++;
+      while (text[i] != '"') {
+        if (text[i] == r'\') i++;
+        i++;
+      }
+      return i + 1;
+    }
+
+    final out = <String, String>{};
+    var i = text.indexOf('{') + 1;
+    while (true) {
+      i = past(i);
+      if (i >= text.length || text[i] == '}') break;
+      final keyEnd = afterString(i);
+      final key = jsonDecode(text.substring(i, keyEnd)) as String;
+      i = past(past(keyEnd) + 1);
+      final start = i;
+      var depth = 0;
+      while (i < text.length) {
+        final c = text[i];
+        if (c == '"') {
+          i = afterString(i);
+          continue;
+        }
+        if (c == '{' || c == '[') depth++;
+        if (c == '}' || c == ']') {
+          if (depth == 0) break;
+          depth--;
+        }
+        if (c == ',' && depth == 0) break;
+        i++;
+      }
+      out[key] = text.substring(start, i).trimRight();
+      if (i < text.length && text[i] == ',') i++;
+    }
+    return out;
   }
 
   /// The file's text: two-space indent, `version`, then `backfilled` when
   /// set, then `artists` with one artist per line in slug order (by code
   /// unit; a slug is ASCII), each with `name`, `tried` and `reason` in
-  /// that order, and a newline at the end.
+  /// that order, and a newline at the end. Every key this build does not
+  /// know ([extra]) keeps its value's text and its place after the known
+  /// key it followed.
   String encode() {
-    final out = StringBuffer('{\n  "version": $artistsMissingVersion,\n');
-    if (backfilled case final day?) {
-      out.write('  "backfilled": "${formatArtistDay(day)}",\n');
+    // The known keys in their fixed order, whatever order the file had
+    // them in; an unknown key follows the known key it came after.
+    final keys = <String>[];
+    final after = <String, List<String>>{};
+    var anchor = '';
+    for (final key in _order) {
+      if (_known.contains(key)) {
+        anchor = key;
+      } else {
+        (after[anchor] ??= []).add(key);
+      }
     }
-    if (artists.isEmpty) {
-      out.write('  "artists": {}\n}\n');
-      return '$out';
+    for (final key in ['', 'version', 'backfilled', 'artists']) {
+      if (key.isNotEmpty) keys.add(key);
+      keys.addAll(after[key] ?? const []);
     }
-    out.write('  "artists": {\n');
     final slugs = artists.keys.toList()..sort();
-    out.write(
-      [
-        for (final slug in slugs)
-          '    ${jsonEncode(slug)}: {"name": ${jsonEncode(artists[slug]!.name)}, '
-              '"tried": "${formatArtistDay(artists[slug]!.tried)}", '
-              '"reason": "${artists[slug]!.reason.key}"}',
-      ].join(',\n'),
-    );
-    out.write('\n  }\n}\n');
-    return '$out';
+    final parts = [
+      for (final key in keys)
+        switch (key) {
+          'version' => '  "version": $artistsMissingVersion',
+          'backfilled' =>
+            backfilled == null
+                ? null
+                : '  "backfilled": "${formatArtistDay(backfilled!)}"',
+          'artists' =>
+            artists.isEmpty
+                ? '  "artists": {}'
+                : '  "artists": {\n${[for (final slug in slugs) '    ${jsonEncode(slug)}: '
+                        '{"name": ${jsonEncode(artists[slug]!.name)}, '
+                        '"tried": "${formatArtistDay(artists[slug]!.tried)}", '
+                        '"reason": "${artists[slug]!.reason.key}"}'].join(',\n')}\n  }',
+          _ =>
+            extra[key] == null ? null : '  ${jsonEncode(key)}: ${extra[key]}',
+        },
+    ].nonNulls;
+    return '{\n${parts.join(',\n')}\n}\n';
   }
 
   /// Whether Apple is asked about the artist with [slug] on [today]:
@@ -640,7 +758,13 @@ class MissingArtists {
     bool Function(String slug) hasFile, {
     bool Function(String slug)? inLibrary,
   }) {
-    final out = MissingArtists(backfilled: backfilled, artists: {...artists});
+    final out = MissingArtists(
+      backfilled: backfilled,
+      artists: {...artists},
+      extra: extra,
+      order: _order,
+      photoSize: photoSize,
+    );
     edits.forEach(out.apply);
     out.artists.removeWhere(
       (slug, _) => hasFile(slug) || !(inLibrary?.call(slug) ?? true),
@@ -648,7 +772,7 @@ class MissingArtists {
     return out;
   }
 
-  bool get isEmpty => backfilled == null && artists.isEmpty;
+  bool get isEmpty => backfilled == null && artists.isEmpty && extra.isEmpty;
 }
 
 /// `_missing.json` as a sync writes it: the repo's copy ([theirs], null

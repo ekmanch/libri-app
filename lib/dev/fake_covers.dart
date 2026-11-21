@@ -102,6 +102,9 @@ class FakeCoverPictures implements CoverPictures {
   /// Where Fit your cover left the frame, for each fitted image.
   final fitted = <double>[];
 
+  /// The limit each prepared or fitted image was given.
+  final sides = <int>[];
+
   @override
   Future<(int, int)> sizeOf(Uint8List bytes) async {
     if (notAnImage || bytes.isEmpty) throw const CoverPictureException();
@@ -109,21 +112,34 @@ class FakeCoverPictures implements CoverPictures {
   }
 
   @override
-  Future<PreparedCover> prepare(Uint8List bytes) async => PreparedCover(
-    bytes: bytes,
-    width: size.$1,
-    height: size.$2,
-    sha: gitBlobSha(bytes),
-  );
+  Future<PreparedCover> prepare(
+    Uint8List bytes, {
+    int side = coverUploadSide,
+  }) async {
+    sides.add(side);
+    return PreparedCover(
+      bytes: bytes,
+      width: size.$1,
+      height: size.$2,
+      sha: gitBlobSha(bytes),
+    );
+  }
 
   @override
   Future<PreparedCover> fit(
     Uint8List bytes, {
     required double at,
     required bool square,
+    int side = coverUploadSide,
   }) async {
     fitted.add(at);
-    final (width, height) = coverFittedSize(size.$1, size.$2, square: square);
+    sides.add(side);
+    final (width, height) = coverFittedSize(
+      size.$1,
+      size.$2,
+      square: square,
+      side: side,
+    );
     return PreparedCover(
       bytes: bytes,
       width: width,

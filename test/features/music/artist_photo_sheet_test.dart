@@ -241,6 +241,9 @@ void main() {
     expect(tile(tester, 'Your photo').badge, 'Yours');
     expect(find.text('Use automatic'), findsOneWidget);
 
+    // An artist's photo is kept at 1200 px at most, not a cover's 2000.
+    expect(pictures.sides, everyElement(1200));
+    expect(pictures.sides, isNotEmpty);
     pictures.size = (1000, 1500);
     await tester.tap(find.text('Upload'));
     await tester.pumpAndSettle();

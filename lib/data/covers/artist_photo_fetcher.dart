@@ -143,6 +143,7 @@ class ArtistPhotoFetcher {
     if (_running) return 0;
     _running = true;
     var settled = 0;
+    apple.photoSide = covers.photoSize;
     try {
       for (final artist in due(library)) {
         if (wifiOnly && await network.isOnMobileData()) break;

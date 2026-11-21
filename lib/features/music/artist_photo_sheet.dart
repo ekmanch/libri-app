@@ -119,7 +119,7 @@ class _Tile {
   /// It is the photo in use: ringed, and a tap changes nothing.
   final bool current;
 
-  /// Apple's own 640 × 640 JPEG, stored exactly as it was served.
+  /// Apple's own square JPEG, stored exactly as it was served.
   final bool asServed;
 
   /// The automatic choice: picking it counts as the fetch's, not a pick.
@@ -201,13 +201,13 @@ class _ArtistPhotoSheetState extends ConsumerState<ArtistPhotoSheet> {
       try {
         final library = await ref.read(libraryProvider.future);
         if (!mounted) return;
-        choices = await ref
-            .read(appleArtistsProvider)
-            .choices(
-              _name,
-              ownedTitlesOf(library, _name),
-              savedSongsOf(library, _name),
-            );
+        final apple = ref.read(appleArtistsProvider)
+          ..photoSide = ref.read(coverStoreProvider).photoSize;
+        choices = await apple.choices(
+          _name,
+          ownedTitlesOf(library, _name),
+          savedSongsOf(library, _name),
+        );
       } on LookupException {
         // Not an answer: no Suggested tile, and nothing is said.
         choices = null;
@@ -261,7 +261,8 @@ class _ArtistPhotoSheetState extends ConsumerState<ArtistPhotoSheet> {
     for (final other in others.take(ArtistPhotoSheet.othersLimit)) {
       final String? url;
       try {
-        url = await apple.photoOf(other.id, other.page);
+        final found = await apple.photoOf(other.id, other.page);
+        url = found == null ? null : artistPhotoAt(found, apple.photoSide);
       } on LookupException catch (e) {
         // Apple refusing ends it; one page failing does not.
         if (e.failure == LookupFailure.rateLimited ||
@@ -295,7 +296,11 @@ class _ArtistPhotoSheetState extends ConsumerState<ArtistPhotoSheet> {
       if (image == null) return;
       var bytes = await image.file.readAsBytes();
       if (!(tile.asServed && _isJpeg(bytes))) {
-        bytes = (await ref.read(coverPicturesProvider).prepare(bytes)).bytes;
+        bytes =
+            (await ref
+                    .read(coverPicturesProvider)
+                    .prepare(bytes, side: artistUploadSide))
+                .bytes;
       }
       await ref
           .read(coverStoreProvider)
@@ -344,7 +349,7 @@ class _ArtistPhotoSheetState extends ConsumerState<ArtistPhotoSheet> {
       final (width, height) = await pictures.sizeOf(bytes);
       final PreparedCover prepared;
       if (coverShapeFits(width, height, square: true)) {
-        prepared = await pictures.prepare(bytes);
+        prepared = await pictures.prepare(bytes, side: artistUploadSide);
       } else {
         if (!mounted) return;
         final at = await showCoverFitSheet(
@@ -353,9 +358,15 @@ class _ArtistPhotoSheetState extends ConsumerState<ArtistPhotoSheet> {
           width: width,
           height: height,
           square: true,
+          side: artistUploadSide,
         );
         if (at == null) return;
-        prepared = await pictures.fit(bytes, at: at, square: true);
+        prepared = await pictures.fit(
+          bytes,
+          at: at,
+          square: true,
+          side: artistUploadSide,
+        );
       }
       await ref
           .read(coverStoreProvider)

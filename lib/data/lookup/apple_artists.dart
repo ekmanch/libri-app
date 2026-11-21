@@ -73,6 +73,11 @@ class AppleArtists {
   final JsonFile? file;
   final Duration pageGap;
   final Duration pageJitter;
+
+  /// The side a found or suggested photo is fetched at: 640 until the
+  /// record on GitHub says 1200 (`CoverStore.photoSize`), set by whoever
+  /// asks, right before asking.
+  int photoSide = artistPhotoSide;
   final Random _random;
   final DateTime Function() _now;
 
@@ -397,7 +402,7 @@ class AppleArtists {
     _photos[chosen.id] = photo;
     await _keep();
     if (photo == null) return const ArtistNotFound(MissingReason.noPhoto);
-    return ArtistPhotoFound(await image(photo));
+    return ArtistPhotoFound(await image(artistPhotoAt(photo, photoSide)));
   }
 
   /// What Pick a photo offers from Apple: the matched artist's photo, and
@@ -420,7 +425,8 @@ class AppleArtists {
     for (final candidate in listed) {
       final page = candidate.page ?? '';
       if (candidate.id == chosen) {
-        suggested = await photoOf(candidate.id, page);
+        final photo = await photoOf(candidate.id, page);
+        suggested = photo == null ? null : artistPhotoAt(photo, photoSide);
       } else {
         others.add((
           id: candidate.id,

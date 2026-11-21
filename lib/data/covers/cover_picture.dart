@@ -76,10 +76,16 @@ class PreparedCover {
 }
 
 /// The size Fit your cover saves an image of [width] × [height] at:
-/// "Saved at 1333 × 2000.": its longer side is at most [coverUploadSide].
-(int, int) coverFittedSize(int width, int height, {required bool square}) {
+/// "Saved at 1333 × 2000.": its longer side is at most [side], a cover's
+/// [coverUploadSide] or an artist photo's [artistUploadSide].
+(int, int) coverFittedSize(
+  int width,
+  int height, {
+  required bool square,
+  int side = coverUploadSide,
+}) {
   final frame = coverCropFrame(width, height, square: square, at: 0.5);
-  return _within(frame.width, frame.height, coverUploadSide, coverUploadSide);
+  return _within(frame.width, frame.height, side, side);
 }
 
 /// Decodes, scales and encodes images. An interface so the tests and the
@@ -89,16 +95,17 @@ abstract interface class CoverPictures {
   /// [CoverPictureException] when it is not an image.
   Future<(int, int)> sizeOf(Uint8List bytes);
 
-  /// An upload: the image scaled so its longer side is at most
-  /// [coverUploadSide], as JPEG.
-  Future<PreparedCover> prepare(Uint8List bytes);
+  /// An upload: the image scaled so its longer side is at most [side]
+  /// (never enlarged), as JPEG.
+  Future<PreparedCover> prepare(Uint8List bytes, {int side = coverUploadSide});
 
   /// Fit your cover: the image cropped to the type's shape with the frame
-  /// [at] along its long side.
+  /// [at] along its long side, its longer side at most [side].
   Future<PreparedCover> fit(
     Uint8List bytes, {
     required double at,
     required bool square,
+    int side = coverUploadSide,
   });
 }
 
@@ -136,14 +143,12 @@ class EngineCoverPictures implements CoverPictures {
   }
 
   @override
-  Future<PreparedCover> prepare(Uint8List bytes) async {
+  Future<PreparedCover> prepare(
+    Uint8List bytes, {
+    int side = coverUploadSide,
+  }) async {
     final image = await _decode(bytes);
-    final (w, h) = _within(
-      image.width,
-      image.height,
-      coverUploadSide,
-      coverUploadSide,
-    );
+    final (w, h) = _within(image.width, image.height, side, side);
     return _encode(
       image,
       ui.Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
@@ -157,6 +162,7 @@ class EngineCoverPictures implements CoverPictures {
     Uint8List bytes, {
     required double at,
     required bool square,
+    int side = coverUploadSide,
   }) async {
     final image = await _decode(bytes);
     final frame = coverCropFrame(
@@ -165,7 +171,12 @@ class EngineCoverPictures implements CoverPictures {
       square: square,
       at: at,
     );
-    final (w, h) = coverFittedSize(image.width, image.height, square: square);
+    final (w, h) = coverFittedSize(
+      image.width,
+      image.height,
+      square: square,
+      side: side,
+    );
     return _encode(
       image,
       ui.Rect.fromLTWH(

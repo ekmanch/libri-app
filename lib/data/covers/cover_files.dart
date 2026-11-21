@@ -28,6 +28,11 @@ const coverListingAge = Duration(minutes: 1);
 /// The longer side of an upload, in pixels.
 const coverUploadSide = 2000;
 
+/// The longer side of an artist photo the owner picked or uploaded, at
+/// most, in pixels: the size of a fetched photo, not a cover's limit. A
+/// smaller image keeps its size.
+const artistUploadSide = 1200;
+
 /// The JPEG quality of an upload.
 const coverUploadQuality = 88;
 

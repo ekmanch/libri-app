@@ -456,6 +456,12 @@ class CoverStore extends ChangeNotifier {
   /// waits for before it fetches anything; null until then.
   DateTime? get backfilled => _missingUnreadable ? null : missing.backfilled;
 
+  /// The side a new artist's photo is fetched at: 640 until GitHub's
+  /// record holds the desktop's `photo_size` (written after it re-fetched
+  /// the existing photos), that size from then on. The photos already
+  /// here are never fetched again for it.
+  int get photoSize => _missingBase?.photoSize ?? artistPhotoSide;
+
   /// The picks a push dropped for another device's photo, until the owner
   /// has been told ([clearDropped]).
   List<DroppedPhoto> get dropped => List.unmodifiable(_dropped);

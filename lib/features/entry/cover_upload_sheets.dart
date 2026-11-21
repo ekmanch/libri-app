@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../data/covers/cover_files.dart';
 import '../../data/covers/cover_picture.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
@@ -238,6 +239,7 @@ Future<double?> showCoverFitSheet(
   required int width,
   required int height,
   required bool square,
+  int side = coverUploadSide,
 }) => showAppSheet<double>(
   context,
   maxHeightFactor: 0.94,
@@ -245,6 +247,7 @@ Future<double?> showCoverFitSheet(
     bytes: bytes,
     imageWidth: width,
     imageHeight: height,
+    side: side,
     square: square,
   ),
 );
@@ -260,12 +263,16 @@ class CoverFitSheet extends StatefulWidget {
     required this.imageWidth,
     required this.imageHeight,
     required this.square,
+    this.side = coverUploadSide,
   });
 
   final Uint8List bytes;
   final int imageWidth;
   final int imageHeight;
   final bool square;
+
+  /// The longer side the cropped copy is saved at, at most.
+  final int side;
 
   /// The room the preview has at most, in dp.
   static const maxPreviewHeight = 291.0;
@@ -302,6 +309,7 @@ class _CoverFitSheetState extends State<CoverFitSheet> {
       widget.imageWidth,
       widget.imageHeight,
       square: widget.square,
+      side: widget.side,
     );
     final hint = theme.textTheme.bodySmall!.copyWith(
       fontStyle: FontStyle.normal,
