@@ -80,3 +80,76 @@ String? largeCoverUrl(String url, {required bool square}) {
   }
   return null;
 }
+
+final _anilist = RegExp(
+  r'^https://[a-z0-9.-]*anilist\.co/.+/cover/(small|medium|large)/',
+);
+final _openLibrary = RegExp(
+  r'^https://covers\.openlibrary\.org/.+-([SML])\.jpg',
+);
+final _googleBooks = RegExp(
+  r'^https?://books\.google\.[a-z.]+/.*[?&]zoom=(\d)',
+);
+
+/// IGDB's sizes as a 3:4 cover's width.
+const _igdbWidths = {
+  't_cover_small': 90,
+  't_cover_small_2x': 180,
+  't_cover_big': 264,
+  't_cover_big_2x': 528,
+  't_720p': 540,
+  't_1080p': 810,
+};
+
+/// How wide, in pixels, the largest version of the cover at [url] is that
+/// the app would fetch for the larger view ([largeCoverUrl], else [url]
+/// itself), read from the URL alone: nothing is downloaded. Null when the
+/// URL says nothing (one of the owner's own files, an unknown server).
+///
+/// Exact where the size is in the URL and the server renders it: TMDB's
+/// `w780`, Deezer's 1000, Apple's box (a book's width taken as two thirds
+/// of the box, its shape being unknown). Assumed where the source names a
+/// size without a width: IGDB's `t_1080p` as 810 (a 3:4 cover), AniList's
+/// `extraLarge` as 460, Open Library's `-L` as 500, Google Books' medium
+/// as 575. A source may also hold a smaller original than the size asked
+/// for; that cannot be known without the file.
+int? largestCoverWidth(String url, {required bool square}) {
+  final largest = largeCoverUrl(url, square: square) ?? url;
+  if (_tmdb.firstMatch(largest) case final m?) return int.parse(m[2]!);
+  if (_igdb.firstMatch(largest) case final m?) return _igdbWidths[m[2]];
+  if (_deezer.firstMatch(largest) case final m?) return int.parse(m[2]!);
+  if (_apple.firstMatch(largest) case final m?) {
+    final box = int.parse(m[2]!);
+    return square ? box : box * 2 ~/ 3;
+  }
+  if (_anilist.firstMatch(largest) case final m?) {
+    return const {'small': 100, 'medium': 230, 'large': 460}[m[1]];
+  }
+  if (_openLibrary.firstMatch(largest) case final m?) {
+    return const {'S': 40, 'M': 180, 'L': 500}[m[1]];
+  }
+  if (_googleBooks.firstMatch(largest) case final m?) {
+    return m[1] == '3' ? 575 : null;
+  }
+  return null;
+}
+
+/// How much wider the widest cover must be than another on offer to be
+/// called the sharpest.
+const sharpestCoverMargin = 1.25;
+
+/// Which of the choices with these [widths] (null: unknown) Pick a cover
+/// captions "Sharpest": the widest, when it is at least a quarter wider
+/// than another choice on offer; every one of them when several are
+/// equally wide. Empty when all are about the same.
+Set<int> sharpestCovers(List<int?> widths) {
+  final known = widths.nonNulls;
+  if (known.length < 2) return const {};
+  final widest = known.reduce((a, b) => a > b ? a : b);
+  final narrowest = known.reduce((a, b) => a < b ? a : b);
+  if (widest < narrowest * sharpestCoverMargin) return const {};
+  return {
+    for (final (i, width) in widths.indexed)
+      if (width == widest) i,
+  };
+}

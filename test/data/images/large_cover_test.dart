@@ -74,4 +74,98 @@ void main() {
       expect(largeCoverUrl(url, square: false), isNull, reason: url);
     }
   });
+
+  group('the width the larger view would get, from the URL alone', () {
+    test('a size in the URL is that size', () {
+      expect(
+        largestCoverWidth(
+          'https://image.tmdb.org/t/p/w342/abc.jpg',
+          square: false,
+        ),
+        780,
+      );
+      expect(
+        largestCoverWidth(
+          'https://cdn-images.dzcdn.net/images/cover/abc/500x500-000000-80-0-0.jpg',
+          square: true,
+        ),
+        1000,
+      );
+      const apple =
+          'https://is1-ssl.mzstatic.com/image/thumb/Music/v4/a/b/c/x.jpg/600x600bb.jpg';
+      expect(largestCoverWidth(apple, square: true), 900);
+      // A book's box is 1170: 780 wide at 2:3.
+      expect(largestCoverWidth(apple, square: false), 780);
+    });
+
+    test('a named size is the width assumed for it', () {
+      expect(
+        largestCoverWidth(
+          'https://images.igdb.com/igdb/image/upload/t_cover_big/co1.jpg',
+          square: false,
+        ),
+        810,
+      );
+      expect(
+        largestCoverWidth(
+          'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1.jpg',
+          square: false,
+        ),
+        460,
+      );
+      expect(
+        largestCoverWidth(
+          'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1.jpg',
+          square: false,
+        ),
+        230,
+      );
+      expect(
+        largestCoverWidth(
+          'https://covers.openlibrary.org/b/olid/OL1M-L.jpg?default=false',
+          square: false,
+        ),
+        500,
+      );
+    });
+
+    test('one of your own files, or an unknown server, says nothing', () {
+      expect(
+        largestCoverWidth(
+          'repo:movies/the-mummy-1999.a3f9c2e.jpg',
+          square: false,
+        ),
+        isNull,
+      );
+      expect(
+        largestCoverWidth('https://example.com/a.jpg', square: false),
+        isNull,
+      );
+    });
+  });
+
+  group('the sharpest of the choices', () {
+    test('the widest, when a quarter wider than another', () {
+      expect(sharpestCovers([460, 780, 460]), {1});
+      // Exactly a quarter is enough; a little under is not.
+      expect(sharpestCovers([400, 500]), {1});
+      expect(sharpestCovers([400, 499]), isEmpty);
+    });
+
+    test('all about the same: none', () {
+      expect(sharpestCovers([780, 780, 780]), isEmpty);
+      expect(sharpestCovers([780, 810]), isEmpty);
+      expect(sharpestCovers([780]), isEmpty);
+      expect(sharpestCovers([]), isEmpty);
+    });
+
+    test('several equally wide are all the sharpest', () {
+      expect(sharpestCovers([780, 500, 780]), {0, 2});
+    });
+
+    test('a choice of unknown width is left out', () {
+      expect(sharpestCovers([null, 780, 500]), {1});
+      expect(sharpestCovers([null, 780]), isEmpty);
+    });
+  });
 }

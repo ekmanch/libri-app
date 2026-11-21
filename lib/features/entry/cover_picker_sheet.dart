@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/covers/cover_files.dart';
 import '../../data/covers/cover_picture.dart';
 import '../../data/images/artwork_providers.dart';
+import '../../data/images/large_cover.dart';
 import '../../data/library_providers.dart';
 import '../../data/lookup/lookup_failure.dart';
 import '../../data/lookup/lookup_match.dart';
@@ -131,7 +132,9 @@ Future<void> showCoverPicker(
 /// repo (DESIGN.md section 10d), each with a "Yours" badge; a long press
 /// offers Delete file. Online, with its count: the match's own cover first,
 /// captioned "The match’s cover", then the other matches for the title with
-/// their year and edition. The picked one is ringed. No file names, folders
+/// their year and edition. The picked one is ringed. The choice whose
+/// larger version is clearly the widest is captioned "Sharpest"
+/// ([sharpestCovers]). No file names, folders
 /// or source names are shown.
 ///
 /// Upload opens the sources (Photo library, Files, Paste image); the tile
@@ -455,6 +458,14 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
     final moreFound = choices.length - listed;
     final hasOwnOnline = _ownCoverUrl != null;
     final onlineCount = (hasOwnOnline ? 1 : 0) + choices.length;
+    // The sharpest online choice, by the width the larger view would get.
+    final sharpest = sharpestCovers([
+      for (final url in [
+        if (hasOwnOnline) _ownCoverUrl,
+        for (final match in choices) match.cacheCoverUrl,
+      ])
+        url == null ? null : largestCoverWidth(url, square: _square),
+    ]);
     // An online cover turned up for a title that has been using yours.
     final isNew = pickedPath != null && !_keepMine && hasOwnOnline;
     final hint = theme.textTheme.bodySmall!.copyWith(
@@ -623,6 +634,7 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
                   lines: [
                     if (subject.year case final year?) '$year',
                     'The match’s cover',
+                    if (sharpest.contains(i)) 'Sharpest',
                   ],
                   onTap: () => _pickOnline(null, _ownCoverUrl),
                 );
@@ -634,7 +646,10 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
                 title: match.title,
                 width: width,
                 picked: _picked == match.coverFrom,
-                lines: [if (caption.isNotEmpty) caption],
+                lines: [
+                  if (caption.isNotEmpty) caption,
+                  if (sharpest.contains(i)) 'Sharpest',
+                ],
                 onTap: () => _pickOnline(match.coverFrom, match.cacheCoverUrl),
               );
             },

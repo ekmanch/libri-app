@@ -8,7 +8,9 @@ import 'package:library_app/data/covers/cover_files.dart';
 import 'package:library_app/data/covers/cover_store.dart';
 import 'package:library_app/data/github/git_blob.dart';
 import 'package:library_app/data/library_providers.dart';
+import 'package:library_app/data/lookup/lookup_match.dart';
 import 'package:library_app/data/lookup/lookup_providers.dart';
+import 'package:library_app/data/models/released.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_kind.dart';
 import 'package:library_app/data/models/entry_status.dart';
@@ -17,6 +19,7 @@ import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/repository/fixture_library_repository.dart';
 import 'package:library_app/dev/fake_covers.dart';
 import 'package:library_app/dev/fake_lookup.dart';
+import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/widgets/cover_choice.dart';
 import 'package:library_app/features/entry/cover_picker_sheet.dart';
 
@@ -51,6 +54,7 @@ void main() {
     List<Entry>? entries,
     String? ownCoverUrl = mummyOnline,
     bool askForMatchCover = false,
+    FakeLookupSource? lookup,
   }) async {
     store = fakeCoverStore(files: files);
     remote = store.remote! as FakeCoverRemote;
@@ -77,6 +81,9 @@ void main() {
         coverSourcesProvider.overrideWithValue(sources),
         coverPicturesProvider.overrideWithValue(pictures),
       ],
+      lookupOverrides: lookup == null
+          ? null
+          : fakeLookupOverrides(source: lookup),
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
@@ -521,6 +528,46 @@ void main() {
     expect(picks.single.keepMine, isFalse);
   });
 
+  testWidgets('the clearly sharpest online choice is captioned Sharpest, '
+      'beside “The match’s cover” when it is that one', (tester) async {
+    // The match's cover is TMDB's (780 wide in the larger view); the
+    // fake's other choices have no size, so nothing is compared yet.
+    const tmdb = 'https://image.tmdb.org/t/p/w342/mummy.jpg';
+    await open(tester, mummySubject(), ownCoverUrl: tmdb);
+    await tester.pumpAndSettle();
+    expect(find.text('Sharpest'), findsNothing);
+    Navigator.of(tester.element(find.text('Pick a cover'))).pop();
+    await tester.pumpAndSettle();
+
+    // Over an AniList cover (460) it is the sharpest; the other is not.
+    await open(
+      tester,
+      mummySubject(),
+      ownCoverUrl: tmdb,
+      lookup: _Covers([
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1.jpg',
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Sharpest'), findsOneWidget);
+    final own = tester.widget<CoverChoice>(find.byType(CoverChoice).at(0));
+    expect(own.lines, ['1999', 'The match’s cover', 'Sharpest']);
+    final other = tester.widget<CoverChoice>(find.byType(CoverChoice).at(1));
+    expect(other.lines, ['2001']);
+    Navigator.of(tester.element(find.text('Pick a cover'))).pop();
+    await tester.pumpAndSettle();
+
+    // Two of the same width: neither.
+    await open(
+      tester,
+      mummySubject(),
+      ownCoverUrl: tmdb,
+      lookup: _Covers(['https://image.tmdb.org/t/p/w342/returns.jpg']),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Sharpest'), findsNothing);
+  });
+
   testWidgets("a song's picker works on its album, and saves at once", (
     tester,
   ) async {
@@ -609,4 +656,27 @@ void main() {
       expect(find.text(link), findsNothing);
     });
   });
+}
+
+/// The fake lookup answering Pick a cover with the covers at [urls].
+class _Covers extends FakeLookupSource {
+  _Covers(this.urls);
+
+  final List<String> urls;
+
+  @override
+  Future<List<LookupMatch>> coverChoices(
+    String title, {
+    required MediaType type,
+    String? creator,
+  }) async => [
+    for (final (i, url) in urls.indexed)
+      LookupMatch(
+        type: type,
+        title: title,
+        source: 'fake:choice-$i',
+        released: const Released(2001),
+        coverUrl: url,
+      ),
+  ];
 }
