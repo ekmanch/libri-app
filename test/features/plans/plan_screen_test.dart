@@ -20,6 +20,8 @@ import 'package:library_app/theme/app_theme.dart';
 import 'package:library_app/widgets/app_buttons.dart';
 import 'package:library_app/widgets/chips.dart';
 
+import 'package:library_app/features/library/larger_cover.dart';
+
 import '../../helpers/fonts.dart';
 import '../../helpers/pump_app.dart';
 
@@ -136,6 +138,26 @@ void main() {
       expect(find.byType(PlanEntrySheet), findsOneWidget);
       expect(find.text('Mark as done'), findsOneWidget);
       expect(find.text('When'), findsNothing); // No timeline on this plan.
+    });
+
+    testWidgets('a long press on a row shows its cover larger, in the '
+        'checklist and All Christmas', (tester) async {
+      Future<void> pressAndClose(String title) async {
+        await tester.longPress(find.text(title).first);
+        await tester.pumpAndSettle();
+        expect(find.byType(PlanEntrySheet), findsNothing);
+        expect(find.byType(LargerCoverView), findsOneWidget);
+        expect(find.text('Change cover'), findsOneWidget);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.byType(LargerCoverView), findsNothing);
+      }
+
+      await open(tester, 'christmas-2026');
+      await pressAndClose('Die Hard');
+      await tester.tap(find.text('All Christmas'));
+      await tester.pumpAndSettle();
+      await pressAndClose('Die Hard');
     });
   });
 
@@ -341,6 +363,20 @@ void main() {
   );
 
   group('timeline', () {
+    testWidgets('a long press on a card shows its cover larger', (
+      tester,
+    ) async {
+      await open(tester, 'halloween-2026');
+      final card = find.byWidgetPredicate(
+        (w) => w is InkWell && w.onLongPress != null,
+      );
+      expect(card, findsWidgets);
+      await tester.longPress(card.first);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlanEntrySheet), findsNothing);
+      expect(find.byType(LargerCoverView), findsOneWidget);
+    });
+
     testWidgets('dated groups with the rail and today, then Whenever', (
       tester,
     ) async {

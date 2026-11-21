@@ -15,6 +15,7 @@ import '../../widgets/app_buttons.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entry_row.dart';
+import '../library/larger_cover.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/row_ink_well.dart';
 import '../../widgets/section_heading.dart';
@@ -672,6 +673,9 @@ class _CheckRow extends StatelessWidget {
           Expanded(
             child: RowInkWell(
               onTap: onOpen,
+              // The cover, larger (Library › Cover, larger), as in every
+              // list.
+              onLongPress: () => showLargerCover(context, entry),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 48),
                 alignment: Alignment.centerLeft,
@@ -923,6 +927,7 @@ class _TimelineCard extends StatelessWidget {
           Expanded(
             child: InkWell(
               onTap: onOpen,
+              onLongPress: () => showLargerCover(context, entry),
               borderRadius: BorderRadius.circular(10),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 48),
@@ -1108,30 +1113,36 @@ class _Pool extends ConsumerWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        entry.title,
-                                        style: theme.textTheme.titleMedium,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      if (meta.isNotEmpty)
+                                // The row has no tap of its own; a long
+                                // press shows the cover larger.
+                                child: RowInkWell(
+                                  onLongPress: () =>
+                                      showLargerCover(context, entry),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 10,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          meta,
-                                          style: theme.textTheme.bodySmall!
-                                              .copyWith(
-                                                fontSize: 13,
-                                                fontStyle: FontStyle.normal,
-                                              ),
+                                          entry.title,
+                                          style: theme.textTheme.titleMedium,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                    ],
+                                        if (meta.isNotEmpty)
+                                          Text(
+                                            meta,
+                                            style: theme.textTheme.bodySmall!
+                                                .copyWith(
+                                                  fontSize: 13,
+                                                  fontStyle: FontStyle.normal,
+                                                ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
