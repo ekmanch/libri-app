@@ -33,12 +33,14 @@ SetCover _$SetCoverFromJson(Map<String, dynamic> json) => SetCover(
   json['entryId'] as String,
   coverFrom: json['coverFrom'] as String?,
   keepMine: json['keepMine'] as bool? ?? false,
+  ifNone: json['ifNone'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$SetCoverToJson(SetCover instance) => <String, dynamic>{
   'entryId': instance.entryId,
   'coverFrom': instance.coverFrom,
   'keepMine': instance.keepMine,
+  'ifNone': instance.ifNone,
 };
 
 SetTmdbShow _$SetTmdbShowFromJson(Map<String, dynamic> json) =>

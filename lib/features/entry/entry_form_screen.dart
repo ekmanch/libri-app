@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/covers/cover_files.dart';
+import '../../data/images/anime_cover_default.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/library_providers.dart';
 import '../../data/models/app_settings.dart';
@@ -1137,6 +1138,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         year: year,
         creator: creator.isEmpty ? null : creator,
         source: _source,
+        tmdb: _animeTmdb,
         coverFrom: _coverFrom,
         keepMine: _coverKeepMine,
       ),
@@ -1296,10 +1298,13 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       seasonalOnly: _seasonalOnly,
       added: base?.added ?? DateTime(now.year, now.month, now.day),
       source: _source,
-      tmdb: _type == MediaType.anime && _kind != EntryKind.movie
-          ? _typedTmdb
-          : null,
-      coverFrom: _coverFrom,
+      tmdb: _animeTmdb,
+      // TMDB's poster follows the link it came from.
+      coverFrom: coverFromAfterTmdbChange(
+        _coverFrom,
+        oldTmdb: widget.entry?.tmdb,
+        newTmdb: _animeTmdb,
+      ),
       coverKeepMine: _coverKeepMine && isRepoCover(_coverFrom) ? true : null,
       platform: _type == MediaType.games && platform.isNotEmpty
           ? platform
@@ -1334,6 +1339,19 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   /// The TMDB show as typed in its field, when the field has one, else
   /// as picked.
+  /// The `tmdb` link as it would be saved: an anime's that is not a movie.
+  String? get _animeTmdb =>
+      _type == MediaType.anime && _kind != EntryKind.movie ? _typedTmdb : null;
+
+  /// The cover is the entry's own match's although `cover_from` names it:
+  /// an anime's TMDB poster (the default), or AniList's picked to stay.
+  bool get _coverIsOwnMatch =>
+      _type == MediaType.anime &&
+      _coverFrom != null &&
+      (_coverFrom == _animeTmdb ||
+          _coverFrom == widget.entry?.tmdb ||
+          _coverFrom == _source);
+
   String? get _typedTmdb {
     final digits = _tmdbId.text.trim();
     return digits.isEmpty ? null : 'tmdb:tv:$digits';
@@ -1534,7 +1552,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                             : _pickedCoverUrl),
                     source: isRepoCover(_coverFrom)
                         ? _FormCoverSource.yours
-                        : _coverFrom != null
+                        : _coverFrom != null && !_coverIsOwnMatch
                         ? _FormCoverSource.otherMatch
                         : _ownCoverUrl == null &&
                               _albumCoverUrl == null &&
@@ -1543,7 +1561,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                         : _FormCoverSource.match,
                     canReset: isRepoCover(_coverFrom)
                         ? _ownCoverUrl != null
-                        : _coverFrom != null,
+                        : _coverFrom != null && !_coverIsOwnMatch,
                     onTap: _pickCover,
                     // Leaving one of your own files asks about the file,
                     // which Pick a cover does.

@@ -528,6 +528,67 @@ void main() {
     expect(picks.single.keepMine, isFalse);
   });
 
+  group('an anime', () {
+    final frieren = Entry(
+      id: 'anime/frieren-2023',
+      type: MediaType.anime,
+      title: 'Frieren',
+      kind: EntryKind.series,
+      status: EntryStatus.want,
+      added: DateTime(2026),
+      released: Released(2023),
+      source: 'anilist:154587',
+      tmdb: 'tmdb:tv:209867',
+    );
+    const aniList = 'fake://cover/poster/anilist:154587';
+
+    testWidgets('has its TMDB show’s poster as a choice, the default one, and '
+        'AniList’s cover sticks when picked', (tester) async {
+      final container = await open(
+        tester,
+        CoverSubject.saved(frieren),
+        entries: [frieren],
+        ownCoverUrl: aniList,
+      );
+      final tmdb = tester.widget<CoverChoice>(find.byType(CoverChoice).at(0));
+      final own = tester.widget<CoverChoice>(find.byType(CoverChoice).at(1));
+      // No cover_from yet: the default is what the entry will show.
+      expect(tmdb.picked, isTrue);
+      expect(own.picked, isFalse);
+      expect(own.lines, contains('The match’s cover'));
+
+      // AniList's is written as the entry's own id, so it stays.
+      own.onTap();
+      await tester.pumpAndSettle();
+      expect(picks.last.coverFrom, 'anilist:154587');
+      final library = await repo(container).load();
+      expect(library.entryById(frieren.id)!.coverFrom, 'anilist:154587');
+      expect(
+        tester.widget<CoverChoice>(find.byType(CoverChoice).at(1)).picked,
+        isTrue,
+      );
+
+      // And TMDB's as the show's id.
+      tester.widget<CoverChoice>(find.byType(CoverChoice).at(0)).onTap();
+      await tester.pumpAndSettle();
+      expect(picks.last.coverFrom, 'tmdb:tv:209867');
+      expect(picks.last.url, 'fake://cover/poster/tmdb:tv:209867');
+    });
+
+    testWidgets('without a tmdb link has no such tile', (tester) async {
+      final unlinked = frieren.copyWith(tmdb: null);
+      await open(
+        tester,
+        CoverSubject.saved(unlinked),
+        entries: [unlinked],
+        ownCoverUrl: aniList,
+      );
+      final own = tester.widget<CoverChoice>(find.byType(CoverChoice).at(0));
+      expect(own.lines, contains('The match’s cover'));
+      expect(own.picked, isTrue);
+    });
+  });
+
   testWidgets('the clearly sharpest online choice is captioned Sharpest, '
       'beside “The match’s cover” when it is that one', (tester) async {
     // The match's cover is TMDB's (780 wide in the larger view); the

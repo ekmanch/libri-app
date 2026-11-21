@@ -44,6 +44,7 @@ class CoverSubject {
     this.year,
     this.creator,
     this.source,
+    this.tmdb,
     this.coverFrom,
     this.keepMine = false,
     this.stored = false,
@@ -58,6 +59,7 @@ class CoverSubject {
       year = album.year,
       creator = album.creator,
       source = album.source,
+      tmdb = null,
       coverFrom = album.coverFrom,
       keepMine = album.coverKeepMine ?? false,
       stored = true;
@@ -71,6 +73,7 @@ class CoverSubject {
       year = entry.year,
       creator = entry.creator,
       source = entry.source,
+      tmdb = entry.type == MediaType.anime ? entry.tmdb : null,
       coverFrom = entry.coverFrom,
       keepMine = entry.coverKeepMine ?? false,
       stored = true,
@@ -96,6 +99,10 @@ class CoverSubject {
 
   /// The entry's own lookup id; its match is not offered twice.
   final String? source;
+
+  /// An anime's TMDB show, `"tmdb:tv:209867"`: its poster is the anime's
+  /// default cover and a choice of its own.
+  final String? tmdb;
 
   /// The `cover_from` in effect.
   final String? coverFrom;
@@ -183,6 +190,22 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
   late String? _ownCoverUrl = widget.ownCoverUrl;
   LookupResult? _result;
 
+  /// The poster of an anime's TMDB show, once TMDB has answered with one.
+  String? _tmdbCoverUrl;
+
+  /// What picking the match's own cover writes. An anime's AniList cover
+  /// is written as the entry's own `anilist:` id, so the pick sticks and
+  /// the default (TMDB's poster) is not put back; for every other title
+  /// the match's own cover is no `cover_from` at all.
+  String? get _ownCoverFrom {
+    final source = _subject.source;
+    return _subject.type == MediaType.anime &&
+            source != null &&
+            source.startsWith('anilist:')
+        ? source
+        : null;
+  }
+
   /// More covers of an album from the second music catalog, asked for by
   /// the link under Online (Pick a cover: more covers found): null until
   /// asked, and whether the ask is on its way or failed.
@@ -210,6 +233,7 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
     // when it is more than a minute old.
     ref.read(coverStoreProvider).refresh(ifStale: true);
     if (_ownCoverUrl == null && _subject.stored) _findOwnCover();
+    if (_subject.tmdb != null) _findTmdbCover();
     if (widget.askForMatchCover) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _pickOnline(null, _ownCoverUrl);
@@ -224,6 +248,20 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
     if (entry == null) return;
     final url = await ref.read(artworkResolverProvider).ownCoverUrl(entry);
     if (mounted && url != null) setState(() => _ownCoverUrl = url);
+  }
+
+  /// The poster of an anime's TMDB show; none when TMDB has none or did
+  /// not answer.
+  Future<void> _findTmdbCover() async {
+    final tmdb = _subject.tmdb!;
+    final source = ref.read(lookupServiceProvider).sourceOf(tmdb);
+    if (source == null || !source.isConfigured) return;
+    try {
+      final url = await source.coverUrl(tmdb, type: MediaType.anime);
+      if (mounted && url != null) setState(() => _tmdbCoverUrl = url);
+    } on LookupException {
+      // No tile.
+    }
   }
 
   Future<void> _lookUp() async {
@@ -457,17 +495,29 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
     }
     final moreFound = choices.length - listed;
     final hasOwnOnline = _ownCoverUrl != null;
-    final onlineCount = (hasOwnOnline ? 1 : 0) + choices.length;
+    // An anime's TMDB poster comes first: it is the default cover.
+    final tmdbUrl = _tmdbCoverUrl == _ownCoverUrl ? null : _tmdbCoverUrl;
+    final hasTmdb = tmdbUrl != null;
+    final ownAt = hasTmdb ? 1 : 0;
+    final choicesAt = ownAt + (hasOwnOnline ? 1 : 0);
+    final onlineCount = choicesAt + choices.length;
+    final ownCoverFrom = _ownCoverFrom;
+    // No `cover_from` shows the default: TMDB's poster, else the match's.
+    final tmdbPicked = _picked == subject.tmdb || (_picked == null && hasTmdb);
+    final ownPicked =
+        (ownCoverFrom != null && _picked == ownCoverFrom) ||
+        (_picked == null && !hasTmdb);
     // The sharpest online choice, by the width the larger view would get.
     final sharpest = sharpestCovers([
       for (final url in [
+        ?tmdbUrl,
         if (hasOwnOnline) _ownCoverUrl,
         for (final match in choices) match.cacheCoverUrl,
       ])
         url == null ? null : largestCoverWidth(url, square: _square),
     ]);
     // An online cover turned up for a title that has been using yours.
-    final isNew = pickedPath != null && !_keepMine && hasOwnOnline;
+    final isNew = pickedPath != null && !_keepMine && (hasOwnOnline || hasTmdb);
     final hint = theme.textTheme.bodySmall!.copyWith(
       fontStyle: FontStyle.normal,
       fontSize: 13.5,
@@ -623,23 +673,38 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
             runSpacing: 16,
             itemBuilder: (i, width) {
               final w = CoverChoice.imageWidth(width);
-              if (hasOwnOnline && i == 0) {
+              if (hasTmdb && i == 0) {
+                return CoverChoice(
+                  cover: cover(tmdbUrl, w),
+                  title: subject.title,
+                  width: width,
+                  picked: tmdbPicked,
+                  badge: isNew ? 'New' : null,
+                  badgeAccent: true,
+                  lines: [
+                    if (subject.year case final year?) '$year',
+                    if (sharpest.contains(i)) 'Sharpest',
+                  ],
+                  onTap: () => _pickOnline(subject.tmdb, tmdbUrl),
+                );
+              }
+              if (hasOwnOnline && i == ownAt) {
                 return CoverChoice(
                   cover: cover(_ownCoverUrl, w),
                   title: subject.title,
                   width: width,
-                  picked: _picked == null,
-                  badge: isNew ? 'New' : null,
+                  picked: ownPicked,
+                  badge: isNew && !hasTmdb ? 'New' : null,
                   badgeAccent: true,
                   lines: [
                     if (subject.year case final year?) '$year',
                     'The match’s cover',
                     if (sharpest.contains(i)) 'Sharpest',
                   ],
-                  onTap: () => _pickOnline(null, _ownCoverUrl),
+                  onTap: () => _pickOnline(ownCoverFrom, _ownCoverUrl),
                 );
               }
-              final match = choices[i - (hasOwnOnline ? 1 : 0)];
+              final match = choices[i - choicesAt];
               final caption = CoverPickerSheet.caption(match);
               return CoverChoice(
                 cover: cover(match.coverUrl ?? match.cacheCoverUrl, w),

@@ -169,10 +169,18 @@ class SetSeriesCover extends LibraryOperation {
 /// [coverFrom] is the lookup id of another match, "repo:" and the path of
 /// one of the owner's files, or null for the match's own cover. [keepMine]
 /// writes `cover_keep_mine`, which only stays beside one of the owner's
-/// files. A missing entry changes nothing.
+/// files. A missing entry changes nothing. With [ifNone] the cover is set
+/// only while the entry has no `cover_from`: the default cover of an
+/// anime (TMDB's poster), which never replaces a cover picked meanwhile,
+/// here or on another device.
 @JsonSerializable()
 class SetCover extends LibraryOperation {
-  const SetCover(this.entryId, {this.coverFrom, this.keepMine = false});
+  const SetCover(
+    this.entryId, {
+    this.coverFrom,
+    this.keepMine = false,
+    this.ifNone = false,
+  });
 
   factory SetCover.fromJson(Map<String, Object?> json) =>
       _$SetCoverFromJson(json);
@@ -183,10 +191,13 @@ class SetCover extends LibraryOperation {
   final String? coverFrom;
   final bool keepMine;
 
+  final bool ifNone;
+
   @override
   Library apply(Library library) {
     final entry = library.entryById(entryId);
     if (entry == null) return library;
+    if (ifNone && entry.coverFrom != null) return library;
     final next = _withTidyCover(
       entry.copyWith(
         coverFrom: coverFrom,

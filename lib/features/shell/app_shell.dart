@@ -27,6 +27,7 @@ import '../sync/token_expiry.dart';
 import '../sync/token_expiry_dialog.dart';
 import '../upcoming/upcoming_checks.dart';
 import '../../data/covers/artist_photo_providers.dart';
+import '../../data/images/anime_cover_default.dart';
 import '../../data/images/artwork_providers.dart';
 import '../../data/images/large_cover_providers.dart';
 import '../../data/library_providers.dart';
@@ -100,6 +101,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.listenManual(artworkPrunerProvider, (_, _) {});
     ref.listenManual(matchKeeperProvider, (_, _) {});
     ref.listenManual(artistPhotoFetchProvider, (_, _) {});
+    ref.listenManual(animeCoverCheckProvider, (_, _) {});
     ref.listenManual(largeCoverFetchProvider, (_, _) {});
     // A photo pick a sync dropped for another device's is said once, with
     // Pick again (Music › Artist photo: your pick wasn't saved).

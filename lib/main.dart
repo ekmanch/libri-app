@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_info.dart';
 import 'data/covers/artist_photo_providers.dart';
+import 'data/images/anime_cover_default.dart';
 import 'data/images/artwork_providers.dart';
 import 'data/images/large_cover_providers.dart';
 import 'data/github/token_store.dart';
@@ -99,6 +100,7 @@ Future<Widget> bootstrap(
       artworkPrunerProvider.overrideWith(startArtworkPruner),
       matchKeeperProvider.overrideWith(startMatchKeeper),
       artistPhotoFetchProvider.overrideWith(startArtistPhotoFetch),
+      animeCoverCheckProvider.overrideWith(startAnimeCoverCheck),
       // Not for the generated entries, which no source knows.
       if (!longListsEnabled)
         largeCoverFetchProvider.overrideWith(startLargeCoverFetch),
