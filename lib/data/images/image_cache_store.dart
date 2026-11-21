@@ -20,7 +20,9 @@ class CachedImage {
 }
 
 /// Cover images and artist photos on the device, one file per URL under
-/// `<cache>/images/<sha1 of the url>.img`. A URL asked for twice at once is
+/// `<cache>/<folder>/<sha1 of the url>.img`: `images` for the covers the
+/// lists show, `images_large` for their larger versions (see
+/// `large_cover.dart`), each a store of its own. A URL asked for twice at once is
 /// fetched once; a URL that failed is not asked again until [retryAfter]
 /// (sooner when the failure was being offline). [prune] drops every file
 /// whose URL is no longer wanted.
@@ -29,6 +31,7 @@ class ImageCacheStore {
     this.directory, {
     required this.fetcher,
     this.covers,
+    this.folder = 'images',
     DateTime Function()? now,
     this.retryAfter = const Duration(hours: 6),
     this.offlineRetryAfter = const Duration(seconds: 30),
@@ -41,6 +44,9 @@ class ImageCacheStore {
   /// in the library repo) is one of its files, kept in its own folder and
   /// never in this cache, so every view draws it like a URL.
   final CoverStore? covers;
+
+  /// The folder under [directory] the files are in.
+  final String folder;
   final Duration retryAfter;
   final Duration offlineRetryAfter;
   final DateTime Function() _now;
@@ -52,7 +58,7 @@ class ImageCacheStore {
   static const _suffix = '.img';
 
   Directory get imagesDirectory =>
-      Directory('${directory.path}${Platform.pathSeparator}images');
+      Directory('${directory.path}${Platform.pathSeparator}$folder');
 
   static String keyFor(String url) => sha1.convert(utf8.encode(url)).toString();
 
@@ -74,9 +80,19 @@ class ImageCacheStore {
     return null;
   }
 
+  /// Whether a download is under way: the pass that fetches the larger
+  /// covers waits while a list is waiting for one of these.
+  bool get isBusy => _inFlight.isNotEmpty;
+
   /// The file, downloading it first when needed. Null when the download
-  /// failed; the failure is remembered for a while.
-  Future<CachedImage?> get(String url) {
+  /// failed; the failure is remembered for a while, and a URL that failed
+  /// is not asked again until then unless [retry] says so (a cover opened
+  /// large asks every time). [onError] is told why a download failed.
+  Future<CachedImage?> get(
+    String url, {
+    bool retry = false,
+    void Function(Object error)? onError,
+  }) {
     if (repoCoverPath(url) case final path?) {
       return (covers?.fetch(path) ?? Future.value(null)).then(
         (found) => found == null
@@ -89,15 +105,20 @@ class ImageCacheStore {
       return Future.value(CachedImage(cached, downloadedNow: false));
     }
     final until = _failedUntil[url];
-    if (until != null && _now().isBefore(until)) return Future.value(null);
+    if (!retry && until != null && _now().isBefore(until)) {
+      return Future.value(null);
+    }
     // A block body: returning the removed future would make whenComplete
     // wait for it, that is, for itself.
-    return _inFlight[url] ??= _download(url).whenComplete(() {
+    return _inFlight[url] ??= _download(url, onError).whenComplete(() {
       _inFlight.remove(url);
     });
   }
 
-  Future<CachedImage?> _download(String url) async {
+  Future<CachedImage?> _download(
+    String url,
+    void Function(Object error)? onError,
+  ) async {
     final Uri uri;
     try {
       uri = Uri.parse(url);
@@ -112,16 +133,36 @@ class ImageCacheStore {
       _present.add(keyFor(url));
       _failedUntil.remove(url);
       return CachedImage(file, downloadedNow: true);
-    } on NetworkUnreachable {
+    } on NetworkUnreachable catch (e) {
       _failedUntil[url] = _now().add(offlineRetryAfter);
+      onError?.call(e);
       return null;
-    } on ImageFetchException {
+    } on ImageFetchException catch (e) {
       _failedUntil[url] = _now().add(retryAfter);
+      onError?.call(e);
       return null;
-    } on FileSystemException {
+    } on FileSystemException catch (e) {
       _failedUntil[url] = _now().add(offlineRetryAfter);
+      onError?.call(e);
       return null;
     }
+  }
+
+  /// How many image files the folder holds and their total size.
+  Future<({int files, int bytes})> size() async {
+    if (!await imagesDirectory.exists()) return (files: 0, bytes: 0);
+    var files = 0;
+    var bytes = 0;
+    await for (final entity in imagesDirectory.list()) {
+      if (entity is! File || !entity.path.endsWith(_suffix)) continue;
+      try {
+        bytes += await entity.length();
+        files++;
+      } on FileSystemException {
+        // Gone meanwhile.
+      }
+    }
+    return (files: files, bytes: bytes);
   }
 
   /// Removes every cached file whose URL is not in [keepUrls], and any

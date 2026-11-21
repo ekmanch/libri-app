@@ -5,6 +5,7 @@ import '../data/covers/artist_photos.dart';
 import '../data/covers/cover_files.dart';
 import '../data/images/artwork_providers.dart';
 import '../data/images/artwork_resolver.dart';
+import '../data/images/large_cover.dart';
 import '../data/library_providers.dart';
 import '../data/models/entry.dart';
 import '../data/models/entry_kind.dart';
@@ -29,7 +30,13 @@ class ArtistPhoto extends ConsumerStatefulWidget {
     this.initialsSize,
     this.borderRadius,
     this.onCover,
+    this.large = false,
   });
+
+  /// Whether a cover from the library that stands in for the photo is
+  /// shown in its larger version (Library › Cover, larger: an artist). The
+  /// artist's own file is on the phone as it is and has no other size.
+  final bool large;
 
   final String name;
   final String initials;
@@ -144,6 +151,7 @@ class _ArtistPhotoState extends ConsumerState<ArtistPhoto> {
       ),
     );
     final String? url;
+    String? largeUrl;
     final Key key;
     if (file != null) {
       _release();
@@ -168,11 +176,15 @@ class _ArtistPhotoState extends ConsumerState<ArtistPhoto> {
         });
       }
       url = _coverUrl;
+      if (widget.large && url != null) {
+        largeUrl = largeCoverUrl(url, square: true);
+      }
       key = ValueKey('cover:$url');
     }
     return CachedImage(
       key: key,
       url: url,
+      largeUrl: largeUrl,
       width: widget.size,
       height: widget.size,
       placeholder: placeholder,

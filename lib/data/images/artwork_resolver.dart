@@ -121,6 +121,18 @@ class ArtworkResolver {
   String? cachedCoverUrl(Entry entry) =>
       isRepoCover(entry.coverFrom) ? entry.coverFrom : _recordOf(entry)?.url;
 
+  /// Whether what the entry shows is on record: a cover, or a miss. False
+  /// for an entry never looked up, or whose lookup did not work out.
+  bool isSettled(Entry entry) =>
+      isRepoCover(entry.coverFrom) || _recordOf(entry) != null;
+
+  /// Why the last lookup of the entry gave no answer, when it did not.
+  LookupFailure? failureOf(Entry entry) => _failures[entry.id];
+
+  /// Whether a lookup is running or waiting: the pass that fills in covers
+  /// in the background waits while a list is waiting for one.
+  bool get isBusy => _running > 0 || _queue.isNotEmpty;
+
   /// The lookup id the entry was matched to on the device, when known.
   String? cachedSource(Entry entry) => _recordOf(entry)?.source;
 

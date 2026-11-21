@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app_info.dart';
+import '../../data/covers/cover_files.dart';
+import '../../data/images/large_cover_providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_icons.dart';
 import '../../widgets/libri_logo.dart';
@@ -127,6 +129,23 @@ class AboutScreen extends ConsumerWidget {
 
   static const _heading = EdgeInsets.fromLTRB(0, 20, 0, 2);
 
+  /// "1,012 of 1,104 on this phone · 187.3 MB", and what the last run
+  /// fetched while the app has been open: "Last run: 692 in 3 min 12 s".
+  static String largeCoversLine(LargeCoverStatus status) {
+    final last = status.last;
+    final count = last == null
+        ? '${status.files}'
+        : '${status.files} of ${last.wanted}';
+    final size = status.files == 0 ? '' : ' · ${coverSizeLabel(status.bytes)}';
+    final line = '$count on this phone$size';
+    if (last == null || last.fetched == 0) return line;
+    final seconds = last.took.inSeconds;
+    final took = seconds < 60
+        ? '$seconds s'
+        : '${seconds ~/ 60} min ${seconds % 60} s';
+    return '$line\nLast run: ${last.fetched} in $took';
+  }
+
   Future<void> _open(Uri url) async {
     if (openUrl != null) return openUrl!(url);
     try {
@@ -197,6 +216,9 @@ class AboutScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  // The larger versions of the covers (Library › Cover,
+                  // larger), fetched in the background: what is there.
+                  const _LargeCoversRow(),
                   const SectionHeading('Data sources', padding: _heading),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(0, 6, 0, 2),
@@ -223,6 +245,40 @@ class AboutScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// "Larger covers" with what is on the phone, counted when the screen
+/// opens.
+class _LargeCoversRow extends ConsumerStatefulWidget {
+  const _LargeCoversRow();
+
+  @override
+  ConsumerState<_LargeCoversRow> createState() => _LargeCoversRowState();
+}
+
+class _LargeCoversRowState extends ConsumerState<_LargeCoversRow> {
+  LargeCoverStatus? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    final last = ref.read(largeCoverPassProvider).progress;
+    ref.read(largeImageCacheProvider).size().then((size) {
+      if (!mounted) return;
+      setState(
+        () => _status = (files: size.files, bytes: size.bytes, last: last),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => SettingRow(
+    label: 'Larger covers',
+    detail: switch (_status) {
+      null => '…',
+      final status => AboutScreen.largeCoversLine(status),
+    },
+  );
 }
 
 /// One credit: the name, what the source is used for, its logo when it

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:library_app/data/images/artwork_providers.dart';
+import 'package:library_app/data/images/large_cover_providers.dart';
 import 'package:library_app/data/library_providers.dart';
 import 'package:library_app/dev/fake_covers.dart';
 import 'package:library_app/dev/fake_images.dart';
@@ -153,5 +155,67 @@ void main() {
     await tester.pump();
     await settleImages(tester);
     expect(image().url, startsWith('fake://cover/square/'));
+  });
+  group('the larger version', () {
+    const small = 'fake://cover/poster/x';
+    const larger = 'fake://cover/poster/x-larger';
+
+    Widget cover({String? largeUrl = larger}) => Scaffold(
+      body: Center(
+        child: CachedImage(
+          url: small,
+          largeUrl: largeUrl,
+          width: 240,
+          height: 360,
+          placeholder: const SizedBox(),
+        ),
+      ),
+    );
+
+    Future<void> settle(WidgetTester tester, int images) async {
+      for (
+        var i = 0;
+        i < 40 && find.byType(Image).evaluate().length < images;
+        i++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+      }
+    }
+
+    testWidgets('is fetched when the cover is opened, into its own folder, '
+        'and drawn over the image the lists show', (tester) async {
+      final container = await pumpApp(tester, cover());
+      await settle(tester, 2);
+      expect(find.byType(Image), findsNWidgets(2));
+      final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
+      expect(fetcher.fetched, containsAll([small, larger]));
+      final store = container.read(largeImageCacheProvider);
+      expect(store.cachedFile(larger), isNotNull);
+      expect(store.cachedFile(larger)!.path, contains('images_large'));
+      expect(container.read(imageCacheProvider).cachedFile(larger), isNull);
+    });
+
+    testWidgets('that cannot be fetched leaves the smaller image, with no '
+        'error', (tester) async {
+      await pumpApp(
+        tester,
+        cover(),
+        lookupOverrides: fakeLookupOverrides(failingImages: {larger}),
+      );
+      await settle(tester, 2);
+      expect(find.byType(Image), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('is never asked for by a list', (tester) async {
+      final container = await pumpApp(tester, cover(largeUrl: null));
+      await settle(tester, 2);
+      expect(find.byType(Image), findsOneWidget);
+      final fetcher = container.read(imageFetcherProvider) as FakeImageFetcher;
+      expect(fetcher.fetched, [small]);
+    });
   });
 }

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/covers/cover_files.dart';
 import '../data/images/artwork_providers.dart';
 import '../data/images/artwork_resolver.dart';
+import '../data/images/large_cover.dart';
+import '../data/models/media_type.dart';
 import '../data/library_providers.dart';
 import '../data/models/entry.dart';
 import '../data/models/entry_kind.dart';
@@ -26,7 +28,13 @@ class CoverImage extends ConsumerStatefulWidget {
     this.badgeBelow = false,
     this.radius = 8,
     this.onCover,
+    this.large = false,
   });
+
+  /// Whether the larger version of the cover is shown where the source
+  /// has one (Library › Cover, larger and the cover in details), fetched
+  /// now when it is not on the phone yet. The lists never ask for it.
+  final bool large;
 
   final Entry entry;
   final double width;
@@ -146,8 +154,12 @@ class _CoverImageState extends ConsumerState<CoverImage> {
       text: widget.text,
       badgeBelow: widget.badgeBelow,
     );
+    final url = _url;
     return CachedImage(
-      url: _url,
+      url: url,
+      largeUrl: widget.large && url != null
+          ? largeCoverUrl(url, square: entry.type == MediaType.music)
+          : null,
       width: widget.width,
       height: widget.width / CoverPlaceholder.aspectRatio(entry.type),
       placeholder: placeholder,

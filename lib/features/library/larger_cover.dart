@@ -114,6 +114,7 @@ class _LargerEntryCoverState extends ConsumerState<_LargerEntryCover> {
       cover: (width) => CoverImage(
         entry: entry,
         width: width,
+        large: true,
         radius: LargerCoverView.coverRadius,
         text: CoverPlaceholderText.title,
         placeholderTitle: widget.title,
@@ -158,6 +159,7 @@ class _LargerSeriesCover extends ConsumerWidget {
         key: ValueKey(cover.id),
         entry: cover,
         width: width,
+        large: true,
         radius: LargerCoverView.coverRadius,
         text: CoverPlaceholderText.title,
         placeholderTitle: group.title,
@@ -204,6 +206,7 @@ class _LargerArtistPhotoState extends ConsumerState<_LargerArtistPhoto> {
         name: name,
         initials: artistInitials(name),
         size: width,
+        large: true,
         initialsSize: width * 0.3,
         onCover: (cover) {
           if (mounted && cover != _cover) setState(() => _cover = cover);

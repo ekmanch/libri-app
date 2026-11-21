@@ -7,6 +7,43 @@ import 'package:library_app/widgets/libri_logo.dart';
 import '../../helpers/pump_app.dart';
 
 void main() {
+  testWidgets('says how many larger covers are on the phone', (tester) async {
+    await pumpApp(tester, const AboutScreen());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    expect(find.text('Larger covers'), findsOneWidget);
+    expect(find.text('0 on this phone'), findsOneWidget);
+  });
+
+  test('the larger covers line counts, sizes and times', () {
+    expect(
+      AboutScreen.largeCoversLine((files: 412, bytes: 96300000, last: null)),
+      '412 on this phone · 96.3 MB',
+    );
+    expect(
+      AboutScreen.largeCoversLine((
+        files: 1104,
+        bytes: 187300000,
+        last: (
+          wanted: 1104,
+          fetched: 692,
+          took: const Duration(minutes: 3, seconds: 12),
+        ),
+      )),
+      '1104 of 1104 on this phone · 187.3 MB\nLast run: 692 in 3 min 12 s',
+    );
+    expect(
+      AboutScreen.largeCoversLine((
+        files: 3,
+        bytes: 400000,
+        last: (wanted: 9, fetched: 0, took: Duration.zero),
+      )),
+      '3 of 9 on this phone · 400 KB',
+    );
+  });
+
   testWidgets('shows the icon, the name, the version and build, and the '
       'licenses row', (tester) async {
     await pumpApp(tester, const AboutScreen());
@@ -34,6 +71,9 @@ void main() {
       'Wikidata',
     ]) {
       await tester.scrollUntilVisible(find.text(name), 200);
+      // The rows at the new place are built before the next search drags
+      // on, which would otherwise pass the row it is looking for.
+      await tester.pump();
       expect(find.text(name), findsOneWidget, reason: name);
       expect(find.bySemanticsLabel('$name, opens website'), findsOneWidget);
     }

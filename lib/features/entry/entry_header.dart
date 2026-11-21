@@ -76,6 +76,7 @@ class EntryHeader extends StatelessWidget {
               child: CoverImage(
                 entry: entry,
                 width: 84,
+                large: true,
                 text: CoverPlaceholderText.titleAndCreator,
               ),
             ),
