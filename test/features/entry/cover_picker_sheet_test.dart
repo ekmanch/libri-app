@@ -294,7 +294,7 @@ void main() {
         find.text('Drag up or down to choose which part is kept.'),
         findsOneWidget,
       );
-      expect(find.text('Saved at 1000 × 1500.'), findsOneWidget);
+      expect(find.text('Saved at 1080 × 1620.'), findsOneWidget);
       await tester.tap(find.text('Back'));
       await tester.pumpAndSettle();
       expect(find.text('Pick a cover'), findsOneWidget);

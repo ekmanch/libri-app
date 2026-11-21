@@ -22,19 +22,21 @@ Uint8List png(int width, int height, {bool clear = false}) {
 void main() {
   const pictures = EngineCoverPictures();
 
-  testWidgets('an upload is scaled to 1000 px on its longer side, as JPEG', (
+  testWidgets('an upload is scaled to 2000 px on its longer side, as JPEG', (
     tester,
   ) async {
     await tester.runAsync(() async {
-      expect(await pictures.sizeOf(png(1600, 2400)), (1600, 2400));
-      final prepared = await pictures.prepare(png(1600, 2400));
-      expect((prepared.width, prepared.height), (667, 1000));
+      expect(await pictures.sizeOf(png(2400, 3600)), (2400, 3600));
+      final prepared = await pictures.prepare(png(2400, 3600));
+      expect((prepared.width, prepared.height), (1333, 2000));
       expect(prepared.sha, gitBlobSha(prepared.bytes));
       // A JPEG, of that size.
       expect(prepared.bytes.sublist(0, 3), [0xFF, 0xD8, 0xFF]);
       final decoded = img.decodeJpg(prepared.bytes)!;
-      expect((decoded.width, decoded.height), (667, 1000));
-      // Never scaled up.
+      expect((decoded.width, decoded.height), (1333, 2000));
+      // At or under the limit it keeps its own size; never scaled up.
+      final atLimit = await pictures.prepare(png(2000, 1200));
+      expect((atLimit.width, atLimit.height), (2000, 1200));
       final small = await pictures.prepare(png(200, 300));
       expect((small.width, small.height), (200, 300));
     });
@@ -70,11 +72,12 @@ void main() {
       final rightPixel = img.decodeJpg(right.bytes)!.getPixel(360, 540);
       expect(rightPixel.b, greaterThan(200));
       expect(rightPixel.r, lessThan(60));
-      // A large one is saved at 1000 × 1500; music at 1000 × 1000.
-      final large = await pictures.fit(png(3000, 2000), at: 0.5, square: false);
-      expect((large.width, large.height), (1000, 1500));
-      final square = await pictures.fit(png(3000, 2000), at: 0.5, square: true);
-      expect((square.width, square.height), (1000, 1000));
+      // A large one is saved at 2000 px on its longer side: 1333 × 2000,
+      // music at 2000 × 2000.
+      final large = await pictures.fit(png(4500, 3000), at: 0.5, square: false);
+      expect((large.width, large.height), (1333, 2000));
+      final square = await pictures.fit(png(4500, 3000), at: 0.5, square: true);
+      expect((square.width, square.height), (2000, 2000));
     });
   });
 

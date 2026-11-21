@@ -375,6 +375,14 @@ class _CoverFitSheetState extends State<CoverFitSheet> {
                               child: Image.memory(
                                 widget.bytes,
                                 fit: BoxFit.fill,
+                                // The picked image may be a camera photo:
+                                // decoded at the size it is drawn at.
+                                cacheWidth:
+                                    (preview.width *
+                                            MediaQuery.devicePixelRatioOf(
+                                              context,
+                                            ))
+                                        .round(),
                                 gaplessPlayback: true,
                                 excludeFromSemantics: true,
                                 errorBuilder: (_, _, _) =>

@@ -186,9 +186,10 @@ void main() {
       width: 1080,
       height: 1080,
     ));
-    // Saved at 1000 × 1500 at most, never scaled up.
-    expect(coverFittedSize(3840, 2160, square: false), (1000, 1500));
+    // Saved at 2000 px on the longer side at most, never scaled up.
+    expect(coverFittedSize(3840, 2160, square: false), (1333, 2000));
     expect(coverFittedSize(1920, 1080, square: false), (720, 1080));
-    expect(coverFittedSize(3840, 2160, square: true), (1000, 1000));
+    expect(coverFittedSize(3840, 2160, square: true), (2000, 2000));
+    expect(coverFittedSize(1920, 1080, square: true), (1080, 1080));
   });
 }

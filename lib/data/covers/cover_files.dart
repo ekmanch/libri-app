@@ -26,7 +26,7 @@ const coversFolder = 'covers';
 const coverListingAge = Duration(minutes: 1);
 
 /// The longer side of an upload, in pixels.
-const coverUploadSide = 1000;
+const coverUploadSide = 2000;
 
 /// The JPEG quality of an upload.
 const coverUploadQuality = 88;

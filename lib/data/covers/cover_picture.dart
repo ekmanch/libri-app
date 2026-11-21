@@ -76,15 +76,10 @@ class PreparedCover {
 }
 
 /// The size Fit your cover saves an image of [width] × [height] at:
-/// "Saved at 1000 × 1500."
+/// "Saved at 1333 × 2000.": its longer side is at most [coverUploadSide].
 (int, int) coverFittedSize(int width, int height, {required bool square}) {
   final frame = coverCropFrame(width, height, square: square, at: 0.5);
-  return _within(
-    frame.width,
-    frame.height,
-    coverUploadSide,
-    square ? coverUploadSide : coverUploadSide * 3 ~/ 2,
-  );
+  return _within(frame.width, frame.height, coverUploadSide, coverUploadSide);
 }
 
 /// Decodes, scales and encodes images. An interface so the tests and the
