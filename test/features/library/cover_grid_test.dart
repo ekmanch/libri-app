@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_app/data/models/entry.dart';
 import 'package:library_app/data/models/entry_status.dart';
+import 'package:library_app/data/models/media_type.dart';
 import 'package:library_app/data/models/released.dart';
+import 'package:library_app/data/models/season.dart';
 import 'package:library_app/dev/fake_lookup_overrides.dart';
 import 'package:library_app/features/library/cover_grid.dart';
 import 'package:library_app/features/library/cover_grid_tile.dart';
@@ -143,6 +145,49 @@ void main() {
       expect(row2.height, moreOrLessEquals(row0.height, epsilon: 0.01));
     });
   }
+
+  testWidgets('every type has a second line, so the space between rows is '
+      'the same on Movies, Shows and Anime', (tester) async {
+    // The visible gap: from the second line of a row to the covers of the
+    // next. A show used to draw an empty second line there.
+    Future<double> gap(List<Entry> entries, String caption) async {
+      debugClearGridMeasurements();
+      await _pump(tester, entries);
+      final (_, second) = _lines(tester, 'M000', caption);
+      final text = tester.widget<Text>(
+        find.descendant(of: _tile('M000'), matching: find.byType(Text)).last,
+      );
+      expect(text.data, caption);
+      return tester.getTopLeft(_tile('M003')).dy - second.bottom;
+    }
+
+    const seasons = [
+      Season(season: 1, released: Released(2011, 4, 17)),
+      Season(season: 2, released: Released(2019, 4, 14)),
+    ];
+    final movies = _movies(6);
+    final shows = [
+      for (final m in movies)
+        m.copyWith(type: MediaType.shows, released: null, seasons: seasons),
+    ];
+    final anime = [
+      for (final m in movies)
+        m.copyWith(type: MediaType.anime, released: null, seasons: seasons),
+    ];
+    final undated = [
+      for (final m in movies)
+        m.copyWith(
+          type: MediaType.shows,
+          released: null,
+          seasons: const [Season(season: 1)],
+        ),
+    ];
+    final onMovies = await gap(movies, '1990');
+    expect(onMovies, moreOrLessEquals(16, epsilon: 0.01));
+    expect(await gap(shows, '2011–2019'), onMovies);
+    expect(await gap(anime, '2011–2019'), onMovies);
+    expect(await gap(undated, 'Not released yet'), onMovies);
+  });
 
   testWidgets('the scroll extent is exact from the first frame, so the '
       'thumb does not drift; only rows near the screen are built', (

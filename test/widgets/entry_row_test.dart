@@ -90,6 +90,61 @@ void main() {
         ]);
         expect(entrySubtitle(coming, today: today), 'Not released yet');
       });
+
+      test('not released yet when no season has a date', () {
+        final undated = show(const [Season(season: 1), Season(season: 2)]);
+        expect(entrySubtitle(undated, today: today), 'Not released yet');
+        expect(gridYears(undated, today: today), 'Not released yet');
+      });
+
+      test('the grid shows the years without the season count', () {
+        expect(
+          gridYears(
+            show(const [
+              Season(season: 1, released: Released(2011, 4, 17)),
+              Season(season: 2, released: Released(2012, 4, 1)),
+              Season(season: 8, released: Released(2019, 4, 14)),
+            ]),
+            today: today,
+          ),
+          '2011–2019',
+        );
+        expect(
+          gridYears(
+            show(const [
+              Season(season: 1, released: Released(1990, 4, 8)),
+              Season(season: 2, released: Released(1990, 9, 30)),
+            ]),
+            today: today,
+          ),
+          '1990',
+        );
+        expect(
+          gridYears(
+            show(const [Season(season: 1, released: Released(2018))]),
+            today: today,
+          ),
+          '2018',
+        );
+        expect(
+          gridYears(
+            show(const [Season(season: 1, released: Released(2026, 10, 30))]),
+            today: today,
+          ),
+          'Not released yet',
+        );
+        // An anime series with seasons reads the same.
+        expect(
+          gridYears(
+            show(const [
+              Season(season: 1, released: Released(2023, 9, 29)),
+              Season(season: 2, released: Released(2026, 1, 16)),
+            ]).copyWith(type: MediaType.anime),
+            today: DateTime(2026, 6),
+          ),
+          '2023–2026',
+        );
+      });
     });
 
     test('leaves out missing parts', () {

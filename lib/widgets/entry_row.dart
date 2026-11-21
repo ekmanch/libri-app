@@ -25,6 +25,24 @@ String? showYears(Entry entry, {DateTime? today}) {
   return first == last ? '$first' : '$first–$last';
 }
 
+/// What stands in the year's place for a title that is not out.
+const notReleasedYet = 'Not released yet';
+
+/// The second line under a cover in the grid (the Library "Grid cells"
+/// note): the year; for a show or an anime with seasons the years it ran
+/// ("2011–2019", one year when they are the same), without the season
+/// count, which would wrap there. "Not released yet" as in [entrySubtitle].
+String gridYears(Entry entry, {DateTime? today}) {
+  if (entry.seasons?.isNotEmpty ?? false) {
+    return showYears(entry, today: today) ?? notReleasedYet;
+  }
+  final released = entry.released;
+  if (released != null && !released.isReleasedOn(today ?? DateTime.now())) {
+    return notReleasedYet;
+  }
+  return released?.year.toString() ?? '';
+}
+
 /// "2 seasons", or null for a show with one season or none.
 String? seasonCountLabel(Entry entry) {
   final count = entry.seasons?.length ?? 0;
@@ -32,19 +50,19 @@ String? seasonCountLabel(Entry entry) {
 }
 
 /// The italic line under a title. The year; for books and music the creator
-/// and the year; for a song its album and the year; for a show with more
-/// than one season the years it ran and the count ("2025–2026 · 2
-/// seasons"). "Not released yet" when the release date is still ahead.
+/// and the year; for a song its album and the year; for a show or an anime
+/// with seasons the years it ran, and the count when there is more than
+/// one ("2025–2026 · 2 seasons"). "Not released yet" when the release date
+/// is still ahead, or no season is out or dated.
 String entrySubtitle(Entry entry, {DateTime? today}) {
-  final released = entry.firstSeason?.released ?? entry.released;
-  if (released != null && !released.isReleasedOn(today ?? DateTime.now())) {
-    return 'Not released yet';
+  if (entry.seasons?.isNotEmpty ?? false) {
+    final years = showYears(entry, today: today);
+    if (years == null) return notReleasedYet;
+    return [years, ?seasonCountLabel(entry)].join(' · ');
   }
-  if (seasonCountLabel(entry) case final count?) {
-    return [
-      showYears(entry, today: today),
-      count,
-    ].whereType<String>().join(' · ');
+  final released = entry.released;
+  if (released != null && !released.isReleasedOn(today ?? DateTime.now())) {
+    return notReleasedYet;
   }
   final year = released?.year.toString();
   final lead = switch (entry.type) {

@@ -7,6 +7,7 @@ import '../../widgets/app_icons.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/cover_mark.dart';
 import '../../widgets/cover_placeholder.dart';
+import '../../widgets/entry_row.dart';
 import 'cover_grid.dart';
 
 /// One cell of the grid with covers (Library › Movies, grid with covers; Long
@@ -45,15 +46,10 @@ class CoverGridTile extends StatelessWidget {
   /// Whether to draw the check; the entry's status decides when null.
   final bool? done;
 
-  /// The year, or "Not released yet" (the Library › Movies, grid with covers
-  /// note). Never the status.
-  static String yearCaption(Entry entry, {DateTime? today}) {
-    final released = entry.released;
-    if (released != null && !released.isReleasedOn(today ?? DateTime.now())) {
-      return 'Not released yet';
-    }
-    return released?.year.toString() ?? '';
-  }
+  /// The second line: the year, a show's years, or "Not released yet"
+  /// ([gridYears]). Never the status.
+  static String yearCaption(Entry entry, {DateTime? today}) =>
+      gridYears(entry, today: today);
 
   @override
   Widget build(BuildContext context) {
