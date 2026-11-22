@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/covers/cover_files.dart';
 import '../../data/covers/cover_picture.dart';
 import '../../data/images/artwork_providers.dart';
+import '../../data/images/anime_cover_default.dart';
 import '../../data/images/large_cover.dart';
 import '../../data/library_providers.dart';
 import '../../data/lookup/lookup_failure.dart';
@@ -197,14 +198,7 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
   /// is written as the entry's own `anilist:` id, so the pick sticks and
   /// the default (TMDB's poster) is not put back; for every other title
   /// the match's own cover is no `cover_from` at all.
-  String? get _ownCoverFrom {
-    final source = _subject.source;
-    return _subject.type == MediaType.anime &&
-            source != null &&
-            source.startsWith('anilist:')
-        ? source
-        : null;
-  }
+  String? get _ownCoverFrom => ownCoverFromOf(_subject.type, _subject.source);
 
   /// More covers of an album from the second music catalog, asked for by
   /// the link under Online (Pick a cover: more covers found): null until
@@ -236,7 +230,7 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
     if (_subject.tmdb != null) _findTmdbCover();
     if (widget.askForMatchCover) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _pickOnline(null, _ownCoverUrl);
+        if (mounted) _pickOnline(_ownCoverFrom, _ownCoverUrl);
       });
     }
   }
@@ -516,8 +510,10 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
       ])
         url == null ? null : largestCoverWidth(url, square: _square),
     ]);
-    // An online cover turned up for a title that has been using yours.
-    final isNew = pickedPath != null && !_keepMine && (hasOwnOnline || hasTmdb);
+    // An online cover turned up for a title that has been using yours:
+    // the match's own. An anime's TMDB poster never counts, since every
+    // anime with a link has one.
+    final isNew = pickedPath != null && !_keepMine && hasOwnOnline;
     final hint = theme.textTheme.bodySmall!.copyWith(
       fontStyle: FontStyle.normal,
       fontSize: 13.5,
@@ -679,8 +675,6 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
                   title: subject.title,
                   width: width,
                   picked: tmdbPicked,
-                  badge: isNew ? 'New' : null,
-                  badgeAccent: true,
                   lines: [
                     if (subject.year case final year?) '$year',
                     if (sharpest.contains(i)) 'Sharpest',
@@ -694,7 +688,7 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
                   title: subject.title,
                   width: width,
                   picked: ownPicked,
-                  badge: isNew && !hasTmdb ? 'New' : null,
+                  badge: isNew ? 'New' : null,
                   badgeAccent: true,
                   lines: [
                     if (subject.year case final year?) '$year',

@@ -1565,9 +1565,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                     onTap: _pickCover,
                     // Leaving one of your own files asks about the file,
                     // which Pick a cover does.
+                    // An anime's own cover is written as its `anilist:`
+                    // id, as its tile in Pick a cover does.
                     onReset: () => isRepoCover(_coverFrom)
                         ? _pickCover(askForMatchCover: true)
-                        : setState(() => _coverFrom = null),
+                        : setState(() {
+                            _coverFrom = ownCoverFromOf(_type, _source);
+                            _pickedCoverUrl = _ownCoverUrl;
+                          }),
                   ),
                   const SizedBox(height: 14),
                   const FieldLabel('Title'),

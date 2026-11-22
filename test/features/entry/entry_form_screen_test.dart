@@ -249,6 +249,38 @@ void main() {
       expect(saved.coverFrom, isNull);
     });
 
+    testWidgets('on an anime “Use the match’s cover” writes the entry’s own '
+        'AniList id, so TMDB’s poster is not put back', (tester) async {
+      final frieren = Entry(
+        id: 'anime/frieren-2023',
+        type: MediaType.anime,
+        title: 'Frieren',
+        kind: EntryKind.series,
+        status: EntryStatus.want,
+        added: DateTime(2026),
+        released: const Released(2023),
+        source: 'anilist:154587',
+        tmdb: 'tmdb:tv:209867',
+        coverFrom: 'fake:frieren-3',
+      );
+      final container = await pumpApp(
+        tester,
+        EntryFormScreen.edit(frieren),
+        library: loadFixture().copyWith(
+          entries: [...loadFixture().entries, frieren],
+        ),
+      );
+      expect(find.text('From another match'), findsOneWidget);
+      await tester.tap(find.text('Use the match’s cover'));
+      await tester.pumpAndSettle();
+      expect(find.text('From the match · tap to change'), findsOneWidget);
+      expect(find.text('Use the match’s cover'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById(frieren.id)!;
+      expect(saved.coverFrom, 'anilist:154587');
+    });
+
     testWidgets('changing the type clears it, like the source', (tester) async {
       final container = await openDracula(tester, coverFrom: 'fake:dracula-3');
       await tester.tap(find.widgetWithText(PillChip, 'Movies'));

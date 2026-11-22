@@ -27,6 +27,16 @@ bool wantsTmdbCover(Entry entry) =>
     entry.tmdb != null &&
     entry.coverFrom == null;
 
+/// What "the match's own cover" is stored as for an entry of [type]
+/// matched to [source]. An anime's AniList cover is written as the entry's
+/// own `anilist:` id, so the choice sticks and the standing check does not
+/// put TMDB's poster back; for every other title the match's own cover is
+/// no `cover_from` at all.
+String? ownCoverFromOf(MediaType type, String? source) =>
+    type == MediaType.anime && source != null && source.startsWith('anilist:')
+    ? source
+    : null;
+
 /// The `cover_from` of an anime whose `tmdb` link went from [oldTmdb] to
 /// [newTmdb]: one equal to the old link follows the new one, and goes
 /// with a link that was cleared (the anime became a movie). Any other

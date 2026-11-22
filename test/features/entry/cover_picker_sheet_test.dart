@@ -575,6 +575,45 @@ void main() {
       expect(picks.last.url, 'fake://cover/poster/tmdb:tv:209867');
     });
 
+    testWidgets('the poster never has the New badge: the match’s cover '
+        'has it, after one of your own', (tester) async {
+      final mine = frieren.copyWith(coverFrom: 'repo:$uploaded');
+      await open(
+        tester,
+        CoverSubject.saved(mine),
+        entries: [mine],
+        files: {uploaded: bytes('upload')},
+        ownCoverUrl: aniList,
+      );
+      final online = [
+        for (final choice in tester.widgetList<CoverChoice>(
+          find.byType(CoverChoice),
+        ))
+          if (choice.badge != 'Yours') choice,
+      ];
+      expect(online[0].badge, isNull);
+      expect(online[1].lines, contains('The match’s cover'));
+      expect(online[1].badge, 'New');
+    });
+
+    testWidgets('“Use the match’s cover” from one of your files writes '
+        'AniList’s id, not nothing', (tester) async {
+      final mine = frieren.copyWith(coverFrom: 'repo:$uploaded');
+      final container = await open(
+        tester,
+        CoverSubject.saved(mine),
+        entries: [mine],
+        files: {uploaded: bytes('upload')},
+        ownCoverUrl: aniList,
+        askForMatchCover: true,
+      );
+      await tester.tap(find.text('Keep my file'));
+      await tester.pumpAndSettle();
+      expect(picks.last.coverFrom, 'anilist:154587');
+      final library = await repo(container).load();
+      expect(library.entryById(frieren.id)!.coverFrom, 'anilist:154587');
+    });
+
     testWidgets('without a tmdb link has no such tile', (tester) async {
       final unlinked = frieren.copyWith(tmdb: null);
       await open(
