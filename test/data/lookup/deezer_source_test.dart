@@ -544,10 +544,63 @@ void main() {
       expect(songs.matches[1].title, 'Picture You');
       expect(songs.matches[1].creator, 'The Amazing');
       expect(songs.matches[1].coverUrl, 'https://cdn/album.jpg');
-      // Only the artist with two records in the hits is asked about.
+      // Only the artist with two records in the hits is asked about,
+      // the record that is more than a single first.
       expect(
         sent.map((r) => r.url.path).where((p) => p.startsWith('/album/')),
-        ['/album/100/tracks', '/album/200/tracks'],
+        ['/album/200/tracks', '/album/100/tracks'],
+      );
+    });
+
+    test('an album is asked before the singles ahead of it', () async {
+      // "Panda desiigner": seven singles, then a song of the album that
+      // holds Panda too. Only six records are asked.
+      Map<String, Object?> hit(int id, String title, int album, String on) => {
+        'id': id,
+        'title': title,
+        'isrc': 'I$id',
+        'artist': {'id': 7, 'name': 'Desiigner'},
+        'album': {'id': album, 'title': on},
+      };
+      final deezer = source((request) async {
+        switch (request.url.path) {
+          case '/search/track':
+            return json({
+              'data': [
+                hit(1, 'Panda', 101, 'panda'),
+                for (var n = 2; n <= 7; n++)
+                  hit(n, 'Single $n', 100 + n, 'Single $n'),
+                hit(50, 'Caliber', 200, 'New English'),
+              ],
+            });
+          case '/search/artist':
+            return json({'data': <Object>[]});
+          case '/album/200/tracks':
+            return json({
+              'data': [
+                {'id': 50, 'title': 'Caliber', 'isrc': 'I50'},
+                {'id': 51, 'title': 'Panda', 'isrc': 'I1'},
+              ],
+            });
+        }
+        return json({'data': <Object>[]});
+      });
+      final songs = await deezer.musicPage(
+        const MusicRequest(
+          list: MusicSearch('panda desiigner'),
+          scope: MusicScope.songs,
+        ),
+      );
+      expect(
+        sent.map((r) => r.url.path).where((p) => p.startsWith('/album/')),
+        [
+          '/album/200/tracks',
+          for (var n = 101; n <= 105; n++) '/album/$n/tracks',
+        ],
+      );
+      expect(
+        [for (final m in songs.matches.take(2)) (m.source, m.album)],
+        [('deezer:track:1', 'panda'), ('deezer:track:51', 'New English')],
       );
     });
 

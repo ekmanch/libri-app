@@ -449,27 +449,49 @@ class DeezerSource extends HttpLookupSource
   }
 
   /// The albums among a page of song hits that may hold a copy the search
-  /// left out, in the hits' order. Deezer's search lists a recording once:
-  /// a song out as a single and on its album (one ISRC) comes from one of
-  /// the two only, mostly the single. An album is worth asking when its
-  /// artist has a hit on another record too.
+  /// left out. Deezer's search lists a recording once: a song out as a
+  /// single and on its album (one ISRC) comes from one of the two only,
+  /// mostly the single. An album is worth asking when its artist has a hit
+  /// on another record too. The records that look like more than a single
+  /// come first, in the hits' order, since only so many are asked: an
+  /// artist's page of hits is mostly singles, which hold no other hit's
+  /// copy.
   static List<int> _albumsToAsk(List<Map<String, Object?>> hits) {
+    // A hit's artist, its record, and whether the record is named after
+    // the song (a single, as far as a hit can tell).
     final records = [
       for (final hit in hits)
         if ((_idAt(hit['artist']), _idAt(hit['album'])) case (
           final int artist,
           final int album,
         ))
-          (artist, album),
+          (artist, album, _namedAfter(hit)),
     ];
     final albums = <int>[];
-    for (final (artist, album) in records) {
+    for (final (artist, album, _) in records) {
       if (!albums.contains(album) &&
           records.any((r) => r.$1 == artist && r.$2 != album)) {
         albums.add(album);
       }
     }
-    return albums.take(_hiddenAlbums).toList();
+    bool single(int album) =>
+        records.where((r) => r.$2 == album).every((r) => r.$3);
+    return [
+      ...albums.where((album) => !single(album)),
+      ...albums.where(single),
+    ].take(_hiddenAlbums).toList();
+  }
+
+  /// Whether a song hit's record has the song's own title.
+  static bool _namedAfter(Map<String, Object?> hit) {
+    final song = stringAt(hit, 'title');
+    final album = hit['album'];
+    final record = album is Map<String, Object?>
+        ? stringAt(album, 'title')
+        : null;
+    return song != null &&
+        record != null &&
+        song.toLowerCase() == record.toLowerCase();
   }
 
   /// A page of song hits as matches, each followed by the copies of the

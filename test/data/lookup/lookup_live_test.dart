@@ -229,6 +229,20 @@ void main() {
     ];
     expect(copies, contains('deezer:album:679137691'), reason: 'the single');
     expect(copies, contains('deezer:album:9682786'), reason: 'the album');
+
+    // The album comes after more singles than records are asked about.
+    final panda = await DeezerSource(client).musicPage(
+      const MusicRequest(
+        list: MusicSearch('Panda desiigner'),
+        scope: MusicScope.songs,
+      ),
+    );
+    final records = [
+      for (final m in panda.matches)
+        if (m.title == 'Panda' && m.creator == 'Desiigner') m.albumSource,
+    ];
+    expect(records, contains('deezer:album:12511986'), reason: 'the single');
+    expect(records, contains('deezer:album:13476107'), reason: 'New English');
   });
 
   final tmdbToken = env['TMDB_READ_TOKEN'] ?? '';
