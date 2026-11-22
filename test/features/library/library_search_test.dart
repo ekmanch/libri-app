@@ -51,6 +51,21 @@ void main() {
     expect(titles('zzzz'), isEmpty);
   });
 
+  test('"r&b" and "r & b" find the entries tagged #r&b, and the tag', () {
+    final soul = fixture.entries.first.copyWith(title: 'Soul', tags: ['r&b']);
+    final entries = [soul, ...fixture.entries.skip(1)];
+    for (final typed in ['r&b', 'r & b', 'R&B', '#r & b']) {
+      final q = normalizeQuery(typed);
+      expect(searchEntries(entries, q), [soul], reason: typed);
+      expect(matchingTags(fixture, entries, q), [
+        const TagMatch('r&b', 1),
+      ], reason: typed);
+    }
+    // The spaces count in a title, as before.
+    final title = fixture.entries.first.copyWith(title: 'Fast & Furious');
+    expect(searchEntries([title], 'fast & f'), [title]);
+  });
+
   test('matching tags: counted over the list searched, most used first', () {
     final all = matchingTags(fixture, fixture.entries, 'hall');
     expect(all.map((t) => t.name), ['halloween']);

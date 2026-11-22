@@ -147,6 +147,44 @@ void main() {
     );
   });
 
+  test('a tag with "&" loads, and is written back as it was', () {
+    const text = '''
+{
+  "version": 2,
+  "tags": {
+    "Music genres": [
+      "drum&bass",
+      "r&b"
+    ]
+  },
+  "entries": [
+    {
+      "id": "music/voodoo-2000",
+      "type": "music",
+      "title": "Voodoo",
+      "released": "2000",
+      "creator": "D'Angelo",
+      "status": "done",
+      "rating": null,
+      "tags": [
+        "r&b"
+      ],
+      "note": "",
+      "description": "",
+      "seasonal_only": false,
+      "added": "2026-11-22",
+      "source": null
+    }
+  ],
+  "plans": []
+}
+''';
+    final library = decodeLibrary(text);
+    expect(library.allTags, containsAll(['r&b', 'drum&bass']));
+    expect(library.entries.single.tags, ['r&b']);
+    expect(encodeLibrary(library), text);
+  });
+
   test('the data repo layout with source after added re-encodes the same', () {
     // The entries in ekmanch/library carry "source": null right after
     // "added"; the app must write that file back byte for byte.

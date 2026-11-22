@@ -15,6 +15,7 @@ import '../../widgets/search_field.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/sheet_frame.dart';
 import '../../widgets/tag_group.dart';
+import '../entry/similar_tags.dart';
 import 'library_filter.dart';
 import 'tag_list_screen.dart';
 import 'tag_sort.dart';
@@ -245,7 +246,7 @@ class _FilterSheetState extends State<FilterSheet> {
                 tags: sortedTags(
                   query.isEmpty
                       ? names
-                      : names.where((n) => n.toLowerCase().contains(query)),
+                      : names.where((n) => tagContains(n, query)),
                 ),
                 selected: [
                   for (final n in names)

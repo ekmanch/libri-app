@@ -6,6 +6,7 @@ import '../../data/models/library.dart';
 import '../../data/models/media_type.dart';
 import '../../data/models/tag_category.dart';
 import '../../widgets/labels.dart';
+import '../entry/similar_tags.dart';
 import '../music/music_tab.dart';
 import 'home_type_provider.dart';
 import 'library_filter.dart';
@@ -52,14 +53,15 @@ String normalizeQuery(String query) {
 }
 
 /// Whether [entry] is a result for [q] (already normalized, see
-/// [normalizeQuery]): its title, its creator or one of its tags contains it,
+/// [normalizeQuery]): its title, its creator or one of its tags contains it
+/// (a tag also with the spaces around an "&" dropped, see [tagContains]),
 /// whatever the case (the Library › Search: Music › Artists note), or, for
 /// an album, the title of one of its rated tracks, as on the desktop: the
 /// unrated titles are known only where the album's list has been fetched.
 bool matchesQuery(Entry entry, String q) =>
     entry.title.toLowerCase().contains(q) ||
     (entry.creator?.toLowerCase().contains(q) ?? false) ||
-    entry.tags.any((tag) => tag.toLowerCase().contains(q)) ||
+    entry.tags.any((tag) => tagContains(tag, q)) ||
     (entry.tracks?.any(
           (track) =>
               track.rating != null && track.title.toLowerCase().contains(q),
@@ -90,7 +92,7 @@ List<TagMatch> matchingTags(
     if (q.isNotEmpty)
       for (final entry in pool)
         for (final tag in entry.tags)
-          if (tag.toLowerCase().contains(q)) tag,
+          if (tagContains(tag, q)) tag,
   };
   final tags = <TagMatch>[];
   for (final name in names) {
@@ -101,7 +103,7 @@ List<TagMatch> matchingTags(
           : pool.where((e) => e.hasTagAs(name, category)).length;
       final on = picked.hasTag(name, category);
       // A picked tag stays in the row whatever is typed.
-      if (on || (count > 0 && q.isNotEmpty && name.toLowerCase().contains(q))) {
+      if (on || (count > 0 && q.isNotEmpty && tagContains(name, q))) {
         tags.add(TagMatch(name, count, category: category, picked: on));
       }
     }

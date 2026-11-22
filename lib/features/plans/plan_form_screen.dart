@@ -24,6 +24,7 @@ import 'plan_dialogs.dart';
 import 'plan_progress.dart';
 import 'plan_season.dart';
 import '../../widgets/tag_group.dart';
+import '../entry/similar_tags.dart';
 import '../library/tag_list_screen.dart';
 import '../library/tag_sort.dart';
 
@@ -506,7 +507,7 @@ class _LinkedTagsSheetState extends State<_LinkedTagsSheet> {
           // Filter: all Authors, like the filter sheet's.
           for (final MapEntry(key: category, value: names)
               in widget.library.tags.entries)
-            if (names.any((n) => q.isEmpty || n.contains(q)))
+            if (names.any((n) => q.isEmpty || tagContains(n, q)))
               if (q.isEmpty && names.length > longTagGroup) ...[
                 const SizedBox(height: 8),
                 TagGroupRow(
@@ -538,7 +539,7 @@ class _LinkedTagsSheetState extends State<_LinkedTagsSheet> {
                   runSpacing: 8,
                   children: [
                     for (final tag in sortedTags(
-                      names.where((n) => q.isEmpty || n.contains(q)),
+                      names.where((n) => q.isEmpty || tagContains(n, q)),
                     ))
                       PillChip(
                         label: '#$tag',

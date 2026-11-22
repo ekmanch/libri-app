@@ -8,6 +8,7 @@ import '../../widgets/labels.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/row_ink_well.dart';
 import '../../widgets/search_field.dart';
+import '../entry/similar_tags.dart';
 import 'entry_list_views.dart';
 import 'entry_sections.dart';
 import 'sectioned_list_body.dart';
@@ -100,7 +101,7 @@ class _TagListScreenState extends State<TagListScreen> {
         ? _sorted
         : [
             for (final tag in _sorted)
-              if (tag.contains(q) || _names[tag]!.toLowerCase().contains(q))
+              if (tagContains(tag, q) || _names[tag]!.toLowerCase().contains(q))
                 tag,
           ];
     final sections = sectionsByTitle(shown, tagSortKey);

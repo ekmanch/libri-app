@@ -11,14 +11,98 @@ void main() {
 
   test('normalizeTag keeps a tag to the data repo\'s rule', () {
     expect(normalizeTag('2.5D'), '2.5d');
-    expect(normalizeTag('Rock & Roll'), 'rock-roll');
     expect(normalizeTag('Dr. Who'), 'dr-who');
     expect(normalizeTag('sci.fi'), 'sci-fi');
     expect(normalizeTag('2..5d'), '2-5d');
     expect(normalizeTag('v2.'), 'v2');
     expect(normalizeTag('Nesbø'), 'nesbo');
     expect(normalizeTag("Hitchcock's"), 'hitchcocks');
-    expect(normalizeTag('Sci-Fi & Fantasy'), 'sci-fi-fantasy');
+  });
+
+  group('a tag with "&"', () {
+    test('a valid tag is kept as it is', () {
+      for (final tag in ['r&b', 'drum&bass', '2.5d', 'a&b&c', '90s&00s']) {
+        expect(normalizeTag(tag), tag);
+      }
+    });
+
+    test('what the rule forbids is cleaned up', () {
+      expect(normalizeTag('&rb'), 'rb');
+      expect(normalizeTag('rb&'), 'rb');
+      expect(normalizeTag('r&&b'), 'r&b');
+      expect(normalizeTag('r-&b'), 'r&b');
+      expect(normalizeTag('r&-b'), 'r&b');
+      expect(normalizeTag('r-&-b'), 'r&b');
+      expect(normalizeTag('r--&&--b'), 'r&b');
+      expect(normalizeTag('-&-rb-&-'), 'rb');
+      expect(normalizeTag('&'), '');
+      // The desktop's cases (`normalize_tag` in libri-kde's `text.rs`).
+      expect(normalizeTag('drum -&bass'), 'drum&bass');
+      expect(normalizeTag('r & & b'), 'r&b');
+      expect(normalizeTag('&rb&'), 'rb');
+      expect(normalizeTag('- & r&b & -'), 'r&b');
+      expect(normalizeTag('2.5&3'), '2.5&3');
+      // Never next to a dot: the dot is not between two digits.
+      expect(normalizeTag('2.&5'), '2&5');
+      expect(normalizeTag('2&.5'), '2&5');
+      expect(normalizeTag('2.5&d'), '2.5&d');
+    });
+
+    test('typing drops the spaces around it', () {
+      expect(normalizeTag('r & b'), 'r&b');
+      expect(normalizeTag('rock & roll'), 'rock&roll');
+      expect(normalizeTag('R&B'), 'r&b');
+      expect(normalizeTag('#R & B'), 'r&b');
+      expect(normalizeTag('Sci-Fi & Fantasy'), 'sci-fi&fantasy');
+      expect(normalizeTag('Drum  &  Bass music'), 'drum&bass-music');
+      // A typed "and" stays a word.
+      expect(normalizeTag('rock and roll'), 'rock-and-roll');
+    });
+
+    test('rnb, r-and-b and r-b are look-alikes of r&b, as on the desktop', () {
+      for (final close in ['rnb', 'r-and-b', 'r-b']) {
+        expect(findSimilarTag('r&b', [close]), close);
+        expect(findSimilarTag(close, ['r&b']), 'r&b');
+      }
+      expect(findSimilarTag('R & B', ['r&b']), isNull);
+      // Without an "&" on either side only the older checks apply.
+      expect(findSimilarTag('rnb', ['r-b']), 'r-b');
+      expect(findSimilarTag('rnb', ['r-and-b']), isNull);
+      expect(findSimilarTag('r-b', ['r-and-b']), isNull);
+    });
+
+    test('an "&" is read as "and" or as nothing', () {
+      expect(
+        findSimilarTag('drum-and-bass', ['drums', 'drum&bass']),
+        'drum&bass',
+      );
+      expect(findSimilarTag('drum&bass', ['drum-bass']), 'drum-bass');
+      expect(findSimilarTag('drumnbass', ['drum&bass']), 'drum&bass');
+      expect(findSimilarTag('drum-n-bass', ['drum&bass']), isNull);
+      expect(findSimilarTag('rock&roll', ['rock', 'pop']), isNull);
+    });
+
+    test('contains a query typed with or without the spaces', () {
+      expect(tagContains('r&b', 'r&b'), isTrue);
+      expect(tagContains('r&b', 'r & b'), isTrue);
+      expect(tagContains('r&b', 'r &'), isTrue);
+      expect(tagContains('drum&bass', 'm & b'), isTrue);
+      expect(tagContains('r&b', 'r & c'), isFalse);
+      expect(tagContains('rock', '&'), isFalse);
+      expect(tagContains('horror', 'orr'), isTrue);
+    });
+
+    test('a lookup\'s genre with "&" is the library\'s tags, or one tag', () {
+      const library = {'scifi', 'fantasy', 'soul', 'funk', 'r&b', 'hiphop'};
+      expect(canonicalTag('R&B'), 'r&b');
+      expect(libraryTags('R&B', library), ['r&b']);
+      expect(libraryTags('Sci-Fi & Fantasy', library), ['scifi', 'fantasy']);
+      expect(libraryTags('Soul & Funk', library), ['soul', 'funk']);
+      expect(libraryTags('R&B Soul', library), ['r&b', 'soul']);
+      expect(libraryTags('Rap & Hip Hop', library), ['hiphop']);
+      // A word the library has no tag for keeps the name whole.
+      expect(libraryTags('Drum & Bass', library), ['drum&bass']);
+    });
   });
 
   test('a dot counts like a hyphen in the similar check', () {

@@ -4,24 +4,45 @@ library;
 
 import '../../data/models/entry_id.dart';
 
-/// A tag is lowercase ASCII letters, digits and hyphens, plus a dot
-/// between two digits ("2.5d"); the data repo's `library.py` checks the
-/// same rule.
+/// A tag is lowercase ASCII letters, digits and hyphens; a dot only
+/// between two digits ("2.5d"); and "&" only between two letters or digits
+/// ("r&b", "drum&bass"), so never at an end, doubled, or beside a hyphen
+/// or a dot. The data repo's `library.py` checks the same rule.
 ///
 /// Drops a leading "#", lowercases, folds diacritics, drops apostrophes,
-/// turns every run of other characters into one hyphen and trims hyphens
-/// from the ends.
+/// turns every run of other characters into one hyphen and trims the
+/// ends. What the "&" rule forbids is cleaned up rather than refused: the
+/// spaces and hyphens around an "&" go ("R & B" is "r&b", "rock -&- roll"
+/// is "rock&roll"), "&&" is one "&", and an "&" at an end is dropped.
 String normalizeTag(String raw) {
   var name = raw.trim();
   if (name.startsWith('#')) name = name.substring(1);
   return foldToAscii(name)
       .replaceAll(_outsideTag, '-')
-      .replaceAll(RegExp(r'^-+|-+$'), '');
+      .replaceAll(_aroundAmpersand, '&')
+      .replaceAll(_tagEnds, '');
 }
 
-/// A run of characters a tag cannot hold: anything but a letter, a digit
-/// or a dot, and a dot not between two digits.
-final _outsideTag = RegExp(r'(?:[^a-z0-9.]|(?<![0-9])\.|\.(?![0-9]))+');
+/// A run of characters a tag cannot hold: anything but a letter, a digit,
+/// an "&" or a dot, and a dot not between two digits.
+final _outsideTag = RegExp(r'(?:[^a-z0-9.&]|(?<![0-9])\.|\.(?![0-9]))+');
+
+/// An "&" with the hyphens and further "&"s around it.
+final _aroundAmpersand = RegExp('-*&[-&]*');
+
+final _tagEnds = RegExp(r'^[-&]+|[-&]+$');
+
+/// Whether [tag] holds [q], a query in lower case: as typed, or with the
+/// spaces around an "&" dropped, so "r & b" finds "r&b". The one way a
+/// tag's name is searched, wherever tags are listed.
+bool tagContains(String tag, String q) {
+  if (tag.contains(q)) return true;
+  if (!q.contains('&')) return false;
+  final joined = q
+      .replaceAll(RegExp(r'\s*&\s*'), '&')
+      .replaceAll(RegExp(r'^&+|&+$'), '');
+  return joined.isNotEmpty && tag.contains(joined);
+}
 
 /// The library's spelling of a genre a lookup names another way:
 /// "science-fiction" is "scifi". Applied to a lookup's suggestions before
@@ -67,7 +88,8 @@ const tagAliases = <String, String>{
 /// the library's spelling when [tagAliases] has one.
 String canonicalTag(String raw) {
   final name = normalizeTag(raw.replaceAll(RegExp(r'[()\[\]]'), ' '));
-  return tagAliases[name] ?? name;
+  // The aliases are spelled with hyphens: "Rap & Hip Hop" is "rap-hip-hop".
+  return tagAliases[name] ?? tagAliases[name.replaceAll('&', '-')] ?? name;
 }
 
 /// A lookup's genre as the tags to offer for it: [canonicalTag], or, when
@@ -80,7 +102,9 @@ List<String> libraryTags(String raw, Set<String> existing) {
   if (existing.contains(name) || findSimilarTag(name, existing) != null) {
     return [name];
   }
-  final words = name.split('-');
+  // The words, split at hyphens and "&"s: "sci-fi&fantasy" is #scifi and
+  // #fantasy. A run of them keeps what joins it, so #r&b is found whole.
+  final words = RegExp('[^-&]+').allMatches(name).toList();
   final tags = <String>[];
   var start = 0;
   while (start < words.length) {
@@ -89,8 +113,9 @@ List<String> libraryTags(String raw, Set<String> existing) {
     String? tag;
     var end = words.length;
     for (; end > start; end--) {
-      final run = words.sublist(start, end).join('-');
-      final candidate = tagAliases[run] ?? run;
+      final run = name.substring(words[start].start, words[end - 1].end);
+      final candidate =
+          tagAliases[run] ?? tagAliases[run.replaceAll('&', '-')] ?? run;
       if (existing.contains(candidate)) {
         tag = candidate;
         break;
@@ -106,11 +131,11 @@ List<String> libraryTags(String raw, Set<String> existing) {
 /// The existing tag most like [candidate], or null when none is close.
 ///
 /// Two names are similar when they are the same once hyphens and dots are
-/// ignored,
-/// when one is the plural of the other, or when they are one edit apart
-/// (two for a candidate of six letters or more): a letter changed, added
-/// or dropped, or two neighboring letters swapped. An exact match is not
-/// similar, it is the same tag.
+/// ignored and an "&" read as "and" or as nothing ("r&b" beside "r-and-b"
+/// or "r-b", see [_readings]), when one is the plural of the other, or
+/// when they are one edit apart (two for a candidate of six letters or
+/// more): a letter changed, added or dropped, or two neighboring letters
+/// swapped. An exact match is not similar, it is the same tag.
 String? findSimilarTag(String candidate, Iterable<String> existing) {
   final name = normalizeTag(candidate);
   if (name.isEmpty) return null;
@@ -129,11 +154,22 @@ String? findSimilarTag(String candidate, Iterable<String> existing) {
 
 /// Lower is closer; null means not similar.
 int? _similarityRank(String a, String b) {
-  if (a.replaceAll(_joiners, '') == b.replaceAll(_joiners, '')) return 0;
+  final readings = _readings(b);
+  if (_readings(a).any(readings.contains)) return 0;
   if (_isPluralOf(a, b) || _isPluralOf(b, a)) return 1;
   final limit = a.length >= 6 ? 2 : 1;
   final distance = _editDistance(a, b);
   return distance <= limit ? 1 + distance : null;
+}
+
+/// The ways [tag] reads with its hyphens and dots ignored: its "&" left
+/// out and spelled "and", as on the desktop (`similarity_rank` in
+/// libri-kde's `text.rs`). So "r&b" reads "rb" and "randb", and meets
+/// "r-b" and "r-and-b"; "rnb" is one edit from it. A tag without an "&"
+/// reads one way.
+Set<String> _readings(String tag) {
+  final plain = tag.replaceAll(_joiners, '');
+  return {plain.replaceAll('&', ''), plain.replaceAll('&', 'and')};
 }
 
 final _joiners = RegExp('[-.]');

@@ -85,6 +85,13 @@ void main() {
       expect(both.every((e) => e.tags.contains('horror')), isTrue);
     });
 
+    test('a tag with "&" filters like any other', () {
+      final soul = mummy.copyWith(title: 'Soul', tags: ['r&b', 'horror']);
+      const filter = LibraryFilter(tags: {'r&b'});
+      expect(filter.apply([mummy, soul]), [soul]);
+      expect(filter.tagChips.map((c) => c.label), ['#r&b']);
+    });
+
     test('entries without a year never match a decade', () {
       final undated = mummy.copyWith(released: null);
       expect(
