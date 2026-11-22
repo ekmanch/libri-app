@@ -443,20 +443,31 @@ class DeezerSource extends HttpLookupSource
   /// songs that the search left out.
   static const _hiddenAlbums = 6;
 
+  /// How many albums a song search asks the album search for, to look
+  /// for those copies on.
+  static const _namedAlbums = 10;
+
   static int? _idAt(Object? object) {
     final id = object is Map<String, Object?> ? object['id'] : null;
     return id is num ? id.toInt() : null;
   }
 
-  /// The albums among a page of song hits that may hold a copy the search
-  /// left out. Deezer's search lists a recording once: a song out as a
-  /// single and on its album (one ISRC) comes from one of the two only,
-  /// mostly the single. An album is worth asking when its artist has a hit
-  /// on another record too. The records that look like more than a single
-  /// come first, in the hits' order, since only so many are asked: an
-  /// artist's page of hits is mostly singles, which hold no other hit's
-  /// copy.
-  static List<int> _albumsToAsk(List<Map<String, Object?>> hits) {
+  /// The albums that may hold a copy of a song hit that the search left
+  /// out, as Deezer describes them (id, title, covers). Deezer's search
+  /// lists a recording once: a song out as a single and on its album, or
+  /// on an album and a compilation (one ISRC), comes from one of them
+  /// only. An album is worth asking when its artist has a hit on another
+  /// record: the albums of the hits themselves, then [named], the albums
+  /// Deezer's album search finds for the same words, which is how a
+  /// record with no hit of its own on the page is found ("tainted love
+  /// marilyn manson" names the best-of beside the studio album the one
+  /// hit is on). The records that are more than a single come first, in
+  /// that order, since only so many are asked: an artist's page of hits
+  /// is mostly singles, which hold no other hit's copy.
+  static List<Map<String, Object?>> _albumsToAsk(
+    List<Map<String, Object?>> hits,
+    List<Map<String, Object?>> named,
+  ) {
     // A hit's artist, its record, and whether the record is named after
     // the song (a single, as far as a hit can tell).
     final records = [
@@ -467,18 +478,33 @@ class DeezerSource extends HttpLookupSource
         ))
           (artist, album, _namedAfter(hit)),
     ];
-    final albums = <int>[];
-    for (final (artist, album, _) in records) {
-      if (!albums.contains(album) &&
-          records.any((r) => r.$1 == artist && r.$2 != album)) {
-        albums.add(album);
+    // The album search says what a record is; a hit does not.
+    bool single(int id) {
+      final found = named.where((album) => _idAt(album) == id).firstOrNull;
+      final recordType = found == null ? null : stringAt(found, 'record_type');
+      if (recordType != null) return recordType == 'single';
+      return records.where((r) => r.$2 == id).every((r) => r.$3);
+    }
+
+    final albums = <int, Map<String, Object?>>{};
+    for (final (artist, album) in [
+      for (final hit in hits) (_idAt(hit['artist']), hit['album']),
+      for (final album in named) (_idAt(album['artist']), album),
+    ]) {
+      final id = _idAt(album);
+      if (artist == null || id == null || album is! Map<String, Object?>) {
+        continue;
+      }
+      if (!albums.containsKey(id) &&
+          records.any((r) => r.$1 == artist && r.$2 != id)) {
+        albums[id] = album;
       }
     }
-    bool single(int album) =>
-        records.where((r) => r.$2 == album).every((r) => r.$3);
     return [
-      ...albums.where((album) => !single(album)),
-      ...albums.where(single),
+      for (final MapEntry(:key, :value) in albums.entries)
+        if (!single(key)) value,
+      for (final MapEntry(:key, :value) in albums.entries)
+        if (single(key)) value,
     ].take(_hiddenAlbums).toList();
   }
 
@@ -496,10 +522,11 @@ class DeezerSource extends HttpLookupSource
 
   /// A page of song hits as matches, each followed by the copies of the
   /// same recording (the same ISRC) on the other albums in [lists] (an
-  /// album's id and its tracks) that the search did not show.
+  /// album as Deezer describes it, and its tracks) that the search did
+  /// not show.
   List<LookupMatch> _songsWithCopies(
     List<Map<String, Object?>> hits,
-    Map<int, List<Map<String, Object?>>> lists,
+    List<(Map<String, Object?>, List<Map<String, Object?>>)> lists,
   ) {
     final listed = {for (final hit in hits) ?_idAt(hit)};
     final matches = <LookupMatch>[];
@@ -510,18 +537,13 @@ class DeezerSource extends HttpLookupSource
       final isrc = stringAt(hit, 'isrc');
       if (isrc == null || isrc.isEmpty) continue;
       final own = _idAt(hit['album']);
-      for (final MapEntry(key: albumId, value: tracks) in lists.entries) {
-        if (albumId == own) continue;
-        // An album's track list names no album: a hit's does.
-        final album = hits
-            .map((other) => other['album'])
-            .where((album) => _idAt(album) == albumId)
-            .firstOrNull;
-        if (album == null) continue;
+      for (final (album, tracks) in lists) {
+        if (_idAt(album) == own) continue;
         for (final track in tracks) {
           if (stringAt(track, 'isrc') != isrc) continue;
           final id = _idAt(track);
           if (id == null || !listed.add(id)) continue;
+          // An album's track list names no album.
           final copy = _track({...track, 'album': album});
           if (copy != null) matches.add(copy);
         }
@@ -530,13 +552,29 @@ class DeezerSource extends HttpLookupSource
     return matches;
   }
 
-  /// A page of song hits with the copies the search left out. A track
-  /// list that does not come only leaves its copies out.
-  Future<List<LookupMatch>> _songs(List<Map<String, Object?>> hits) async {
-    final lists = <int, List<Map<String, Object?>>>{};
-    for (final id in _albumsToAsk(hits)) {
+  /// A page of the song hits for [query] with the copies the search left
+  /// out. The album search or a track list that does not come only
+  /// leaves its copies out.
+  Future<List<LookupMatch>> _songs(
+    List<Map<String, Object?>> hits,
+    String query,
+  ) async {
+    var named = const <Map<String, Object?>>[];
+    try {
+      named = await _list('/search/album', {
+        'q': query,
+        'limit': '$_namedAlbums',
+      });
+    } on Exception {
+      // The hits' own records are still asked.
+    }
+    final lists = <(Map<String, Object?>, List<Map<String, Object?>>)>[];
+    for (final album in _albumsToAsk(hits, named)) {
       try {
-        lists[id] = await _list('/album/$id/tracks', {'limit': '200'});
+        final tracks = await _list('/album/${_idAt(album)}/tracks', {
+          'limit': '200',
+        });
+        lists.add((album, tracks));
       } on Exception {
         continue;
       }
@@ -561,7 +599,7 @@ class DeezerSource extends HttpLookupSource
         );
         return MusicPage(
           matches: songs
-              ? await _songs(page.items)
+              ? await _songs(page.items, query)
               : [for (final item in page.items) ?_album(item)],
           total: page.total,
           next: page.next,

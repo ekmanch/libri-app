@@ -5,8 +5,8 @@ import '../../data/models/media_type.dart';
 import '../../data/models/tag_category.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
-import '../../widgets/app_icons.dart';
 import '../../widgets/chips.dart';
+import '../../widgets/create_tag_row.dart';
 import '../../widgets/labels.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/sheet_frame.dart';
@@ -268,7 +268,17 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
     });
   }
 
-  Future<void> _create(String name) async {
+  /// Whether [name], already normalized, can be offered as a new tag: it
+  /// is a name, and no tag of the library or of this picker has it.
+  bool _canCreate(String name) => name.isNotEmpty && !_allNames.contains(name);
+
+  /// Creates the tag [name] through the similar-tag check and the category
+  /// dialog, and ticks it. From a category's own page ([category], Library
+  /// › Tag picker: all Authors, create a tag) the dialog opens with that
+  /// category picked. Returns the tag now on the entry, the new one or the
+  /// similar one used instead, and whether [category] holds it; null when
+  /// cancelled.
+  Future<TagListCreated?> _create(String name, {TagCategory? category}) async {
     final similar = findSimilarTag(name, _allNames);
     if (similar != null) {
       final usedBy = widget.library.entries
@@ -280,28 +290,60 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
         existing: similar,
         usedBy: usedBy,
       );
-      if (!mounted || choice == null) return;
+      if (!mounted || choice == null) return null;
       if (choice == SimilarTagChoice.useExisting) {
+        // On a category's page the tag is ticked in that category when it
+        // has it, else as a whole.
+        final listed =
+            category != null && _categoriesOf(similar).contains(category);
+        final at = listed ? category : null;
         setState(() {
-          if (!_selected.contains(similar)) _toggle(similar, null);
+          if (!_isOn(similar, at)) _toggle(similar, at);
           _query.clear();
         });
-        return;
+        return (tag: similar, listed: listed);
       }
     }
     final categories = await showNewTagDialog(
       context,
       name: name,
       type: widget.type,
-      initial: TagCategory.defaultFor(widget.type),
+      initial: category ?? TagCategory.defaultFor(widget.type),
     );
-    if (!mounted || categories == null) return;
+    if (!mounted || categories == null) return null;
     setState(() {
       _created[name] = categories;
       _selected.add(name);
       if (categories.length > 1) _picks[name] = {...categories};
       _query.clear();
     });
+    return (tag: name, listed: categories.contains(category));
+  }
+
+  /// Opens a long group as its own page, in the form's variant: a query
+  /// that is no tag yet can be created there (Library › Tag picker: all
+  /// Authors, create a tag). The tags created here in [category] are on the
+  /// page too, though this sheet lists them under "New on this entry".
+  void _openGroup(TagCategory category, List<String> tags) {
+    final all = [
+      ...tags,
+      for (final MapEntry(key: tag, value: categories) in _created.entries)
+        if (categories.contains(category)) tag,
+    ];
+    showTagListScreen(
+      context,
+      category: category,
+      tags: all,
+      selected: {
+        for (final t in all)
+          if (_isOn(t, category)) t,
+      },
+      library: widget.library,
+      onToggle: (tag) => _toggle(tag, category),
+      onLongPress: _editCategories,
+      canCreate: _canCreate,
+      onCreate: (name) => _create(name, category: category),
+    );
   }
 
   void _done() {
@@ -356,7 +398,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
     final theme = Theme.of(context);
     final colors = LibraryColors.of(context);
     final query = normalizeTag(_query.text);
-    final canCreate = query.isNotEmpty && !_allNames.contains(query);
+    final canCreate = _canCreate(query);
     bool matches(String tag) => query.isEmpty || tag.contains(query);
 
     // "New on this entry" first, then the library's categories, each A to Z. A
@@ -406,43 +448,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (canCreate)
-            Semantics(
-              button: true,
-              label: 'Create #$query',
-              excludeSemantics: true,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _create(query),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 52),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: theme.colorScheme.outline),
-                    ),
-                    child: Row(
-                      children: [
-                        StrokeIcon(
-                          AppIcons.plus,
-                          size: 16,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Create “#$query”',
-                            style: theme.textTheme.labelLarge,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          if (canCreate) CreateTagRow(tag: query, onTap: () => _create(query)),
           if (canCreate) const SizedBox(height: 8),
           for (final (category, name, tags) in groups)
             if (category != null && query.isEmpty && tags.length > longTagGroup)
@@ -453,18 +459,7 @@ class _TagPickerSheetState extends State<TagPickerSheet> {
                   tags.length,
                   tags.where((t) => _isOn(t, category)).length,
                 ),
-                onTap: () => showTagListScreen(
-                  context,
-                  category: category,
-                  tags: tags,
-                  selected: {
-                    for (final t in tags)
-                      if (_isOn(t, category)) t,
-                  },
-                  library: widget.library,
-                  onToggle: (tag) => _toggle(tag, category),
-                  onLongPress: _editCategories,
-                ),
+                onTap: () => _openGroup(category, tags),
               )
             else
               TagGroup(

@@ -133,7 +133,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'zzz');
     await tester.pumpAndSettle();
-    expect(find.text('No author matches "zzz".'), findsOneWidget);
+    expect(find.text('None of your authors match.'), findsOneWidget);
   });
 
   testWidgets('a tap toggles the row and tells the caller', (tester) async {

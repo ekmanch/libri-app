@@ -116,6 +116,65 @@ Future<void> scrollFormTo(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
+/// Library › Tag picker: all Authors, create a tag and Add / edit entry › New
+/// tag: from a category's page: the Authors page opened from a book's tag
+/// picker, a name typed that is no tag yet, the dialog with Authors picked,
+/// and the page again with the new tag ticked.
+Future<void> walkTagListCreate(WidgetTester tester, {double scale = 1}) async {
+  final prefix = scale == 1 ? '' : 'large-text-';
+  final long = padForLongLists(
+    decodeLibrary(
+      await File(FixtureLibraryRepository.assetPath).readAsString(),
+    ),
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...fakeLookupOverrides(),
+        libraryRepositoryProvider.overrideWithValue(
+          FixtureLibraryRepository(loadJson: () async => encodeLibrary(long)),
+        ),
+      ],
+      child: RepaintBoundary(
+        key: _root,
+        child: MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: const LibraryApp(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await pickChip(tester, 'Books');
+  await tester.tap(find.byType(EntryRow).first);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Edit'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Edit'));
+  await tester.pumpAndSettle();
+  // The tag box opens the picker.
+  final tagBox = find.bySemanticsLabel(RegExp('^Tags, '));
+  await scrollFormTo(tester, tagBox);
+  await tester.tap(tagBox);
+  await tester.pumpAndSettle();
+  final authorsRow = find.widgetWithText(TagGroupRow, 'Authors');
+  await tester.ensureVisible(authorsRow);
+  await tester.pumpAndSettle();
+  await tester.tap(authorsRow);
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField).last, 'Fredrik Backman');
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a28-tag-list-create');
+  await tester.tap(find.bySemanticsLabel('Create #fredrik-backman in Authors'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}d10-new-tag-from-category');
+  await tester.ensureVisible(find.text('Create tag'));
+  await tester.tap(find.text('Create tag'));
+  await tester.pumpAndSettle();
+  await capture(tester, '${prefix}a28-tag-list-created');
+}
+
 /// The day the home captures look from: the fixture's newest entry is six
 /// days old then, so Recently added has rows (Library › Home).
 final homeDay = DateTime(2026, 10, 11);
@@ -3791,6 +3850,16 @@ void main() {
         scale == 1.0 ? 'a1c-home-nothing' : 'large-text-a1c-home-nothing',
       );
     }
+  });
+
+  testWidgets('a tag created from all Authors', (tester) async {
+    await walkTagListCreate(tester);
+  });
+
+  testWidgets('a tag created from all Authors at a larger text size', (
+    tester,
+  ) async {
+    await walkTagListCreate(tester, scale: 1.3);
   });
 
   testWidgets('long lists with the rail and the grid thumb', (tester) async {

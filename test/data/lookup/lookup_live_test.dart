@@ -243,6 +243,37 @@ void main() {
     ];
     expect(records, contains('deezer:album:12511986'), reason: 'the single');
     expect(records, contains('deezer:album:13476107'), reason: 'New English');
+
+    // The one hit is on the studio album; the best-of has no hit of its
+    // own, and is found through the album search for the same words.
+    final tainted = await DeezerSource(client).musicPage(
+      const MusicRequest(
+        list: MusicSearch('tainted love marilyn manson'),
+        scope: MusicScope.songs,
+      ),
+    );
+    expect(
+      [for (final m in tainted.matches.take(2)) (m.creator, m.albumSource)],
+      [
+        ('Marilyn Manson', 'deezer:album:246972'),
+        ('Marilyn Manson', 'deezer:album:123378'),
+      ],
+    );
+
+    // The same for the album behind a single, with the song's name alone.
+    final alone = await DeezerSource(client).musicPage(
+      const MusicRequest(
+        list: MusicSearch('picture you'),
+        scope: MusicScope.songs,
+      ),
+    );
+    final both = [
+      for (final m in alone.matches)
+        if (m.title == 'Picture You' && m.creator == 'The Amazing')
+          m.albumSource,
+    ];
+    expect(both, contains('deezer:album:679137691'), reason: 'the single');
+    expect(both, contains('deezer:album:9682786'), reason: 'the album');
   });
 
   final tmdbToken = env['TMDB_READ_TOKEN'] ?? '';

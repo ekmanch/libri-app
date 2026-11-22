@@ -604,6 +604,163 @@ void main() {
       );
     });
 
+    test('an album the album search names is asked for a copy of a '
+        'hit', () async {
+      // "tainted love marilyn manson": one hit by the artist, on the
+      // studio album; the album search names the best-of as well.
+      const manson = {'id': 482, 'name': 'Marilyn Manson'};
+      final deezer = source((request) async {
+        switch (request.url.path) {
+          case '/search/track':
+            return json({
+              'data': [
+                {
+                  'id': 2516603,
+                  'title': 'Tainted Love',
+                  'isrc': 'USIR10120378',
+                  'artist': manson,
+                  'album': {
+                    'id': 246972,
+                    'title': 'The Golden Age Of Grotesque',
+                  },
+                },
+                {
+                  'id': 397244952,
+                  'title': 'Tainted Love',
+                  'isrc': 'USQY51769707',
+                  'artist': {'id': 5174833, 'name': 'Midnite String Quartet'},
+                  'album': {
+                    'id': 46660982,
+                    'title': 'MSQ Performs Marilyn Manson',
+                  },
+                },
+              ],
+              'total': 2,
+            });
+          case '/search/album':
+            expect(request.url.queryParameters, {
+              'q': 'tainted love marilyn manson',
+              'limit': '10',
+            });
+            return json({
+              'data': [
+                {
+                  'id': 246972,
+                  'title': 'The Golden Age Of Grotesque',
+                  'record_type': 'album',
+                  'artist': manson,
+                },
+                {
+                  'id': 123378,
+                  'title': 'Lest We Forget (The Best Of)',
+                  'record_type': 'album',
+                  'cover_medium': 'https://cdn/best-of.jpg',
+                  'artist': manson,
+                },
+                {
+                  'id': 9376196,
+                  'title': 'Sing Tainted Love Like Marilyn Manson',
+                  'record_type': 'single',
+                  'artist': {'id': 321401, 'name': 'The Karaoke Channel'},
+                },
+              ],
+            });
+          case '/search/artist':
+            return json({'data': <Object>[]});
+          case '/album/123378/tracks':
+            return json({
+              'data': [
+                {
+                  'id': 1151612,
+                  'title': 'The Fight Song',
+                  'isrc': 'USIR10001297',
+                  'artist': manson,
+                },
+                {
+                  'id': 1151613,
+                  'title': 'Tainted Love',
+                  'isrc': 'USIR10120378',
+                  'artist': manson,
+                },
+              ],
+            });
+        }
+        return http.Response('', 404);
+      });
+      final songs = await deezer.musicPage(
+        const MusicRequest(
+          list: MusicSearch('tainted love marilyn manson'),
+          scope: MusicScope.songs,
+        ),
+      );
+      expect(
+        [for (final m in songs.matches) (m.source, m.album)],
+        [
+          ('deezer:track:2516603', 'The Golden Age Of Grotesque'),
+          ('deezer:track:1151613', 'Lest We Forget (The Best Of)'),
+          ('deezer:track:397244952', 'MSQ Performs Marilyn Manson'),
+        ],
+      );
+      expect(songs.matches[1].creator, 'Marilyn Manson');
+      expect(songs.matches[1].albumSource, 'deezer:album:123378');
+      expect(songs.matches[1].coverUrl, 'https://cdn/best-of.jpg');
+      // Not the album the hit is on, nor one by an artist with no hit.
+      expect(
+        sent.map((r) => r.url.path).where((p) => p.startsWith('/album/')),
+        ['/album/123378/tracks'],
+      );
+    });
+
+    test('the album search says which records are singles', () async {
+      Map<String, Object?> hit(int id, String title, int album, String on) => {
+        'id': id,
+        'title': title,
+        'isrc': 'I$id',
+        'artist': {'id': 482, 'name': 'Marilyn Manson'},
+        'album': {'id': album, 'title': on},
+      };
+      Map<String, Object?> named(int id, String title, String type) => {
+        'id': id,
+        'title': title,
+        'record_type': type,
+        'artist': {'id': 482, 'name': 'Marilyn Manson'},
+      };
+      final deezer = source((request) async {
+        switch (request.url.path) {
+          case '/search/track':
+            return json({
+              'data': [
+                hit(1, 'Tainted Love', 246972, 'The Golden Age Of Grotesque'),
+                hit(7, 'mOBSCENE', 300, 'mOBSCENE'),
+              ],
+            });
+          case '/search/album':
+            return json({
+              'data': [
+                named(287715, 'Personal Jesus', 'single'),
+                // Named after its hit, and no single all the same.
+                named(300, 'mOBSCENE', 'ep'),
+                named(123378, 'Lest We Forget (The Best Of)', 'album'),
+              ],
+            });
+        }
+        return json({'data': <Object>[]});
+      });
+      await deezer.musicPage(
+        const MusicRequest(list: MusicSearch('x'), scope: MusicScope.songs),
+      );
+      // The hits' own records, then the album search's; its single last.
+      expect(
+        sent.map((r) => r.url.path).where((p) => p.startsWith('/album/')),
+        [
+          '/album/246972/tracks',
+          '/album/300/tracks',
+          '/album/123378/tracks',
+          '/album/287715/tracks',
+        ],
+      );
+    });
+
     test('a track list that does not come leaves the hits as they '
         'are', () async {
       Map<String, Object?> hit(int id, int album) => {
