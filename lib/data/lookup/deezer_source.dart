@@ -305,10 +305,13 @@ class DeezerSource extends HttpLookupSource
     );
   }
 
-  /// Up to three artists for a search, the best known first: Deezer ranks
-  /// a search's artists poorly ("Ghost & Gale" before Ghost), so the hits
-  /// go by their fans, and one with a hundredth of the best's fans or
-  /// fewer is left out.
+  /// Up to three artists for a search: those named as the search is
+  /// first, then the best known. Deezer ranks a search's artists poorly
+  /// ("Ghost & Gale" before Ghost) and loosely (Pink Floyd for "pinback"),
+  /// so the hits go by their fans, and one with a hundredth of the best's
+  /// fans or fewer is left out. An artist with the search's own name is
+  /// measured against its namesakes only, so a far better known near-miss
+  /// never hides it.
   Future<List<ArtistHit>> _matchingArtists(String query) async {
     final key = query.toLowerCase();
     if (_artistsByQuery[key] case final known?) return known;
@@ -316,7 +319,7 @@ class DeezerSource extends HttpLookupSource
       'q': query,
       'limit': '$_artistHits',
     });
-    final artists = bestArtists(hits);
+    final artists = bestArtists(hits, query);
     _artistsByQuery[key] = artists;
     while (_artistsByQuery.length > 20) {
       _artistsByQuery.remove(_artistsByQuery.keys.first);
@@ -325,20 +328,34 @@ class DeezerSource extends HttpLookupSource
   }
 
   /// The ranking of [_matchingArtists], on Deezer's artist records.
-  static List<ArtistHit> bestArtists(List<Map<String, Object?>> hits) {
+  static List<ArtistHit> bestArtists(
+    List<Map<String, Object?>> hits,
+    String query,
+  ) {
     int fans(Map<String, Object?> hit) =>
         hit['nb_fan'] is num ? (hit['nb_fan']! as num).toInt() : 0;
+    bool named(Map<String, Object?> hit) {
+      final name = stringAt(hit, 'name');
+      return name != null && sameTitle(name, query);
+    }
+
     // Equal fans keep Deezer's order.
     final ranked = [...hits.indexed]
       ..sort((a, b) {
+        if (named(a.$2) != named(b.$2)) return named(a.$2) ? -1 : 1;
         final byFans = fans(b.$2).compareTo(fans(a.$2));
         return byFans != 0 ? byFans : a.$1.compareTo(b.$1);
       });
-    final best = ranked.isEmpty ? 0 : fans(ranked.first.$2);
+    int bestOf(Iterable<Map<String, Object?>> hits) =>
+        hits.fold(0, (best, hit) => fans(hit) > best ? fans(hit) : best);
+    final best = bestOf(hits);
+    final bestNamed = bestOf(hits.where(named));
     final artists = <ArtistHit>[];
     for (final (_, hit) in ranked) {
       if (artists.length == matchingArtists) break;
-      if (fans(hit) * _artistFanShare <= best) continue;
+      if (fans(hit) * _artistFanShare <= (named(hit) ? bestNamed : best)) {
+        continue;
+      }
       final id = hit['id'];
       final name = stringAt(hit, 'name');
       if (id is! num || name == null) continue;

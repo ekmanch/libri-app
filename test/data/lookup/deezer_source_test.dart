@@ -454,6 +454,20 @@ void main() {
       expect(sent.where((r) => r.url.path == '/search/artist'), hasLength(1));
     });
 
+    test('the artist a search names comes before a better known '
+        'near-miss', () {
+      // Deezer's answer for "pinback" on 2026-11-22.
+      final best = DeezerSource.bestArtists([
+        artist(1997, 'Pinback', 9021, 13),
+        artist(860, 'Pink Floyd', 6852025, 65),
+        artist(6248, 'Laid Back', 9347, 7),
+        // A namesake with a hundredth of Pinback's fans or fewer.
+        artist(382395121, 'Pinback', 1, 1),
+      ], ' pinback');
+      expect(best.map((a) => a.name), ['Pinback', 'Pink Floyd']);
+      expect(best.first.source, 'deezer:artist:1997');
+    });
+
     test('a song hit is followed by its copy on an album the search '
         'hid', () async {
       // "the amazing": the single's Picture You, then the album's other
