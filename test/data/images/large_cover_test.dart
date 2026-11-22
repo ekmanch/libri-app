@@ -94,8 +94,23 @@ void main() {
       const apple =
           'https://is1-ssl.mzstatic.com/image/thumb/Music/v4/a/b/c/x.jpg/600x600bb.jpg';
       expect(largestCoverWidth(apple, square: true), 900);
-      // A book's box is 1170: 780 wide at 2:3.
-      expect(largestCoverWidth(apple, square: false), 780);
+      // A book's box counts as the desktop's 1200, 800 wide at 2:3,
+      // though the larger view asks for 1170; a larger box as it is.
+      expect(largestCoverWidth(apple, square: false), 800);
+      expect(
+        largestCoverWidth(
+          apple.replaceFirst('600x600', '1170x1170'),
+          square: false,
+        ),
+        800,
+      );
+      expect(
+        largestCoverWidth(
+          apple.replaceFirst('600x600', '1500x1500'),
+          square: false,
+        ),
+        1000,
+      );
     });
 
     test('a named size is the width assumed for it', () {

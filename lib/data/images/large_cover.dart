@@ -7,7 +7,8 @@
 /// - IGDB: `t_1080p` (810 × 1080), from `t_cover_big`.
 /// - Deezer: 1000 × 1000 (`cover_xl`), from the 500 of `cover_big`.
 /// - Apple: its image server renders any size: a 1170 box for a book
-///   (780 wide at 2:3), 900 for a square album.
+///   (780 wide at 2:3), 900 for a square album. "Sharpest" counts a book's
+///   box as 1200 ([appleSharpestPosterBox]).
 ///
 /// AniList (`extraLarge`), Open Library (`-L`) and Google Books are already
 /// cached at the largest size they offer short of the original, and the
@@ -30,6 +31,12 @@ const deezerLargeSide = 1000;
 
 /// The box asked of Apple for a book, whose cover is 780 wide at 2:3.
 const appleLargePosterBox = 1170;
+
+/// The box Apple's book cover is counted at when the choices of Pick a
+/// cover are compared ([largestCoverWidth]): the desktop's box, so both
+/// apps mark the same tile "Sharpest" (owner's decision, 2026-11-22).
+/// The larger view still asks for [appleLargePosterBox].
+const appleSharpestPosterBox = 1200;
 
 /// The box asked of Apple for a square album cover.
 const appleLargeSquareBox = 900;
@@ -107,8 +114,9 @@ const _igdbWidths = {
 /// URL says nothing (one of the owner's own files, an unknown server).
 ///
 /// Exact where the size is in the URL and the server renders it: TMDB's
-/// `w780`, Deezer's 1000, Apple's box (a book's width taken as two thirds
-/// of the box, its shape being unknown). Assumed where the source names a
+/// `w780`, Deezer's 1000, Apple's box (a book's read as the desktop's
+/// 1200 and its width taken as two thirds of that, 800, its shape being
+/// unknown; a box already larger counts as it is). Assumed where the source names a
 /// size without a width: IGDB's `t_1080p` as 810 (a 3:4 cover), AniList's
 /// `extraLarge` as 460, Open Library's `-L` as 500, Google Books' medium
 /// as 575. A source may also hold a smaller original than the size asked
@@ -120,7 +128,10 @@ int? largestCoverWidth(String url, {required bool square}) {
   if (_deezer.firstMatch(largest) case final m?) return int.parse(m[2]!);
   if (_apple.firstMatch(largest) case final m?) {
     final box = int.parse(m[2]!);
-    return square ? box : box * 2 ~/ 3;
+    if (square) return box;
+    return (box > appleSharpestPosterBox ? box : appleSharpestPosterBox) *
+        2 ~/
+        3;
   }
   if (_anilist.firstMatch(largest) case final m?) {
     return const {'small': 100, 'medium': 230, 'large': 460}[m[1]];
