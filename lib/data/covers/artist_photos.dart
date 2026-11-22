@@ -5,15 +5,18 @@ import '../models/entry_id.dart';
 /// Artist photos: the rules, with nothing fetched or stored here (DESIGN.md
 /// section 10e, the desktop's "Artist photos"). They are the desktop's
 /// (`src/covers/artists.rs`) and must never differ from them: both apps run
-/// the cases in `artist_photos.json` (here `test/fixtures/`, a byte-identical
-/// copy of the desktop's `assets/fixtures/`).
+/// the cases in `artist_photos.json`. The desktop's file
+/// (`assets/fixtures/` in `ekmanch/libri-kde`) is the source; the one here,
+/// in `test/fixtures/`, is a byte-identical copy of it.
 ///
 /// An artist has one fixed file in the library repo,
 /// `covers/artists/<slug>.jpg`, whoever put it there: fetched from the
 /// artist's Apple Music page, picked in Pick a photo or uploaded. With no
 /// file an artist shows a cover from the library, else their initials.
 /// `covers/artists/_missing.json` records "tried, nothing found", so no
-/// device asks Apple about the same artist again for ninety days.
+/// device asks Apple about the same artist again for ninety days, and with
+/// it the size new photos are fetched at and the artists whose photo the
+/// owner chose.
 
 /// The folder under `covers/`.
 const artistsFolder = 'artists';
@@ -493,6 +496,11 @@ sealed class MissingEdit {
       );
     }
     if (json['remove'] case final String slug) return MissingRemove(slug);
+    if (json['pick'] case final String slug) return MissingPick(slug);
+    if (json['unpick'] case final String slug) return MissingUnpick(slug);
+    if (json['photo_size'] case final int side) {
+      return side >= 0 && side <= _maxSide ? MissingPhotoSize(side) : null;
+    }
     if (parseArtistDay(json['backfilled']) case final day?) {
       return MissingBackfilled(day);
     }
@@ -537,6 +545,49 @@ class MissingBackfilled extends MissingEdit {
   Map<String, Object?> toJson() => {'backfilled': formatArtistDay(day)};
 }
 
+/// The owner picked or uploaded the artist's photo: the slug joins
+/// `picked`, the artists whose photo no fetch may replace.
+class MissingPick extends MissingEdit {
+  const MissingPick(this.slug);
+
+  final String slug;
+
+  @override
+  Map<String, Object?> toJson() => {'pick': slug};
+}
+
+/// "Use automatic", or the Suggested photo picked again: the photo is no
+/// longer the owner's own choice, and the slug leaves `picked`.
+class MissingUnpick extends MissingEdit {
+  const MissingUnpick(this.slug);
+
+  final String slug;
+
+  @override
+  Map<String, Object?> toJson() => {'unpick': slug};
+}
+
+/// New photos are fetched at this side from now on. Only the desktop
+/// writes it, once it has re-fetched the existing photos; the phone
+/// applies it in a merge like any edit and never queues one.
+class MissingPhotoSize extends MissingEdit {
+  const MissingPhotoSize(this.side);
+
+  final int side;
+
+  @override
+  Map<String, Object?> toJson() => {'photo_size': side};
+}
+
+/// The largest `photo_size` read: the desktop keeps it in 32 bits.
+const _maxSide = 0xFFFFFFFF;
+
+/// A top-level key of `_missing.json` this build does not know (or a
+/// `photo_size` or `picked` it cannot read), with its value's text exactly
+/// as the file had it and the known key it followed (null at the start of
+/// the file).
+typedef MissingExtra = ({String? after, String key, String text});
+
 /// `_missing.json` could not be read: another version or shape. The file
 /// is left as it is.
 class MissingFormatException implements Exception {
@@ -548,40 +599,55 @@ class MissingFormatException implements Exception {
   String toString() => 'MissingFormatException: $message';
 }
 
-/// `_missing.json`: the artists tried with nothing found, by slug, and the
-/// day the desktop's backfill finished.
+/// `_missing.json`: the artists tried with nothing found, by slug, the day
+/// the desktop's backfill finished, the size photos are fetched at and the
+/// artists whose photo the owner chose.
 class MissingArtists {
   MissingArtists({
     this.backfilled,
-    Map<String, TriedArtist>? artists,
-    Map<String, String>? extra,
-    List<String>? order,
     this.photoSize,
-  }) : artists = artists ?? {},
-       extra = extra ?? const {},
-       _order = order ?? const [];
+    Set<String>? picked,
+    Map<String, TriedArtist>? artists,
+    List<MissingExtra>? extra,
+  }) : picked = picked ?? {},
+       artists = artists ?? {},
+       _extra = extra ?? const [];
 
   /// Written by the backfill's last batch; the phone fetches nothing until
   /// it is there.
   DateTime? backfilled;
-  final Map<String, TriedArtist> artists;
-
-  /// The top-level keys this build does not know (`photo_size`, `picked`,
-  /// whatever comes later), each with its value's text exactly as the
-  /// file had it. They are written back untouched.
-  final Map<String, String> extra;
-
-  /// The file's top-level keys in the order it had them; empty for a
-  /// record made here.
-  final List<String> _order;
 
   /// `photo_size`: the side new artists' photos are fetched at, written
   /// by the desktop once it has re-fetched the existing ones. Null until
-  /// then, which means [artistPhotoSide]. Only read here, never written.
-  final int? photoSize;
+  /// then, which means [artistPhotoSide] ([photoSide]).
+  int? photoSize;
+
+  /// `picked`: the slugs of the artists whose photo the owner picked or
+  /// uploaded, on any device. A fetch never replaces theirs.
+  final Set<String> picked;
+  final Map<String, TriedArtist> artists;
+
+  /// What this build does not know, written back as it was read.
+  final List<MissingExtra> _extra;
+
+  /// The top-level keys this build reads and writes, in the order it
+  /// writes them.
+  static const _known = [
+    'version',
+    'backfilled',
+    'photo_size',
+    'picked',
+    'artists',
+  ];
+
+  /// The side a new photo is fetched at.
+  int get photoSide => photoSize ?? artistPhotoSide;
 
   /// Reads the file. Anything but version 1 in the shape below throws
-  /// [MissingFormatException], and such a file is left as it is.
+  /// [MissingFormatException], and such a file is left as it is. A
+  /// top-level key this build does not know is kept with its value as
+  /// written, and so is a `photo_size` that is no positive number or a
+  /// `picked` that is no list of slugs.
   static MissingArtists decode(String text) {
     final Object? json;
     try {
@@ -590,6 +656,7 @@ class MissingArtists {
       throw MissingFormatException(e.message);
     }
     if (json is! Map<String, Object?> ||
+        json['version'] is! int ||
         json['version'] != artistsMissingVersion) {
       throw const MissingFormatException('not version $artistsMissingVersion');
     }
@@ -599,6 +666,12 @@ class MissingArtists {
           parseArtistDay(value) ??
           (throw const MissingFormatException('backfilled is not a date'));
     }
+    final size = json['photo_size'];
+    final photoSize = size is int && size > 0 && size <= _maxSide ? size : null;
+    final list = json['picked'];
+    final picked = list is List<Object?> && list.every((slug) => slug is String)
+        ? {for (final slug in list) slug! as String}
+        : null;
     final listed = json['artists'];
     if (listed is! Map<String, Object?>) {
       throw const MissingFormatException('no artists');
@@ -618,24 +691,30 @@ class MissingArtists {
           (throw const MissingFormatException('tried is not a date'));
       artists[slug] = TriedArtist(name: name, tried: tried, reason: reason);
     }
-    final raw = _topLevelText(text);
-    final size = json['photo_size'];
+    final extra = <MissingExtra>[];
+    String? after;
+    for (final MapEntry(:key, value: written) in _topLevelText(text).entries) {
+      final known = _known.contains(key);
+      final understood = switch (key) {
+        'photo_size' => photoSize != null,
+        'picked' => picked != null,
+        _ => known,
+      };
+      if (!understood) extra.add((after: after, key: key, text: written));
+      if (known) after = key;
+    }
     return MissingArtists(
       backfilled: backfilled,
+      photoSize: photoSize,
+      picked: picked,
       artists: artists,
-      extra: {
-        for (final MapEntry(:key, :value) in raw.entries)
-          if (!_known.contains(key)) key: value,
-      },
-      order: raw.keys.toList(),
-      photoSize: size is int && size > 0 ? size : null,
+      extra: extra,
     );
   }
 
-  static const _known = {'version', 'backfilled', 'artists'};
-
   /// The top-level keys of the JSON object [text] (valid JSON, an object),
-  /// each with the text of its value as written.
+  /// each with the text of its value as written. A key written twice keeps
+  /// its first place and its last value, as a JSON reader would have it.
   static Map<String, String> _topLevelText(String text) {
     const space = ' \n\r\t';
     int past(int i) {
@@ -659,7 +738,7 @@ class MissingArtists {
     var i = text.indexOf('{') + 1;
     while (true) {
       i = past(i);
-      if (i >= text.length || text[i] == '}') break;
+      if (i >= text.length || text[i] != '"') break;
       final keyEnd = afterString(i);
       final key = jsonDecode(text.substring(i, keyEnd)) as String;
       i = past(past(keyEnd) + 1);
@@ -686,48 +765,51 @@ class MissingArtists {
   }
 
   /// The file's text: two-space indent, `version`, then `backfilled` when
-  /// set, then `artists` with one artist per line in slug order (by code
-  /// unit; a slug is ASCII), each with `name`, `tried` and `reason` in
-  /// that order, and a newline at the end. Every key this build does not
-  /// know ([extra]) keeps its value's text and its place after the known
-  /// key it followed.
+  /// set, `photo_size` when set, `picked` while it has a slug (one per
+  /// line, in order), then `artists` with one artist per line in slug
+  /// order (by code unit; a slug is ASCII), each with `name`, `tried` and
+  /// `reason` in that order, and a newline at the end. Every key this
+  /// build does not know keeps its value's text and its place after the
+  /// known key it followed, or before all of them when it followed none.
   String encode() {
-    // The known keys in their fixed order, whatever order the file had
-    // them in; an unknown key follows the known key it came after.
-    final keys = <String>[];
-    final after = <String, List<String>>{};
-    var anchor = '';
-    for (final key in _order) {
-      if (_known.contains(key)) {
-        anchor = key;
-      } else {
-        (after[anchor] ??= []).add(key);
+    final parts = <String>[];
+    void extras(String? after) {
+      for (final extra in _extra) {
+        if (extra.after == after) {
+          parts.add('  ${jsonEncode(extra.key)}: ${extra.text}');
+        }
       }
     }
-    for (final key in ['', 'version', 'backfilled', 'artists']) {
-      if (key.isNotEmpty) keys.add(key);
-      keys.addAll(after[key] ?? const []);
+
+    extras(null);
+    for (final key in _known) {
+      switch (key) {
+        case 'version':
+          parts.add('  "version": $artistsMissingVersion');
+        case 'backfilled' when backfilled != null:
+          parts.add('  "backfilled": "${formatArtistDay(backfilled!)}"');
+        case 'photo_size' when photoSize != null:
+          parts.add('  "photo_size": $photoSize');
+        case 'picked' when picked.isNotEmpty:
+          final slugs = picked.toList()..sort();
+          parts.add(
+            '  "picked": [\n'
+            '${[for (final slug in slugs) '    ${jsonEncode(slug)}'].join(',\n')}'
+            '\n  ]',
+          );
+        case 'artists' when artists.isEmpty:
+          parts.add('  "artists": {}');
+        case 'artists':
+          final slugs = artists.keys.toList()..sort();
+          parts.add(
+            '  "artists": {\n${[for (final slug in slugs) '    ${jsonEncode(slug)}: '
+                  '{"name": ${jsonEncode(artists[slug]!.name)}, '
+                  '"tried": "${formatArtistDay(artists[slug]!.tried)}", '
+                  '"reason": "${artists[slug]!.reason.key}"}'].join(',\n')}\n  }',
+          );
+      }
+      extras(key);
     }
-    final slugs = artists.keys.toList()..sort();
-    final parts = [
-      for (final key in keys)
-        switch (key) {
-          'version' => '  "version": $artistsMissingVersion',
-          'backfilled' =>
-            backfilled == null
-                ? null
-                : '  "backfilled": "${formatArtistDay(backfilled!)}"',
-          'artists' =>
-            artists.isEmpty
-                ? '  "artists": {}'
-                : '  "artists": {\n${[for (final slug in slugs) '    ${jsonEncode(slug)}: '
-                        '{"name": ${jsonEncode(artists[slug]!.name)}, '
-                        '"tried": "${formatArtistDay(artists[slug]!.tried)}", '
-                        '"reason": "${artists[slug]!.reason.key}"}'].join(',\n')}\n  }',
-          _ =>
-            extra[key] == null ? null : '  ${jsonEncode(key)}: ${extra[key]}',
-        },
-    ].nonNulls;
     return '{\n${parts.join(',\n')}\n}\n';
   }
 
@@ -736,7 +818,8 @@ class MissingArtists {
   bool isDue(String slug, DateTime today, DateTime? added) =>
       artists[slug]?.isDue(today, added) ?? true;
 
-  /// One edit. The first `backfilled` day stands.
+  /// One edit. The first `backfilled` day stands, and the first
+  /// `photo_size`.
   void apply(MissingEdit edit) {
     switch (edit) {
       case MissingSet(:final slug, :final tried):
@@ -745,6 +828,12 @@ class MissingArtists {
         artists.remove(slug);
       case MissingBackfilled(:final day):
         backfilled ??= day;
+      case MissingPick(:final slug):
+        picked.add(slug);
+      case MissingUnpick(:final slug):
+        picked.remove(slug);
+      case MissingPhotoSize(:final side):
+        photoSize ??= side;
     }
   }
 
@@ -752,7 +841,9 @@ class MissingArtists {
   /// that have a file ([hasFile], by slug) or are no longer in the library
   /// ([inLibrary], by slug; everyone when left out): an entry leaves when a
   /// file for the artist appears, whoever put it there, or when no entry
-  /// names the artist any more, and for no other reason.
+  /// names the artist any more, and for no other reason. The other way
+  /// round for `picked`: a slug stays only while the artist has a file and
+  /// is in the library.
   MissingArtists merged(
     Iterable<MissingEdit> edits,
     bool Function(String slug) hasFile, {
@@ -760,25 +851,31 @@ class MissingArtists {
   }) {
     final out = MissingArtists(
       backfilled: backfilled,
-      artists: {...artists},
-      extra: extra,
-      order: _order,
       photoSize: photoSize,
+      picked: {...picked},
+      artists: {...artists},
+      extra: _extra,
     );
     edits.forEach(out.apply);
-    out.artists.removeWhere(
-      (slug, _) => hasFile(slug) || !(inLibrary?.call(slug) ?? true),
-    );
+    bool here(String slug) => inLibrary?.call(slug) ?? true;
+    out.artists.removeWhere((slug, _) => hasFile(slug) || !here(slug));
+    out.picked.removeWhere((slug) => !hasFile(slug) || !here(slug));
     return out;
   }
 
-  bool get isEmpty => backfilled == null && artists.isEmpty && extra.isEmpty;
+  bool get isEmpty =>
+      backfilled == null &&
+      photoSize == null &&
+      picked.isEmpty &&
+      artists.isEmpty &&
+      _extra.isEmpty;
 }
 
 /// `_missing.json` as a sync writes it: the repo's copy ([theirs], null
 /// when there is no file yet) with this device's [edits] on top, per
-/// artist, without the artists that have a file or have left the library
-/// ([MissingArtists.merged]). Null when that changes nothing, and no file
+/// artist and per picked slug, without the artists that have a file or
+/// have left the library and without the picked ones that have no file or
+/// have left it ([MissingArtists.merged]). Null when that changes nothing, and no file
 /// is made for an empty record. A copy that cannot be read throws
 /// [MissingFormatException] and is left as it is; the edits are then
 /// dropped.

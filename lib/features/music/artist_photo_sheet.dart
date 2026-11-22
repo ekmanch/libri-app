@@ -308,6 +308,7 @@ class _ArtistPhotoSheetState extends ConsumerState<ArtistPhotoSheet> {
             _name,
             bytes,
             picked: !tile.suggested,
+            suggested: tile.suggested,
             summary: tile.suggested
                 ? 'Add a photo of $_name'
                 : 'Set the photo of $_name',

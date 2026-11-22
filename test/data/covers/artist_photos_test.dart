@@ -6,6 +6,7 @@ import 'package:library_app/data/covers/artist_photos.dart';
 
 /// The desktop's cases (`assets/fixtures/artist_photos.json` in
 /// `ekmanch/libri-kde`), run as they are: the two apps must never differ.
+/// The desktop's file is the source and `test/fixtures/` holds a copy.
 void main() {
   final fixture = jsonDecode(
     File('test/fixtures/artist_photos.json').readAsStringSync(),
@@ -122,8 +123,8 @@ void main() {
     expect(read.songs, ['Hello']);
   });
 
-  test('missing: read, and written back to the same bytes', () {
-    for (final c in cases('missing')) {
+  test('missing and picked: read, and written back to the same bytes', () {
+    for (final c in [...cases('missing'), ...cases('picked')]) {
       final text = c['text']! as String;
       final missing = MissingArtists.decode(text);
       expect(
@@ -133,15 +134,24 @@ void main() {
         c['backfilled'],
       );
       expect(missing.artists.keys.toList()..sort(), c['slugs']);
-      expect(missing.encode(), text);
+      expect(missing.encode(), text, reason: '${c['about']}');
+      // Only the `picked` cases name the size and the list.
+      if (!c.containsKey('picked')) continue;
+      expect(missing.photoSize, c['photo_size'], reason: '${c['about']}');
+      expect(missing.photoSide, c['photo_size'] ?? 640);
+      expect(missing.picked.toList()..sort(), c['picked']);
     }
   });
 
-  test('missing_rewritten', () {
-    for (final c in cases('missing_rewritten')) {
+  test('missing_rewritten and picked_rewritten', () {
+    for (final c in [
+      ...cases('missing_rewritten'),
+      ...cases('picked_rewritten'),
+    ]) {
       expect(
         MissingArtists.decode(c['read']! as String).encode(),
         c['written'],
+        reason: '${c['about']}',
       );
     }
   });
@@ -156,8 +166,8 @@ void main() {
     }
   });
 
-  test('missing_merge', () {
-    for (final c in cases('missing_merge')) {
+  test('missing_merge and picked_merge', () {
+    for (final c in [...cases('missing_merge'), ...cases('picked_merge')]) {
       final files = strings(c['files']).toSet();
       // `library` lists the slugs of the library's artists; a case
       // without it has everyone in the library.
@@ -183,7 +193,7 @@ void main() {
   });
 
   test('an edit survives the queue file', () {
-    for (final c in cases('missing_merge')) {
+    for (final c in [...cases('missing_merge'), ...cases('picked_merge')]) {
       for (final edit in edits(c['edits'])) {
         expect(
           MissingEdit.fromJson(jsonDecode(jsonEncode(edit.toJson())))!.toJson(),
@@ -223,78 +233,37 @@ void main() {
     }
   });
 
-  group('keys this build does not know', () {
-    // As the desktop will write it: `photo_size` and `picked`, the list
-    // in a layout of its own.
-    const theirs =
+  test('a photo_size or a picked that cannot be read is kept as read', () {
+    const odd =
         '{\n'
         '  "version": 1,\n'
-        '  "backfilled": "2026-11-15",\n'
-        '  "photo_size": 1200,\n'
-        '  "picked": [\n'
-        '    "adele",\n'
-        '    "cat-stevens-yusuf"\n'
-        '  ],\n'
-        '  "artists": {\n'
-        '    "abba": {"name": "ABBA", "tried": "2026-11-16", "reason": "no-photo"}\n'
-        '  },\n'
-        '  "later": {"a": [1, "}, ]"], "b": null}\n'
+        '  "photo_size": "large",\n'
+        '  "picked": {"a": 1},\n'
+        '  "artists": {}\n'
         '}\n';
-
-    test('are read past and written back verbatim, in their places', () {
-      final record = MissingArtists.decode(theirs);
-      expect(record.photoSize, 1200);
-      expect(record.artists.keys, ['abba']);
-      expect(record.encode(), theirs);
-    });
-
-    test('survive an edit merged into the file', () {
-      final text = mergedMissing(theirs, [
-        MissingSet(
-          'zz-top',
-          TriedArtist(
-            name: 'ZZ Top',
-            tried: DateTime(2026, 11, 21),
-            reason: MissingReason.noMatch,
-          ),
-        ),
-      ], (slug) => slug == 'abba')!;
-      expect(
-        text,
-        theirs.replaceFirst(
-          '"abba": {"name": "ABBA", "tried": "2026-11-16", "reason": "no-photo"}',
-          '"zz-top": {"name": "ZZ Top", "tried": "2026-11-21", "reason": "no-match"}',
-        ),
-      );
-      // The last artist leaving keeps them too.
-      final empty = mergedMissing(theirs, const [], (slug) => true)!;
-      expect(empty, contains('"photo_size": 1200'));
-      expect(empty, contains('"picked": [\n    "adele",'));
-      expect(empty, contains('"artists": {}'));
-    });
-
-    test('a record without photo_size means 640', () {
-      final record = MissingArtists.decode(
-        '{\n  "version": 1,\n  "artists": {}\n}\n',
-      );
-      expect(record.photoSize, isNull);
-      expect(record.encode(), '{\n  "version": 1,\n  "artists": {}\n}\n');
-    });
+    final record = MissingArtists.decode(odd);
+    expect(record.photoSize, isNull);
+    expect(record.photoSide, 640);
+    expect(record.picked, isEmpty);
+    expect(record.encode(), odd);
+    for (final size in ['0', '-5', '1200.0', '[1200]', 'null']) {
+      final text = odd.replaceFirst('"large"', size);
+      final read = MissingArtists.decode(text);
+      expect(read.photoSize, isNull, reason: size);
+      expect(read.encode(), text, reason: size);
+    }
+    final mixed = odd.replaceFirst('{"a": 1}', '["a", 1]');
+    expect(MissingArtists.decode(mixed).picked, isEmpty);
+    expect(MissingArtists.decode(mixed).encode(), mixed);
   });
 
-  test('a photo is fetched at the side asked for', () {
-    const url =
-        'https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages/'
-        'v4/aa/bb/cc/photo.jpg/640x640cc.jpg';
-    expect(artistPhotoAt(url, 640), url);
-    expect(
-      artistPhotoAt(url, 1200),
-      'https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages/'
-      'v4/aa/bb/cc/photo.jpg/1200x1200cc.jpg',
-    );
-    expect(
-      artistPhotoAt('repo:artists/abba.jpg', 1200),
-      'repo:artists/abba.jpg',
-    );
+  test('photo_at', () {
+    for (final c in cases('photo_at')) {
+      expect(
+        artistPhotoAt(c['url']! as String, c['side']! as int),
+        c['at'],
+        reason: '$c',
+      );
+    }
   });
 }

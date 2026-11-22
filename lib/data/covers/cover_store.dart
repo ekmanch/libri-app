@@ -403,6 +403,10 @@ class CoverStore extends ChangeNotifier {
   /// The owner's own photos, by path: the blob they chose and how.
   final Map<String, (String sha, PhotoKind kind)> _photoKinds = {};
 
+  /// Whether the picks remembered in [_photoKinds] have been put on the
+  /// record's `picked` list ([_seedPicked]), which is done once.
+  bool _pickedSeeded = false;
+
   /// Called when the copy of a path was replaced on this phone, so a
   /// decoded image of the old file can be dropped.
   VoidCallback? onCopyReplaced;
@@ -442,9 +446,10 @@ class CoverStore extends ChangeNotifier {
     return kept != null && kept.$1 == file!.sha ? kept.$2 : null;
   }
 
-  /// The artists tried with nothing found and the day the desktop's first
-  /// run finished: GitHub's record with the edits queued here on top, and
-  /// without the artists that have a file. An artist who left the library
+  /// The artists tried with nothing found, the day the desktop's first
+  /// run finished and the artists whose photo the owner chose: GitHub's
+  /// record with the edits queued here on top, without the artists that
+  /// have a file and without the picked ones that have none. An artist who left the library
   /// stays here until a sync writes the record; nothing counts one. Empty
   /// when the repo has no record, or one this build cannot read.
   MissingArtists get missing => (_missingBase ?? MissingArtists()).merged([
@@ -456,11 +461,12 @@ class CoverStore extends ChangeNotifier {
   /// waits for before it fetches anything; null until then.
   DateTime? get backfilled => _missingUnreadable ? null : missing.backfilled;
 
-  /// The side a new artist's photo is fetched at: 640 until GitHub's
-  /// record holds the desktop's `photo_size` (written after it re-fetched
-  /// the existing photos), that size from then on. The photos already
-  /// here are never fetched again for it.
-  int get photoSize => _missingBase?.photoSize ?? artistPhotoSide;
+  /// The side a new artist's photo is fetched at: 640 while GitHub's
+  /// record has no `photo_size` (the desktop writes it once it has
+  /// re-fetched the existing photos), that size when it has. The phone
+  /// never writes the key, and the photos already here are never fetched
+  /// again for it.
+  int get photoSize => _missingBase?.photoSide ?? artistPhotoSide;
 
   /// The picks a push dropped for another device's photo, until the owner
   /// has been told ([clearDropped]).
@@ -520,6 +526,7 @@ class CoverStore extends ChangeNotifier {
           }
         }
       }
+      _pickedSeeded = json['picked_seeded'] == true;
     }
     final queue = await queueFile?.read();
     if (queue != null) {
@@ -554,6 +561,7 @@ class CoverStore extends ChangeNotifier {
       await _scan();
       _listedAt = _now();
       _rebuild();
+      await _seedPicked();
       return;
     }
     try {
@@ -567,6 +575,42 @@ class CoverStore extends ChangeNotifier {
     await _saveList();
     await _dropStrayCopies();
     await _readMissing(fetch: true);
+    await _seedPicked();
+  }
+
+  /// Once: the picks this phone remembers ([_photoKinds]) join the
+  /// record's `picked` list, each only where the artist's file is still
+  /// the picture picked here (the same blob), so a pick that lost to
+  /// another device is not listed. They are queued as edits like any
+  /// pick, so what the desktop listed stays and the result is the union.
+  /// Waits for a listing that could read the record.
+  Future<void> _seedPicked() async {
+    if (_pickedSeeded || _missingUnreadable) return;
+    final listed = _remote.any((f) => f.path == artistsMissingPath);
+    if (listed && _missingBase == null) return;
+    final picks = <MissingEdit>[];
+    for (final MapEntry(key: path, value: kept) in _photoKinds.entries) {
+      final slug = artistSlugOfPath(path);
+      if (slug == null || fileAt(path)?.sha != kept.$1) continue;
+      if (_missingBase?.picked.contains(slug) ?? false) continue;
+      if (_queue.any((c) => _isPickedChange(c, slug))) continue;
+      picks.add(MissingPick(slug));
+    }
+    _pickedSeeded = true;
+    await _saveList();
+    if (picks.isEmpty) return;
+    if (remote == null) {
+      await _editLocalMissing(picks);
+    } else {
+      for (final pick in picks) {
+        _queue.add(
+          MissingChange(pick, summary: 'List the artist photos you picked'),
+        );
+      }
+      await _saveQueue();
+    }
+    notifyListeners();
+    onQueued?.call();
   }
 
   /// Reads `artists/_missing.json` as the list names it: the copy here
@@ -703,6 +747,7 @@ class CoverStore extends ChangeNotifier {
             for (final MapEntry(:key, :value) in _photoKinds.entries)
               key: {'sha': value.$1, 'kind': value.$2.name},
           },
+        if (_pickedSeeded) 'picked_seeded': true,
       });
     } on FileSystemException catch (e) {
       _log('Could not write the cover list: $e');
@@ -986,6 +1031,37 @@ class CoverStore extends ChangeNotifier {
       (change is ArtistPhotoPut && change.path == path) ||
       (change is ArtistPhotoRemove && change.path == path);
 
+  /// Whether [change] is a queued pick or unpick of the artist [slug].
+  bool _isPickedChange(CoverChange change, String slug) =>
+      change is MissingChange &&
+      switch (change.edit) {
+        MissingPick(slug: final edited) ||
+        MissingUnpick(slug: final edited) => edited == slug,
+        _ => false,
+      };
+
+  /// The artist's place on the record's `picked` list as the owner just
+  /// left it: on it for a pick or an upload, off it for Use automatic and
+  /// for the Suggested photo. The last one for an artist stands.
+  Future<void> _setPicked(String name, {required bool picked}) async {
+    final slug = artistSlug(name);
+    if (slug == null) return;
+    final edit = picked ? MissingPick(slug) : MissingUnpick(slug);
+    if (remote == null) {
+      await _editLocalMissing([edit]);
+      return;
+    }
+    _queue.removeWhere((c) => _isPickedChange(c, slug));
+    _queue.add(
+      MissingChange(
+        edit,
+        summary: picked
+            ? 'List the photo of $name as picked'
+            : 'List the photo of $name as automatic',
+      ),
+    );
+  }
+
   /// The blobs [path] may hold on GitHub as far as this phone knows: what
   /// GitHub last listed (null for no file), the copy here, and what the
   /// changes still queued for the path allowed.
@@ -1002,7 +1078,10 @@ class CoverStore extends ChangeNotifier {
   /// Makes [bytes] the photo of the artist [name]: kept on this phone and
   /// shown at once, saved with the next sync unless GitHub then holds a
   /// file this phone never saw. [picked] for the owner's own choice (a
-  /// pick or, with [uploaded], an upload), false for a fetched one. A
+  /// pick or, with [uploaded], an upload), which puts the artist on the
+  /// record's `picked` list; false for a fetched one, and with
+  /// [suggested] for the Suggested photo the owner picked, which takes
+  /// the artist off the list, being what a fetch would have stored. A
   /// second one before the first was pushed replaces it. Null for a name
   /// that has no file.
   Future<CoverFile?> putArtistPhoto(
@@ -1010,6 +1089,7 @@ class CoverStore extends ChangeNotifier {
     Uint8List bytes, {
     required bool picked,
     bool uploaded = false,
+    bool suggested = false,
     required String summary,
   }) async {
     await load();
@@ -1033,7 +1113,7 @@ class CoverStore extends ChangeNotifier {
           if (other.path != path) other,
         file,
       ];
-      await _editLocalMissing(const []);
+      if (!picked && !suggested) await _editLocalMissing(const []);
     } else {
       _queue.removeWhere((c) => _isPhotoChange(c, path));
       final listed = _remote.where((f) => f.path == path).firstOrNull;
@@ -1051,6 +1131,8 @@ class CoverStore extends ChangeNotifier {
         );
       }
     }
+    // A fetch says nothing about the list: only the owner's choice does.
+    if (picked || suggested) await _setPicked(name, picked: picked);
     _dropped.removeWhere((d) => d.path == path);
     await _saveQueue();
     _rebuild();
@@ -1062,7 +1144,7 @@ class CoverStore extends ChangeNotifier {
 
   /// "Use automatic": removes the artist [name]'s file, from this phone at
   /// once and from GitHub with the next sync, on the same condition as a
-  /// photo is put.
+  /// photo is put, and takes the artist off the record's `picked` list.
   Future<void> removeArtistPhoto(String name, {required String summary}) async {
     await load();
     final path = artistPhotoPath(name);
@@ -1079,6 +1161,7 @@ class CoverStore extends ChangeNotifier {
         ArtistPhotoRemove(path, seen: seen, name: name, summary: summary),
       );
     }
+    await _setPicked(name, picked: false);
     _dropped.removeWhere((d) => d.path == path);
     _photoKinds.remove(path);
     await _saveQueue();
@@ -1137,11 +1220,13 @@ class CoverStore extends ChangeNotifier {
 
   /// The artists' part of a push: the last put or removal of each artist's
   /// file is made when GitHub holds what this phone saw there, else it is
-  /// dropped and GitHub's file stands; then the queued edits are merged
-  /// into GitHub's `_missing.json`, which also loses every artist that has
-  /// a file by now and every artist not among [artists] (the slugs of the
-  /// artists in the library as this sync leaves it); without them nobody
-  /// leaves for that.
+  /// dropped and GitHub's file stands, and the pick or unpick queued with
+  /// it is dropped too; then the queued edits are merged into GitHub's
+  /// `_missing.json`, per artist and per picked slug, which also loses
+  /// every artist that has a file by now, every picked slug without one,
+  /// and everyone not among [artists] (the slugs of the artists in the
+  /// library as this sync leaves it); without them nobody leaves for
+  /// that.
   Future<void> _pushArtists(
     CoverRemote remote,
     Map<String, CoverFile> tree,
@@ -1155,6 +1240,14 @@ class CoverStore extends ChangeNotifier {
     var photoAdded = false;
     for (final MapEntry(key: path, value: change) in last.entries) {
       final listed = tree[path];
+      // A change GitHub refuses takes its pick or unpick with it: the
+      // file that stands is another device's, and so is its place on the
+      // list.
+      void dropPicked() {
+        final slug = artistSlugOfPath(path);
+        if (slug != null) _queue.removeWhere((c) => _isPickedChange(c, slug));
+      }
+
       switch (change) {
         case ArtistPhotoPut():
           if (listed?.sha == change.sha) {
@@ -1164,6 +1257,7 @@ class CoverStore extends ChangeNotifier {
             final bytes = await readCopy(path);
             if (bytes == null || gitBlobSha(bytes) != change.sha) {
               _log('The photo $path is gone from this phone.');
+              dropPicked();
             } else {
               await remote.put(
                 path,
@@ -1183,6 +1277,7 @@ class CoverStore extends ChangeNotifier {
             // copy here goes so GitHub's is fetched.
             _log('Dropping the photo $path: another device set one first.');
             await _deleteCopy(path);
+            dropPicked();
             if (change.picked) {
               _dropped.add(DroppedPhoto(path: path, name: change.name));
             }
@@ -1195,6 +1290,7 @@ class CoverStore extends ChangeNotifier {
             tree.remove(path);
           } else {
             _log('Keeping the photo $path: another device set one first.');
+            dropPicked();
             _dropped.add(
               DroppedPhoto(path: path, name: change.name, removal: true),
             );
@@ -1375,6 +1471,12 @@ class CoverStore extends ChangeNotifier {
   Future<void> dropPending() async {
     await load();
     if (_queue.isEmpty) return;
+    // The picks seeded into the queue go with it: they are queued again
+    // at the next listing.
+    if (_queue.any((c) => c is MissingChange && c.edit is MissingPick)) {
+      _pickedSeeded = false;
+      await _saveList();
+    }
     _queue.clear();
     await _saveQueue();
     _rebuild();
@@ -1387,6 +1489,7 @@ class CoverStore extends ChangeNotifier {
     _queue.clear();
     _dropped.clear();
     _photoKinds.clear();
+    _pickedSeeded = false;
     _missingBase = null;
     _missingUnreadable = false;
     _remote = const [];

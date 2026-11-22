@@ -349,6 +349,10 @@ void main() {
         '    "adele": {"name": "Adele", "tried": "2026-11-15", '
         '"reason": "no-match"}\n  }\n}\n';
 
+    const onlyAdelePicked =
+        '{\n  "version": 1,\n  "picked": [\n    "adele"\n  ],\n'
+        '  "artists": {}\n}\n';
+
     Future<void> put(
       CoverStore covers,
       String picture, {
@@ -407,10 +411,12 @@ void main() {
         expect(replaced, 0);
         await put(covers, 'second');
         expect(replaced, 1);
-        expect(covers.pendingCount, 1);
+        // The photo and its place on the picked list, each once.
+        expect(covers.pendingCount, 2);
         await covers.pushFiles();
-        expect(writes(), ['PUT $adele']);
+        expect(writes(), ['PUT $adele', 'PUT $record']);
         expect(github.bytes(adele), bytes('second'));
+        expect(github.text(record), onlyAdelePicked);
         expect(covers.pendingCount, 0);
         expect(covers.dropped, isEmpty);
         final commits = await github.commits(adele, branch: 'main');
@@ -488,7 +494,8 @@ void main() {
       await put(covers, 'mine');
       github.setBytes(adele, bytes('mine'));
       await covers.pushFiles();
-      expect(writes(), isEmpty);
+      // The photo is there already; its place on the picked list is not.
+      expect(writes(), ['PUT $record']);
       expect(covers.pendingCount, 0);
       expect(covers.dropped, isEmpty);
     });
@@ -542,12 +549,14 @@ void main() {
     });
 
     test('the record is merged per artist with GitHub\'s copy: the '
-        'desktop\'s cases (missing_merge)', () async {
+        'desktop\'s cases (missing_merge, picked_merge)', () async {
       final fixture = jsonDecode(
         File('test/fixtures/artist_photos.json').readAsStringSync(),
       ) as Map<String, Object?>;
-      final cases = (fixture['missing_merge']! as List)
-          .cast<Map<String, Object?>>();
+      final cases = [
+        ...fixture['missing_merge']! as List,
+        ...fixture['picked_merge']! as List,
+      ].cast<Map<String, Object?>>();
       for (final (i, c) in cases.indexed) {
         final about = '${c['about']}';
         github = FakeGitHubApi();
@@ -650,8 +659,232 @@ void main() {
       expect(
         File('${dir.path}${sep}covers${sep}artists${sep}_missing.json')
             .readAsStringSync(),
-        '{\n  "version": 1,\n  "artists": {}\n}\n',
+        onlyAdelePicked,
       );
+      await covers.removeArtistPhoto('Adele', summary: '');
+      expect(covers.missing.picked, isEmpty);
+    });
+
+    group('the picked list', () {
+      const burialPicked =
+          '{\n  "version": 1,\n  "backfilled": "2026-11-15",\n'
+          '  "photo_size": 1200,\n  "picked": [\n    "burial"\n  ],\n'
+          '  "later": [1, 2],\n  "artists": {}\n}\n';
+
+      test('a pick or an upload adds the slug to GitHub\'s list, merged '
+          'per slug, and the keys around it stay', () async {
+        github.setBytes('covers/artists/burial.jpg', bytes('burial'));
+        github.setFile(record, burialPicked);
+        final covers = store();
+        await covers.refresh();
+        expect(covers.photoSize, 1200);
+        expect(covers.missing.picked, {'burial'});
+        await put(covers, 'mine');
+        expect(covers.missing.picked, {'adele', 'burial'});
+        // The desktop adds one meanwhile.
+        github.setBytes('covers/artists/can.jpg', bytes('can'));
+        github.setFile(
+          record,
+          burialPicked.replaceFirst('"burial"', '"burial",\n    "can"'),
+        );
+        await covers.pushFiles();
+        expect(
+          github.text(record),
+          burialPicked.replaceFirst(
+            '"burial"',
+            '"adele",\n    "burial",\n    "can"',
+          ),
+        );
+        expect(covers.missing.picked, {'adele', 'burial', 'can'});
+      });
+
+      test(
+        'a record without the keys reads as 640 and nobody picked',
+        () async {
+          github.setFile(record, noMatch);
+          final covers = store();
+          await covers.refresh();
+          expect(covers.photoSize, 640);
+          expect(covers.missing.picked, isEmpty);
+        },
+      );
+
+      test('Use automatic and the Suggested photo take the slug off; a '
+          'fetch says nothing', () async {
+        github.setBytes(adele, bytes('mine'));
+        github.setBytes('covers/artists/burial.jpg', bytes('burial'));
+        github.setFile(
+          record,
+          burialPicked.replaceFirst('"burial"', '"adele",\n    "burial"'),
+        );
+        final covers = store();
+        await covers.refresh();
+        await covers.removeArtistPhoto(
+          'Adele',
+          summary: 'Remove the photo of Adele',
+        );
+        expect(covers.missing.picked, {'burial'});
+        await covers.pushFiles();
+        expect(writes(), ['DELETE $adele', 'PUT $record']);
+        expect(github.text(record), burialPicked);
+
+        // The Suggested photo over a picked one.
+        await covers.putArtistPhoto(
+          'Burial',
+          bytes('suggested'),
+          picked: false,
+          suggested: true,
+          summary: 'Add a photo of Burial',
+        );
+        expect(covers.missing.picked, isEmpty);
+        await covers.pushFiles();
+        expect(github.text(record), isNot(contains('picked')));
+        expect(github.text(record), contains('"photo_size": 1200'));
+
+        // A fetched photo queues the file alone.
+        await put(covers, 'fetched', picked: false);
+        expect(covers.pendingCount, 1);
+        expect(covers.pending.single, isA<ArtistPhotoPut>());
+      });
+
+      test('a pick GitHub refuses takes its place on the list with it, '
+          'and so does a refused Use automatic', () async {
+        final covers = store();
+        await covers.refresh();
+        await put(covers, 'mine');
+        // Another device fetched a photo first, and recorded someone.
+        github.setBytes(adele, bytes('fetched elsewhere'));
+        github.setFile(record, noMatch.replaceFirst('"adele"', '"burial"'));
+        github.requests.clear();
+        await covers.pushFiles();
+        expect(writes(), isEmpty);
+        expect(github.text(record), isNot(contains('picked')));
+        expect(covers.pendingCount, 0);
+
+        // The other device picks one; Use automatic here loses to it.
+        await covers.refresh();
+        await covers.removeArtistPhoto(
+          'Adele',
+          summary: 'Remove the photo of Adele',
+        );
+        github.setBytes(adele, bytes('picked elsewhere'));
+        github.setFile(record, onlyAdelePicked);
+        github.requests.clear();
+        await covers.pushFiles();
+        expect(writes(), isEmpty);
+        expect(github.text(record), onlyAdelePicked);
+      });
+
+      test(
+        'a slug whose artist left the library is dropped at the write',
+        () async {
+          github.setBytes(adele, bytes('a'));
+          github.setBytes('covers/artists/burial.jpg', bytes('burial'));
+          github.setFile(record, burialPicked);
+          final covers = store();
+          await covers.refresh();
+          await put(covers, 'mine');
+          await covers.pushFiles(artists: {'adele'});
+          expect(
+            github.text(record),
+            burialPicked.replaceFirst('"burial"', '"adele"'),
+          );
+        },
+      );
+
+      test('the picks an earlier build remembers are listed once, only '
+          'where the file is still the picture picked here', () async {
+        // Three picks made and pushed before the list existed.
+        final sep = Platform.pathSeparator;
+        github.setBytes(adele, bytes('mine'));
+        github.setBytes('covers/artists/burial.jpg', bytes('the desktop\'s'));
+        github.setBytes('covers/artists/can.jpg', bytes('can'));
+        github.setBytes('covers/artists/dio.jpg', bytes('dio'));
+        github.setFile(
+          record,
+          burialPicked.replaceFirst('"burial"', '"dio",\n    "eno"'),
+        );
+        github.setBytes('covers/artists/eno.jpg', bytes('eno'));
+        File('${dir.path}${sep}covers.json').writeAsStringSync(
+          jsonEncode({
+            'version': 1,
+            'files': <Object>[],
+            'local': <String, Object>{},
+            'photos': {
+              'artists/adele.jpg': {
+                'sha': gitBlobSha(bytes('mine')),
+                'kind': 'picked',
+              },
+              // Lost to the desktop's file since.
+              'artists/burial.jpg': {
+                'sha': gitBlobSha(bytes('mine')),
+                'kind': 'picked',
+              },
+              'artists/can.jpg': {
+                'sha': gitBlobSha(bytes('can')),
+                'kind': 'uploaded',
+              },
+              // The desktop listed this one already.
+              'artists/dio.jpg': {
+                'sha': gitBlobSha(bytes('dio')),
+                'kind': 'picked',
+              },
+            },
+          }),
+        );
+        final covers = store();
+        await covers.refresh();
+        expect(covers.pendingCount, 2);
+        expect(covers.missing.picked, {'adele', 'can', 'dio', 'eno'});
+        await covers.pushFiles();
+        expect(writes(), ['PUT $record']);
+        expect(
+          github.text(record),
+          burialPicked.replaceFirst(
+            '"burial"',
+            '"adele",\n    "can",\n    "dio",\n    "eno"',
+          ),
+        );
+
+        // Once: a pick taken off elsewhere is not put back.
+        github.setFile(record, burialPicked.replaceFirst('"burial"', '"eno"'));
+        github.requests.clear();
+        final restarted = store();
+        await restarted.refresh();
+        expect(restarted.pendingCount, 0);
+        expect(restarted.missing.picked, {'eno'});
+        // And the split stays on the phone.
+        expect(restarted.photoKindOf('Adele'), PhotoKind.picked);
+        expect(restarted.photoKindOf('Can'), PhotoKind.uploaded);
+      });
+
+      test('the seed waits for a record it can read', () async {
+        final sep = Platform.pathSeparator;
+        github.setBytes(adele, bytes('mine'));
+        github.setFile(record, '{"version": 2}');
+        File('${dir.path}${sep}covers.json').writeAsStringSync(
+          jsonEncode({
+            'version': 1,
+            'files': <Object>[],
+            'local': <String, Object>{},
+            'photos': {
+              'artists/adele.jpg': {
+                'sha': gitBlobSha(bytes('mine')),
+                'kind': 'picked',
+              },
+            },
+          }),
+        );
+        final covers = store();
+        await covers.refresh();
+        expect(covers.pendingCount, 0);
+        github.setFile(record, noMatch.replaceFirst('"adele"', '"burial"'));
+        now = now.add(const Duration(minutes: 5));
+        await covers.refresh();
+        expect(covers.pendingCount, 1);
+        await covers.pushFiles();
+        expect(github.text(record), contains('"picked": [\n    "adele"\n  ]'));
+      });
     });
   });
 }
