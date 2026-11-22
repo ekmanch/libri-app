@@ -268,6 +268,18 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   String? _ownCoverUrl;
   String? _pickedCoverUrl;
 
+  /// The entry's stored `cover_from` finds no image
+  /// (`ArtworkResolver.coverFromFindsNothing`): the match's own cover is
+  /// shown, and Save leaves the `cover_from` out unless another was picked.
+  bool _coverFromFindsNothing = false;
+
+  /// The `cover_from` as shown and saved: none while the stored one finds
+  /// no image.
+  String? get _liveCoverFrom =>
+      _coverFromFindsNothing && _coverFrom == widget.entry?.coverFrom
+      ? null
+      : _coverFrom;
+
   @override
   void initState() {
     super.initState();
@@ -348,6 +360,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           if (mounted && _coverFrom == entry.coverFrom) {
             setState(() => _pickedCoverUrl = url);
           }
+        });
+        resolver.coverFromFindsNothing(entry).then((nothing) {
+          if (mounted) setState(() => _coverFromFindsNothing = nothing);
         });
       }
     }
@@ -1299,9 +1314,10 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       added: base?.added ?? DateTime(now.year, now.month, now.day),
       source: _source,
       tmdb: _animeTmdb,
-      // TMDB's poster follows the link it came from.
+      // TMDB's poster follows the link it came from; a cover that finds
+      // no image is not saved again.
       coverFrom: coverFromAfterTmdbChange(
-        _coverFrom,
+        _liveCoverFrom,
         oldTmdb: widget.entry?.tmdb,
         newTmdb: _animeTmdb,
       ),
@@ -1347,7 +1363,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   /// an anime's TMDB poster (the default), or AniList's picked to stay.
   bool get _coverIsOwnMatch =>
       _type == MediaType.anime &&
-      _coverFrom != null &&
+      _liveCoverFrom != null &&
       (_coverFrom == _animeTmdb ||
           _coverFrom == widget.entry?.tmdb ||
           _coverFrom == _source);
@@ -1545,23 +1561,23 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                     title: _title.text.trim(),
                     url:
                         _albumCoverUrl ??
-                        (_coverFrom == null
+                        (_liveCoverFrom == null
                             ? _ownCoverUrl
-                            : isRepoCover(_coverFrom)
-                            ? _coverFrom
+                            : isRepoCover(_liveCoverFrom)
+                            ? _liveCoverFrom
                             : _pickedCoverUrl),
-                    source: isRepoCover(_coverFrom)
+                    source: isRepoCover(_liveCoverFrom)
                         ? _FormCoverSource.yours
-                        : _coverFrom != null && !_coverIsOwnMatch
+                        : _liveCoverFrom != null && !_coverIsOwnMatch
                         ? _FormCoverSource.otherMatch
                         : _ownCoverUrl == null &&
                               _albumCoverUrl == null &&
                               _title.text.trim().isNotEmpty
                         ? _FormCoverSource.none
                         : _FormCoverSource.match,
-                    canReset: isRepoCover(_coverFrom)
+                    canReset: isRepoCover(_liveCoverFrom)
                         ? _ownCoverUrl != null
-                        : _coverFrom != null && !_coverIsOwnMatch,
+                        : _liveCoverFrom != null && !_coverIsOwnMatch,
                     onTap: _pickCover,
                     // Leaving one of your own files asks about the file,
                     // which Pick a cover does.

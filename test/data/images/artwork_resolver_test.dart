@@ -242,6 +242,41 @@ void main() {
     expect(r.cachedCoverUrl(picked), 'https://img/picked.jpg');
   });
 
+  test('a cover_from that finds no image falls back to the match\'s own '
+      'cover', () async {
+    stub.bySource['anilist:154587'] = 'https://img/anilist.jpg';
+    final r = resolver();
+    final frieren = entry(
+      'anime/frieren-2023',
+      type: MediaType.anime,
+      title: 'Frieren',
+      source: 'anilist:154587',
+    ).copyWith(coverFrom: 'tmdb:tv:1');
+    // The show has no poster.
+    expect(await r.coverUrl(frieren), 'https://img/anilist.jpg');
+    expect(stub.asks, ['cover:tmdb:tv:1', 'cover:anilist:154587']);
+    expect(await r.coverFromFindsNothing(frieren), isTrue);
+    // One that finds its image does not.
+    stub.bySource['tmdb:tv:2'] = 'https://img/poster.jpg';
+    final linked = frieren.copyWith(coverFrom: 'tmdb:tv:2');
+    expect(await r.coverUrl(linked), 'https://img/poster.jpg');
+    expect(await r.coverFromFindsNothing(linked), isFalse);
+    // Nor one of the owner's files, a lookup that did not answer, or an
+    // entry without a cover_from.
+    expect(
+      await r.coverFromFindsNothing(
+        frieren.copyWith(coverFrom: 'repo:anime/frieren.jpg'),
+      ),
+      isFalse,
+    );
+    expect(
+      await r.coverFromFindsNothing(frieren.copyWith(coverFrom: null)),
+      isFalse,
+    );
+    stub.failure = LookupFailure.offline;
+    expect(await r.coverFromFindsNothing(frieren), isFalse);
+  });
+
   test('an entry without a source and a picked cover is still matched for '
       'its id', () async {
     stub.covers['Dracula'] = 'https://img/dracula.jpg';

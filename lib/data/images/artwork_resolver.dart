@@ -199,6 +199,25 @@ class ArtworkResolver {
     }
   }
 
+  /// Whether the entry's `cover_from` finds no image: its provider
+  /// answered and has none for that id (an anime's `tmdb` link changed to
+  /// a show without a poster). The entry then shows its match's own cover,
+  /// and the form's next Save removes the `cover_from`. False for one of
+  /// the owner's files, for a provider this build does not know or has no
+  /// key for, and when the lookup gave no answer: only a real "no image"
+  /// counts.
+  Future<bool> coverFromFindsNothing(Entry entry) async {
+    final coverFrom = entry.coverFrom;
+    if (coverFrom == null || isRepoCover(coverFrom)) return false;
+    final provider = lookups.sourceOf(coverFrom);
+    if (provider == null || !provider.isConfigured) return false;
+    try {
+      return await provider.pickedCoverUrl(coverFrom, type: entry.type) == null;
+    } on LookupException {
+      return false;
+    }
+  }
+
   /// Drops the request for [entryId] if it has not started.
   void release(String entryId) => _release('entry:$entryId');
 
@@ -236,9 +255,11 @@ class ArtworkResolver {
 
   /// The cover URL and, for an entry matched on the device, the id it was
   /// matched to (the album's, for a song). A cover picked from another
-  /// match (`cover_from`) is asked of that match's provider; an entry
-  /// without a source is still matched for its id, which its track list
-  /// and series go by.
+  /// match (`cover_from`) is asked of that match's provider, and one that
+  /// finds no image there falls back to the match's own cover, as on the
+  /// desktop (an anime's TMDB show without a poster shows AniList's); an
+  /// entry without a source is still matched for its id, which its track
+  /// list and series go by.
   Future<(String?, String?)> _findCover(Entry entry) async {
     if (entry.coverFrom case final coverFrom?) {
       // One of the owner's own files is its own image key: the image
@@ -249,9 +270,11 @@ class ArtworkResolver {
       final url = isRepoCover(coverFrom)
           ? coverFrom
           : await provider?.pickedCoverUrl(coverFrom, type: entry.type);
-      if (entry.source != null) return (url, null);
-      final (_, matched) = await _findCover(entry.copyWith(coverFrom: null));
-      return (url, matched);
+      // One of the owner's files is never replaced by a lookup's cover.
+      final fallsBack = url == null && !isRepoCover(coverFrom);
+      if (entry.source != null && !fallsBack) return (url, null);
+      final (own, matched) = await _findCover(entry.copyWith(coverFrom: null));
+      return (url ?? (fallsBack ? own : null), matched);
     }
     if (entry.source case final source?) {
       final provider = lookups.sourceOf(source);

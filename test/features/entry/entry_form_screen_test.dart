@@ -281,6 +281,18 @@ void main() {
       expect(saved.coverFrom, 'anilist:154587');
     });
 
+    testWidgets('a cover_from that finds no image shows the match’s cover '
+        'and is removed by Save', (tester) async {
+      // The fake has no image under "fake:gatto".
+      final container = await openDracula(tester, coverFrom: 'fake:gatto');
+      expect(find.text('From the match · tap to change'), findsOneWidget);
+      expect(find.text('Use the match’s cover'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = repo(container).current!.entryById('books/dracula-1897')!;
+      expect(saved.coverFrom, isNull);
+    });
+
     testWidgets('changing the type clears it, like the source', (tester) async {
       final container = await openDracula(tester, coverFrom: 'fake:dracula-3');
       await tester.tap(find.widgetWithText(PillChip, 'Movies'));

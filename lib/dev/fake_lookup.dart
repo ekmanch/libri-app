@@ -332,6 +332,8 @@ class FakeLookupSource extends LookupSource
   @override
   Future<String?> coverUrl(String source, {required MediaType type}) async {
     await _call('cover:$source');
+    // A title in [noCovers] has no image under its id either.
+    if (noCovers.any((slug) => source == 'fake:$slug')) return null;
     final shape = type == MediaType.music ? 'square' : 'poster';
     return 'fake://cover/$shape/$source';
   }
