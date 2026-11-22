@@ -626,6 +626,48 @@ void main() {
       expect(own.lines, contains('The match’s cover'));
       expect(own.picked, isTrue);
     });
+
+    testWidgets('without a tmdb link the match’s cover writes nothing, and '
+        'removes a cover_from that only names the entry’s own AniList id', (
+      tester,
+    ) async {
+      final unlinked = frieren.copyWith(tmdb: null);
+
+      // From one of your files: nothing is written in its place.
+      final mine = unlinked.copyWith(coverFrom: 'repo:$uploaded');
+      var container = await open(
+        tester,
+        CoverSubject.saved(mine),
+        entries: [mine],
+        files: {uploaded: bytes('upload')},
+        ownCoverUrl: aniList,
+        askForMatchCover: true,
+      );
+      await tester.tap(find.text('Keep my file'));
+      await tester.pumpAndSettle();
+      expect(picks.last.coverFrom, isNull);
+      var library = await repo(container).load();
+      expect(library.entryById(frieren.id)!.coverFrom, isNull);
+      Navigator.of(tester.element(find.text('Pick a cover'))).pop();
+      await tester.pumpAndSettle();
+
+      // A redundant own id shows as the match's cover; a tap removes it.
+      final redundant = unlinked.copyWith(coverFrom: 'anilist:154587');
+      container = await open(
+        tester,
+        CoverSubject.saved(redundant),
+        entries: [redundant],
+        ownCoverUrl: aniList,
+      );
+      final own = tester.widget<CoverChoice>(find.byType(CoverChoice).at(0));
+      expect(own.lines, contains('The match’s cover'));
+      expect(own.picked, isTrue);
+      own.onTap();
+      await tester.pumpAndSettle();
+      expect(picks.last.coverFrom, isNull);
+      library = await repo(container).load();
+      expect(library.entryById(frieren.id)!.coverFrom, isNull);
+    });
   });
 
   testWidgets('the clearly sharpest online choice is captioned Sharpest, '

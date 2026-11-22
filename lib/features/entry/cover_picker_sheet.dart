@@ -194,11 +194,13 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
   /// The poster of an anime's TMDB show, once TMDB has answered with one.
   String? _tmdbCoverUrl;
 
-  /// What picking the match's own cover writes. An anime's AniList cover
-  /// is written as the entry's own `anilist:` id, so the pick sticks and
-  /// the default (TMDB's poster) is not put back; for every other title
-  /// the match's own cover is no `cover_from` at all.
-  String? get _ownCoverFrom => ownCoverFromOf(_subject.type, _subject.source);
+  /// What picking the match's own cover writes. On an anime with a `tmdb`
+  /// link AniList's cover is written as the entry's own `anilist:` id, so
+  /// the pick sticks and the default (TMDB's poster) is not put back;
+  /// without a link, and for every other title, the match's own cover is
+  /// no `cover_from` at all.
+  String? get _ownCoverFrom =>
+      ownCoverFromOf(_subject.type, _subject.source, tmdb: _subject.tmdb);
 
   /// More covers of an album from the second music catalog, asked for by
   /// the link under Online (Pick a cover: more covers found): null until
@@ -498,8 +500,12 @@ class _CoverPickerSheetState extends ConsumerState<CoverPickerSheet> {
     final ownCoverFrom = _ownCoverFrom;
     // No `cover_from` shows the default: TMDB's poster, else the match's.
     final tmdbPicked = _picked == subject.tmdb || (_picked == null && hasTmdb);
+    // An anime's own `anilist:` id names the match's cover as well, also
+    // one left on an anime without a link, which a tap then removes.
     final ownPicked =
-        (ownCoverFrom != null && _picked == ownCoverFrom) ||
+        (_picked != null &&
+            subject.type == MediaType.anime &&
+            _picked == subject.source) ||
         (_picked == null && !hasTmdb);
     // The sharpest online choice, by the width the larger view would get.
     final sharpest = sharpestCovers([

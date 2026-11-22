@@ -1314,10 +1314,12 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       added: base?.added ?? DateTime(now.year, now.month, now.day),
       source: _source,
       tmdb: _animeTmdb,
-      // TMDB's poster follows the link it came from; a cover that finds
-      // no image is not saved again.
+      // TMDB's poster follows the link it came from, and AniList's own
+      // id goes with a link that is gone; a cover that finds no image is
+      // not saved again.
       coverFrom: coverFromAfterTmdbChange(
         _liveCoverFrom,
+        source: _source,
         oldTmdb: widget.entry?.tmdb,
         newTmdb: _animeTmdb,
       ),
@@ -1582,11 +1584,16 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                     // Leaving one of your own files asks about the file,
                     // which Pick a cover does.
                     // An anime's own cover is written as its `anilist:`
-                    // id, as its tile in Pick a cover does.
+                    // id while it has a `tmdb` link, as its tile in Pick
+                    // a cover does.
                     onReset: () => isRepoCover(_coverFrom)
                         ? _pickCover(askForMatchCover: true)
                         : setState(() {
-                            _coverFrom = ownCoverFromOf(_type, _source);
+                            _coverFrom = ownCoverFromOf(
+                              _type,
+                              _source,
+                              tmdb: _animeTmdb,
+                            );
                             _pickedCoverUrl = _ownCoverUrl;
                           }),
                   ),

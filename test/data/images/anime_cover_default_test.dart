@@ -143,15 +143,46 @@ void main() {
   });
 
   test('TMDB’s poster follows the link; any other cover stays', () {
-    String? after(String? coverFrom, String? to) =>
-        coverFromAfterTmdbChange(coverFrom, oldTmdb: 'tmdb:tv:1', newTmdb: to);
+    String? after(String? coverFrom, String? to) => coverFromAfterTmdbChange(
+      coverFrom,
+      source: 'anilist:5',
+      oldTmdb: 'tmdb:tv:1',
+      newTmdb: to,
+    );
     expect(after('tmdb:tv:1', 'tmdb:tv:2'), 'tmdb:tv:2');
     // Cleared, as when the anime becomes a movie.
     expect(after('tmdb:tv:1', null), isNull);
     expect(after('tmdb:tv:1', 'tmdb:tv:1'), 'tmdb:tv:1');
     expect(after('anilist:5', 'tmdb:tv:2'), 'anilist:5');
-    expect(after('anilist:5', null), 'anilist:5');
+    expect(after('anilist:5', 'tmdb:tv:1'), 'anilist:5');
+    expect(after('anilist:9', null), 'anilist:9');
     expect(after('repo:anime/x.jpg', null), 'repo:anime/x.jpg');
     expect(after(null, 'tmdb:tv:2'), isNull);
+  });
+
+  test('the entry’s own AniList id goes with a cleared link, and is not '
+      'kept where there is none', () {
+    String? after(String? coverFrom, {String? from, String? source}) =>
+        coverFromAfterTmdbChange(
+          coverFrom,
+          source: source ?? 'anilist:5',
+          oldTmdb: from,
+          newTmdb: null,
+        );
+    expect(after('anilist:5', from: 'tmdb:tv:1'), isNull);
+    expect(after('anilist:5'), isNull);
+    // Only the anime's own AniList id is the default without a link.
+    expect(after('fake:dracula', source: 'fake:dracula'), 'fake:dracula');
+  });
+
+  test('the match’s own cover is AniList’s id only on an anime with a '
+      'tmdb link', () {
+    expect(
+      ownCoverFromOf(MediaType.anime, 'anilist:5', tmdb: 'tmdb:tv:1'),
+      'anilist:5',
+    );
+    expect(ownCoverFromOf(MediaType.anime, 'anilist:5'), isNull);
+    expect(ownCoverFromOf(MediaType.anime, null, tmdb: 'tmdb:tv:1'), isNull);
+    expect(ownCoverFromOf(MediaType.shows, 'tmdb:tv:1'), isNull);
   });
 }

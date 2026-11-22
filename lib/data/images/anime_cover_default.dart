@@ -28,27 +28,42 @@ bool wantsTmdbCover(Entry entry) =>
     entry.coverFrom == null;
 
 /// What "the match's own cover" is stored as for an entry of [type]
-/// matched to [source]. An anime's AniList cover is written as the entry's
-/// own `anilist:` id, so the choice sticks and the standing check does not
-/// put TMDB's poster back; for every other title the match's own cover is
-/// no `cover_from` at all.
-String? ownCoverFromOf(MediaType type, String? source) =>
-    type == MediaType.anime && source != null && source.startsWith('anilist:')
+/// matched to [source], whose `tmdb` link is [tmdb]. On an anime with a
+/// link, AniList's cover is written as the entry's own `anilist:` id: it
+/// overrides the default there, so the choice sticks and the standing
+/// check does not put TMDB's poster back. Without a link AniList's cover
+/// is already the default, and for every other title the match's own
+/// cover is no `cover_from` at all (as on the desktop).
+String? ownCoverFromOf(MediaType type, String? source, {String? tmdb}) =>
+    type == MediaType.anime &&
+        tmdb != null &&
+        source != null &&
+        source.startsWith('anilist:')
     ? source
     : null;
 
-/// The `cover_from` of an anime whose `tmdb` link went from [oldTmdb] to
-/// [newTmdb]: one equal to the old link follows the new one, and goes
-/// with a link that was cleared (the anime became a movie). Any other
-/// cover, AniList's picked one and another match's included, is left as
-/// it is.
+/// The `cover_from` of an anime matched to [source] whose `tmdb` link
+/// went from [oldTmdb] to [newTmdb]: one equal to the old link follows
+/// the new one, and goes with a link that was cleared (the anime became a
+/// movie). With no link left, one that only names the entry's own
+/// `anilist:` id goes too: AniList's cover is the default there. Any
+/// other cover, AniList's picked one beside a link and another match's
+/// included, is left as it is.
 String? coverFromAfterTmdbChange(
   String? coverFrom, {
+  required String? source,
   required String? oldTmdb,
   required String? newTmdb,
-}) => coverFrom != null && coverFrom == oldTmdb && oldTmdb != newTmdb
-    ? newTmdb
-    : coverFrom;
+}) {
+  if (coverFrom == null) return null;
+  if (coverFrom == oldTmdb && oldTmdb != newTmdb) return newTmdb;
+  if (newTmdb == null &&
+      coverFrom == source &&
+      coverFrom.startsWith('anilist:')) {
+    return null;
+  }
+  return coverFrom;
+}
 
 /// Does the check: one request to TMDB per waiting anime, then a
 /// `SetCover` that only lands while the entry still has no `cover_from`.
