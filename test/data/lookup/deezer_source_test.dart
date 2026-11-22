@@ -454,6 +454,118 @@ void main() {
       expect(sent.where((r) => r.url.path == '/search/artist'), hasLength(1));
     });
 
+    test('a song hit is followed by its copy on an album the search '
+        'hid', () async {
+      // "the amazing": the single's Picture You, then the album's other
+      // songs; the album's own copy is not among the hits.
+      Map<String, Object?> song(int id, String title, String isrc) => {
+        'id': id,
+        'title': title,
+        'isrc': isrc,
+        'artist': {'id': 7, 'name': 'The Amazing'},
+      };
+      final deezer = source((request) async {
+        switch (request.url.path) {
+          case '/search/track':
+            return json({
+              'data': [
+                {
+                  ...song(31, 'Picture You', 'USBQU1300308'),
+                  'album': {
+                    'id': 100,
+                    'title': 'Picture You',
+                    'cover_medium': 'https://cdn/single.jpg',
+                  },
+                },
+                {
+                  ...song(11, 'Broken', 'USBQU1300307'),
+                  'album': {
+                    'id': 200,
+                    'title': 'Picture You',
+                    'cover_medium': 'https://cdn/album.jpg',
+                  },
+                },
+                {
+                  'id': 50,
+                  'title': 'Amazing',
+                  'isrc': 'X1',
+                  'artist': {'id': 8, 'name': 'Someone'},
+                  'album': {'id': 300, 'title': 'Else'},
+                },
+              ],
+              'total': 3,
+            });
+          case '/search/artist':
+            return json({'data': <Object>[]});
+          case '/album/100/tracks':
+            return json({
+              'data': [song(31, 'Picture You', 'USBQU1300308')],
+            });
+          case '/album/200/tracks':
+            return json({
+              'data': [
+                song(11, 'Broken', 'USBQU1300307'),
+                song(12, 'Picture You', 'USBQU1300308'),
+                song(13, 'Circles', 'USBQU1300309'),
+              ],
+            });
+        }
+        return http.Response('', 404);
+      });
+      final songs = await deezer.musicPage(
+        const MusicRequest(
+          list: MusicSearch('the amazing'),
+          scope: MusicScope.songs,
+        ),
+      );
+      expect(
+        [for (final m in songs.matches) (m.source, m.albumSource)],
+        [
+          ('deezer:track:31', 'deezer:album:100'),
+          ('deezer:track:12', 'deezer:album:200'),
+          ('deezer:track:11', 'deezer:album:200'),
+          ('deezer:track:50', 'deezer:album:300'),
+        ],
+      );
+      expect(songs.matches[1].title, 'Picture You');
+      expect(songs.matches[1].creator, 'The Amazing');
+      expect(songs.matches[1].coverUrl, 'https://cdn/album.jpg');
+      // Only the artist with two records in the hits is asked about.
+      expect(
+        sent.map((r) => r.url.path).where((p) => p.startsWith('/album/')),
+        ['/album/100/tracks', '/album/200/tracks'],
+      );
+    });
+
+    test('a track list that does not come leaves the hits as they '
+        'are', () async {
+      Map<String, Object?> hit(int id, int album) => {
+        'id': id,
+        'title': 'Song $id',
+        'isrc': 'I$id',
+        'artist': {'id': 7, 'name': 'The Amazing'},
+        'album': {'id': album, 'title': 'Record $album'},
+      };
+      final deezer = source((request) async {
+        switch (request.url.path) {
+          case '/search/track':
+            return json({
+              'data': [hit(1, 100), hit(2, 200)],
+            });
+          case '/search/artist':
+            return json({'data': <Object>[]});
+        }
+        return http.Response('', 500);
+      });
+      final songs = await deezer.musicPage(
+        const MusicRequest(list: MusicSearch('x'), scope: MusicScope.songs),
+      );
+      expect(songs.matches.map((m) => m.source), [
+        'deezer:track:1',
+        'deezer:track:2',
+      ]);
+    });
+
     Map<String, Object?> record(int id, String type, String? date) => {
       'id': id,
       'title': 'Record $id',

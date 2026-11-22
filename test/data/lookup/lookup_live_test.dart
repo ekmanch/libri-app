@@ -18,6 +18,7 @@ import 'package:library_app/data/lookup/google_books.dart';
 import 'package:library_app/data/lookup/igdb_source.dart';
 import 'package:library_app/data/lookup/igdb_token_store.dart';
 import 'package:library_app/data/lookup/itunes_books.dart';
+import 'package:library_app/data/lookup/music_lookup.dart';
 import 'package:library_app/data/lookup/open_library_source.dart';
 import 'package:library_app/data/lookup/tmdb_source.dart';
 import 'package:library_app/data/lookup/wikidata_series.dart';
@@ -210,6 +211,24 @@ void main() {
     );
     expect(matched, isNotNull);
     expect(matched!.creator, 'Alice in Chains');
+  });
+
+  // Deezer's search lists a recording once, so "Picture You" comes from
+  // the 2014 single alone; the 2015 album's copy is added from its tracks.
+  test('Deezer: a song is listed on its single and on its album', () async {
+    final page = await DeezerSource(client).musicPage(
+      const MusicRequest(
+        list: MusicSearch('the amazing'),
+        scope: MusicScope.songs,
+      ),
+    );
+    final copies = [
+      for (final m in page.matches)
+        if (m.title == 'Picture You' && m.creator == 'The Amazing')
+          m.albumSource,
+    ];
+    expect(copies, contains('deezer:album:679137691'), reason: 'the single');
+    expect(copies, contains('deezer:album:9682786'), reason: 'the album');
   });
 
   final tmdbToken = env['TMDB_READ_TOKEN'] ?? '';

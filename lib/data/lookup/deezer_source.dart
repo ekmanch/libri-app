@@ -422,6 +422,89 @@ class DeezerSource extends HttpLookupSource
     return MusicPage(matches: matches, next: at < albums.length ? at : null);
   }
 
+  /// How many albums a page of song hits asks for the copies of its
+  /// songs that the search left out.
+  static const _hiddenAlbums = 6;
+
+  static int? _idAt(Object? object) {
+    final id = object is Map<String, Object?> ? object['id'] : null;
+    return id is num ? id.toInt() : null;
+  }
+
+  /// The albums among a page of song hits that may hold a copy the search
+  /// left out, in the hits' order. Deezer's search lists a recording once:
+  /// a song out as a single and on its album (one ISRC) comes from one of
+  /// the two only, mostly the single. An album is worth asking when its
+  /// artist has a hit on another record too.
+  static List<int> _albumsToAsk(List<Map<String, Object?>> hits) {
+    final records = [
+      for (final hit in hits)
+        if ((_idAt(hit['artist']), _idAt(hit['album'])) case (
+          final int artist,
+          final int album,
+        ))
+          (artist, album),
+    ];
+    final albums = <int>[];
+    for (final (artist, album) in records) {
+      if (!albums.contains(album) &&
+          records.any((r) => r.$1 == artist && r.$2 != album)) {
+        albums.add(album);
+      }
+    }
+    return albums.take(_hiddenAlbums).toList();
+  }
+
+  /// A page of song hits as matches, each followed by the copies of the
+  /// same recording (the same ISRC) on the other albums in [lists] (an
+  /// album's id and its tracks) that the search did not show.
+  List<LookupMatch> _songsWithCopies(
+    List<Map<String, Object?>> hits,
+    Map<int, List<Map<String, Object?>>> lists,
+  ) {
+    final listed = {for (final hit in hits) ?_idAt(hit)};
+    final matches = <LookupMatch>[];
+    for (final hit in hits) {
+      final found = _track(hit);
+      if (found == null) continue;
+      matches.add(found);
+      final isrc = stringAt(hit, 'isrc');
+      if (isrc == null || isrc.isEmpty) continue;
+      final own = _idAt(hit['album']);
+      for (final MapEntry(key: albumId, value: tracks) in lists.entries) {
+        if (albumId == own) continue;
+        // An album's track list names no album: a hit's does.
+        final album = hits
+            .map((other) => other['album'])
+            .where((album) => _idAt(album) == albumId)
+            .firstOrNull;
+        if (album == null) continue;
+        for (final track in tracks) {
+          if (stringAt(track, 'isrc') != isrc) continue;
+          final id = _idAt(track);
+          if (id == null || !listed.add(id)) continue;
+          final copy = _track({...track, 'album': album});
+          if (copy != null) matches.add(copy);
+        }
+      }
+    }
+    return matches;
+  }
+
+  /// A page of song hits with the copies the search left out. A track
+  /// list that does not come only leaves its copies out.
+  Future<List<LookupMatch>> _songs(List<Map<String, Object?>> hits) async {
+    final lists = <int, List<Map<String, Object?>>>{};
+    for (final id in _albumsToAsk(hits)) {
+      try {
+        lists[id] = await _list('/album/$id/tracks', {'limit': '200'});
+      } on Exception {
+        continue;
+      }
+    }
+    return _songsWithCopies(hits, lists);
+  }
+
   @override
   Future<MusicPage> musicPage(
     MusicRequest request, {
@@ -438,9 +521,9 @@ class DeezerSource extends HttpLookupSource
           limit: limit,
         );
         return MusicPage(
-          matches: [
-            for (final item in page.items) ?(songs ? _track : _album)(item),
-          ],
+          matches: songs
+              ? await _songs(page.items)
+              : [for (final item in page.items) ?_album(item)],
           total: page.total,
           next: page.next,
           artists: cursor == 0 ? await _matchingArtists(query) : const [],
